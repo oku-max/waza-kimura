@@ -25,7 +25,7 @@ const LIBRARY_STEPS = [
   {
     targets:    ['#lvt-card', '#lvt-org'],
     title:      '表示を切り替える',
-    body:       '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
+    body:       '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：タグ・メモを一覧で管理したいときに。',
     beforeStep: () => {
       window.closeAcctMenu?.(); // ステップ1/2で開いたメニューを閉じる
       const sb = document.getElementById('libSidebar');
@@ -42,7 +42,7 @@ const LIBRARY_STEPS = [
     },
     beforeDelay: 300,
     title:      'フィルターとタグで絞り込む',
-    body:       'この左サイドバーからチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
+    body:       'この左サイドバーからチャンネル・プレイリスト・タグなど複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
   },
   {
     target:        '.card',

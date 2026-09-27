@@ -57,11 +57,12 @@ function boot({ ls = {}, tagSettings, lang = 'ja' } = {}) {
   const { R, store } = boot();
   const s = R.slots();
   ck('① まっさらでは タグ1〜4 = tb/cat/pos/tags（今の画面と同じ並び）', J(s.map(g => g && g.store)) === J(['tb', 'cat', 'pos', 'tags']), J(s.map(g => g && g.store)));
-  const un = R.groups().filter(g => g.slot < 0).map(g => g.store);
+  const un = R.groups().filter(g => g.slot < 0).map(g => g.id);
   ck('① マーク・習得は未使用に入っている', J(un) === J(['mark', 'status']), J(un));
-  ck('① 検索の対象: 今の4つは対象・マークと習得は対象外', R.groups().every(g => g.search === !['mark', 'status'].includes(g.store)));
+  ck('① マーク・習得は普通のタググループ（store:map・v52.876）', R.group('mark').store === 'map' && R.group('status').store === 'map');
+  ck('① 検索の対象: 今の4つは対象・マークと習得は対象外', R.groups().every(g => g.search === !['mark', 'status'].includes(g.id)));
   ck('① 作った一覧を端末の控えに書く', !!store.wk_tagRegistry && R._valid(JSON.parse(store.wk_tagRegistry)));
-  ck('① 初期値のある印: トップ/ボトム・ポジション・マーク・習得', J(R.groups().filter(g => g.def).map(g => g.def)) === J(['tb', 'pos', 'mark', 'status']));
+  ck('① 初期値のある印: トップ/ボトム・ポジション', J(R.groups().filter(g => g.def).map(g => g.def)) === J(['tb', 'pos']));
 }
 
 // ── ② 名前と選択肢は tagSettings が正（複製しない）──
@@ -75,8 +76,8 @@ function boot({ ls = {}, tagSettings, lang = 'ja' } = {}) {
   ck('② マーク・習得の名前は既定（日本語）', R.group('mark').name === 'マーク' && R.group('status').name === '習得');
   const en = boot({ lang: 'en' }).R;
   ck('② 英語表示ではマーク・習得の既定名も英語', en.group('mark').name === 'Marks' && en.group('status').name === 'Progress');
-  ck('② マークの選択肢は ★・Next・ドリル（値は動画の項目名）', J(R.group('mark').options) === J(['fav', 'next', 'drill']) && R.optionLabel(R._fresh().groups[4], 'fav') === '⭐ お気に入り');
-  ck('② 習得の選択肢は STATUS_CANON', J(R.group('status').options) === J(['未着手', '理解', '練習中', 'マスター']));
+  ck('② マークの最初の選択肢は お気に入り・Next・ドリル（表示も値のまま）', J(R.group('mark').options) === J(['お気に入り', 'Next', 'ドリル']) && R.optionLabel(R.group('mark'), 'Next') === 'Next');
+  ck('② 習得の最初の選択肢は 理解・練習中・マスター（未着手はタグにしない）', J(R.group('status').options) === J(['理解', '練習中', 'マスター']));
 }
 
 // ── ③ 旧テンプレート ──
@@ -88,7 +89,7 @@ function boot({ ls = {}, tagSettings, lang = 'ja' } = {}) {
     { id: 'u_abc', name: '練習メニュー', values: ['ドリル', 'スパー'] },
   ] };
   ck('③ 編集した旧テンプレートを足すと true（保存が要る）', R.reconcile(raw) === true);
-  const t = R.groups().filter(g => g.store === 'map');
+  const t = R.groups().filter(g => /^t_/.test(g.id));
   ck('③ 旧テンプレートが未使用のタググループになる（名前に「（旧テンプレート）」）', J(t.map(g => [g.name, g.slot])) === J([['ポジション（旧テンプレート）', -1], ['練習メニュー（旧テンプレート）', -1]]), J(t.map(g => [g.name, g.slot])));
   ck('③ 選択肢は重複・空を除いて写す', J(R.group('t_pos').options) === J(['クローズドガード', 'ハーフガード']));
   ck('③ もう一度呼んでも二度は足さない（false）', R.reconcile(raw) === false && R.groups().length === 8);
@@ -103,11 +104,11 @@ function boot({ ls = {}, tagSettings, lang = 'ja' } = {}) {
 {
   const { R } = boot();
   R.reconcile({ seeded: true, list: [{ id: 'm', name: 'M', values: ['A'] }] });
-  const v = { tb: ['トップ'], cat: [], pos: ['ハーフガード'], tags: ['キムラ'], fav: true, next: false, drill: true, status: '練習中', tg: { t_m: ['A'] } };
+  const v = { tb: ['トップ'], cat: [], pos: ['ハーフガード'], tags: ['キムラ'], fav: true, next: false, drill: true, status: '練習中', tg: { t_m: ['A'], mark: ['お気に入り'] } };
   const before = J(v);
   ck('④ タグ1〜4 の値', J(R.valuesOf(v, 'f_tb')) === J(['トップ']) && J(R.valuesOf(v, 'f_tags')) === J(['キムラ']));
-  ck('④ マーク = fav/drill（true のものだけ）', J(R.valuesOf(v, 'mark')) === J(['fav', 'drill']));
-  ck('④ 習得 = 1つ', J(R.valuesOf(v, 'status')) === J(['練習中']) && J(R.valuesOf({}, 'status')) === '[]');
+  ck('④ マークは v.tg.mark から（古い欄 v.fav/v.drill は読まない）', J(R.valuesOf(v, 'mark')) === J(['お気に入り']));
+  ck('④ 習得は v.tg.status から（古い欄 v.status は読まない）', J(R.valuesOf(v, 'status')) === '[]');
   ck('④ 新しいグループは v.tg から', J(R.valuesOf(v, 't_m')) === J(['A']) && J(R.valuesOf({}, 't_m')) === '[]');
   R.valuesOf(v, 'f_tb').push('X');
   ck('④ 読んでも動画は変わらない（返す配列はコピー）', J(v) === before);
@@ -227,7 +228,12 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
   ck('⑦ tag-registry.js は動画・tagSettings・テンプレートを書かない', bad.length === 0, bad.join(', '));
   const sets = [...code.matchAll(/localStorage\.setItem\(([^,]+),/g)].map(m => m[1].trim());
   ck('⑦ localStorage に書くのは自分の控え（wk_tagRegistry）だけ', sets.every(k => k === 'LS_KEY'), sets.join(', '));
-  ck('⑦ 動画の値を書き換える代入が無い', !/\bv\s*\.\s*\w+\s*=[^=]|\bv\[[^\]]+\]\s*=[^=]/.test(code));
+  // 例外は1つだけ: マーク・習得を v.tg へ写す migrateMarkStatus（足すだけ。⑩で中身を確かめる）
+  const noMig = code.replace(/function migrateMarkStatus[\s\S]*?\n  \}\n/, '');
+  ck('⑦ 動画の値を書き換える代入が無い（migrateMarkStatus を除く）', noMig !== code && !/\bv\s*\.\s*\w+\s*=[^=]|\bv\[[^\]]+\]\s*=[^=]/.test(noMig));
+  const mig = code.slice(code.indexOf('function migrateMarkStatus'), code.indexOf('function migrateMarkStatus') + (code.length - noMig.length));
+  const migSets = [...mig.matchAll(/\bv(?:\.\w+)+\s*=[^=]/g)].map(m => m[0].replace(/\s*=.*/, ''));
+  ck('⑦ migrateMarkStatus が書くのは v.tg / v.tg.mark / v.tg.status だけ', migSets.length > 0 && migSets.every(x => ['v.tg', 'v.tg.mark', 'v.tg.status'].includes(x)), migSets.join(', '));
 }
 
 // ── ⑧ バックアップ ──
@@ -258,7 +264,7 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
   ck('⑨ 端末の控えにも書く', JSON.parse(store.wk_tagRegistry).slots[1] === null);
   ck('⑨ 検索の対象を切り替える', R.setSearch('f_pos', false) && !R.searchIds().includes('f_pos') && R.setSearch('f_pos', true));
   ck('⑨ 今の4つの名前・選択肢はここでは変えない（tagSettings が正）', !R.setName('f_tb', 'X') && !R.addOption('f_tb', 'X'));
-  ck('⑨ マーク・習得の選択肢は変えられない', !R.addOption('mark', 'X') && !R.removeOption('status', '理解'));
+  ck('⑨ マーク・習得の選択肢も足す・外すができる（v52.876 から普通のタググループ）', R.addOption('mark', 'X') && R.group('mark').options.includes('X') && R.removeOption('mark', 'X') && R.removeOption('status', '理解') && !R.group('status').options.includes('理解'));
   ck('⑨ マーク・習得の名前は変えられる（空にはしない）', R.setName('mark', '印') && R.group('mark').name === '印' && !R.setName('mark', '  '));
   ck('⑨ 新しいグループの選択肢を足す・外す（重複・空は足さない）', R.addOption('t_m', 'b') && !R.addOption('t_m', 'b') && !R.addOption('t_m', ' ') && R.removeOption('t_m', 'a') && J(R.group('t_m').options) === J(['b']));
   const nid = R.createGroup('練習', 1);
@@ -267,7 +273,49 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
   const fut = R.raw(); fut.v = 99; R.applyRemote(fut);
   ck('⑨ 自分より新しい形の一覧は編集しない', !R.setSlot('f_tb', 1) && !R.setSearch('f_tb', false) && R.createGroup('x') === null);
   const code = REG_SRC.replace(/\/\/.*$/gm, '');
-  ck('⑨ 編集は動画に触らない（v. への代入・wkSetTagValue が無い）', !/\bv\s*\.\s*\w+\s*=[^=]/.test(code) && !/wkSetTagValue/.test(code));
+  const code2 = code.replace(/function migrateMarkStatus[\s\S]*?\n  \}\n/, '');
+  ck('⑨ 編集は動画に触らない（v. への代入・wkSetTagValue が無い。migrateMarkStatus を除く）', !/\bv\s*\.\s*\w+\s*=[^=]/.test(code2) && !/wkSetTagValue/.test(code));
+}
+
+// ── ⑩ マーク・習得を普通のタググループにする（v52.876）──
+{
+  // 前の版の一覧（store:'mark'/'status'・def あり・名前を変えて枠に入れていた）
+  const old = { v: 1, slots: ['f_tb', 'mark', 'f_pos', 'f_tags'], migratedTemplates: [], groups: [
+    { id: 'f_tb', store: 'tb', search: true, def: 'tb' }, { id: 'f_cat', store: 'cat', search: true },
+    { id: 'f_pos', store: 'pos', search: true, def: 'pos' }, { id: 'f_tags', store: 'tags', search: true },
+    { id: 'mark', store: 'mark', search: false, def: 'mark', name: '印' }, { id: 'status', store: 'status', search: true, def: 'status' } ] };
+  const { win, R, store } = boot({ ls: { wk_tagRegistry: JSON.stringify(old) } });
+  // 本物は js/config.js の normStatus（旧表記 把握→理解・習得中→練習中）
+  win.normStatus = x => (x === '把握' ? '理解' : x === '習得中' ? '練習中' : (x || '未着手'));
+  const m = R.group('mark'), st = R.group('status');
+  ck('⑩ 前の版の一覧を読むと、マーク・習得は store:map になる（ID はそのまま）', m.store === 'map' && st.store === 'map');
+  ck('⑩ 付けた名前・枠・検索の対象はそのまま', m.name === '印' && m.slot === 1 && m.search === false && st.search === true, J([m.name, m.slot, m.search, st.search]));
+  ck('⑩ 選択肢は今までの値（お気に入り/Next/ドリル・理解/練習中/マスター）', J(m.options) === J(['お気に入り', 'Next', 'ドリル']) && J(st.options) === J(['理解', '練習中', 'マスター']));
+  ck('⑩ 端末の控えも直した形になる', JSON.parse(store.wk_tagRegistry).groups.every(g => g.store !== 'mark' && g.store !== 'status'));
+  ck('⑩ 他の端末から前の版の形が届いても、普通のグループとして受け取る', R.applyRemote({ ...old, slots: ['f_tb', 'f_cat', 'status', 'f_tags'] }) && R.group('status').store === 'map' && R.group('status').slot === 2);
+
+  const vids = [
+    { id: 'a', fav: true, next: true, drill: false, status: '練習中' },
+    { id: 'b', status: '把握' },                                  // 旧表記 → 理解
+    { id: 'c', status: '未着手', fav: false },                    // 写すものが無い
+    { id: 'd' },                                                  // 何も無い
+    { id: 'e', fav: true, tg: { mark: [] } },                     // 新しい画面で外した後（空の配列がある）
+    { id: 'f', status: 'マスター', tg: { t_x: ['A'] } },          // ほかのグループの値はそのまま
+    { id: 'g', fav: true, tg: 'broken' },                         // 形の違う tg には触らない
+  ];
+  const before = JSON.parse(J(vids));
+  const n = R.migrateMarkStatus(vids);
+  const by = id => vids.find(v => v.id === id);
+  ck('⑩ 写した本数を返す（a・b・f の3本）', n === 3, n);
+  ck('⑩ ★/Next → マークのタグ、習得 → 習得のタグ', J(by('a').tg) === J({ mark: ['お気に入り', 'Next'], status: ['練習中'] }), J(by('a').tg));
+  ck('⑩ 習得の旧表記は今の表記で写す', J(by('b').tg) === J({ status: ['理解'] }));
+  ck('⑩ 未着手・何も無い動画には何も書かない（tg を作らない）', !('tg' in by('c')) && !('tg' in by('d')));
+  ck('⑩ 一度タグの置き場所がある動画には二度と写さない（外したタグが元の欄から復活しない）', J(by('e').tg) === J({ mark: [] }));
+  ck('⑩ ほかのグループの値は変えない', J(by('f').tg) === J({ t_x: ['A'], status: ['マスター'] }));
+  ck('⑩ 形の違う tg には触らない', by('g').tg === 'broken');
+  ck('⑩ 元の欄（fav/next/drill/status）は消さない・書き換えない', vids.every((v, i) => ['fav', 'next', 'drill', 'status'].every(k => J(v[k]) === J(before[i][k]))));
+  ck('⑩ もう一度呼んでも何も変えない（0本）', R.migrateMarkStatus(vids) === 0);
+  ck('⑩ 写した値は valuesOf で読める', J(R.valuesOf(by('a'), 'mark')) === J(['お気に入り', 'Next']) && J(R.valuesOf(by('b'), 'status')) === J(['理解']));
 }
 
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タググループの一覧: 問題なし');

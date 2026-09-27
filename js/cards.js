@@ -95,22 +95,16 @@ export function cardHTML(v) {
               : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
   const pc    = v.prio === '今すぐ' ? 'p1' : v.prio === 'そのうち' ? 'p2' : 'p3';
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
-  const _st   = window.normStatus(v.status);
-  const sc    = _st === '理解' ? 's1' : _st === '練習中' ? 's2' : _st === 'マスター' ? 's3' : 's0';
-  const _sNum = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
-  const _sIco = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
-  const se    = (_sNum[_st]||'') + (_sIco[_st]||'') + ' ' + _st;
   const vid   = v.id;
   const bulkMode = window.bulkMode || false;
   const selIds   = window.selIds   || new Set();
   const _fcv      = window.filterColVis || {};
-  const showMark   = _fcv.mark   !== false;
-  const showStatus = _fcv.status !== false;
+  // マーク（★・Next・ドリル）と習得の専用ボタンは v52.876 で廃止（普通のタグになった。タグ1〜4の枠に入れればバッジで出る）
   const showRank   = _fcv.rank   !== false;
   const _memoForPreview = v.memo
     ? v.memo.replace(/<img[^>]*>/gi, '').replace(/<div[^>]*>\s*<\/div>/gi, '').trim()
     : '';
-  const memoPreview = (showMark && _memoForPreview) ? `<div class="card-memo-preview" onclick="event.stopPropagation();cardShowMemo('${vid}')">${_memoForPreview}</div>` : '';
+  const memoPreview = _memoForPreview ? `<div class="card-memo-preview" onclick="event.stopPropagation();cardShowMemo('${vid}')">${_memoForPreview}</div>` : '';
   const aiBar = v.ai ? `<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>` : '';
   // 🆕 4層タグバッジ (新スキーマ: tb/cat/pos/tags)
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -129,7 +123,7 @@ export function cardHTML(v) {
   const _R = window.tagRegistry;
   const _slotInfo = _R ? _R.slotInfo() : ['tb','cat','pos','tags'].map(f => ({ id: 'f_' + f, store: f }));
   const _badgeHtml = _slotInfo.map(s => {
-    if (!s || !_BADGE[s.store]) return '';          // 空の枠・マーク・習得（別の表示がある）は出さない
+    if (!s || !_BADGE[s.store]) return '';          // 空の枠は出さない
     if (s.store !== 'map' && !_tsV(s.store)) return '';
     let vals = _R ? _R.valuesOf(v, s.id) : (Array.isArray(v[s.store]) ? v[s.store] : []);
     if (s.store === 'tags') vals = vals.slice(0, 8);
@@ -154,13 +148,7 @@ export function cardHTML(v) {
   </div>` : '';
   const vDot = v.verified ? '<div class="verify-dot verified"></div>'
              : v.ai       ? '<div class="verify-dot ai-unverified"></div>' : '';
-  const _dSvgOn  = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
-  const _dSvgOff = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
-  const btnFav  = showMark   ? `<button class="ca-btn" onclick="event.stopPropagation();qFav('${vid}');window.AF?.()" title="Fav" style="${v.fav?'color:#d4a017;border-color:#d4a017':''}">${v.fav?'★':'☆'} Fav</button>` : '';
-  const btnNext = showMark   ? `<button class="ca-btn" onclick="event.stopPropagation();qNext('${vid}');window.AF?.()" title="Next" style="${v.next?'color:#e8590c;border-color:#e8590c':''}">${v.next?'🎯':'○'} Next</button>` : '';
-  const btnDrill = showMark  ? `<button class="ca-btn" onclick="event.stopPropagation();qDrill('${vid}');window.AF?.()" title="Drill" style="padding:2px 5px;line-height:0;border-color:${v.drill?'#7c3aed':'var(--border)'}">${v.drill?_dSvgOn:_dSvgOff}</button>` : '';
-  const btnStat = showStatus ? `<button class="ca-btn" onclick="event.stopPropagation();cardCycleProg('${vid}',this)" data-prog="${_st}">${se}</button>` : '';
-  const btnMemo = showMark   ? `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>` : '';
-  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div></div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnFav}${btnNext}${btnDrill}${btnStat}${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
+  const btnMemo = `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>`;
+  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div></div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
 }
 

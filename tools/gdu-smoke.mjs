@@ -466,7 +466,8 @@ const reg = await page.evaluate(() => ({ n: window.videos.length, seeded: window
 check(reg.n === reg.seeded + 1,        'videos に1件だけ追加される', `n=${reg.n}（種 ${reg.seeded}）`);
 check(reg.v?.id === 'gd-FAKE_FILE_ID', 'idが gd-<fileId> になる', reg.v?.id);
 check(reg.v?.pt === 'gdrive',          'pt が gdrive になる', reg.v?.pt);
-check(reg.v?.archived === false && reg.v?.status === '未着手', '既定値が入る');
+// 習得は v52.876 から普通のタグ。取り込みで「未着手」を書かない（タグが無い＝未着手）
+check(reg.v?.archived === false && reg.v?.status === undefined && reg.v?.fav === undefined, '既定値が入る（習得・お気に入りの古い欄は書かない）', JSON.stringify({ a: reg.v?.archived, s: reg.v?.status, f: reg.v?.fav }));
 check(reg.v?.title === '6/12 スパー 3R目', '直した名前がライブラリのタイトルになる', reg.v?.title);
 check(driveName === '6/12 スパー 3R目.mp4', '直した名前がDrive上のファイル名にもなる（拡張子は残す）', driveName);
 check(reg.v?.pl === 'テストフォルダ', 'プレイリスト名が空欄なら保存先フォルダ名が入る', reg.v?.pl);

@@ -6,12 +6,11 @@
 // タグ列(4グループ)の見出しはユーザーが付けた名前なのでここに書かない。
 // organize.js の orgColLabel() に集約してある。
 const ORG_COL_LABELS = {
-  counter:'カウント', status:'習得', channel:'チャンネル',
-  playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日',
-  fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'
+  counter:'カウント', channel:'チャンネル',
+  playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', duration:'長さ'
 };
 const _cvColLabel = id => (window.orgColLabel ? window.orgColLabel(id) : (ORG_COL_LABELS[id] || id));
-const CV_COL_DEFAULT = ['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
+const CV_COL_DEFAULT = ['tb','action','position','technique','counter','channel','playlist','addedAt','duration','memo'];
 
 const SEL_COLORS = [
   { bg:'rgba(74,144,217,.25)',  text:'#70b0f0' },
@@ -58,7 +57,7 @@ window._cvGetViews = () => _views;
 let _editingViewId = null;
 let _cvSelectedIds = new Set();
 let cvColOrder = [...CV_COL_DEFAULT];
-let cvColVisibility = {tb:true,action:true,position:true,technique:true,counter:false,status:true,channel:true,playlist:true,memo:true,addedAt:true,fav:true,next:true,duration:true};
+let cvColVisibility = {tb:true,action:true,position:true,technique:true,counter:false,channel:true,playlist:true,memo:true,addedAt:true,duration:true};
 let _nextColId = 100;
 let _selectedTplId = CV_TEMPLATES[0].id;
 let _cvUserTemplates = [];
@@ -986,6 +985,8 @@ function _renderTable(view) {
 // ══════════════════════════════════════════════════════════
 
 // カスタム列IDかどうか（標準列IDは固定セット）
+// fav/next/drill/status は v52.876 で無くなった列。保存済みの並びに残っている名前をカスタム列と
+// 取り違えないよう、ここには残す（表に出さないのは organize.js の _ORG_GONE_COLS）。
 const _STD_COL_IDS = new Set(['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo']);
 const _isCustomColId = id => !_STD_COL_IDS.has(id);
 
@@ -1306,10 +1307,6 @@ function _cvApplyGlobalFilters(list) {
   // タグの条件は tag-filter.js で1回だけ組み立てる（どの呼び名で入っていても同じグループとして読む）
   const _tagOk = window.tagFilter ? window.tagFilter.compile(f, 'lib') : () => true;
   return list.filter(v => {
-    if (window.favOnly    && !v.fav)                                    return false;
-    if (window.nextOnly   && !v.next)                                   return false;
-    // ドリルだけ判定が欠けていた。テーブルは orgDrillOnly を使うので両方を見る
-    if ((window.drillOnly || window.orgDrillOnly) && !v.drill)          return false;
     if (window.unwOnly    && v.watched)                                 return false;
     if (window.watchedOnly && !v.watched)                               return false;
     if (window.bmOnly     && !(v.bookmarks && v.bookmarks.length > 0)) return false;
@@ -1317,7 +1314,6 @@ function _cvApplyGlobalFilters(list) {
     if (f.platform?.size  && !f.platform.has(v.pt))                    return false;
     if (f.playlist?.size  && !f.playlist.has(v.pl))                    return false;
     if (f.prio?.size      && !f.prio.has(v.prio))                      return false;
-    if (f.status?.size    && !f.status.has(v.status))                  return false;
     if (!_tagOk(v)) return false;
     if (f.channel?.size   && !f.channel.has(v.channel || v.ch))        return false;
     return true;
@@ -1409,9 +1405,7 @@ function _applyConditions(fc, all) {
     if (fc.ch   && fc.ch.length   && !fc.ch.includes(v.channel||v.ch||'')           ) return false;
     if (fc.pl   && fc.pl.length   && !fc.pl.includes(v.pl||''))                      return false;
     // boolean系（マスターのフィルタ filt() と同じ判定）
-    if (fc.favOnly     && !v.fav)   return false;
-    if (fc.nextOnly    && !v.next)  return false;
-    if (fc.drillOnly   && !v.drill) return false;
+    // 以前のマークの条件（favOnly 等）は、マークのタグの条件として tag-filter.js が読む（書き換えない）
     if (fc.unwOnly     && v.watched) return false;
     if (fc.watchedOnly && !v.watched) return false;
     if (fc.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
@@ -2826,9 +2820,6 @@ function _getCurrentFilterConditions() {
   if (f.channel  && f.channel.size)   fc.ch   = [...f.channel];
   if (f.playlist && f.playlist.size)  fc.pl   = [...f.playlist];
   // boolean系フラグ（true のものだけ保存）
-  if (window.favOnly)     fc.favOnly = true;
-  if (window.nextOnly)    fc.nextOnly = true;
-  if (window.drillOnly)   fc.drillOnly = true;
   if (window.unwOnly)     fc.unwOnly = true;
   if (window.watchedOnly) fc.watchedOnly = true;
   if (window.bmOnly)      fc.bmOnly = true;
@@ -2945,7 +2936,6 @@ window.cvOpenConditionEditor = function(viewId) {
   window._cvFilterBackup = window._uniSnapshotFilters ? window._uniSnapshotFilters() : null;
   // 全フィルターをリセット（マスターのフィルタが残らないよう window.filters の全Set + boolean）
   Object.keys(f).forEach(k => { if (f[k] instanceof Set) f[k].clear(); });
-  window.favOnly = false; window.nextOnly = false; window.drillOnly = false;
   window.unwOnly = false; window.watchedOnly = false; window.bmOnly = false; window.memoOnly = false;
   if (view.saveMode === 'dynamic' && view.filterConditions) {
     // 条件モード: 保存済み条件を、編集画面（統合フィルター・ライブラリ文脈）が
@@ -2960,9 +2950,6 @@ window.cvOpenConditionEditor = function(viewId) {
     if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
     if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
     // boolean系を復元（ドリル等の条件が保存・抽出されるように）
-    window.favOnly     = !!fc.favOnly;
-    window.nextOnly    = !!fc.nextOnly;
-    window.drillOnly   = !!fc.drillOnly;
     window.unwOnly     = !!fc.unwOnly;
     window.watchedOnly = !!fc.watchedOnly;
     window.bmOnly      = !!fc.bmOnly;
@@ -3056,7 +3043,8 @@ function _cvVisibleUnifiedIds() {
       const col = (view.columns || []).find(c => c.id === id);
       return col && !col.hidden;
     }
-    return stdVis[id] !== false;
+    // 表に出ない標準列（空いたタグの枠・v52.876 で無くなった列）はメニューにも出さない。位置は動かさない
+    return stdVis[id] !== false && (window._orgColShown ? window._orgColShown(id) : true);
   });
 }
 
@@ -3078,7 +3066,7 @@ window._cvGetUnifiedMenuHTML = function() {
       const col = view.columns.find(c => c.id === id);
       return col && col.hidden;
     }
-    return stdVis[id] === false;
+    return stdVis[id] === false && (window._orgColShown ? window._orgColShown(id) : true);
   });
 
   const _btnS = `background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center`;

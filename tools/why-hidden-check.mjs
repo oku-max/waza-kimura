@@ -68,12 +68,12 @@ const r = await page.evaluate(() => {
   window.videos = [
     { id:'q1', title:'02-Quick1. パスガード',   pt:'yt', pl:'TF Quick', tb:['トップ'] },
     { id:'q2', title:'30-Quick5. ハーフガード', pt:'yt', pl:'TF Quick', tb:['ボトム'] },
-    { id:'n1', title:'デラヒーバスイープ',      pt:'yt', pl:'別',       tb:['ボトム'], fav:true },
+    { id:'n1', title:'デラヒーバスイープ',      pt:'yt', pl:'別',       tb:['ボトム'], tg:{ mark:['お気に入り'] } },
     { id:'n2', title:'クロスチョーク',          pt:'yt', pl:'別',       tb:['トップ'] },
   ];
   const reset = () => {
     window.wkSetSearchWord?.('');
-    window.favOnly = window.nextOnly = window.drillOnly = window.unwOnly = window.watchedOnly = false;
+    window.unwOnly = window.watchedOnly = false;
     window.bmOnly = window.memoOnly = window.imgOnly = false;
     Object.values(window.filters).forEach(s => s.clear && s.clear());
   };
@@ -87,7 +87,8 @@ const r = await page.evaluate(() => {
   };
   return [
     run('ワード検索 -quick',   () => window.wkSetSearchWord('-quick'),            'ワード検索'),
-    run('お気に入りだけ',       () => { window.favOnly = true; },                  '⭐ お気に入りだけ'),
+    // マーク（お気に入り）は v52.876 から普通のタグ。タグとして名指しされる
+    run('マーク=お気に入り',    () => { window.filters.mark = new Set(['お気に入り']); }, 'タグ'),
     run('タグ（タグ1=トップ）', () => { window.filters.tbNew = new Set(['トップ']); }, 'タグ'),
     run('プレイリスト',         () => { window.filters.playlist = new Set(['別']); },  'プレイリスト'),
     run('絞り込みなし',         () => {},                                          '(なし)'),

@@ -4,10 +4,12 @@ import { _parseQuery, _matchQuery } from './organize.js';
 // ── URL ↔ フィルター状態の同期 ──
 // タグ（tb/ac/pos/tech）は tag-filter.js が受け持つ。ここに書くとタグ1〜3の選択が URL に残らなかった
 // （新しい呼び名 tbNew/cat/posNew を見ていなかったため）。
+// マーク・習得は v52.876 から普通のタググループ（URL では g_mark / g_status）。
+// 以前の URL（fav=1 / nxt=1 / st=…）は読むときだけ受け取る（_restoreFromURL）。
 const _URL_SET_KEYS = {
-  pl: 'playlist', ch: 'channel', pt: 'platform', prio: 'prio', st: 'status'
+  pl: 'playlist', ch: 'channel', pt: 'platform', prio: 'prio'
 };
-const _URL_BOOL_KEYS = { fav: 'favOnly', nxt: 'nextOnly', unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
+const _URL_BOOL_KEYS = { unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
 
 let _urlSyncPaused = false;
 
@@ -52,7 +54,7 @@ export function _restoreFromURL() {
   _urlSyncPaused = true;
   // Clear existing state
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  window.favOnly = false; window.nextOnly = false; window.drillOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   // Restore Set filters
   for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
@@ -68,6 +70,13 @@ export function _restoreFromURL() {
   // Restore booleans
   for (const [param, key] of Object.entries(_URL_BOOL_KEYS)) {
     if (p.get(param) === '1') window[key] = true;
+  }
+  // 以前の URL のマーク・習得（fav=1 / nxt=1 / st=…）は、マーク・習得のタグの選択として入れる
+  if (_TF) {
+    if (p.get('fav') === '1') _TF.setFor(window.filters, 'mark', 'lib').add('お気に入り');
+    if (p.get('nxt') === '1') _TF.setFor(window.filters, 'mark', 'lib').add('Next');
+    const st = p.get('st');
+    if (st) st.split(',').forEach(v => _TF.setFor(window.filters, 'status', 'lib').add(decodeURIComponent(v)));
   }
   // Restore search text
   const q = p.get('q') || '';
@@ -90,7 +99,6 @@ export function _syncChipsToState() {
   });
   // Boolean toggle chips
   const boolChips = {
-    favOnly:     ['chip-fav','m-chip-fav','fs-chip-fav2'],
     unwOnly:     ['chip-unw','m-chip-unw','fs-chip-unw2'],
     watchedOnly: ['chip-watched','fs-chip-watched'],
     bmOnly:      ['fs-chip-bm'],
@@ -127,23 +135,8 @@ export function togPlat(p) {
   window.AF();
 }
 
-export function togFav() {
-  window.favOnly = !window.favOnly;
-  ['chip-fav','m-chip-fav','fs-chip-fav2'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.favOnly);
-  });
-  window.AF();
-}
 
-export function togNext() {
-  window.nextOnly = !window.nextOnly;
-  window.AF();
-}
 
-export function togDrill() {
-  window.drillOnly = !window.drillOnly;
-  window.AF();
-}
 
 export function togUnw() {
   window.unwOnly = !window.unwOnly;
@@ -187,7 +180,7 @@ export function togImg() {
 
 export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  window.favOnly = false; window.nextOnly = false; window.drillOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   window.prRank = null; window.prDate = null;
   window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（半分だけ残さない）
@@ -244,7 +237,7 @@ export function resetFilters() { clearAll(); }
 
 export function updateResetBtn() {
   const btn = document.getElementById('filter-reset-btn'); if (!btn) return;
-  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.nextOnly || window.drillOnly || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
+  const active = Object.values(window.filters).some(s => s.size > 0) || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
   btn.style.display = active ? 'inline-block' : 'none';
 }
 
@@ -273,9 +266,6 @@ function _libConds(parsed, tagOk) {
   const F = () => window.filters;
   return [
     { name: 'アーカイブ済み',         ok: v => !v.archived },
-    { name: '⭐ お気に入りだけ',       ok: v => !(window.favOnly   && !v.fav) },
-    { name: '🎯 Next だけ',            ok: v => !(window.nextOnly  && !v.next) },
-    { name: 'ドリルだけ',              ok: v => !(window.drillOnly && !v.drill) },
     { name: '未視聴だけ',              ok: v => !(window.unwOnly   && v.watched) },
     { name: '視聴済みだけ',            ok: v => !(window.watchedOnly && !v.watched) },
     { name: 'ブックマークがあるものだけ', ok: v => !(window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) },
@@ -299,7 +289,6 @@ function _libConds(parsed, tagOk) {
     { name: 'ワード検索',              ok: v => _matchQuery(v, parsed, null) },
     { name: 'プレイリスト',            ok: v => !(F().playlist.size && !F().playlist.has(v.pl)) },
     { name: '優先度',                  ok: v => !(F().prio.size && !F().prio.has(v.prio)) },
-    { name: '習得（未着手/理解/…）',   ok: v => !(F().status.size && !F().status.has(v.status)) },
     { name: 'タグ',                    ok: v => tagOk(v) },
     { name: 'チャンネル',              ok: v => !(F().channel.size && !F().channel.has(v.channel || v.ch)) },
     { name: '動画の指定',              ok: v => !(F().videoIds?.size && !F().videoIds.has(v.id)) },
@@ -351,7 +340,6 @@ export function countContextual(key, val, ctx = 'lib') {
     if (gid) return TF.valuesOf(v, gid).includes(val);
     if (key === 'playlist') return v.pl === val;
     if (key === 'channel')  return (v.channel || v.ch) === val;
-    if (key === 'status')   return v.status === val;
     if (key === 'prio')     return v.prio === val;
     if (key === 'platform') return v.pt === val;
     return false;
@@ -374,8 +362,6 @@ export function countContextual(key, val, ctx = 'lib') {
   const _tagOk = TF ? TF.compile(f, 'lib', { except: gid }) : () => true;
   return vids.filter(v => {
     if (v.archived) return false;
-    if (window.favOnly     && !v.fav)                                    return false;
-    if (window.nextOnly    && !v.next)                                   return false;
     if (window.unwOnly     && v.watched)                                 return false;
     if (window.watchedOnly && !v.watched)                                return false;
     if (window.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
@@ -386,7 +372,6 @@ export function countContextual(key, val, ctx = 'lib') {
     if (key !== 'platform' && f.platform?.size && !f.platform.has(v.pt))                      return false;
     if (key !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                      return false;
     if (key !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                        return false;
-    if (key !== 'status'   && f.status?.size   && !f.status.has(v.status))                    return false;
     if (!_tagOk(v)) return false;
     if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
     // このvalが該当するか
@@ -415,9 +400,6 @@ export function sortVideos(list) {
     } else if (key === 'title') {
       va = (a.title || '').toLowerCase();
       vb = (b.title || '').toLowerCase();
-    } else if (key === 'status') {
-      va = window.statusRank(a.status);
-      vb = window.statusRank(b.status);
     } else if (key === 'lastPlayed') {
       va = a.lastPlayed || 0;
       vb = b.lastPlayed || 0;
@@ -459,7 +441,7 @@ export function AF() {
   }
   const rct = document.getElementById('rc-topbar');
   if (rct) {
-    const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || !!(window.wkSearchWord?.());
+    const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.unwOnly || window.watchedOnly || !!(window.wkSearchWord?.());
     rct.textContent = f.length + ' 件';
     rct.style.display = hasFilter ? 'inline' : 'none';
   }

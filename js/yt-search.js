@@ -589,37 +589,16 @@ function _srLockedSectionsHTML(isYt) {
       </div>
     </div>`;
 
-  // カウンター + 習得度（ロック: opacity + pointer-events:none）
+  // カウンター（ロック: opacity + pointer-events:none）
   const counterHTML = `
     <div class="fsec" style="opacity:.45;pointer-events:none;user-select:none">
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
-          <div style="${sub}">お気に入り</div>
-          <span style="font-size:20px;color:var(--text3);font-weight:700">★</span>
-        </div>
-        <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
-          <div style="${sub}">Next</div>
-          <span style="font-size:16px;color:var(--text3);font-weight:700">○</span>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="${sub}">カウンター</div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <button style="${btnS}" disabled>−</button>
-            <span style="font-size:18px;font-weight:800;color:#e8590c;min-width:28px;text-align:center;font-variant-numeric:tabular-nums">0</span>
-            <button style="${btnP}" disabled>＋</button>
-          </div>
-          <div style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b>—</b></div>
-        </div>
+      <div style="${sub}">カウンター</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button style="${btnS}" disabled>−</button>
+        <span style="font-size:18px;font-weight:800;color:#e8590c;min-width:28px;text-align:center;font-variant-numeric:tabular-nums">0</span>
+        <button style="${btnP}" disabled>＋</button>
       </div>
-      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="${sub}">習得度</div>
-        <div class="vp-chips">
-          <span class="vp-chip on-s0">1.📋 未着手</span>
-          <span class="vp-chip">2.📖 理解</span>
-          <span class="vp-chip">3.🔄 練習中</span>
-          <span class="vp-chip">4.⭐ マスター</span>
-        </div>
-      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b>—</b></div>
     </div>`;
 
   return {
@@ -685,8 +664,6 @@ export function ytSrOpenVPanel(idx) {
       duration:   0,
       ytChapters: [],
       watched:    false,
-      fav:        false,
-      status:     '未着手',
       prio:       'そのうち',
       shared:     0,
       archived:   false,
@@ -846,7 +823,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
       _srTemp: true, id: libId, ytId: videoId, pt: 'youtube',
       title, src: 'youtube', url: `https://www.youtube.com/watch?v=${videoId}`,
       thumb, ch, channel: ch, pl: '', addedAt: new Date().toISOString().slice(0, 10),
-      duration: 0, ytChapters: [], watched: false, fav: false, status: '未着手',
+      duration: 0, ytChapters: [], watched: false,
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       tb: [], cat: [], pos: [], tags: [],
     };
@@ -1157,8 +1134,6 @@ export async function ytSrAddToLibrary() {
       duration: 0,
       ytChapters: [],
       watched:  false,
-      fav:      false,
-      status:   '未着手',
       prio:     'そのうち',
       shared:   0,
       archived: false,
@@ -1371,7 +1346,7 @@ export async function ytSrAddPlVideo(videoId, title, ch, thumb) {
         thumb, ch, channel: ch, pl: '',
         addedAt: new Date().toISOString().slice(0, 10),
         duration: 0, ytChapters: [], watched: false,
-        fav: false, status: '未着手', prio: 'そのうち',
+        prio: 'そのうち',
         shared: 0, archived: false, memo: '', ai: '',
         tb: [], cat: [], pos: [], tags: [],   // タグは推測しない（v52.814）
       };
@@ -1412,7 +1387,7 @@ export async function ytSrAddAllPl(plId) {
         thumb: v.thumb, ch: v.ch, channel: v.ch, pl: '',
         addedAt: new Date().toISOString().slice(0, 10),
         duration: 0, ytChapters: [], watched: false,
-        fav: false, status: '未着手', prio: 'そのうち',
+        prio: 'そのうち',
         shared: 0, archived: false, memo: '', ai: '',
         tb: [], cat: [], pos: [], tags: [],   // タグは推測しない（v52.814）
       });

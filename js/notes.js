@@ -1662,7 +1662,6 @@ window._notesAddTextBlock = function(noteId) {
 };
 
 // ── carousel & inline helpers ──
-const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解':'#3b82f6' };
 
 function _renderCarouselGroup(group, noteId) {
   const firstIdx = group[0].idx;
@@ -1673,9 +1672,6 @@ function _renderCarouselGroup(group, noteId) {
       ? `<img src="${thumbSrc}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:22px',textContent:'🎥'}))">`
       : `<span style="font-size:22px">🎥</span>`;
     const v = (window.videos || []).find(x => x.id === b.videoId);
-    const status = v?.status || b.status || '';
-    const sColor = STATUS_COLOR[status] || '';
-    const badge = sColor ? `<span class="n-vc-badge" style="color:${sColor};background:${sColor}22">${_esc(status)}</span>` : '';
     const prevTitle = gi === 0 ? 'カルーセルから外して上へ' : '左へ';
     const nextTitle = gi === group.length - 1 ? 'カルーセルから外して下へ' : '右へ';
     const prevBtn = `<button class="n-vc-prev" title="${prevTitle}" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},-1)">←</button>`;
@@ -1687,7 +1683,6 @@ function _renderCarouselGroup(group, noteId) {
       <div class="n-vc-info">
         <div class="n-vc-ttl">${_esc(b.title || b.videoId || '')}</div>
         <div class="n-vc-ch">${_esc(b.channel || v?.channel || v?.ch || '')}</div>
-        ${badge}
       </div>
       ${prevBtn}${nextBtn}${cardDrag}
       <button class="n-vc-del" title="削除"
@@ -2931,7 +2926,6 @@ function _renderVidlistCard(block, path, noteId) {
         onchange="window._notesVlSetSort('${noteId}','${path}',this.value)">
         <option value="addedAt"${sortKey==='addedAt'?' selected':''}>追加日</option>
         <option value="title"${sortKey==='title'?' selected':''}>タイトル</option>
-        <option value="status"${sortKey==='status'?' selected':''}>習得度</option>
         <option value="lastPlayed"${sortKey==='lastPlayed'?' selected':''}>最近再生</option>
         <option value="duration"${sortKey==='duration'?' selected':''}>再生時間</option>
       </select>
@@ -2983,7 +2977,6 @@ function _resolveVidList(block) {
 function _applyVlSort(vids, sort) {
   const k = sort?.key || 'addedAt';
   const asc = !!sort?.asc;
-  const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
   const parseDur = d => {
     if (typeof d === 'number') return d;
     if (typeof d !== 'string' || !d) return 0;
@@ -2996,7 +2989,6 @@ function _applyVlSort(vids, sort) {
     switch (k) {
       case 'addedAt':    return v.addedAt || '';
       case 'title':      return (v.title || '').toLowerCase();
-      case 'status':     return STATUS_ORDER[v.status || '未着手'] ?? 9;
       case 'lastPlayed': return v.lastPlayed || 0;
       case 'duration':   return parseDur(v.duration);
       default:           return v.addedAt || '';
@@ -3014,11 +3006,10 @@ function _applyVlSort(vids, sort) {
 // 旧フォーマット { tb[], cat[], pos[], tags[], pl, status, channel } と
 // 新フォーマット（window.filtersスナップショット形式）両対応
 function _vlGetFilterFields(filter) {
-  if (!filter) return { pl:[], status:[], channel:[], tb:[], cat:[], pos:[], tags:[], prio:[], platform:[], favOnly:false, unwOnly:false, watchedOnly:false, titleQ:'' };
+  if (!filter) return { pl:[], channel:[], tb:[], cat:[], pos:[], tags:[], prio:[], platform:[], unwOnly:false, watchedOnly:false, titleQ:'' };
   const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
   return {
     pl:       Array.isArray(filter.playlist) ? filter.playlist : arr(filter.pl),
-    status:   Array.isArray(filter.status)   ? filter.status   : arr(filter.status),
     channel:  Array.isArray(filter.channel)  ? filter.channel  : arr(filter.channel),
     // タグはどの呼び名で入っていても合わせて読む（tag-filter.js）。
     // 以前は「tbNew || tb」で、空の tbNew（空配列も真）が中身のある tb を隠していた。
@@ -3028,11 +3019,16 @@ function _vlGetFilterFields(filter) {
     tags:     _vlTagSel(filter, 'tags'),
     prio:     filter.prio     || [],
     platform: filter.platform || [],
-    favOnly:     !!filter._favOnly,
     unwOnly:     !!filter._unwOnly,
     watchedOnly: !!filter._watchedOnly,
     titleQ:   filter.titleQ || ''
   };
+}
+
+// 習得・マークは v52.876 から普通のタググループ（ID status / mark）。条件の読み替えは tag-filter.js。
+// 古い形の条件は習得を文字列1つで持っていることがある（status:'理解'）。配列にして読む（保存は書き換えない）。
+function _vlNorm(filter) {
+  return filter && typeof filter.status === 'string' ? { ...filter, status: [filter.status] } : filter;
 }
 
 // 読み替えは tag-filter.js だけが持つ（index.html の head で必ず先に読まれる）
@@ -3056,10 +3052,10 @@ function _vlIsAnyTag(filter) {
 
 // ── 動画リスト: フィルタロジック ──
 function _filterVidList(filter) {
+  filter = _vlNorm(filter);
   const f = _vlGetFilterFields(filter);
   let vs = (window.videos || []).filter(v => !v.archived);
   if (f.pl.length)       vs = vs.filter(v => f.pl.includes(v.pl));
-  if (f.status.length)   vs = vs.filter(v => f.status.includes(v.status || '未着手'));
   if (f.channel.length)  vs = vs.filter(v => f.channel.includes(v.channel || v.ch));
   const TF = window.tagFilter;
   if (_vlIsAnyTag(filter)) {
@@ -3078,7 +3074,6 @@ function _filterVidList(filter) {
   }
   if (f.prio.length)     vs = vs.filter(v => f.prio.includes(v.prio));
   if (f.platform.length) vs = vs.filter(v => f.platform.includes(v.pt || v.platform));
-  if (f.favOnly)         vs = vs.filter(v => v.fav);
   // 未視聴 = 視聴済みでないもの（以前は存在しない v.unw を見ていて、未視聴の条件で0本になっていた）
   if (f.unwOnly)         vs = vs.filter(v => !v.watched);
   if (f.watchedOnly)     vs = vs.filter(v => v.watched);
@@ -3092,21 +3087,20 @@ function _filterVidList(filter) {
 
 // ── 動画リスト: 条件サマリー文字列 ──
 function _vlSummary(filter) {
+  filter = _vlNorm(filter);
   const f = _vlGetFilterFields(filter);
   const parts = [];
   if (f.tb.length)      parts.push(f.tb.join('/'));
   if (f.cat.length)     parts.push(f.cat.join('/'));
   if (f.pos.length)     parts.push(f.pos.join('/'));
-  // 新しいタググループの条件も出す（見えない条件にしない）
+  // 新しいタググループ（マーク・習得を含む）の条件も出す（見えない条件にしない）
   const _TF = window.tagFilter;
   if (_TF && !_vlIsAnyTag(filter)) _TF.groups().filter(g => g.store === 'map').forEach(g => {
     const a = [..._TF.selected(filter || {}, g.id, 'lib')]; if (a.length) parts.push(a.join('/'));
   });
   if (f.tags.length)    parts.push('#' + f.tags.join(' #'));
   if (f.pl.length)      parts.push('PL:' + f.pl.join(','));
-  if (f.status.length)  parts.push(f.status.join(','));
   if (f.channel.length) parts.push(f.channel.join(','));
-  if (f.favOnly)        parts.push('★お気に入り');
   if (f.unwOnly)        parts.push('未着手');
   if (f.watchedOnly)    parts.push('視聴済');
   if (f.titleQ)         parts.push('🔍 ' + f.titleQ);
@@ -3281,7 +3275,7 @@ window._notesVlEdit = function(noteId, path) {
     window.toast?.('フィルタ画面が読み込まれていません', 1800);
     return;
   }
-  const f = ref.block.filter || {};
+  const f = _vlNorm(ref.block.filter || {});
   const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
   const snap = {
     prio:     f.prio     || [],
@@ -3293,18 +3287,16 @@ window._notesVlEdit = function(noteId, path) {
     position: _vlTagSel(f, 'pos'),
     posNew:   _vlTagSel(f, 'pos'),
     playlist: Array.isArray(f.playlist) ? f.playlist : arr(f.pl),
-    status:   Array.isArray(f.status)   ? f.status   : arr(f.status),
     tags:     _vlTagSel(f, 'tags'),
     platform: f.platform || [],
     channel:  Array.isArray(f.channel)  ? f.channel  : arr(f.channel),
-    _favOnly:     !!f._favOnly,
     _unwOnly:     !!f._unwOnly,
     _watchedOnly: !!f._watchedOnly,
     _prRank:      f._prRank ?? null,
     _prDate:      f._prDate ?? null,
     titleQ:       f.titleQ || ''
   };
-  // 新しいタググループの条件（キーはグループID）も渡す。渡さないと、編集して保存したときに消える
+  // 新しいタググループ（マーク・習得を含む）の条件（キーはグループID）も渡す。渡さないと、編集して保存したときに消える
   const _TF = window.tagFilter;
   if (_TF) _TF.groups().filter(g => g.store === 'map').forEach(g => { snap[g.id] = [..._TF.selected(f, g.id, 'lib')]; });
   window.uniOpenForVlBlock(noteId, String(path), snap);

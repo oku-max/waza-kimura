@@ -19,10 +19,9 @@ const SCOPES = [
   ['old',     'しばらく見ていない','一度見たきり間が空いているもの'],
   ['view',    'いま画面に出ている','絞り込み中のリストから'],
   ['pl',      'プレイリスト',     '📋 選んだプレイリストから'],  // 説明は選択中の名前に差し替える
-  ['cv',      'カスタムリスト',   '📑 自分で作ったリストから'],  // 同上
-  ['fav',     'お気に入り',       '⭐ を付けたものから'],
-  ['next',    'Next',             '🎯 Next に入れたものから'],
-  ['drill',   'Drill',            '🟣 Drill に入れたものから']
+  ['cv',      'カスタムリスト',   '📑 自分で作ったリストから']   // 同上
+  // お気に入り・Next・Drill は v52.876 で普通のタグになったので、範囲からは外した
+  // （タグで絞った画面から選ぶときは「いま画面に出ている」を使う）
 ];
 
 const _cfg = { scope: 'unplayed', oldDays: 180, pls: [], cvId: '' };
@@ -33,6 +32,8 @@ try {
 } catch (e) {}
 // 旧形式（pl: 単一名）の設定を引き継ぐ。消さずに読むだけ。
 if (!Array.isArray(_cfg.pls)) _cfg.pls = [];
+// もう無い範囲（fav/next/drill）が保存されていたら、既定の範囲で開く（保存は書き換えない）
+if (!SCOPES.some(s => s[0] === _cfg.scope)) _cfg.scope = 'unplayed';
 if (!_cfg.pls.length && typeof _cfg.pl === 'string' && _cfg.pl) _cfg.pls = [_cfg.pl];
 function _saveCfg() {
   try { localStorage.setItem(LS_CFG, JSON.stringify(_cfg)); } catch (e) {}
@@ -78,9 +79,6 @@ export function pool() {
       list = list.filter(v => { const n = _daysSincePlay(v); return n !== null && n > d; });
       break;
     }
-    case 'fav':      list = list.filter(v => v.fav); break;
-    case 'next':     list = list.filter(v => v.next); break;
-    case 'drill':    list = list.filter(v => v.drill); break;
     case 'pl': {
       const set = new Set(_cfg.pls || []);
       list = set.size ? list.filter(v => set.has(_plOf(v))) : [];

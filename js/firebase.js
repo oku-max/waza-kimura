@@ -313,7 +313,12 @@ async function _applyVideosData(saved) {
   let migratedAddedAt = 0;
   (window.videos || []).forEach(v => { if (!v.addedAt) { v.addedAt = _oneMonthAgo; migratedAddedAt++; } });
   if (migratedAddedAt > 0) console.log(`[migration] addedAt補完: ${migratedAddedAt}本`);
-  return migratedAddedAt > 0;
+  // v52.876: マーク（v.fav/next/drill）・習得（v.status）を普通のタグ（v.tg.mark / v.tg.status）へ写す。
+  // 足すだけ・元の欄は消さない・まだ写していない動画だけ。クラウドの動画を読み終えたここでだけ動かす
+  // （保存は呼び出し側の needsSave → 保存ロックが外れた後の saveUserData）。
+  const migratedMarks = window.tagRegistry?.migrateMarkStatus?.(window.videos) || 0;
+  if (migratedMarks > 0) console.log(`[migration] マーク・習得をタグへ: ${migratedMarks}本`);
+  return migratedAddedAt > 0 || migratedMarks > 0;
 }
 
 export async function loadUserData(uid) {
@@ -590,6 +595,7 @@ window.wkRestoreFromLegacyFirestore = async function () {
   if (!miss.length) { showToast(`古いデータ（${old.length}本）に、いま無い動画はありませんでした`, 6000); return { added: 0 }; }
   if (!window.confirm(`古いデータにしか無い動画 ${miss.length}本 を一覧に戻します。\n\n今ある動画には触れません（足すだけ）。\nメモ・タグ・ブックマークもそのまま戻ります。\n\n実行しますか？`)) return { added: 0 };
   window.videos = (window.videos || []).concat(miss);
+  window.tagRegistry?.migrateMarkStatus?.(miss);   // 古いデータのマーク・習得もタグへ写す（足すだけ）
   window.AF?.();
   window.renderOrg?.();
   const ok = await saveUserData();
@@ -917,13 +923,11 @@ export async function loadUserSettings(uid) {
       if (Array.isArray(data.orgColOrder) && data.orgColOrder.length) {
         // 廃止カラム除去 + 新規カラム補完
         const _DEAD = ['prio'];
-        const _REQUIRED = ['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
+        // fav/next/drill/status の列は v52.876 で無くなった。保存済みの並びに残っていても消さない
+        // （表に出さないのは organize.js の _ORG_GONE_COLS）。足りなければ足すのは今ある列だけ。
+        const _REQUIRED = ['tb','action','position','technique','counter','channel','playlist','addedAt','duration','memo'];
         let cleaned = data.orgColOrder.filter(c => !_DEAD.includes(c));
-        for (const r of _REQUIRED) { if (!cleaned.includes(r)) {
-          // 'status'はcounterの直後に挿入
-          if (r === 'status') { const ci = cleaned.indexOf('counter'); ci >= 0 ? cleaned.splice(ci+1,0,r) : cleaned.push(r); }
-          else cleaned.push(r);
-        }}
+        for (const r of _REQUIRED) { if (!cleaned.includes(r)) cleaned.push(r); }
         window.orgColOrder = cleaned;
         try { localStorage.setItem('wk_orgColOrder', JSON.stringify(cleaned)); } catch(e) {}
       }
@@ -931,9 +935,7 @@ export async function loadUserSettings(uid) {
         const vis = { ...data.orgColVisibility };
         delete vis.prio;
         // 新規カラムがなければデフォルトで表示
-        if (vis.next === undefined) vis.next = true;
         if (vis.counter === undefined) vis.counter = true;
-        if (vis.status === undefined) vis.status = true;
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }

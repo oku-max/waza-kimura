@@ -576,7 +576,7 @@ export async function ytImportUnimportedFromChecked() {
       addedAt: new Date().toISOString().slice(0, 10),
       duration: t.duration || 0,
       ytChapters: t.timestamps || [],
-      watched: false, fav: false, status: '未着手',
+      watched: false,
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       tb: [], cat: [], pos: [], tags: []   // タグは推測しない（v52.814）
     });
@@ -737,7 +737,7 @@ export async function ytImportCheckedVideos() {
       addedAt:    new Date().toISOString().slice(0, 10),
       duration:   vidDurationMap[vid] || 0,
       ytChapters: vidTimestampMap[vid] || [],
-      watched: false, fav: false, status: '未着手',
+      watched: false,
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       ...(() => {
         // 取り込み画面で選んだタグ。選んでいなければ空（推測しない・v52.814）

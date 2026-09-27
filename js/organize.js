@@ -5,15 +5,15 @@ export let orgFilters = {
   tb: new Set(), action: new Set(), position: new Set(),
   playlist: new Set(), status: new Set(), tags: new Set(),
   platform: new Set(), channel: new Set(),
-  fav: new Set(), next: new Set(), counter: new Set(),
+  counter: new Set(),
   memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
-export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false, orgDrillOnly = false;
+export let orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 export let orgMemoSearch = ''; export let orgChannelSearch = ''; export let orgPlaylistSearch = '';
 export let orgPrRank = null, orgPrDate = null;
-const _ORG_DEFAULT_ORDER = ['fav', 'next', 'drill', 'tb', 'action', 'position', 'technique', 'counter', 'status', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
-const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, status: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, drill: true, duration: true};
-const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', status:'90px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', next:'52px', duration:'64px'};
+const _ORG_DEFAULT_ORDER = ['tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, duration: true};
+const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
@@ -57,7 +57,7 @@ function _saveOrgColPrefs() {
   buildOrgTblSortOptions();
 }
 
-const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','counter','status','channel','playlist','addedAt','fav','next','duration','lastPlayed']);
+const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','counter','channel','playlist','addedAt','duration','lastPlayed']);
 function _syncOrgTblSortUI() {
   const sel = document.getElementById('org-tbl-sort-key');
   const btn = document.getElementById('org-tbl-sort-dir');
@@ -88,7 +88,7 @@ const _ORG_SLOT_COL = { tb:0, action:1, position:2, technique:3 };
 const _ORG_FIELDS = ['tb', 'cat', 'pos', 'tags'];
 const _orgEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const _isOrgTagCol = col => Object.prototype.hasOwnProperty.call(_ORG_SLOT_COL, col);
-// その列（枠）に入っているグループ。空いた枠と、マーク・習得（別の列がある。段階5で合わせる）は null
+// その列（枠）に入っているグループ。空いた枠は null
 function _orgSlotGroup(col) {
   if (!_isOrgTagCol(col)) return null;
   const k = _ORG_SLOT_COL[col];
@@ -101,8 +101,13 @@ function _orgSlotGroup(col) {
   return g && (_ORG_FIELDS.includes(g.store) || g.store === 'map') ? g : null;
 }
 const _orgTagVals = (v, g) => (window.tagRegistry ? window.tagRegistry.valuesOf(v, g.id) : (v[g.store] || []));
-// 列を出すか（タグの列: 枠が埋まっていて、そのグループが非表示でない。ほかの列は常に true）
+// v52.876 でマーク・習得を普通のタググループにしたので、専用の列（★・Next・ドリル・習得）は無くなった。
+// 保存済みの列の並び・表示（この端末・クラウド・カスタムリストごと）には名前が残っているが、書き換えずに出さないだけにする。
+// 見たいときは、タグ設定でマーク・習得をタグ1〜4の枠に入れる（タグの列として出る）。
+const _ORG_GONE_COLS = new Set(['fav', 'next', 'drill', 'status']);
+// 列を出すか（タグの列: 枠が埋まっていて、そのグループが非表示でない。もう無い列は出さない。ほかの列は常に true）
 function _orgTagColShown(col) {
+  if (_ORG_GONE_COLS.has(col)) return false;
   if (!_isOrgTagCol(col)) return true;
   const g = _orgSlotGroup(col);
   if (!g) return false;
@@ -112,7 +117,7 @@ function _orgTagColShown(col) {
   }
   return true;
 }
-export const ORG_COL_LABELS = {counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'};
+export const ORG_COL_LABELS = {counter:'カウント', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', duration:'長さ'};
 // 列見出しの取り出しは必ずこの関数を通す
 export function orgColLabel(col) {
   if (_isOrgTagCol(col)) { const g = _orgSlotGroup(col); return g ? g.name : 'タグ' + (_ORG_SLOT_COL[col] + 1); }
@@ -125,13 +130,11 @@ let _orgThumbVisible = localStorage.getItem('wk_orgThumbVis') !== '0';
 
 // Register state on window so inline HTML handlers can access them
 window.orgFilters = orgFilters;
-Object.defineProperty(window, 'orgFavOnly',     {get: () => orgFavOnly,     set: v => { orgFavOnly = v; }});
 Object.defineProperty(window, 'orgUnwOnly',     {get: () => orgUnwOnly,     set: v => { orgUnwOnly = v; }});
 Object.defineProperty(window, 'orgWatchedOnly', {get: () => orgWatchedOnly, set: v => { orgWatchedOnly = v; }});
 Object.defineProperty(window, 'orgBmOnly',      {get: () => orgBmOnly,      set: v => { orgBmOnly = v; }});
 Object.defineProperty(window, 'orgMemoOnly',    {get: () => orgMemoOnly,    set: v => { orgMemoOnly = v; }});
 Object.defineProperty(window, 'orgImgOnly',     {get: () => orgImgOnly,     set: v => { orgImgOnly = v; }});
-Object.defineProperty(window, 'orgDrillOnly',   {get: () => orgDrillOnly,   set: v => { orgDrillOnly = v; }});
 Object.defineProperty(window, 'orgPrRank',     {get: () => orgPrRank,     set: v => { orgPrRank = v; }});
 Object.defineProperty(window, 'orgPrDate',     {get: () => orgPrDate,     set: v => { orgPrDate = v; }});
 Object.defineProperty(window, 'orgColOrder', {get: () => orgColOrder, set: v => { orgColOrder = v; }});
@@ -271,23 +274,8 @@ export function togOrgF(type, val, el) {
   renderOrg();
 }
 
-export function togOrgFav() {
-  orgFavOnly = !orgFavOnly;
-  ['org-fs-chip-fav2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgFavOnly); });
-  renderOrg();
-}
 
-export function togOrgNext() {
-  orgNextOnly = !orgNextOnly;
-  ['org-fs-chip-next'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgNextOnly); });
-  renderOrg();
-}
 
-export function togOrgDrill() {
-  orgDrillOnly = !orgDrillOnly;
-  ['org-fs-chip-drill'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgDrillOnly); });
-  renderOrg();
-}
 
 export function togOrgUnw() {
   orgUnwOnly = !orgUnwOnly;
@@ -321,7 +309,7 @@ export function togOrgImg() {
 
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
-  orgFavOnly = false; orgNextOnly = false; orgDrillOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
+  orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
   orgMemoSearch = ''; orgChannelSearch = ''; orgPlaylistSearch = '';
   orgPrRank = null; orgPrDate = null;
   window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（半分だけ残さない）
@@ -557,9 +545,6 @@ export function orgFilt(list) {
     : () => true;
   return list.filter(v => {
     if (v.archived) return false;
-    if (orgFavOnly     && !v.fav) return false;
-    if (orgNextOnly    && !v.next) return false;
-    if (orgDrillOnly   && !v.drill) return false;
     if (orgUnwOnly     && v.watched) return false;
     if (orgWatchedOnly && !v.watched) return false;
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
@@ -575,23 +560,17 @@ export function orgFilt(list) {
       if (adv.dateFrom) { if (!v.addedAt || v.addedAt < adv.dateFrom) return false; }
       if (adv.dateTo)   { if (!v.addedAt || v.addedAt > adv.dateTo + 'T23:59:59') return false; }
       if (adv.source)   { if (v.pt !== adv.source) return false; }
-      if (adv.status === 'fav'     && !v.fav) return false;
       if (adv.status === 'unseen'  && v.watched) return false;
       if (adv.status === 'watched' && !v.watched) return false;
       if (adv.status === 'bm'      && !(v.bookmarks?.length)) return false;
       if (adv.status === 'memo'    && !v.memo) return false;
     }
     if (orgFilters.playlist.size && !_matchFilt(orgFilters.playlist, v.pl ? [v.pl] : [])) return false;
-    if (orgFilters.next.size) {
-      const nVal = v.next ? '🎯 Next' : '○ 未設定';
-      if (!orgFilters.next.has(nVal)) return false;
-    }
     if (orgFilters.counter.size) {
       const pc = v.practice || 0;
       const cVal = pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上';
       if (!orgFilters.counter.has(cVal)) return false;
     }
-    if (orgFilters.status.size) { const _sn=window.normStatus(v.status); if(!orgFilters.status.has(_sn)) return false; }
     if (!_tagOk(v)) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
     // 練習ランク / 最終練習日
@@ -605,10 +584,6 @@ export function orgFilt(list) {
       if (orgPrDate === 'month' && !(lp && days <= 30)) return false;
       if (orgPrDate === 'stale' && !(lp && days > 30))  return false;
       if (orgPrDate === 'never' && lp)                  return false;
-    }
-    if (orgFilters.fav.size) {
-      const favVal = v.fav ? '★ お気に入り' : '☆ 未お気に入り';
-      if (!orgFilters.fav.has(favVal)) return false;
     }
     if (orgFilters.memo.size) {
       const memoVal = v.memo ? 'あり' : 'なし';
@@ -724,7 +699,7 @@ function _updateOrgResetBtn() {
   const btn = document.getElementById('org-filter-reset-btn');
   if (!btn) return;
   const active = Object.values(orgFilters).some(s => s.size > 0)
-    || orgFavOnly || orgNextOnly || orgDrillOnly || orgUnwOnly || orgWatchedOnly
+    || orgUnwOnly || orgWatchedOnly
     || orgBmOnly || orgMemoOnly || orgImgOnly || orgPrRank || orgPrDate;
   btn.style.display = active ? 'inline-block' : 'none';
 }
@@ -794,14 +769,10 @@ export function renderOrg() {
     if (orgSortCol === 'title')    { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
     else if (orgSortCol === 'channel')   { av = (a.ch||'').toLowerCase(); bv = (b.ch||'').toLowerCase(); }
     else if (orgSortCol === 'playlist')  { av = (a.pl||'').toLowerCase(); bv = (b.pl||'').toLowerCase(); }
-    else if (orgSortCol === 'next')      { av=a.next?0:1; bv=b.next?0:1; }
-    else if (orgSortCol === 'drill')     { av=a.drill?0:1; bv=b.drill?0:1; }
     else if (orgSortCol === 'counter')   { av=a.practice||0; bv=b.practice||0; }
     else if (orgSortCol === 'addedAt')   { av = a.addedAt||''; bv = b.addedAt||''; }
     else if (orgSortCol === 'duration')  { av = a.duration||0; bv = b.duration||0; }
-    else if (orgSortCol === 'fav')       { av = a.fav?0:1; bv = b.fav?0:1; }
     else if (_isOrgTagCol(orgSortCol))  { const g = _orgSlotGroup(orgSortCol); av = g ? _orgTagVals(a, g).join() : ''; bv = g ? _orgTagVals(b, g).join() : ''; }
-    else if (orgSortCol === 'status')         { av=window.statusRank(a.status); bv=window.statusRank(b.status); }
     else if (orgSortCol === 'lastPlayed')    { av=a.lastPlayed||0; bv=b.lastPlayed||0; }
     else if (orgSortCol === 'playCount')     { av=a.playCount||0; bv=b.playCount||0; }
     else if (orgSortCol === 'practice')      { av=a.practice||0; bv=b.practice||0; }
@@ -841,8 +812,6 @@ export function renderOrg() {
   // ── 行HTML生成関数 ──
   const _fcv = window.filterColVis || {};
   const _fcvFilter = col => {
-    if (_fcv.mark   === false && (col === 'fav' || col === 'next')) return false;
-    if (_fcv.status === false && col === 'status') return false;
     if (_fcv.rank   === false && col === 'counter') return false;
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
@@ -870,10 +839,6 @@ export function renderOrg() {
     };
     const scrollCells = visCols.map(col => {
       if (_isOrgTagCol(col)) { const g = _orgSlotGroup(col); return mkTagCell(g ? _orgTagVals(v, g) : [], null, col); }
-      if (col === 'status') {
-        const sN = window.normStatus(v.status);
-        return `<td class="org-td" data-col="status" style="white-space:nowrap">${_statusSpan(sN)}</td>`;
-      }
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
       if (col === 'counter') {
         const pc = v.practice || 0;
@@ -886,9 +851,6 @@ export function renderOrg() {
       }
       if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
-      if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" class="${v.fav?'org-fav-on':'org-fav-off'}" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'お気に入りを外す':'お気に入りに追加'}">${v.fav?'★':'☆'}</button></td>`;
-      if (col === 'next')      return `<td class="org-td" data-col="next" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogNext('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.next?'Next解除':'Nextに追加'}">${v.next?'🎯':'○'}</button></td>`;
-      if (col === 'drill') { const _don=`<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`, _doff=`<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#555" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#555" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`; return `<td class="org-td" data-col="drill" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogDrill('${v.id}')" style="background:none;border:none;cursor:pointer;padding:2px;border-radius:4px;line-height:0;transition:opacity .15s;opacity:${v.drill?'1':'0.35'}" title="${v.drill?'Drill解除':'Drillに追加'}">${v.drill?_don:_doff}</button></td>`; }
       if (col === 'addedAt') {
         const d = v.addedAt ? new Date(v.addedAt) : null;
         const ds = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '—';
@@ -971,8 +933,6 @@ export function syncOrgColHeaders() {
   [...thead.querySelectorAll('th[data-col]')].forEach(el => el.remove());
   const _fcv2 = window.filterColVis || {};
   const _fcvFilter2 = col => {
-    if (_fcv2.mark   === false && (col === 'fav' || col === 'next')) return false;
-    if (_fcv2.status === false && col === 'status') return false;
     if (_fcv2.rank   === false && col === 'counter') return false;
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
@@ -1049,70 +1009,8 @@ export function orgSetSort(col) {
 }
 
 // ─── Organizeテーブル: Favトグル ───
-export function orgTogFav(id) {
-  try {
-    const videos = window.videos || [];
-    const v = videos.find(v => v.id === id);
-    if (!v) return;
-    v.fav = !v.fav;
-    // ★ボタンだけ即時更新（再描画なしで高速）
-    const tr = document.getElementById('org-row-' + id);
-    if (tr) {
-      const btn = tr.querySelector('[onclick*="orgTogFav"]');
-      if (btn) {
-        btn.textContent = v.fav ? '★' : '☆';
-        btn.className = v.fav ? 'org-fav-on' : 'org-fav-off';
-        btn.title = v.fav ? 'お気に入りを外す' : 'お気に入りに追加';
-      }
-    }
-    window.debounceSave?.();
-  } catch(e) { console.error('orgTogFav error:', e); }
-}
 
-export function orgTogNext(id) {
-  try {
-    const v = (window.videos || []).find(v => v.id === id);
-    if (!v) return;
-    v.next = !v.next;
-    // Next ON → Fav自動ON
-    if (v.next && !v.fav) v.fav = true;
-    // 🎯ボタン即時更新
-    const tr = document.getElementById('org-row-' + id);
-    if (tr) {
-      const btn = tr.querySelector('[onclick*="orgTogNext"]');
-      if (btn) {
-        btn.textContent = v.next ? '🎯' : '○';
-        btn.title = v.next ? 'Next解除' : 'Nextに追加';
-      }
-      // Fav自動ONの場合、Favボタンも更新
-      if (v.next) {
-        const favBtn = tr.querySelector('[onclick*="orgTogFav"]');
-        if (favBtn) { favBtn.textContent = '★'; favBtn.title = 'お気に入りを外す'; }
-      }
-    }
-    window.debounceSave?.();
-  } catch(e) { console.error('orgTogNext error:', e); }
-}
 
-export function orgTogDrill(id) {
-  try {
-    const v = (window.videos || []).find(v => v.id === id);
-    if (!v) return;
-    v.drill = !v.drill;
-    const _don  = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
-    const _doff = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#555" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#555" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
-    const tr = document.getElementById('org-row-' + id);
-    if (tr) {
-      const btn = tr.querySelector('[onclick*="orgTogDrill"]');
-      if (btn) {
-        btn.innerHTML = v.drill ? _don : _doff;
-        btn.style.opacity = v.drill ? '1' : '0.35';
-        btn.title = v.drill ? 'Drill解除' : 'Drillに追加';
-      }
-    }
-    window.debounceSave?.();
-  } catch(e) { console.error('orgTogDrill error:', e); }
-}
 
 // ─── Organizeテーブル: 列幅リサイズ（mouse + touch対応）───
 export function initOrgResize() {
@@ -1287,8 +1185,6 @@ export function orgTogSelAll(cb) {
 function _orgMenuCols() {
   const _fcv3 = window.filterColVis || {};
   return orgColOrder.filter(col => {
-    if (_fcv3.mark   === false && (col === 'fav' || col === 'next')) return false;
-    if (_fcv3.status === false && col === 'status') return false;
     if (_fcv3.rank   === false && col === 'counter') return false;
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
@@ -1520,7 +1416,6 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return
 const _orgPresets = key => (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice();
 const _INLINE_COLS = {
   memo:      { field: 'memo', type: 'text' },
-  status:    { field: 'status', type: 'radio', opts: () => window.STATUS_CANON || [] },
 };
 
 // タグの列は枠のグループを編集する（段階3c）。候補は今までと同じ:
@@ -1622,76 +1517,12 @@ function _openOrgInlineEditor(videoId, col, td) {
 
   if (cfg.type === 'tags') {
     _openTagPicker(v, cfg, col, td);
-  } else if (cfg.type === 'radio') {
-    _openRadioPicker(v, cfg, col, td);
   } else {
     _openMemoEditor(v, td);
   }
 }
 
-function _statusLabel(s) {
-  const num = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
-  const ico = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
-  return (num[s]||'') + (ico[s]||'') + ' ' + (s||'未着手');
-}
-function _statusStyle(s) {
-  if (s==='理解')   return 'background:rgba(47,158,68,.12);color:#2f9e44;border:1px solid rgba(47,158,68,.3)';
-  if (s==='練習中')  return 'background:rgba(25,113,194,.12);color:#1971c2;border:1px solid rgba(25,113,194,.3)';
-  if (s==='マスター') return 'background:rgba(107,63,212,.12);color:#6b3fd4;border:1px solid rgba(107,63,212,.3)';
-  return 'background:var(--surface2);color:var(--text2);border:1px solid var(--border)';
-}
-function _statusSpan(s) {
-  return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;white-space:nowrap;${_statusStyle(s)}">${_statusLabel(s)}</span>`;
-}
 
-function _openRadioPicker(v, cfg, col, td) {
-  const field = cfg.field;
-  const opts = cfg.opts();
-
-  const picker = document.createElement('div');
-  picker.className = 'org-inline-picker';
-  document.body.appendChild(picker);
-
-  const rect = td.getBoundingClientRect();
-  picker.style.left = Math.max(4, rect.left) + 'px';
-  picker.style.top  = (rect.bottom + 4) + 'px';
-  requestAnimationFrame(() => {
-    const pr = picker.getBoundingClientRect();
-    if (pr.right > window.innerWidth - 8)  picker.style.left = Math.max(4, window.innerWidth - pr.width - 8) + 'px';
-    if (pr.bottom > window.innerHeight - 8) picker.style.top = (rect.top - pr.height - 4) + 'px';
-  });
-
-  _orgInlineActive.picker = picker;
-
-  const normV = window.normStatus(v[field]);
-  opts.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.style.cssText = 'display:block;width:100%;margin:2px 0;text-align:left;cursor:pointer;font-size:11px;padding:6px 10px;font-weight:700;font-family:inherit;border:none;border-radius:6px;background:' + (normV===opt ? 'var(--surface3)' : 'transparent');
-    btn.textContent = _statusLabel(opt);
-    btn.addEventListener('mousedown', e => e.stopPropagation());
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      v[field] = opt;
-      td.innerHTML = _statusSpan(opt);
-      _inlineSave(v, td, col);
-      _closeOrgInlineEditor(false);
-    });
-    picker.appendChild(btn);
-  });
-
-  // 外側クリックで閉じる（tag pickerと同じ50ms遅延パターン）
-  setTimeout(() => {
-    const handler = e => {
-      if (picker.contains(e.target)) return;
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('touchstart', handler);
-      _closeOrgInlineEditor(false);
-    };
-    document.addEventListener('mousedown', handler);
-    document.addEventListener('touchstart', handler, { passive: true });
-    _orgInlineActive._outsideHandler = handler;
-  }, 50);
-}
 
 function _openTagPicker(v, cfg, col, td) {
   const g = cfg.group;
@@ -1905,12 +1736,6 @@ function _closeOrgInlineEditor(save) {
     if (v) {
       td.innerHTML = `<div class="org-memo-text">${v.memo || '<span style="color:var(--text3);font-size:10px">—</span>'}</div>`;
     }
-  } else if (cfg?.type === 'radio') {
-    const v = (window.videos || []).find(x => x.id === videoId);
-    if (v) {
-      const sN = window.normStatus(v.status);
-      td.innerHTML = _statusSpan(sN);
-    }
   }
 
   _orgInlineActive = null;
@@ -1953,13 +1778,11 @@ function _colFilterCfg(col) {
 }
 const _colFilterConfig = {
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
-  next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'], noSearch: true },
   counter:         { filterKey: 'counter',         valueGetter: v => {
     const pc = v.practice || 0;
     return [pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上'];
   }, noSearch: true },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
-  fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ お気に入り' : '☆ 未お気に入り'], noSearch: true },
   memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true, memoTextSearch: true },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
     if (!v.addedAt) return ['不明'];
@@ -1970,7 +1793,6 @@ const _colFilterConfig = {
     const s = v.duration || 0;
     return [!s ? '不明' : s < 300 ? '〜5分' : s < 900 ? '5〜15分' : s < 1800 ? '15〜30分' : '30分以上'];
   }},
-  status:         { filterKey: 'status', noSearch: true, valueGetter: v => [window.normStatus(v.status)] },
 };
 
 // duration バケットの並び順
@@ -2021,7 +1843,7 @@ export function openOrgColFilter(col, thEl) {
   });
 
   const filterSet = cfg ? (orgFilters[cfg.filterKey] || (orgFilters[cfg.filterKey] = new Set())) : new Set();
-  const sortableCols = ['channel','playlist','addedAt','duration','fav','next','counter','tb','action','position','technique','memo'];
+  const sortableCols = ['channel','playlist','addedAt','duration','counter','tb','action','position','technique','memo'];
 
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');
@@ -2278,8 +2100,6 @@ window._saveOrgColPrefs = _saveOrgColPrefs;
 window.initOrgFixedHeaders = initOrgFixedHeaders;
 window.toggleOrgThumb = toggleOrgThumb;
 window.togOrgF = togOrgF;
-window.togOrgFav = togOrgFav;
-window.togOrgNext = togOrgNext;
 window.togOrgUnw = togOrgUnw;
 window.togOrgWatched = togOrgWatched;
 window.togOrgBm = togOrgBm;
@@ -2297,10 +2117,6 @@ window.adjustOrgTableHeight = adjustOrgTableHeight;
 window.renderOrg = renderOrg;
 window.syncOrgColHeaders = syncOrgColHeaders;
 window.orgSetSort = orgSetSort;
-window.orgTogFav = orgTogFav;
-window.orgTogNext = orgTogNext;
-window.orgTogDrill = orgTogDrill;
-window.togOrgDrill = togOrgDrill;
 window.initOrgResize = initOrgResize;
 window.addResizeHandle = addResizeHandle;
 window.orgTogSel = orgTogSel;
@@ -2314,6 +2130,7 @@ window.openOrgColFilter  = openOrgColFilter;
 window.closeOrgColFilter = closeOrgColFilter;
 window.bulkRenamePl      = bulkRenamePl;
 window.ORG_COL_LABELS = ORG_COL_LABELS;
+window._orgColShown = _orgTagColShown;   // カスタムリストの列メニューも同じ判定で出し入れする
 window.orgColLabel    = orgColLabel;
 window.ORG_COL_WIDTHS = ORG_COL_WIDTHS;
 

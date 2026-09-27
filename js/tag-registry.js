@@ -3,9 +3,9 @@
 // タグ1〜4 に何が入っているか、と、しまってあるもの（未使用のタググループ）を持つ。
 // 動画のタグは今の保存場所のまま読む（書き写さない）:
 //   store:'tb'|'cat'|'pos'|'tags' … v.tb / v.cat / v.pos / v.tags。名前と選択肢は tagSettings から読む
-//   store:'mark'                  … v.fav / v.next / v.drill（★とNextの連動は今のボタンの処理が持つ）
-//   store:'status'                … v.status（1本に1つ。値は STATUS_CANON）
-//   store:'map'                   … v.tg[グループid]（新しいタググループ。書くのは wkSetTagValue と js/tag-ops.js だけ）
+//   store:'map'                   … v.tg[グループid]（新しいタググループ・マーク・習得。書くのは wkSetTagValue と js/tag-ops.js だけ）
+//   （v52.875 までのマーク store:'mark'（v.fav/next/drill）と習得 store:'status'（v.status）は、
+//     読み込み時に store:'map' へ直す（_demote）。動画の値は migrateMarkStatus で v.tg へ写す。古い欄は消さない）
 //
 // 同じものを2か所に持たない: 今の4つの名前と選択肢は、ここには保存しない（tagSettings が正）。
 // ここに保存するのは「どの枠に何が入っているか」「検索の対象か」と、
@@ -38,17 +38,18 @@
     }
     return out;
   }
-  // マークの選択肢。値は動画の項目名、表示は絵文字つき
-  const MARK_OPTS = [
-    { value: 'fav',   ja: '⭐ お気に入り', en: '⭐ Favorite' },
-    { value: 'next',  ja: '🎯 Next',       en: '🎯 Next' },
-    { value: 'drill', ja: '🟣 ドリル',     en: '🟣 Drill' },
-  ];
   // 初期のタググループ（「初期値に戻す」「初期設定に戻す」の基準。オーナー 2026-09-26 のモック）
   const DEFAULTS = {
     tb:  { ja: 'トップ/ボトム', en: 'Top/Bottom', vals: ['トップ', 'ボトム', 'スタンディング'] },
     pos: { ja: 'ポジション',    en: 'Position',   vals: ['クローズドガード', 'デラヒーバ', 'ハーフガード', 'スパイダー', 'ラッソー', 'バタフライ', 'Xガード', 'マウント', 'サイド', 'バック'] },
   };
+  // マーク・習得を普通のタググループにしたとき（v52.876）の選択肢と、動画の値を写すときの対応。
+  // 以前は専用の欄（v.fav / v.next / v.drill・v.status）に入っていて、選択肢は固定だった。
+  // 「未着手」はタグにしない（習得のタグが付いていない＝未着手）。
+  const MARK_VALUES = ['お気に入り', 'Next', 'ドリル'];
+  const MARK_FROM = { fav: 'お気に入り', next: 'Next', drill: 'ドリル' };
+  const STATUS_VALUES = ['理解', '練習中', 'マスター'];
+  const OLD_STORE_VALUES = { mark: MARK_VALUES, status: STATUS_VALUES };
   const DEFAULT_NAMES = {
     mark:   { ja: 'マーク', en: 'Marks' },
     status: { ja: '習得',   en: 'Progress' },
@@ -89,11 +90,55 @@
         { id: 'f_cat',  store: 'cat',  search: true },
         { id: 'f_pos',  store: 'pos',  search: true, def: 'pos' },
         { id: 'f_tags', store: 'tags', search: true },
-        { id: 'mark',   store: 'mark',   name: null, search: false, def: 'mark' },
-        { id: 'status', store: 'status', name: null, search: false, def: 'status' },
+        // マーク・習得は普通のタググループ（v52.876〜）。値は v.tg.mark / v.tg.status
+        { id: 'mark',   store: 'map', name: _en() ? DEFAULT_NAMES.mark.en : DEFAULT_NAMES.mark.ja,     opts: MARK_VALUES.slice(),   search: false },
+        { id: 'status', store: 'map', name: _en() ? DEFAULT_NAMES.status.en : DEFAULT_NAMES.status.ja, opts: STATUS_VALUES.slice(), search: false },
       ],
       migratedTemplates: [],
     };
+  }
+
+  // ── マーク・習得を普通のタググループにする（v52.876）──
+  // 専用の保存場所（store:'mark'/'status'）のグループを、ID はそのままで store:'map' にする。
+  // 付けた名前・枠・検索の対象はそのまま。選択肢は今までの固定のもの（以後は自由に変えられる）。
+  // 返り値: 変えたら true
+  function _demote(r) {
+    let changed = false;
+    (r.groups || []).forEach(g => {
+      const vals = OLD_STORE_VALUES[g.store];   // 前の版の専用の保存場所（mark / status）だけ
+      if (!vals) return;
+      const dn = DEFAULT_NAMES[g.store];
+      g.name = (g.name && String(g.name).trim()) || (_en() ? dn.en : dn.ja);
+      g.opts = vals.slice();
+      g.store = 'map';
+      g.search = g.search === true;
+      delete g.def;
+      changed = true;
+    });
+    return changed;
+  }
+
+  // 動画のマーク・習得を、普通のタグの置き場所（v.tg.mark / v.tg.status）へ写す（v52.876）。
+  //   ・足すだけ。元の欄（v.fav / v.next / v.drill / v.status）は消さない・書き換えない
+  //   ・写すのは、そのグループの値がまだ無い（v.tg.mark が無い）動画だけ。一度入れば二度と写さない
+  //     （新しい画面で外したタグが、元の欄から復活しないように）
+  //   ・写すものが無い動画には何も書かない（古い版の端末が後から★を付けても、次の読み込みで拾える）
+  // 返り値: 写した動画の本数（0 なら何も変えていない）
+  function migrateMarkStatus(videos) {
+    let n = 0;
+    (Array.isArray(videos) ? videos : []).forEach(v => {
+      if (!v || typeof v !== 'object') return;
+      if (v.tg != null && (typeof v.tg !== 'object' || Array.isArray(v.tg))) return;   // 形の違う tg には触らない
+      const has = k => !!(v.tg && Array.isArray(v.tg[k]));
+      const marks = Object.keys(MARK_FROM).filter(k => v[k] === true).map(k => MARK_FROM[k]);
+      const st = typeof window.normStatus === 'function' ? window.normStatus(v.status) : v.status;
+      let touched = false;
+      if (marks.length && !has('mark')) { v.tg = v.tg || {}; v.tg.mark = marks; touched = true; }
+      if (STATUS_VALUES.includes(st) && !has('status')) { v.tg = v.tg || {}; v.tg.status = [st]; touched = true; }
+      if (touched) n++;
+    });
+    if (n) _searchCache = null;
+    return n;
   }
 
   // ── 足りないものを足す（何度呼んでも同じ結果。消す・変えるはしない）──
@@ -102,13 +147,13 @@
     _ensure();
     if (_readOnly) return false;
     const r = _reg;
-    let changed = false;
+    let changed = _demote(r);
     const has = id => r.groups.some(g => g.id === id);
     const hasStore = st => r.groups.some(g => g.store === st);
     // 今の4つ・マーク・習得が無ければ、未使用として足す（枠には入れない）
     _fresh().groups.forEach(g => {
-      if (FIELD_STORES.includes(g.store) || g.store === 'mark' || g.store === 'status') {
-        if (!hasStore(g.store) && !has(g.id)) { r.groups.push(_clone(g)); changed = true; }
+      if (FIELD_STORES.includes(g.store) ? (!hasStore(g.store) && !has(g.id)) : ((g.id === 'mark' || g.id === 'status') && !has(g.id))) {
+        r.groups.push(_clone(g)); changed = true;
       }
     });
     if (!Array.isArray(r.migratedTemplates)) { r.migratedTemplates = []; changed = true; }
@@ -150,6 +195,7 @@
     const c = _loadCache();
     _reg = c || _fresh();
     _readOnly = !!(c && c.v > VERSION);
+    if (!_readOnly && _demote(_reg)) _cache();   // 前の版の控えにマーク・習得の専用の形が残っていたら、普通のグループにする
     if (!c) _cache();
   }
 
@@ -166,6 +212,7 @@
     if (!_valid(r)) return false;
     _reg = _clone(r);
     _readOnly = r.v > VERSION;
+    if (!_readOnly) _demote(_reg);   // 前の版の端末が専用の形で書いていても、ここでは普通のグループとして持つ（保存は次の書き込みで）
     _cache();
     try { window.dispatchEvent(new CustomEvent('wk-tagreg')); } catch (e) {}
     return true;
@@ -243,7 +290,7 @@
     g.name = v;
     return _commit();
   }
-  // 選択肢（新しいグループだけ。今の4つは tagSettings、マーク・習得は固定）
+  // 選択肢（新しいグループ・マーク・習得。今の4つは tagSettings）
   function addOption(id, val) {
     const g = _editable() && _g(id); if (!g || g.store !== 'map') return false;
     const v = String(val == null ? '' : val).trim(); if (!v) return false;
@@ -289,13 +336,10 @@
   function groupOptions(g) {
     if (!g) return [];
     if (FIELD_STORES.includes(g.store)) return (window.tagPresets ? window.tagPresets(g.store) : (_tsEntry(g.store)?.presets || [])).slice();
-    if (g.store === 'mark') return MARK_OPTS.map(o => o.value);
-    if (g.store === 'status') return (window.STATUS_CANON || []).slice();
     return _strs(g.opts);
   }
-  // 値の表示名（マークだけ値と表示が違う）
+  // 値の表示名（値そのまま。v52.875 まではマークだけ値と表示が違った）
   function optionLabel(g, value) {
-    if (g && g.store === 'mark') { const o = MARK_OPTS.find(x => x.value === value); if (o) return _en() ? o.en : o.ja; }
     return String(value);
   }
   function _resolve(g) {
@@ -316,8 +360,6 @@
     const g = _reg.groups.find(x => x.id === id);
     if (!g || !v) return [];
     if (FIELD_STORES.includes(g.store)) return readField(v, g.store);
-    if (g.store === 'mark') return MARK_OPTS.filter(o => !!v[o.value]).map(o => o.value);
-    if (g.store === 'status') return v.status ? [v.status] : [];
     const m = v.tg && typeof v.tg === 'object' ? v.tg[g.id] : null;
     return Array.isArray(m) ? m.slice() : [];
   }
@@ -335,7 +377,7 @@
     _ensure();
     return _reg.groups.filter(g => g.search !== false).map(g => g.id);
   }
-  // 検索用の文字（マークは値ではなく表示名で探せるように）
+  // 検索用の文字
   function searchText(v, id) {
     const g = _reg.groups.find(x => x.id === id);
     return valuesOf(v, id).map(x => optionLabel(g, x));
@@ -347,14 +389,12 @@
     const out = [];
     for (const g of _searchCache) {
       if (FIELD_STORES.includes(g.store)) { for (const x of readField(v, g.store)) out.push(x); }
-      else if (g.store === 'mark') { for (const o of MARK_OPTS) if (v[o.value]) out.push(_en() ? o.en : o.ja); }
-      else if (g.store === 'status') { if (v.status) out.push(v.status); }
       else { const m = v.tg && typeof v.tg === 'object' ? v.tg[g.id] : null; if (Array.isArray(m)) for (const x of m) out.push(x); }
     }
     return out.join(' / ');
   }
 
-  // 動画1本に付いているタグの値すべて（今の4つ＋新しいタググループ。マーク・習得は含めない）。
+  // 動画1本に付いているタグの値すべて（今の4つ＋新しいタググループ。マーク・習得も普通のグループとして含む）。
   // 「その名前が付いた動画」を探す画面（Journal の候補・動画パネルの検索メニュー）が使う。重複は1つにする
   function allTagValues(v) {
     _ensure();
@@ -376,6 +416,7 @@
     groups, group, slots, slotInfo, valuesOf, allTagValues, optionLabel, searchIds, searchText, searchTagText, raw,
     strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
+    migrateMarkStatus, MARK_VALUES, STATUS_VALUES,
     setSlot, moveSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
     _valid, _fresh, LS_KEY,
   };

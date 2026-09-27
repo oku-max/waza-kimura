@@ -45,8 +45,10 @@ ck('呼び名 → グループ（ライブラリ・整理・条件・URL のど�
   ['cat', 'action', 'ac'].every(k => TF.gidForKey(k, k === 'ac' ? 'url' : 'org') === 'f_cat') &&
   ['posNew', 'position', 'pos'].every(k => TF.gidForKey(k, 'lib') === 'f_pos') &&
   ['tags', 'tech'].every(k => TF.gidForKey(k, 'fc') === 'f_tags'));
-ck('タグでない呼び名はグループにならない（channel/playlist/status/prio/platform）',
-  ['channel', 'playlist', 'status', 'prio', 'platform', 'mark', 'videoIds'].every(k => TF.gidForKey(k, 'lib') === null));
+ck('タグでない呼び名はグループにならない（channel/playlist/prio/platform）',
+  ['channel', 'playlist', 'prio', 'platform', 'videoIds'].every(k => TF.gidForKey(k, 'lib') === null));
+ck('以前の習得の絞り込みの呼び名 status は、そのまま習得のグループ（v52.876。保存済みの選択がそのまま効く）',
+  TF.gidForKey('status', 'lib') === 'status' && TF.gidForKey('status', 'org') === 'status' && TF.gidForKey('mark', 'fc') === 'mark');
 ck('書く呼び名: ライブラリ tbNew/cat/posNew/tags', J(['tb', 'cat', 'pos', 'tags'].map(f => TF.keyFor('f_' + f, 'lib'))) === J(['tbNew', 'cat', 'posNew', 'tags']));
 ck('書く呼び名: 整理の表 tb/action/position/tags', J(['tb', 'cat', 'pos', 'tags'].map(f => TF.keyFor('f_' + f, 'org'))) === J(['tb', 'action', 'position', 'tags']));
 ck('書く呼び名: カスタムリストの条件 tb/cat/pos/tech（保存済みの形のまま）', J(['tb', 'cat', 'pos', 'tags'].map(f => TF.keyFor('f_' + f, 'fc'))) === J(['tb', 'cat', 'pos', 'tech']));
@@ -144,9 +146,9 @@ console.log('── ⑥ 検索の対象（段階2b）──');
   const ids = R.searchIds();
   ck('既定では今の4つ（と旧テンプレートのグループ）が検索の対象・マークと習得は対象外',
     ['f_tb', 'f_cat', 'f_pos', 'f_tags'].every(i => ids.includes(i)) && !ids.includes('mark') && !ids.includes('status'), J(ids));
-  const v = { tb: ['トップ'], cat: ['パスガード'], pos: [], tags: ['キムラ'], fav: true };
+  const v = { tb: ['トップ'], cat: ['パスガード'], pos: [], tags: ['キムラ'], fav: true, tg: { mark: ['お気に入り'] } };
   ck('検索の文字は今の保存場所から読む', J(R.searchText(v, 'f_cat')) === J(['パスガード']));
-  ck('マークは値ではなく表示名で探せる（対象にしたとき用）', J(R.searchText(v, 'mark')) === J(['⭐ お気に入り']));
+  ck('マークの検索の文字は v.tg.mark の値そのまま（v52.876。古い欄 v.fav は読まない）', J(R.searchText(v, 'mark')) === J(['お気に入り']));
   const raw = R.raw(); raw.groups.find(g => g.id === 'f_cat').search = false; R.applyRemote(raw);
   ck('「検索の対象にしない」にしたグループは外れる', !R.searchIds().includes('f_cat') && R.searchIds().includes('f_tb'));
   const org = code['js/organize.js'];
@@ -217,21 +219,32 @@ console.log('── ⑪ 残りの場所（段階3c-3）──');
   const edit = notes.slice(notes.indexOf('window._notesVlEdit'), notes.indexOf('window._notesVlSaveFilter'));
   ck('★ ノートの動画リストを編集で開くとき、新しいグループの条件も渡す（渡さないと保存で消える）', /snap\[g\.id\] = \[\.\.\._TF\.selected\(f, g\.id, 'lib'\)\]/.test(edit));
   ck('ノートの動画リストの条件の要約に、新しいグループの条件も出す', /_vlSummary[\s\S]{0,900}g\.store === 'map'/.test(notes));
-  ck('統合フィルターのタグのタブは、枠に新しいグループ（段階5 からマーク・習得も）だけでも出る', /_R0\.slots\(\)\.some\(g => g && \(\['map', 'mark', 'status'\]\.includes\(g\.store\)/.test(uf));
+  ck('統合フィルターのタグのタブは、枠に新しいグループ（マーク・習得も map）だけでも出る', /_R0\.slots\(\)\.some\(g => g && \(g\.store === 'map'/.test(uf));
   ck('Journal の候補・動画パネルの検索メニューは allTagValues（新しいグループも入る）',
     /tagRegistry\.allTagValues\(v\)/.test(rd('js/murmurs.js')) && /tagRegistry\.allTagValues\(v\)/.test(rd('js/vpanel.js')) && typeof R.allTagValues === 'function');
   const A = { id: 'x', tb: ['T'], tags: ['K', 'T'], tg: { zz: ['M'] } };
-  ck('allTagValues は重複を1つにし、マーク・習得を含めない', J(R.allTagValues(Object.assign({ fav: true, status: '理解' }, A))) === J(['T', 'K']));
+  ck('allTagValues は重複を1つにし、古い欄（v.fav / v.status）は読まない', J(R.allTagValues(Object.assign({ fav: true, status: '理解' }, A))) === J(['T', 'K']));
 }
 
-console.log('── ⑫ マーク・習得も枠に入れられる（段階5）──');
+console.log('── ⑫ マーク・習得は普通のタググループ（v52.876）──');
 {
   const rd = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
   const vp = rd('js/vpanel-v4.js'), uf = rd('js/unified-filter.js');
-  ck('★ 動画パネルのマークは、今の ★/Next/ドリル のボタンと同じ処理を呼ぶ（連動を保つ）', /\{ fav: 'qFav', next: 'qNext', drill: 'qDrill' \}\[val\]/.test(vp));
-  ck('習得は今の習得のボタンと同じ処理（1本に1つ・外す操作は無い）', /if \(on && v\.status !== val\) \{ if \(window\.vpSetStatus\) window\.vpSetStatus\(v\.id, val\)/.test(vp));
-  ck('絞り込みの列は今までと同じ仕組み（@fav/@next/@drill・status）で絞る', /key: '@' \+ k/.test(uf) && /filterKey: 'status'/.test(uf));
-  ck('マーク・習得は、名前の変更・削除・まとめる の対象にしない（tag-ops.js）', /const _editable = g => !!g && \(FIELDS\.includes\(g\.store\) \|\| g\.store === 'map'\)/.test(rd('js/tag-ops.js')));
+  ck('動画パネルはマーク・習得を専用の処理で書かない（qFav・vpSetStatus を呼ばない）', !/qFav|qNext|qDrill|vpSetStatus/.test(vp));
+  ck('統合フィルターにマーク・習得の専用の列が無い（@fav/@next/@drill・status の専用の行）', !/'@fav'|'@next'|'@drill'|_markCol|_statusCol|STATUS_CANON/.test(uf));
+  ck('マーク・習得も、名前の変更・削除・まとめる の対象（tag-ops.js は map を書き換えてよい）', /const _editable = g => !!g && \(FIELDS\.includes\(g\.store\) \|\| g\.store === 'map'\)/.test(rd('js/tag-ops.js')) && R.group('mark').store === 'map');
+  // 以前の保存形式の条件（書き換えずに読む）
+  const vids = [
+    { id: 'a', tg: { mark: ['お気に入り'], status: ['理解'] } },
+    { id: 'b', tg: { mark: ['Next'] } },
+    { id: 'c' },
+  ];
+  const hit = (cond, sch) => vids.filter(TF.compile(cond, sch)).map(v => v.id).join(',');
+  ck('以前のカスタムリストの条件 favOnly:true → マーク「お気に入り」の動画', hit({ favOnly: true }, 'fc') === 'a', hit({ favOnly: true }, 'fc'));
+  ck('以前のスナップショット _nextOnly:true → マーク「Next」の動画', hit({ _nextOnly: true }, 'lib') === 'b', hit({ _nextOnly: true }, 'lib'));
+  ck('以前の習得の選択 status:[理解] → 習得「理解」の動画', hit({ status: ['理解'] }, 'lib') === 'a');
+  ck('以前の習得の選択「未着手」→ 習得のタグが付いていない動画', hit({ status: ['未着手'] }, 'org') === 'b,c', hit({ status: ['未着手'] }, 'org'));
+  ck('以前の条件の形は書き換えない（読むだけ）', (() => { const c = { favOnly: true, status: ['理解'] }; const b = J(c); TF.compile(c, 'fc'); TF.selected(c, 'mark', 'fc'); return J(c) === b; })());
 }
 
 console.log('── ⑬ 未使用のタググループの条件（設定で選べる）──');

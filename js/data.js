@@ -25,33 +25,8 @@ export function debounceSave() {
   _autoSaveTimer = setTimeout(_runSave, 600);
 }
 
-export function qFav(id) {
-  const v = window.videos?.find(v => v.id === id);
-  if (!v) return;
-  v.fav = !v.fav;
-  // Fav OFF → Next も自動OFF
-  if (!v.fav && v.next) v.next = false;
-  window.AF(); window.toast(v.fav ? '⭐ お気に入り追加' : 'お気に入り解除');
-  debounceSave();
-}
 
-export function qNext(id) {
-  const v = window.videos?.find(v => v.id === id);
-  if (!v) return;
-  v.next = !v.next;
-  // Next ON → Fav も自動ON
-  if (v.next && !v.fav) v.fav = true;
-  window.AF(); window.toast(v.next ? '🎯 Next に追加' : 'Next 解除');
-  debounceSave();
-}
 
-export function qDrill(id) {
-  const v = window.videos?.find(v => v.id === id);
-  if (!v) return;
-  v.drill = !v.drill;
-  window.AF(); window.toast(v.drill ? '🟣 Drill に追加' : 'Drill 解除');
-  debounceSave();
-}
 
 export function qWatch(id) {
   const v = window.videos?.find(v => v.id === id);

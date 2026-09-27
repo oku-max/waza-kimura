@@ -42,9 +42,6 @@ export function toggleSidebar() {
 
 export function syncSidebarChipStates() {
   const f = window.filters || {};
-  (window.STATUS_CANON || []).forEach(v => {
-    const el  = document.getElementById('fs-stat-' + v);  if (el)  el.classList.toggle('active', f.status?.has(v));
-  });
   ['今すぐ','そのうち','保留'].forEach(v => {
     const el  = document.getElementById('fs-prio-' + v);  if (el)  el.classList.toggle('active', f.prio?.has(v));
   });
@@ -227,10 +224,7 @@ function _sbContextVideos(filterKey, f) {
     if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
     if (!_tagOk(v)) return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
-    if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;
     // org固有フィルター（Library側では該当Setが空なので無影響）
-    if (filterKey !== 'fav'          && f?.fav?.size          && !f.fav.has(v.fav ? '★ お気に入り' : '☆ 未お気に入り'))  return false;
-    if (filterKey !== 'next'         && f?.next?.size         && !f.next.has(v.next ? '🎯 Next' : '○ 未設定'))           return false;
     if (filterKey !== 'counter'      && f?.counter?.size) {
       const _pc = v.practice || 0;
       const _cv = _pc === 0 ? '未練習' : _pc <= 3 ? '1〜3回' : _pc <= 10 ? '4〜10回' : '11回以上';
@@ -272,7 +266,7 @@ function _sbPickerRenderList(containerId, filterKey, q) {
 
   // 件数を出すときに効いている条件（_sbContextVideos と同じもの）がほかにあるか。
   // タグはどの呼び名で入っていても数える（以前は古い呼び名だけ見ていて、絞っているのに「全チャンネル」と出ていた）
-  const hasOtherFilter = ['platform','channel','playlist','prio','status','fav','next','counter','memo','addedAtFilter','durationFilter']
+  const hasOtherFilter = ['platform','channel','playlist','prio','counter','memo','addedAtFilter','durationFilter']
     .some(k => k !== filterKey && f?.[k]?.size > 0) || !!window.tagFilter?.hasAny(f, 'lib');
   const secLabel = filterKey === 'channel'
     ? (hasOtherFilter ? `絞り込み結果のチャンネル (${allItems.length}件)` : '全チャンネル')

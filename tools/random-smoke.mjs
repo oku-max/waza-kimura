@@ -143,10 +143,13 @@ await page.locator('#rnd-cfg-done').click();
 await page.waitForTimeout(150);
 await setScope('view');
 check('いま画面に出ている＝2本', await page.evaluate(() => window.__pool().length) === 2);
-await setScope('fav');
-check('お気に入り＝1本', await page.evaluate(() => window.__pool().length) === 1);
-await setScope('drill');
-check('Drill＝1本', await page.evaluate(() => window.__pool().length) === 1);
+// お気に入り・Next・Drill の範囲は v52.876 で廃止（普通のタグになった）
+await page.locator('#rnd-range').click();
+await page.waitForTimeout(200);
+check('範囲にお気に入り・Next・Drill が無い',
+  (await page.locator('[data-rnd-scope="fav"], [data-rnd-scope="next"], [data-rnd-scope="drill"]').count()) === 0);
+await page.locator('#rnd-cfg-done').click();
+await page.waitForTimeout(200);
 
 // ── 範囲はタグではなく「どこから選ぶか」だけ ──
 // タグの欄は v52.716「ランダムに1本: タグ絞り込みをやめる」で廃止した。
@@ -179,14 +182,13 @@ check('見るで再生に渡す', ['b','c'].includes(await page.evaluate(() => w
 check('再生で閉じる', await page.locator('#rnd-modal.open').count() === 0);
 
 // ── 該当なし ──
-// 以前は「お気に入り」×タグ(パスガード)の掛け合わせで0件にしていた。
-// タグの欄が廃止された今、お気に入りは1本あるので0件にならない。
-// シードに1本も無い「Next」を使う。
+// 画面に1本も出ていない状態で「いま画面に出ている」から選ぶ（以前は範囲「Next」で0件にしていた。v52.876 で廃止）
+await page.evaluate(() => { window.filteredVideos = []; });
 await page.locator('#rnd-btn').click();
 await page.waitForTimeout(200);
 await page.locator('#rnd-range').click();
 await page.waitForTimeout(200);
-await page.locator('[data-rnd-scope="next"]').click();
+await page.locator('[data-rnd-scope="view"]').click();
 await page.locator('#rnd-cfg-done').click();
 await page.waitForTimeout(250);
 check('該当なしでも落ちずに案内を出す', await page.locator('.rnd-none').count() === 1,
@@ -196,7 +198,16 @@ check('該当なしでも落ちずに案内を出す', await page.locator('.rnd-
 await page.reload({ waitUntil:'domcontentloaded' });
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000 });
 check('設定がこの端末に残る',
-  (await page.evaluate(() => window._rndGetCfg())).scope === 'next',
+  (await page.evaluate(() => window._rndGetCfg())).scope === 'view',
+  (await page.evaluate(() => window._rndGetCfg())).scope);
+
+// もう無い範囲（fav）が保存されていても、既定の範囲で開く（保存は書き換えない）
+await page.evaluate(k => { const c = JSON.parse(localStorage.getItem(k) || '{}'); c.scope = 'fav'; localStorage.setItem(k, JSON.stringify(c)); }, 'wk_rndCfg');
+await page.reload({ waitUntil:'domcontentloaded' });
+await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000 });
+check('もう無い範囲が保存されていても既定の範囲で開く',
+  (await page.evaluate(() => window._rndGetCfg())).scope === 'unplayed'
+  && (await page.evaluate(k => JSON.parse(localStorage.getItem(k) || '{}').scope, 'wk_rndCfg')) === 'fav',
   (await page.evaluate(() => window._rndGetCfg())).scope);
 check('動画のデータに書き込まない',
   await page.evaluate(() => !localStorage.getItem('wk_cv_views') && !localStorage.getItem('waza_videos')));

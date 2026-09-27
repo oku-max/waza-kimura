@@ -72,14 +72,11 @@
   function _ctxVideos(excludeKey) {
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
-    const fav   = isOrg ? window.orgFavOnly     : window.favOnly;
     const unw   = isOrg ? window.orgUnwOnly     : window.unwOnly;
     const wat   = isOrg ? window.orgWatchedOnly : window.watchedOnly;
     const bm    = isOrg ? window.orgBmOnly      : window.bmOnly;
     const memo  = isOrg ? window.orgMemoOnly    : window.memoOnly;
     const img   = isOrg ? window.orgImgOnly     : window.imgOnly;
-    const next  = isOrg ? window.orgNextOnly    : window.nextOnly;
-    const drill = isOrg ? window.orgDrillOnly   : window.drillOnly;
     // タグの条件は1回だけ組み立てる。excludeKey がタグの列（tb/cat/pos/tags）ならそのグループだけ外す
     const _exGid = ['tb','cat','pos','tags'].includes(excludeKey) ? _gidC(excludeKey) : (excludeKey ? _TF().gidForKey(excludeKey, _sch()) : null);
     const _tagOk = _TF().compile(f, _sch(), { except: _exGid });
@@ -93,9 +90,6 @@
         const hay = [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ');
         if (!hay.includes(_vidTabQ)) return false;
       }
-      if (excludeKey !== 'fav'  && fav   && !v.fav)   return false;
-      if (excludeKey !== 'next' && next  && !v.next)  return false;
-      if (excludeKey !== 'drill'&& drill && !v.drill) return false;
       if (excludeKey !== 'unw' && unw && v.watched) return false;
       if (excludeKey !== 'wat' && wat && !v.watched) return false;
       if (excludeKey !== 'bm'  && bm  && !(v.bm || (v.bookmarks && v.bookmarks.length))) return false;
@@ -104,7 +98,6 @@
       if (excludeKey !== 'platform' && f.platform?.size && !f.platform.has(v.pt || v.src || 'youtube')) return false;
       if (excludeKey !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
       if (excludeKey !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                       return false;
-      if (excludeKey !== 'status'   && f.status?.size   && !f.status.has(v.status))                     return false;
       if (excludeKey !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                         return false;
       if (!_tagOk(v)) return false;
       if (excludeKey !== 'videoIds' && f.videoIds?.size   && !f.videoIds.has(v.id)) return false;
@@ -323,20 +316,17 @@
   function _hasActiveFilters() {
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
-    return (isOrg ? window.orgFavOnly  : window.favOnly)  ||
-           (isOrg ? window.orgNextOnly : window.nextOnly) ||
-           (isOrg ? window.orgBmOnly   : window.bmOnly)   ||
+    return (isOrg ? window.orgBmOnly   : window.bmOnly)   ||
            (isOrg ? window.orgMemoOnly : window.memoOnly) ||
            (isOrg ? window.orgImgOnly  : window.imgOnly)  ||
            (isOrg ? window.orgPrRank   : window.prRank) != null ||
            !!(isOrg ? window.orgPrDate : window.prDate)  ||
-           ['platform','channel','playlist','status','videoIds'].some(k => f[k]?.size > 0) ||
+           ['platform','channel','playlist','videoIds'].some(k => f[k]?.size > 0) ||
            _TF().hasAny(f, _sch());
   }
 
   // ── 該当動画カラム ──
   function _mkVideoCol() {
-    const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
     const raw = _ctxVideos(null);
 
     const sorted = [...raw].sort((a, b) => {
@@ -381,8 +371,6 @@
       const thumb = thumbSrc
         ? `<img src="${thumbSrc}"${gdAttr} loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\\'font-size:12px;color:var(--text3)\\'>▶</span>'">`
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
-      const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
-      const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
       const isAdded = isAddMode && addedIds.has(v.id);
       const onclick = (!isAdded && !isCvCond) ? `window._uniVideoClick('${_esc(v.id)}')` : '';
       const rowClass = isAddMode
@@ -397,7 +385,7 @@
         <div class="uni-vc-thumb">${thumb}</div>
         <div class="uni-vc-info">
           <div class="uni-vc-title">${_esc(v.title||'')}</div>
-          <div class="uni-vc-meta">${_esc(v.channel||v.ch||'')}${sMark}</div>
+          <div class="uni-vc-meta">${_esc(v.channel||v.ch||'')}</div>
         </div>${indicator}
       </div>`;
     }).join('');
@@ -466,9 +454,7 @@
     const c = ctx || _ctx;
     const isOrg = c === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
-    const stateN = ((isOrg ? window.orgFavOnly : window.favOnly) ? 1 : 0)
-      + ((isOrg ? window.orgNextOnly : window.nextOnly) ? 1 : 0)
-      + ((isOrg ? window.orgBmOnly : window.bmOnly) ? 1 : 0)
+    const stateN = ((isOrg ? window.orgBmOnly : window.bmOnly) ? 1 : 0)
       + ((isOrg ? window.orgMemoOnly : window.memoOnly) ? 1 : 0)
       + ((isOrg ? window.orgImgOnly : window.imgOnly) ? 1 : 0)
       + ((isOrg ? window.orgPrRank : window.prRank) != null ? 1 : 0)
@@ -490,7 +476,7 @@
     // タグのタブは、枠に出すグループが1つでもあれば出す（新しいタググループだけでも出す）
     const _R0 = window.tagRegistry;
     const _tagTabVisible = _R0
-      ? _R0.slots().some(g => g && (['map', 'mark', 'status'].includes(g.store) || (['tb', 'cat', 'pos', 'tags'].includes(g.store) && _tsTabVis(g.store))))
+      ? _R0.slots().some(g => g && (g.store === 'map' || (['tb', 'cat', 'pos', 'tags'].includes(g.store) && _tsTabVis(g.store))))
       : (_tsTabVis('tb') || _tsTabVis('cat') || _tsTabVis('pos') || _tsTabVis('tags'));
     const _visibleMain = MAIN.filter(m => m.k !== 'tag' || _tagTabVisible);
     tabsEl.innerHTML = _visibleMain.map(m =>
@@ -507,23 +493,13 @@
     };
 
     if (_tab === 'state') {
-      // ══ 1列目: マーク + 進捗ランク + 最終カウント日 (統合) ══
+      // ══ 1列目: ブックマーク・メモ・画像 + 進捗ランク + 最終カウント日 (統合) ══
+      // マーク（★・Next・ドリル）と習得は v52.876 から普通のタググループ。タグのタブで絞る。
       const markItems = [
-        { name:'★ お気に入り',   cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!(isOrg ? window.orgFavOnly : window.favOnly),     key:'@fav'   },
-        { name:'🎯 Next',      cnt:_ctxVideos('next').filter(v=>v.next).length,                                         sel:!!(isOrg ? window.orgNextOnly : window.nextOnly),   key:'@next'  },
-        { name:'🟣 ドリル',    cnt:_ctxVideos('drill').filter(v=>v.drill).length,                                       sel:!!(isOrg ? window.orgDrillOnly : window.drillOnly), key:'@drill' },
         { name:'📌 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),       key:'@bm'    },
         { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!(isOrg ? window.orgMemoOnly : window.memoOnly), key:'@memo'},
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
-
-      const STATUS_MANUAL = window.STATUS_CANON || [];
-      const sCtx = _ctxVideos('status');
-      const statusItems = STATUS_MANUAL.map(s => ({
-        name: s, cnt: sCtx.filter(v => window.normStatus(v.status) === s).length,
-        sel: (isOrg ? window.orgFilters : window.filters)?.status?.has(s) || false,
-        key: s
-      }));
 
       const RANKS = window.RANK_DEFS || [];
       const rankCtx = _ctxVideos('prRank');
@@ -563,13 +539,6 @@
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('${r.key}','')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
         ).join('');
 
-        let statusArr = statusItems.slice();
-        if (_q) statusArr = statusArr.filter(r => r.name.toLowerCase().includes(_q));
-        statusArr = statusArr.filter(r => r.sel || r.cnt > 0);
-        const statusRows = statusArr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('status','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
-        ).join('');
-
         let rankArr = rankItems.slice();
         if (_q) rankArr = rankArr.filter(r => r.name.toLowerCase().includes(_q));
         rankArr = rankArr.filter(r => r.sel || r.cnt > 0);
@@ -585,13 +554,10 @@
         ).join('');
 
         const colVis    = window.filterColVis || {};
-        const showMark   = colVis.mark   !== false;
-        const showStatus = colVis.status !== false;
         const showRank   = colVis.rank   !== false;
 
         const sections = [];
-        if (showMark)   sections.push(`${grpLabel('マーク')}${markRows}`);
-        if (showStatus) sections.push(`${grpLabel('習得度（手動）')}${statusRows}`);
+        if (markRows) sections.push(markRows);
         if (showRank) {
           sections.push(`${grpLabel('カウント（自動）')}${rankRows}`);
           sections.push(`${grpLabel('最終カウント日')}${pdRows}`);
@@ -599,8 +565,7 @@
           sections.push(`${grpLabel('最終カウント日')}${pdRows}`);
         }
 
-        const hdrParts = [showMark&&'マーク', showStatus&&'習得', showRank&&'カウント'].filter(Boolean);
-        const colHdr   = hdrParts.length ? hdrParts.join('・') : '最終カウント日';
+        const colHdr   = 'その他';
 
         return `<div class="uni-col">
           <div class="uni-col-hdr"><span>${colHdr}</span></div>
@@ -768,19 +733,8 @@
       const _FIELDS = ['tb', 'cat', 'pos', 'tags'];
       const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
       const _R = window.tagRegistry;
-      const _gs = (_R ? _R.slots() : []).filter(g => g && (_FIELDS.includes(g.store) || ['map', 'mark', 'status'].includes(g.store)))
+      const _gs = (_R ? _R.slots() : []).filter(g => g && (_FIELDS.includes(g.store) || g.store === 'map'))
         .filter(g => !_FIELDS.includes(g.store) || _tsV(g.store));
-      // マーク・習得の列（段階5）: 絞り込みは今までと同じ仕組み（★/Next/ドリル＝@fav/@next/@drill、習得＝status）
-      const _markCol = g => {
-        const on = { fav: isOrg ? window.orgFavOnly : window.favOnly, next: isOrg ? window.orgNextOnly : window.nextOnly, drill: isOrg ? window.orgDrillOnly : window.drillOnly };
-        const items = ['fav', 'next', 'drill'].map(k => ({ name: _R.optionLabel(g, k), key: '@' + k, cnt: _ctxVideos(k).filter(v => v[k]).length, sel: !!on[k] }));
-        return _colHtml(_esc(g.name), 'mark', items, { rowKeys: true, sortable: false, userText: true });
-      };
-      const _statusCol = g => {
-        const sCtx = _ctxVideos('status'), fs = (isOrg ? window.orgFilters : window.filters) || {};
-        const items = (window.STATUS_CANON || []).map(s => ({ name: s, cnt: sCtx.filter(v => window.normStatus(v.status) === s).length, sel: !!fs.status?.has(s) }));
-        return _colHtml(_esc(g.name), 'status', items, { filterKey: 'status', sortable: false, userText: true });
-      };
       const _mkItems = (g, src, ctx) => {
         const sel = _TF().selected(f, g.id, _sch());   // どの呼び名で入っていても選択として見せる
         const names = src.slice();
@@ -794,8 +748,6 @@
         });
       };
       const tagCols = _gs.map(g => {
-        if (g.store === 'mark') return _markCol(g);
-        if (g.store === 'status') return _statusCol(g);
         const listKey = _FIELDS.includes(g.store) ? g.store : g.id;   // 並べ替えの記憶（今の4つは今までどおり）
         const src = g.store === 'tags'
           ? [...new Set(_allVids.filter(v => !v.archived).flatMap(v => _TF().valuesOf(v, g.id)))].filter(Boolean).sort()
@@ -811,17 +763,11 @@
 
     // ── Pills ──
     const pills = [];
-    const _fav   = isOrg ? window.orgFavOnly   : window.favOnly;
     const _bm    = isOrg ? window.orgBmOnly    : window.bmOnly;
     const _memo  = isOrg ? window.orgMemoOnly  : window.memoOnly;
     const _img   = isOrg ? window.orgImgOnly   : window.imgOnly;
     const _prR   = isOrg ? window.orgPrRank    : window.prRank;
     const _prD   = isOrg ? window.orgPrDate    : window.prDate;
-    const _next  = isOrg ? window.orgNextOnly  : window.nextOnly;
-    const _drill = isOrg ? window.orgDrillOnly : window.drillOnly;
-    if (_fav)   pills.push(['@fav',   '★ お気に入り']);
-    if (_next)  pills.push(['@next',  '🎯 Next']);
-    if (_drill) pills.push(['@drill', '🟣 ドリル']);
     if (_bm)   pills.push(['@bm',   '📌 ブックマーク']);
     if (_memo) pills.push(['@memo', '💬 メモ']);
     if (_img)  pills.push(['@img',  '🖼 画像あり']);
@@ -953,11 +899,8 @@
     Object.keys(f).forEach(k => {
       snap[k] = f[k] instanceof Set ? [...f[k]] : f[k];
     });
-    snap._favOnly = !!window.favOnly;
     snap._unwOnly = !!window.unwOnly;
     snap._watchedOnly = !!window.watchedOnly;
-    snap._nextOnly = !!window.nextOnly;
-    snap._drillOnly = !!window.drillOnly;
     snap._bmOnly = !!window.bmOnly;
     snap._memoOnly = !!window.memoOnly;
     snap._prRank = window.prRank ?? null;
@@ -992,11 +935,8 @@
     _TF().fromPlain(snap, f, 'lib', 'lib');
     if (of) _TF().fromPlain(snap, of, 'lib', 'org');
     // boolean/スカラー系は snap に無ければ既定値へ確実にリセットする。
-    window.favOnly     = !!snap._favOnly;
     window.unwOnly     = !!snap._unwOnly;
     window.watchedOnly = !!snap._watchedOnly;
-    window.nextOnly    = !!snap._nextOnly;
-    window.drillOnly   = !!snap._drillOnly;
     window.bmOnly      = !!snap._bmOnly;
     window.memoOnly    = !!snap._memoOnly;
     window.prRank = snap._prRank ?? null;
@@ -1083,14 +1023,11 @@
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const refresh = isOrg ? () => window.renderOrg?.() : () => { window.AF?.(); window.buildSidebarFovRows?.(); };
     // 擬似ブール系
-    if (key === '@fav')  { isOrg ? window.togOrgFav?.()     : window.togFav?.();     _render(); return; }
-    if (key === '@next') { isOrg ? window.togOrgNext?.()    : window.togNext?.();    _render(); return; }
     if (key === '@unw')  { isOrg ? window.togOrgUnw?.()     : window.togUnw?.();     _render(); return; }
     if (key === '@wat')  { isOrg ? window.togOrgWatched?.() : window.togWatched?.(); _render(); return; }
     if (key === '@bm')   { isOrg ? window.togOrgBm?.()      : window.togBm?.();      _render(); return; }
     if (key === '@memo') { isOrg ? window.togOrgMemo?.()    : window.togMemo?.();    _render(); return; }
     if (key === '@img')   { isOrg ? window.togOrgImg?.()    : window.togImg?.();     _render(); return; }
-    if (key === '@drill') { isOrg ? window.togOrgDrill?.()  : window.togDrill?.();   _render(); return; }
     if (key === '@rank') {
       if (isOrg) { window.orgPrRank = (String(window.orgPrRank) === String(val)) ? null : String(val); }
       else       { window.prRank    = (String(window.prRank)    === String(val)) ? null : String(val); }

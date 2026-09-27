@@ -78,7 +78,6 @@
   window.vpCounterSectionHTML = function (id, opts) {
     const v = _findV(id);
     if (!v) return '';
-    const fav = (opts && 'fav' in opts) ? opts.fav : v.fav;
     const p = v.practice || 0;
     const lastP = v.lastPracticed ? window.vpCntFormatAgo(v.lastPracticed) : '—';
     const month = _countThisMonth(v.practiceLog);
@@ -87,39 +86,9 @@
     const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
     const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
     const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
-    const next = v.next || false;
-    const status = window.normStatus(v.status);
-    const sMap = { '未着手':'s0', '理解':'s1', '練習中':'s2', 'マスター':'s3' };
-    const sLabels = window.STATUS_CANON || [];
-    const sNum    = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
-    const sIcons  = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
-    const statusChips = sLabels.map(s =>
-      `<span class="vp-chip${status===s?' on-'+sMap[s]:''}" onclick="vpSetStatus('${id}','${s}',this)">${sNum[s]}${sIcons[s]} ${s}</span>`
-    ).join('');
     // filterColVis による条件表示
     const _fcv      = window.filterColVis || {};
-    const _showMark   = _fcv.mark   !== false;
-    const _showStatus = _fcv.status !== false;
     const _showRank   = _fcv.rank   !== false;
-    const favSec  = _showMark ? `
-    <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
-      <div style="${subTitle}">お気に入り</div>
-      <div style="display:flex;align-items:center;justify-content:center;height:28px">
-        <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700;line-height:1" title="お気に入り">★</span>
-      </div>
-    </div>
-    <div style="flex:0 0 auto;padding-right:14px;display:flex;flex-direction:column;align-items:center">
-      <div style="${subTitle}">Next</div>
-      <div style="display:flex;align-items:center;justify-content:center;height:28px">
-        <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;font-weight:700;line-height:1" title="Next">${next?'🎯':'○'}</span>
-      </div>
-    </div>
-    <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
-      <div style="${subTitle}">ドリル</div>
-      <div style="display:flex;align-items:center;justify-content:center;height:28px">
-        <span id="vp-drill-${id}" onclick="vpTogDrill('${id}',this)" style="cursor:pointer;line-height:0;opacity:${v.drill?'1':'0.35'}" title="Drill">${v.drill?'<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>':'<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>'}</span>
-      </div>
-    </div>` : '';
     const cntSec  = _showRank ? `
     <div style="flex:1;min-width:0">
       <div style="${subTitle}">カウンター</div>
@@ -130,18 +99,14 @@
       </div>
       <div id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b style="color:${pColor}">${lastP}</b>${month>0?` · 今月 ${month}回`:''}${st>1?` · 連続 ${st}日 🔥`:''}</div>
     </div>` : '';
-    const statusSec = _showStatus ? `
-  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-    <div style="${subTitle}">習得度</div>
-    <div class="vp-chips" id="vp-status-chips-${id}">${statusChips}</div>
-  </div>` : '';
-    // hideTop: お気に入り/NEXT/ドリル/カウンターの上段はパネルでは描画しない（三点メニューへ移設）
+    // hideTop: カウンターの上段はパネルでは描画しない（三点メニューへ移設）。
+    // マーク（お気に入り/Next/ドリル）と習得度の欄は v52.876 で廃止（普通のタグになり、タグ欄に出る）
     const topRow = (opts && opts.hideTop) ? ''
-      : ((favSec || cntSec) ? `<div style="display:flex;gap:14px;align-items:flex-start">${favSec}${cntSec}</div>` : '');
-    if (!topRow && !statusSec) return `<div id="vp-cnt-sec-${id}"></div>`;
+      : (cntSec ? `<div style="display:flex;gap:14px;align-items:flex-start">${cntSec}</div>` : '');
+    if (!topRow) return `<div id="vp-cnt-sec-${id}"></div>`;
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
-  ${topRow}${statusSec}
+  ${topRow}
 </div>`;
   };
 
@@ -195,23 +160,6 @@
     _debouncedSave();
   };
 
-  // ── 習得度 設定 ──
-  window.vpSetStatus = function (id, val, el) {
-    const v = _findV(id);
-    if (!v) return;
-    v.status = val;
-    const container = document.getElementById('vp-status-chips-' + id);
-    if (container) {
-      const sMap = { '未着手':'s0', '理解':'s1', '練習中':'s2', 'マスター':'s3' };
-      container.querySelectorAll('.vp-chip').forEach(c => {
-        c.className = 'vp-chip';
-        const label = c.textContent.trim();
-        if (label === val) c.classList.add('on-' + sMap[val]);
-      });
-    }
-    _debouncedSave();
-    window.toast?.(`習得度を「${val}」に設定しました`);
-  };
 
   // 視聴カウント機能は廃止 (練習回数のみで管理)
   window.vpCntTrackView     = function () {};

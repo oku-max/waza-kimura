@@ -1698,6 +1698,7 @@ export function openVPanel(id) {
 
 // ── プレイリスト並べ替え状態 ──
 let _vplSortKey = localStorage.getItem('wk_vplSortKey') || 'addedAt';
+if (_vplSortKey === 'status') _vplSortKey = 'addedAt';   // 習得度の並べ替えは v52.876 で廃止（保存値は消さない）
 let _vplSortAsc = (() => { const v = localStorage.getItem('wk_vplSortAsc'); return v === null ? false : v === 'true'; })();
 
 function _vplSort(list) {
@@ -1712,8 +1713,6 @@ function _vplSort(list) {
       va = a.addedAt; vb = b.addedAt;
     } else if (key === 'title') {
       va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
-    } else if (key === 'status') {
-      va = window.statusRank(a.status); vb = window.statusRank(b.status);
     } else if (key === 'lastPlayed') {
       va = a.lastPlayed || 0; vb = b.lastPlayed || 0;
     } else if (key === 'duration') {
@@ -1755,7 +1754,6 @@ function _vplSortRow() {
     <select class="vpl-sort-sel" onchange="vplSetSort(this.value)" style="width:110px;font-size:10px;padding:3px 5px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
       <option value="addedAt"${_vplSortKey==='addedAt'?' selected':''}>追加日</option>
       <option value="title"${_vplSortKey==='title'?' selected':''}>タイトル</option>
-      <option value="status"${_vplSortKey==='status'?' selected':''}>習得度</option>
       <option value="lastPlayed"${_vplSortKey==='lastPlayed'?' selected':''}>最近再生した</option>
       <option value="duration"${_vplSortKey==='duration'?' selected':''}>再生時間</option>
     </select>
@@ -6627,7 +6625,7 @@ export function buildDrawerHTML(id) {
   if (!v) return '';
 
   return `
-    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav, hideTop: true }) : ''}
+    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { hideTop: true }) : ''}
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
       <div class="vp-row">
@@ -7132,31 +7130,8 @@ export function vpTogWatch(id, el) {
   autoSaveVp(id);
 }
 
-export function vpTogFav(id, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.fav = !v.fav;
-  if (el) el.style.color = v.fav ? '#d4a017' : 'var(--text3)';
-  autoSaveVp(id);
-}
 
-export function vpTogNext(id, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.next = !v.next;
-  if (el) el.textContent = v.next ? '🎯' : '○';
-  autoSaveVp(id);
-}
 
-export function vpTogDrill(id, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.drill = !v.drill;
-  if (el) {
-    const on  = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
-    const off = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
-    el.innerHTML = v.drill ? on : off;
-    el.style.opacity = v.drill ? '1' : '0.4';
-  }
-  autoSaveVp(id);
-}
 
 export function vpSetShare(id, val, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
@@ -8336,14 +8311,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (key === 'f') {
-    e.preventDefault();
-    const id = window.openVPanelId;
-    // お気に入りUIは三点メニューへ移設したのでパネル要素には依存せず直接トグル
-    vpTogFav(id);
-    window.toast?.((window.videos||[]).find(v=>v.id===id)?.fav ? '⭐ お気に入りに追加' : 'お気に入りを解除');
-    return;
-  }
+  // f（お気に入り）のキーは v52.876 で廃止（お気に入りは普通のタグになった）
 
   if (key === 'j' || key === 'k') {
     e.preventDefault();
@@ -8549,14 +8517,6 @@ window.vpTogMoreMenu = function(e, id) {
   const searchSvg  = mkSvg('<path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>');
   const editSvg    = mkSvg('<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>');
   const driveSvg   = mkSvg('<path d="M7.71 3.5L1.15 15l3.43 5.5h15.84l3.43-5.5L18.29 3.5H7.71zm.71 9.5l3.58-6h4l3.58 6H8.42z"/>');
-  const favSvg     = mkSvg('<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>');
-  // NEXT / ドリル はアプリ本来のマーク（🎯 / 紫DRILLバッジ）に合わせ、オン/オフで切替
-  const nextIcon   = (on) => on
-    ? `<span style="font-size:16px;line-height:1">🎯</span>`
-    : `<span style="font-size:15px;line-height:1;color:var(--text3)">○</span>`;
-  const drillIcon  = (on) => on
-    ? `<svg width="26" height="15" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`
-    : `<svg width="26" height="15" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
   const cntSvg     = mkSvg('<path d="M4 9h4v11H4zM10 4h4v16h-4zM16 13h4v7h-4z"/>');
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
@@ -8664,28 +8624,8 @@ window.vpTogMoreMenu = function(e, id) {
 
   addDivider();
 
-  // ── お気に入り / NEXT / ドリル（トグル）＋ カウンター（ステッパー）──
-  // 旧パネル下部の行を三点メニューへ移設。いずれもユーザー明示操作で v.* をトグル/増減し autoSaveVp。
-  const _mkToggle = (icon, label, getOn, toggleFn) => {
-    const iconFn = (typeof icon === 'function') ? icon : () => icon;
-    const on0 = !!getOn();
-    const it = _menuItem(iconFn(on0), label, on0 ? 'オン' : 'オフ');
-    if (on0) it.classList.add('vp-smenu-on');
-    const sub = it.querySelector('.vp-smenu-sub');
-    const iconBox = it.querySelector('.vp-smenu-icon');
-    it.onclick = () => {
-      toggleFn();
-      const on = !!getOn();
-      it.classList.toggle('vp-smenu-on', on);
-      sub.textContent = on ? 'オン' : 'オフ';
-      if (iconBox) iconBox.innerHTML = iconFn(on);
-      animItem(it);
-    };
-    menu.appendChild(it);
-  };
-  _mkToggle(favSvg,    'お気に入り', () => vObj.fav,   () => vpTogFav(id));
-  _mkToggle(nextIcon,  'NEXT',      () => vObj.next,  () => vpTogNext(id));
-  _mkToggle(drillIcon, 'ドリル',     () => vObj.drill, () => vpTogDrill(id));
+  // ── カウンター（ステッパー）──
+  // お気に入り・NEXT・ドリルの切り替えは v52.876 で廃止（普通のタグになり、タグ欄で付け外しする）
 
   // カウンター（練習回数）: −/数字/＋。＋/−でメニューは閉じない。
   const cntBtnS = 'width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:15px;font-weight:700;color:var(--text2);padding:0;font-family:inherit;line-height:1;flex-shrink:0';

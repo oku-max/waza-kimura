@@ -164,7 +164,7 @@
   const _has = (v, g, val) => R().valuesOf(v, g.id).includes(val);
   const _set = (v, g, val, on) => window.wkSetTagValue(v, g.id, val, on);
   const _q = s => '「<b data-user-text="1">' + _esc(s) + '</b>」';
-  // 書き換えてよいのは今の4つと新しいタググループだけ（マーク・習得は★ボタン・習得の表示と結びついている）
+  // 書き換えてよいのは今の4つと新しいタググループ（マーク・習得も v52.876 から普通のタググループ＝map）
   const _editable = g => !!g && (FIELDS.includes(g.store) || g.store === 'map');
 
   // 選択肢から外し、動画からも外す

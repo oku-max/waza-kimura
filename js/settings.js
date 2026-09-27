@@ -517,7 +517,7 @@ export function applyRemoteAppearance(data) {
 loadAppearanceSettings();
 
 // ══ フィルターカラム表示設定 ══
-export let filterColVis = { mark: true, status: true, rank: true };
+export let filterColVis = { rank: true };
 (function _loadFilterColVis() {
   try {
     const s = localStorage.getItem('wk_filterColVis');
@@ -542,8 +542,6 @@ export function saveFilterColVis() {
 function _renderFilterColSettings() {
   const el = document.getElementById('filter-col-settings'); if (!el) return;
   const items = [
-    { key: 'mark',   label: 'マーク',   desc: 'お気に入り・ブックマーク・Next など' },
-    { key: 'status', label: '習得',     desc: '習得度（手動設定: 未着手 / 理解 / 練習中 / マスター）' },
     { key: 'rank',   label: 'カウント', desc: '練習回数・最終カウント日' },
   ];
   el.innerHTML = items.map(item => `

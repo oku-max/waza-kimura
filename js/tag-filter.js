@@ -26,6 +26,8 @@
     tags: { lib: 'tags',   org: 'tags',     fc: 'tech', url: 'tech', alias: ['tags', 'tech'] },
   };
   const FIELDS = Object.keys(FIELD_KEYS);
+  // 以前のマークの保存形式（真偽値）→ マークの値
+  const LEGACY_MARK = [[['favOnly', '_favOnly'], 'お気に入り'], [['nextOnly', '_nextOnly'], 'Next'], [['drillOnly', '_drillOnly'], 'ドリル']];
   const SCHEMES = ['lib', 'org', 'fc', 'url'];
 
   const R = () => window.tagRegistry;
@@ -89,6 +91,10 @@
       if (!s) return;
       _vals(s).forEach(v => { if (v != null && v !== '') out.add(v); });
     });
+    // v52.876: マークは普通のタググループ（ID mark）。以前の「お気に入りだけ」等の保存形式も、
+    // マークの値の選択として読む（カスタムリストの条件・ノートの動画リスト・スナップショット。書き換えない）。
+    // 習得（ID status）は、以前の呼び名 'status' が今のグループIDと同じなので、そのまま読める。
+    if (gid === 'mark') LEGACY_MARK.forEach(([keys, val]) => { if (keys.some(k => obj[k] === true)) out.add(val); });
     return out;
   }
   // 書き込む先の Set（無ければ作る）。古い呼び名に入っていた分はここへ寄せる。
@@ -118,7 +124,8 @@
   function _hit(v, gid, sel, allowBlank) {
     if (!sel.size) return true;
     const vals = R() ? R().valuesOf(v, gid) : (Array.isArray(v[fieldOf(gid)]) ? v[fieldOf(gid)] : []);
-    if (!vals.length) return !!allowBlank && sel.has('(空白)');
+    // 以前の習得の条件「未着手」＝習得のタグが付いていない動画（v52.876 から未着手はタグにしない）
+    if (!vals.length) return (!!allowBlank && sel.has('(空白)')) || (gid === 'status' && sel.has('未着手'));
     return vals.some(x => sel.has(x));
   }
   // すべてのタグの絞り込みに当たるかを判定する関数を作る（グループ同士は AND、グループの中は OR）。

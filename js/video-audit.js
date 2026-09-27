@@ -163,7 +163,7 @@
         thumb: md.thumb || (ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : ''),
         ch: md.channel || '', channel: md.channel || '', pl: '',
         addedAt: today, duration: md.duration || 0,
-        watched: false, fav: false, status: '未着手',
+        watched: false,
         prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
         tb: tt.tb, cat: tt.cat, pos: tt.pos, tags: tt.tags,
       });

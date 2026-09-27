@@ -161,7 +161,8 @@ ck('非表示のグループは「非表示中」と出て、「表示する」�
 await expand('mark');
 const mk = await ev(q => ({ disabled: document.getElementById('ts-slot-mark')?.disabled, x: document.querySelectorAll(q + '[data-act="rmopt"][data-gid="mark"]').length,
   add: !!document.getElementById('ts-add-mark'), edit: document.querySelectorAll(q + '[data-act="edit"][data-gid="mark"]').length }), Q);
-ck('マーク: 使う場所は選べる（段階5）・選択肢は固定（× も追加欄も名前の変更も無い）', mk.disabled === false && mk.x === 0 && !mk.add && !mk.edit, mk);
+ck('マーク: 普通のタググループ（v52.876）。使う場所を選べ、選択肢も足す・外す・名前を変えられる', mk.disabled === false && mk.x === 3 && mk.add && mk.edit === 3, mk);
+ck('マーク: 選択肢が固定という説明が出ない', !(await ev(q => [...document.querySelectorAll(q + '.ts-hint')].some(e => /固定|fixed/i.test(e.textContent)), Q)));
 
 console.log('\n── ドラッグで並べ替え（タグ1〜4の行）──');
 {

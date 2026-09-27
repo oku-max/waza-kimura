@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.875</title>
+<title>WAZA KIMURA v52.876</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -125,7 +125,7 @@
   } from './js/youtube.js';
   window.parseYtTimestamps = parseYtTimestamps;
   window.fetchMissingVimeoDurations = fetchMissingVimeoDurations;
-  import { debounceSave, qFav, qNext, qDrill, qWatch, archOne, setPrio } from './js/data.js';
+  import { debounceSave, qWatch, archOne, setPrio } from './js/data.js';
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderNotes } from './js/notes.js';
   window.renderNotes = renderNotes;
@@ -147,7 +147,7 @@
     filterColVis, saveFilterColVis
   } from './js/settings.js';
   import {
-    togF, togPlat, togFav, togNext, togDrill, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
+    togF, togPlat, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
     filterPresets, orgFilterPresets, saveFilterPresets, saveOrgFilterPresets,
     resetFilters, updateResetBtn, loadFilterPresetsFromRemote,
     filt, cntBadge, countContextual,
@@ -165,7 +165,7 @@
     vpAdjustBmField, vpSetBmFieldToCurrent, vpSetBmEndFromStart, vpClearBmEnd, vpSetActiveBmField,
     togVpDrawer, buildDrawerHTML,
     openVpPlaylistOp, vpPlOvConfirm, vpPlOvConfirmNew, vpRemoveFromPl, updateVpPlBadge,
-    vpTogWatch, vpTogFav, vpTogNext, vpTogDrill, vpSetShare, vpSaveMemo, autoSaveVp, vpSave,
+    vpTogWatch, vpSetShare, vpSaveMemo, autoSaveVp, vpSave,
     vpTogChannelDd, vpRenderChannelDdList, vpSetChannel,
     vpTogPlNameDd, vpRenderPlNameDdList, vpSetPlName,
     vpDdSubtab,
@@ -266,9 +266,6 @@
   window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
   // data
   window.debounceSave            = debounceSave;
-  window.qFav                    = qFav;
-  window.qNext                   = qNext;
-  window.qDrill                  = qDrill;
   window.qWatch                  = qWatch;
   window.archOne                 = archOne;
   window.setPrio                 = setPrio;
@@ -287,8 +284,7 @@
     // タグは呼び名が lib（tbNew/cat/posNew/tags）と org（tb/action/position/tags）で違う。
     // 読み替えは tag-filter.js だけが持つ（ここを同名コピーしていた頃はタグがビュー間で消えていた）。
     const TF = window.tagFilter;
-    const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['drillOnly','orgDrillOnly'],
-                   ['unwOnly','orgUnwOnly'],['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],
+    const PAIRS = [['unwOnly','orgUnwOnly'],['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],
                    ['memoOnly','orgMemoOnly'],['imgOnly','orgImgOnly'],['prRank','orgPrRank'],['prDate','orgPrDate']];
     const f  = window.filters    || {};
     const of = window.orgFilters || {};
@@ -417,9 +413,6 @@
   // filter
   window.togF                  = togF;
   window.togPlat               = togPlat;
-  window.togFav                = togFav;
-  window.togNext               = togNext;
-  window.togDrill              = togDrill;
   window.togUnw                = togUnw;
   window.togWatched            = togWatched;
   window.togBm                 = togBm;
@@ -513,9 +506,6 @@
   window.vpRemoveFromPl        = vpRemoveFromPl;
   window.updateVpPlBadge       = updateVpPlBadge;
   window.vpTogWatch            = vpTogWatch;
-  window.vpTogFav              = vpTogFav;
-  window.vpTogNext             = vpTogNext;
-  window.vpTogDrill            = vpTogDrill;
   window.vpSetShare            = vpSetShare;
   window.vpSaveMemo            = vpSaveMemo;
   window.initSnapshotSection   = initSnapshotSection;
@@ -673,6 +663,7 @@
     let k = 'addedAt', a = null;
     try {
       k = localStorage.getItem('wk_sortKey') || 'addedAt';
+      if (k === 'status') k = 'addedAt';   // 習得度の並べ替えは v52.876 で廃止（習得は普通のタグ）。保存値は消さない
       a = localStorage.getItem('wk_sortAsc');
     } catch (e) { console.warn('[sort] 読み込めませんでした:', e); }
     window.sortKey = k;
@@ -1369,7 +1360,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         <select id="sort-key-org-pc" onchange="window.orgSortCol=this.value||null;window.orgSortAsc=true;window.renderOrg?.()" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
           <option value="addedAt">追加日</option>
           <option value="title">タイトル</option>
-          <option value="status">習得度</option>
           <option value="lastPlayed">最近再生した</option>
         </select>
         <button onclick="window.orgSortAsc=!(window.orgSortAsc!==false);this.textContent=window.orgSortAsc!==false?'↑':'↓';window.renderOrg?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
@@ -1386,7 +1376,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
       <!-- ═ 統合フィルターパネル 3ボタン ═ -->
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('state','org')">
-          <span>マーク・習得 <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
+          <span>その他 <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('src','org')">
@@ -1474,7 +1464,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
             <!-- アコーディオンフィルター -->
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('state')">
-                <span><span data-i18n="sb.state">マーク・習得</span> <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
+                <span><span data-i18n="sb.state">その他</span> <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('src')">
@@ -1534,7 +1524,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
           <select id="sort-key" onchange="_setSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
             <option value="addedAt" data-i18n="sort.addedAt">追加日</option>
             <option value="title" data-i18n="sort.title">タイトル</option>
-            <option value="status" data-i18n="sort.status">習得度</option>
             <option value="lastPlayed" data-i18n="sort.lastPlayed">最近再生した</option>
             <option value="duration" data-i18n="sort.duration">再生時間</option>
           </select>
@@ -2192,13 +2181,12 @@ const TRENDING=[];
 const plVids={};
 
 let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tags:new Set(),platform:new Set(),channel:new Set(),videoIds:new Set()};
-let favOnly=false,unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
+let unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
 let selIds=new Set(),openPlayer=null;
 // ES Module側からアクセスできるようwindowに公開
-window.filters=filters; window.favOnly=false; window.unwOnly=false; window.watchedOnly=false;
+window.filters=filters; window.unwOnly=false; window.watchedOnly=false;
 window.bulkMode=false; window.bulkCtx='home'; window.selIds=selIds;
-// favOnly等はプリミティブなので setter経由で同期
-Object.defineProperty(window,'favOnly',{get:()=>favOnly,set:v=>{favOnly=v;}});
+// unwOnly等はプリミティブなので setter経由で同期
 Object.defineProperty(window,'unwOnly',{get:()=>unwOnly,set:v=>{unwOnly=v;}});
 Object.defineProperty(window,'watchedOnly',{get:()=>watchedOnly,set:v=>{watchedOnly=v;}});
 Object.defineProperty(window,'bulkMode',{get:()=>bulkMode,set:v=>{bulkMode=v;}});
@@ -2268,7 +2256,7 @@ function renderComm(){
   document.getElementById('userList').innerHTML=CUSERS.map(u=>`<div class="profile-card"><div class="avatar">🥋</div><div style="flex-shrink:0;margin-right:4px"><div class="belt-strip ${u.belt}" style="width:26px"></div></div><div style="flex:1"><div style="font-size:13px;font-weight:800;margin-bottom:2px">${u.name}</div><div style="font-size:10px;color:var(--text3)">${BELT_L[u.belt]} | ${u.gym} | ${u.vids}本公開 | フォロワー${u.fols}</div></div><button class="follow-btn ${u.following?'on':''}" onclick="togFollow('${u.id}',this)">${u.following?'フォロー中':'フォロー'}</button></div>`).join('');
 }
 function togFollow(uid,el){const u=CUSERS.find(u=>u.id===uid);if(!u)return;u.following=!u.following;el.className='follow-btn'+(u.following?' on':'');el.textContent=u.following?'フォロー中':'フォロー';toast(u.following?`${u.name} をフォローしました`:`${u.name} のフォローを解除`);}
-function saveComm(vid,pt,title){if((window.videos||[]).some(v=>v.id===vid)){toast('すでにライブラリにあります');return;}window.videos.push({id:vid,pt,title,ch:'',pl:'コミュニティから保存',tb:[],cat:[],pos:[],tags:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});window.AF?.();window.saveUserData?.();toast('✅ ライブラリに保存しました');}
+function saveComm(vid,pt,title){if((window.videos||[]).some(v=>v.id===vid)){toast('すでにライブラリにあります');return;}window.videos.push({id:vid,pt,title,ch:'',pl:'コミュニティから保存',tb:[],cat:[],pos:[],tags:[],prio:'保留',memo:'',watched:false,archived:false,shared:0,ai:''});window.AF?.();window.saveUserData?.();toast('✅ ライブラリに保存しました');}
 
 // 旧・動画の編集シート（openEdit〜delEdit, #editOv）は v52.846 で削除。画面が無く、呼び出し元も無かった。編集は動画パネルで行う。
 
@@ -2906,8 +2894,8 @@ function addUrls() {
       ch: manualCh || p.ch || '', pl: manualPl || p.pl || '未分類',
       tb: tg.tb || [], cat: tg.cat || [], pos: tg.pos || [], tags: tg.tags || [],
       ...(tg.tg ? { tg: tg.tg } : {}),
-      prio: urlPrio, fav: false, memo: '', watched: false,
-      status: '未着手', archived: false, shared: 0, ai: ''
+      prio: urlPrio, memo: '', watched: false,
+      archived: false, shared: 0, ai: ''
     };
     if (p.vmHash) vid.vmHash = p.vmHash;
     if (p.thumb) vid.thumb = p.thumb;
@@ -3148,7 +3136,7 @@ function tV(id,el){impSel.has(id)?(impSel.delete(id),el.classList.remove('sel'),
 function selAllV(){const pvids=(plVids[impPl]||[]).filter(v=>!videos.some(e=>e.id===v.id));const all=pvids.every(v=>impSel.has(v.id));pvids.forEach(v=>{const el=document.getElementById(`vs-${v.id}`);if(all){impSel.delete(v.id);el?.classList.remove('sel');if(el)el.querySelector('.vid-chk').textContent='';}else{impSel.add(v.id);el?.classList.add('sel');if(el)el.querySelector('.vid-chk').textContent='✓';}});updS3();}
 function updS3(){const b=document.getElementById('toS3');b.disabled=!impSel.size;b.textContent=impSel.size?`${impSel.size}本を取り込む`:'動画を選択してください';}
 function goBS1(){document.getElementById('is2').style.display='none';document.getElementById('is1').style.display='block';document.getElementById('step1').className='step active';document.getElementById('step2').className='step';}
-function goS3(){document.getElementById('is2').style.display='none';document.getElementById('is3').style.display='block';document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';document.getElementById('impPr').style.display='block';document.getElementById('impDn').style.display='none';document.getElementById('impSt').textContent=`${impPl} から ${impSel.size} 本を取り込んでいます...`;document.getElementById('impSb').textContent='AIで自動タグ付けを実行中...';const fill=document.getElementById('pFill');fill.style.width='0%';let p=0;const t=setInterval(()=>{p+=Math.random()*18+7;if(p>=100){p=100;clearInterval(t);(plVids[impPl]||[]).filter(v=>impSel.has(v.id)).forEach(v=>{if(!(window.videos||[]).some(e=>e.id===v.id))window.videos.push({id:v.id,pt:'youtube',title:v.title,ch:v.ch,pl:impPl,tb:[],cat:[],pos:[],tags:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});});setTimeout(()=>{document.getElementById('impPr').style.display='none';document.getElementById('impDn').style.display='block';document.getElementById('impDT').textContent=`${impSel.size}本を取り込みました。テーブルビューからタグを設定してください。`;window.AF?.();window.saveUserData?.();},300);}fill.style.width=p+'%';},150);}
+function goS3(){document.getElementById('is2').style.display='none';document.getElementById('is3').style.display='block';document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';document.getElementById('impPr').style.display='block';document.getElementById('impDn').style.display='none';document.getElementById('impSt').textContent=`${impPl} から ${impSel.size} 本を取り込んでいます...`;document.getElementById('impSb').textContent='AIで自動タグ付けを実行中...';const fill=document.getElementById('pFill');fill.style.width='0%';let p=0;const t=setInterval(()=>{p+=Math.random()*18+7;if(p>=100){p=100;clearInterval(t);(plVids[impPl]||[]).filter(v=>impSel.has(v.id)).forEach(v=>{if(!(window.videos||[]).some(e=>e.id===v.id))window.videos.push({id:v.id,pt:'youtube',title:v.title,ch:v.ch,pl:impPl,tb:[],cat:[],pos:[],tags:[],prio:'保留',memo:'',watched:false,archived:false,shared:0,ai:''});});setTimeout(()=>{document.getElementById('impPr').style.display='none';document.getElementById('impDn').style.display='block';document.getElementById('impDT').textContent=`${impSel.size}本を取り込みました。テーブルビューからタグを設定してください。`;window.AF?.();window.saveUserData?.();},300);}fill.style.width=p+'%';},150);}
 
 function closeOv(id){
   document.getElementById(id).classList.remove('open');
@@ -3358,6 +3346,7 @@ window.wazaImport = async function(input) {
     // （ユーザーは直前のダイアログで本数を見たうえで承知している）
     window._wkDeleteIntent?.(Math.max(0, (window.videos || []).length - (data.videos || []).length));
     window.videos = data.videos;
+    window.tagRegistry?.migrateMarkStatus?.(window.videos);   // 古いバックアップのマーク・習得もタグへ写す（足すだけ）
     await window.saveUserData?.();
 
     // 設定を復元
@@ -3534,14 +3523,6 @@ function cardCyclePrio(id, el) {
     {val:'今すぐ', label:'🔴 今すぐ'},
     {val:'そのうち', label:'🟡 そのうち'},
     {val:'保留', label:'⚪ 保留'}
-  ]);
-}
-function cardCycleProg(id, el) {
-  cardShowPicker(id, el, 'status', [
-    {val:'未着手',  label:'1.📋 未着手'},
-    {val:'理解',    label:'2.📖 理解'},
-    {val:'練習中',  label:'3.🔄 練習中'},
-    {val:'マスター', label:'4.⭐ マスター'}
   ]);
 }
 function cardShowPicker(id, el, field, opts) {

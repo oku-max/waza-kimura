@@ -26,30 +26,16 @@ export function buildBulkDrawerHTML() {
   const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // ── マーク section (VPanel counter と同じ構造) ──
-  const favCount = selVids.filter(v=>v.fav).length;
-  const nextCount = selVids.filter(v=>v.next).length;
-  const favOn = favCount > 0;
-  const nextOn = nextCount > 0;
+  // ── カウント section ──
+  // お気に入り・Next・習得度の欄は v52.876 で廃止（普通のタグになり、下のタグの欄で付け外しする）
   const p = (() => { const vals = selVids.map(v=>v.practice||0); return vals.every(v=>v===vals[0]) ? vals[0]+'回' : '（複数）'; })();
   const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
   const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
   const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
   // filterColVis
   const _fcv      = window.filterColVis || {};
-  const _showMark   = _fcv.mark   !== false;
-  const _showStatus = _fcv.status !== false;
   const _showRank   = _fcv.rank   !== false;
 
-  const _favNextSec = _showMark ? `
-      <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
-        <div style="${subTitle}">お気に入り</div>
-        <span onclick="bvpToggleFav(this)" style="cursor:pointer;font-size:20px;color:${favOn?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
-      </div>
-      <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
-        <div style="${subTitle}">Next</div>
-        <span onclick="bvpToggleNext(this)" style="cursor:pointer;font-size:16px;font-weight:700" title="Next">${nextOn?'🎯':'○'}</span>
-      </div>` : '';
   const _cntSec = _showRank ? `
       <div style="flex:1;min-width:0">
         <div style="${subTitle}">カウント</div>
@@ -60,29 +46,11 @@ export function buildBulkDrawerHTML() {
           <button onclick="bvpResetCounter()" class="chip" style="cursor:pointer;font-size:10px;color:var(--text3)">0にリセット</button>
         </div>
       </div>` : '';
-  const markSec = (_favNextSec || _cntSec) ? `<div class="fsec">
+  const markSec = _cntSec ? `<div class="fsec">
     <div style="display:flex;gap:14px;align-items:flex-start">
-      ${_favNextSec}${_cntSec}
+      ${_cntSec}
     </div>
   </div>` : '';
-
-  // ── 習得度 section ──
-  const STATUS_LABELS = window.STATUS_CANON || [];
-  const STATUS_MAP    = {'未着手':'s0','理解':'s1','練習中':'s2','マスター':'s3'};
-  const _normSt = window.normStatus;
-  const commonStatus  = selVids.length && selVids.every(v=>_normSt(v.status)===_normSt(selVids[0]?.status)) ? _normSt(selVids[0]?.status) : null;
-  const STATUS_NUM  = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
-  const STATUS_ICONS2 = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
-  const progChips = STATUS_LABELS.map(s => {
-    const on = s === commonStatus;
-    const sc = STATUS_MAP[s];
-    return `<span class="vp-chip${on?' on-'+sc:''}" style="cursor:pointer" onclick="bvpSet('status','${s}',this)">${STATUS_NUM[s]}${STATUS_ICONS2[s]} ${s}</span>`;
-  }).join('');
-  const progSec = `<div class="fsec">
-    <div class="fsec-title">習得度</div>
-    <div class="vp-chips" id="bvp-prog">${progChips}</div>
-    ${commonStatus===null ? '<div style="font-size:9px;color:var(--text3);margin-top:4px">（複数の値）</div>' : ''}
-  </div>`;
 
   // ── チャンネル・プレイリスト section ──
   const commonCh = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
@@ -170,7 +138,7 @@ export function buildBulkDrawerHTML() {
       </button>
     </div>` : '';
 
-  return markSec + (_showStatus ? progSec : '') + srcSec + tagSec
+  return markSec + srcSec + tagSec
   + _aiBulkSec
   + `<div style="padding:4px 0;display:flex;gap:8px">
       <button onclick="bulkDo('archive')"
@@ -285,7 +253,7 @@ export function bvpSet(field, val, el) {
   bulkSnapshot();
   const ids = [...(window.selIds||new Set())];
   const videos = window.videos || [];
-  const fieldMap = { prio:'prio', status:'status' };
+  const fieldMap = { prio:'prio' };
   const f = fieldMap[field] || field;
   ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v[f]=val; });
   // チップ状態更新（chip active トグル — VPanelと同じ）
@@ -310,34 +278,7 @@ export function bvpToggleWatch(el) {
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
-export function bvpToggleFav(el) {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
-  const favCount=vids.filter(v=>v.fav).length;
-  const setTo = favCount < vids.length/2;
-  vids.forEach(v=>v.fav=setTo);
-  el.textContent = setTo ? '★ Fav' : '☆ Fav';
-  el.classList.toggle('active', setTo);
-  el.classList.toggle('c-fav', setTo);
-  window.toastUndo?.((window.selIds||new Set()).size+'本をFav'+(setTo?'追加':'解除'), bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
 
-export function bvpToggleNext(el) {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
-  const nextCount=vids.filter(v=>v.next).length;
-  const setTo = nextCount < vids.length/2;
-  vids.forEach(v=>v.next=setTo);
-  el.textContent = setTo ? '🎯' : '○';
-  el.classList.toggle('active', setTo);
-  window.toastUndo?.((window.selIds||new Set()).size+'本のNextを'+(setTo?'ON':'OFF'), bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
 
 export function bvpBumpCounter(delta) {
   bulkSnapshot();
@@ -483,7 +424,7 @@ export function bulkSnapshot(){
   const videos = window.videos || [];
   // 新しいタググループの値（v.tg）は、持っている動画だけ写す（全動画に項目を書き足さない）
   (window.bulkUndoStack||[]).push(videos.map(v=>{
-    const s={id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],pl:v.pl,channel:v.channel,archived:v.archived};
+    const s={id:v.id,prio:v.prio,watched:v.watched,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],pl:v.pl,channel:v.channel,archived:v.archived};
     if (v.tg && typeof v.tg === 'object') s.tg = JSON.parse(JSON.stringify(v.tg));
     return s;
   }));
@@ -637,13 +578,6 @@ export function bulkSetPrio(val){
   window.AF?.(); window.toast?.('✅ '+ids.length+'本 → Priority: '+val);
 }
 
-export function bulkSetProg(val){
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.status=val;});
-  window.AF?.(); window.toast?.('✅ '+ids.length+'本 → Progress: '+val);
-}
 
 // ═══ BULK PLAYLIST OPERATIONS ═══
 
@@ -742,8 +676,6 @@ export function bulkDo(type){
   bulkSnapshot();
   if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('✅ '+ids.length+'本を視聴済みに', bulkUndo);}
   else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();window.debounceSave?.();window.toastUndo?.('👁 '+ids.length+'本を未視聴に戻した', bulkUndo);}
-  else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('⭐ '+ids.length+'本をお気に入りに追加', bulkUndo);}
-  else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();window.debounceSave?.();window.toastUndo?.('☆ '+ids.length+'本のお気に入りを解除', bulkUndo);}
   else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('📦 '+ids.length+'本をアーカイブ', bulkUndo);}
   else if(type==='delete'){
     window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', async () => {
@@ -778,8 +710,6 @@ window.closeBulkVPanel = closeBulkVPanel;
 window.buildBulkDrawerHTML = buildBulkDrawerHTML;
 window.bvpSet = bvpSet;
 window.bvpToggleWatch = bvpToggleWatch;
-window.bvpToggleFav = bvpToggleFav;
-window.bvpToggleNext = bvpToggleNext;
 window.bvpBumpCounter = bvpBumpCounter;
 window.bvpResetCounter = bvpResetCounter;
 window.bvpChSuggest = bvpChSuggest;
@@ -807,7 +737,6 @@ window.updBulk = updBulk;
 window.selAll = selAll;
 window.selNone = selNone;
 window.bulkSetPrio = bulkSetPrio;
-window.bulkSetProg = bulkSetProg;
 window.openBulkPlOp = openBulkPlOp;
 window.bulkPlConfirm = bulkPlConfirm;
 window.bulkPlConfirmNew = bulkPlConfirmNew;

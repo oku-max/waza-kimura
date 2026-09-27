@@ -600,7 +600,7 @@ async function _runImport() {
       pl:       playlist,
       thumb:    '',
       addedAt:  new Date().toISOString().slice(0, 10),
-      watched:  false, fav: false, status: '未着手',
+      watched:  false,
       prio:     'そのうち', shared: 0, archived: false, memo: '', ai: '',
       isQR:     false,
       duration: it.duration || 0,

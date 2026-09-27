@@ -6,7 +6,7 @@
 // 動画には触らない（マージ・削除・「動画からも外す」「ここに寄せる」は段階4。先にバックアップと取り消しを付ける）。
 // 書き込み先: 今の4つ（tb/cat/pos/tags）の名前・選択肢・表示は tagSettings（settings.js の入口）、
 //             それ以外（枠・検索の対象・マーク／習得／新しいグループの名前と選択肢）は一覧（tag-registry.js）。
-// マーク・習得を枠に入れるのと「初期設定に戻す」は段階3c（マークを表示する仕組みが先に要るため）。
+// マーク・習得は v52.876 から普通のタググループ（選択肢も自由に足し引きできる）。
 // 文言にユーザーのデータ（グループ名・値）を埋め込まない。別の要素に分ける（訳せるように・名前を訳さないように）。
 (function () {
   'use strict';
@@ -15,7 +15,6 @@
   const R = () => window.tagRegistry;
   const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const _isField = g => FIELDS.includes(g.store);
-  const _fixed = g => g.store === 'mark' || g.store === 'status';   // 選択肢が固定のグループ
   const _vis = g => { if (!_isField(g)) return true; const t = (window.tagSettings || []).find(x => x.key === g.store); return t ? t.visible !== false : true; };
 
   // 画面の状態（保存しない）
@@ -24,7 +23,6 @@
   // ── 集計 ──
   // 要確認: 選択肢に無いのに動画に付いている値（件数つき）と、ほかのグループにもある名前
   function _issues(g, all) {
-    if (_fixed(g)) return { ghosts: [], dupes: [], n: 0 };
     const opts = new Set(g.options);
     const cnt = new Map();
     (window.videos || []).forEach(v => {
@@ -32,7 +30,7 @@
       R().valuesOf(v, g.id).forEach(t => { if (t && !opts.has(t)) cnt.set(t, (cnt.get(t) || 0) + 1); });
     });
     const ghosts = [...cnt.entries()].sort((a, b) => b[1] - a[1]);
-    const dupes = g.options.map(v => ({ v, in: all.filter(o => o.id !== g.id && !_fixed(o) && o.options.includes(v)) })).filter(d => d.in.length);
+    const dupes = g.options.map(v => ({ v, in: all.filter(o => o.id !== g.id && o.options.includes(v)) })).filter(d => d.in.length);
     return { ghosts, dupes, n: ghosts.length + dupes.length };
   }
 
@@ -84,7 +82,7 @@
     const open = S.exp === g.id;
     const iss = _issues(g, all);
     const hidden = !_vis(g);
-    const n = _fixed(g) ? g.options.length : g.options.length;
+    const n = g.options.length;
     let h = (grip ? `<div class="ts-slotrow">${grip}` : '') + `<button class="ts-row" data-act="exp" data-key="${_esc(g.id)}">`
       + (k >= 0 ? `<span class="ts-num">${_t('タグ' + (k + 1))}</span>` : `<span class="ts-num off">${_t('未使用')}</span>`)
       + `<span class="ts-name" data-user-text="1">${_esc(g.name)}</span>`
@@ -95,7 +93,7 @@
     return h;
   }
 
-  // 空いている枠: 入れるグループを選ぶ（段階5 からマーク・習得も入れられる）
+  // 空いている枠: 入れるグループを選ぶ
   function _slotPicker(k, all) {
     const cands = all.filter(g => g.slot < 0);
     let h = `<div class="ts-p">${_t('タグ' + (k + 1) + 'に使うタググループを選んでください。')}</div><div class="ts-chips">`;
@@ -127,19 +125,17 @@
     }
 
     // 選択肢
-    h += `<div class="ts-lbl ts-mt">${_t('選択肢 ' + g.options.length + '個')}${_fixed(g) ? '' : `<span class="ts-right">${_t('名前を押すと変更・×で外す')}</span>`}</div><div class="ts-optwrap">`;
+    h += `<div class="ts-lbl ts-mt">${_t('選択肢 ' + g.options.length + '個')}<span class="ts-right">${_t('名前を押すと変更・×で外す')}</span></div><div class="ts-optwrap">`;
     g.options.forEach(o => {
       const lbl = R().optionLabel(g, o);
-      h += `<span class="ts-opt">` + (_fixed(g) || ro ? `<span data-user-text="1">${_esc(lbl)}</span>`
+      h += `<span class="ts-opt">` + (ro ? `<span data-user-text="1">${_esc(lbl)}</span>`
           : `<button class="ts-optname" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(o)}" data-user-text="1">${_esc(lbl)}</button>`)
-        + (_fixed(g) || ro ? '' : `<button aria-label="×" data-act="rmopt" data-gid="${_esc(g.id)}" data-v="${_esc(o)}">×</button>`)
+        + (ro ? '' : `<button aria-label="×" data-act="rmopt" data-gid="${_esc(g.id)}" data-v="${_esc(o)}">×</button>`)
         + `</span>`;
     });
     if (!g.options.length) h += `<span class="ts-dim">${_t('まだありません')}</span>`;
     h += `</div>`;
-    if (_fixed(g)) {
-      h += `<div class="ts-hint">${_t('マークと習得の選択肢は固定です（★・Next のボタンや習得の表示と結びついているため）。')}</div>`;
-    } else if (!ro) {
+    if (!ro) {
       h += `<div class="ts-addrow"><input id="ts-add-${_esc(g.id)}" placeholder="${_t('選択肢を追加...')}" aria-label="${_t('選択肢を追加...')}" data-key="add" data-gid="${_esc(g.id)}">`
         + `<button class="ts-gold" data-act="addopt" data-gid="${_esc(g.id)}">${_t('追加')}</button></div>`;
     }
@@ -190,7 +186,7 @@
     // そのほかの操作
     if (!ro) {
       h += `<div class="ts-ops">`;
-      if (!_fixed(g)) h += `<button class="ts-mini" data-act="copy" data-gid="${_esc(g.id)}">${_t('ほかから選択肢をコピー')}</button>`;
+      h += `<button class="ts-mini" data-act="copy" data-gid="${_esc(g.id)}">${_t('ほかから選択肢をコピー')}</button>`;
       if (g.def) h += `<button class="ts-mini" data-act="defone" data-gid="${_esc(g.id)}">${_t('初期値に戻す')}</button>`;
       h += `</div>`;
     }
@@ -200,7 +196,7 @@
 
   function _copyBox(T, all) {
     const c = S.copy;
-    const srcs = all.filter(o => o.id !== T.id && !_fixed(o) && o.options.length);
+    const srcs = all.filter(o => o.id !== T.id && o.options.length);
     let h = `<div class="ts-confirm"><p>${_t('どのタググループからコピーしますか？ 動画のタグには触りません。')}</p><div class="ts-chips">`;
     srcs.forEach(o => { h += `<button class="ts-chip${c.from === o.id ? ' on' : ''}" data-act="copyfrom" data-gid="${_esc(o.id)}" data-user-text="1">${_esc(o.name)}</button>`; });
     if (!srcs.length) h += `<span class="ts-dim">${_t('ありません')}</span>`;
@@ -283,7 +279,7 @@
     const inp = document.getElementById('ts-add-' + gid);
     const v = (inp && inp.value || '').trim();
     if (!v || g.options.includes(v)) return;
-    const others = R().groups().filter(o => o.id !== gid && !_fixed(o) && o.options.includes(v)).map(o => o.name);
+    const others = R().groups().filter(o => o.id !== gid && o.options.includes(v)).map(o => o.name);
     _addOpt(g, v);
     S.addNote = others.length ? { gid, v, in: others } : null;
     _after();
