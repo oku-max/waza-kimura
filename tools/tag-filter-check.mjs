@@ -130,7 +130,8 @@ ck('1 詳細検索の「タグ」: 照合側が tech も受ける', /fields\.tag
 const uf = code['js/unified-filter.js'];
 ck('2 統合フィルターの検索語: 本物の検索（_matchQuery）で判定する', /window\._matchQuery\(v, parsed, null\)/.test(uf) && !/\.\.\.\(v\.tags \|\| \[\]\)\.map\(t => t\.toLowerCase\(\)\)/.test(uf));
 ck('3 URL: タグ1〜3の選択も URL に残る（tag-filter.js の呼び名で書く）', /_TF\.selected\(window\.filters, g\.id, 'lib'\)/.test(filterJs));
-ck('4 整理の表の件数: 整理の表の条件で数える', /countContextual\(filterKey, v, isOrg \? 'org' : 'lib'\)/.test(code['js/filter-overlay.js']) && /ctx === 'org' && window\.orgFilt/.test(filterJs));
+// 旧オーバーレイ（この不具合が出ていた画面）は v52.873 で削除。数える側（countContextual）の org の枝だけを見る
+ck('4 整理の表の件数: 整理の表の条件で数える', /ctx === 'org' && window\.orgFilt/.test(filterJs) && !/countContextual\(filterKey, v, isOrg/.test(code['js/filter-overlay.js']));
 // 段階4 からタグリセットは js/tag-ops.js（動画パネル・まとめて編集と共通）。描き直しもそこで行う
 ck('5 タグリセット: 存在しない vpRefreshChips を呼ばず、タグ欄を描き直す', !/vpRefreshChips\s*\?*\.?\(/.test(code['js/vpanel.js']) && /window\.vpV4Rerender\?\.\(window\.openVPanelId\)/.test(fs.readFileSync(path.join(ROOT, 'js/tag-ops.js'), 'utf8')) && /window\.vpV4Rerender\s*=/.test(code['js/vpanel-v4.js']));
 ck('6 「ほかに絞り込み中か」: どの呼び名のタグも数える', /window\.tagFilter\?\.hasAny\(f, 'lib'\)/.test(code['js/filter-overlay.js']) && !/\['platform','channel','playlist','tb','action','position','tags'\]/.test(code['js/filter-overlay.js']));

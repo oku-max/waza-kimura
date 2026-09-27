@@ -836,7 +836,7 @@ export async function saveUserSettings() {
   const payload = {
     tagSettings:       window.tagSettings       || [],
     aiSettings:        window.aiSettings        || {},
-    // savedSearches(保存した検索条件)はカスタムビューに統合し廃止。payload から除外することで
+    // 「保存した検索条件」はカスタムビューに統合し廃止。payload から除外することで
     // 次回の settings 保存(.set)時に Firestore 側のフィールドごと削除される（v52.594）。
     filterPresets:     window.filterPresets     || [],
     orgColOrder:       window.orgColOrder       || [],

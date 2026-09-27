@@ -174,8 +174,6 @@
 #uni-popup .uni-ss-cnt{font-size:10px;color:var(--text3);flex-shrink:0}
 #uni-popup .uni-ss-dots{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;font-weight:700}
 #uni-popup .uni-ss-dots:hover{background:var(--surface3);color:var(--text)}
-#uni-popup .uni-ss-pop{display:none;position:absolute;right:8px;top:100%;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;padding:6px 0;font-size:12px}
-#uni-popup .uni-ss-pop.open{display:block}
 #uni-popup .uni-ss-reorder{display:flex;gap:4px;padding:6px 14px}
 #uni-popup .uni-ss-reorder button{flex:1;padding:5px 0;border-radius:6px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;font-weight:600;color:var(--text2);font-family:inherit}
 #uni-popup .uni-ss-reorder button:hover{background:var(--surface2);border-color:var(--accent);color:var(--accent)}
@@ -1122,57 +1120,9 @@
   window.uniSyncBadges = function () { _syncSidebarBadges(_badges()); };
 
   // ── 保存した検索条件: UI操作 ──
-  function _closeSSMenus() {
-    document.querySelectorAll('.uni-ss-pop.open').forEach(p => p.classList.remove('open'));
-  }
-  window.uniSSMenu = function (idx, btn, e) {
-    e.stopPropagation();
-    const pop = document.getElementById('uni-ss-pop-' + idx);
-    const wasOpen = pop?.classList.contains('open');
-    _closeSSMenus();
-    if (!wasOpen && pop) pop.classList.add('open');
-  };
   let _currentSavedName = null;
-  window.uniApplySaved = function (idx) {
-    const isOrg = _ctx === 'org';
-    if (isOrg) window.applySavedSearchToOrg?.(idx);
-    else       window.applySavedSearch?.(idx);
-    if (!isOrg) {
-      const ss = window.savedSearches?.[idx];
-      _currentSavedName = ss ? ss.name : null;
-    }
-    _render();
-  };
-  window.uniSSRename = function (idx, e) {
-    e.stopPropagation(); _closeSSMenus();
-    window.renameSavedSearch?.(idx, e);
-    _render();
-  };
-  window.uniSSEdit = function (idx, e) {
-    e.stopPropagation(); _closeSSMenus();
-    window.editSavedSearch?.(idx, e);
-    uniClose();
-  };
-  window.uniSSDel = function (idx, e) {
-    e.stopPropagation(); _closeSSMenus();
-    window.deleteSavedSearch?.(idx, e);
-    _render();
-  };
-  window.uniSSMove = function (idx, dir, e) {
-    e.stopPropagation(); _closeSSMenus();
-    const ss = window.savedSearches;
-    if (!ss) return;
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= ss.length) return;
-    [ss[idx], ss[newIdx]] = [ss[newIdx], ss[idx]];
-    localStorage.setItem('wk-saved-searches', JSON.stringify(ss));
-    window.saveUserSettings?.();
-    _render();
-  };
-  window.uniSSSave = function () {
-    window.saveCurrentSearch?.();
-    _render();
-  };
+  // 保存した検索の一覧（uniApplySaved / uniSSRename / uniSSEdit / uniSSDel / uniSSMove / uniSSMenu / uniSSSave）は v52.873 で削除。
+  // 一覧は v52.594 から常に空で、描く場所も無かった。
   window.uniOpenSaveModal = function () {
     const bd = document.getElementById('uni-save-modal-bd');
     const input = document.getElementById('usm-input');
@@ -1214,7 +1164,6 @@
   };
 
   // popoverを外クリックで閉じる
-  document.addEventListener('click', () => _closeSSMenus());
   // モーダルをEscで閉じる / Enterで確定
   document.addEventListener('keydown', e => {
     const bd = document.getElementById('uni-save-modal-bd');

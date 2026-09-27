@@ -60,6 +60,16 @@ const GONE = [
   ['_tagModalGhostDrop',          '旧タグ設定の「選択肢に無い値」を動画から外す'],
   ['renderTagVisibilityBtns',     '旧タグ設定の表示切り替えボタン'],
   ['tag-edit-overlay',            '旧タグ設定のモーダルの器'],
+  // v52.873: 旧フィルターオーバーレイ（統合フィルターが読めないときだけ開く古い画面）と、
+  // そこにしか表示先が無かった「保存した検索」「保存した絞り込み」の一覧。保存済みの filterPresets のデータは消さない
+  ['id="filter-overlay"',     '旧フィルターオーバーレイの器'],
+  ['id="org-filter-overlay"', '整理の表の旧フィルターオーバーレイの器'],
+  ['buildFovRows',            '旧オーバーレイの行ビルダー'],
+  ['syncFilterOvRows',        '旧オーバーレイの状態同期'],
+  ['fovPickerDd',             '旧オーバーレイのピッカー'],
+  ['renderSavedSearches',     '保存した検索の一覧（v52.594 から常に空）'],
+  ['renderFilterPresets',     '保存した絞り込みの一覧（表示先が旧オーバーレイだけ）'],
+  ['updateFovChipBadges',     '旧オーバーレイのボタンの本数（呼び出し元なし）'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除

@@ -608,35 +608,6 @@ body.bulk-mode .card-sel-ov{display:block;}
 .fs-nav{display:none;padding:8px;border-bottom:1px solid var(--border);}
 /* アコーディオン */
 .fs-acc-sec{border-bottom:1px solid var(--border2);}
-/* ════ フィルターオーバーレイ ════ */
-.fov-table{width:100%;border-collapse:collapse;}
-.fov-table tr{border-bottom:1px solid var(--border2);}
-.fov-lbl{
-  width:90px;min-width:90px;padding:10px 16px;
-  font-size:9.5px;font-weight:700;letter-spacing:.6px;color:var(--text3);
-  vertical-align:top;white-space:nowrap;padding-top:14px;
-}
-.fov-row{
-  padding:8px 12px 8px 0;
-  display:flex;align-items:center;flex-wrap:wrap;gap:5px;
-}
-.fov-scroll-row{
-  flex-wrap:nowrap;overflow-x:auto;
-  scrollbar-width:thin;
-}
-.fov-scroll-row::-webkit-scrollbar{height:3px;}
-.fov-scroll-row::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
-.fov-hscroll{
-  display:flex;align-items:center;gap:5px;
-  flex-shrink:0;
-}
-.fov-all{
-  background:var(--text);color:var(--surface);border-color:var(--text);
-  flex-shrink:0;
-}
-.fov-all.inactive{
-  background:var(--surface2);color:var(--text2);border-color:var(--border2);
-}
 
 /* フィルター「すべて」チップ */
 .fs-all-chip{background:var(--text);color:var(--surface);border-color:var(--text);}
@@ -1102,31 +1073,6 @@ body.dark .ts-link:hover{background:#27323f;}
 .main-area { min-width: 0; overflow-x: visible; }
 .card-list { box-sizing: border-box; width: 100%; }
 
-/* ── フィルターオーバーレイ ── */
-#filter-overlay {
-  display: none;
-}
-#filter-overlay.show { display: block; }
-#org-filter-overlay { display: none; }
-#org-filter-overlay.show { display: block; }
-#filter-overlay-bg {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.3);
-  z-index: 199;
-}
-#filter-overlay-panel {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  background: var(--surface);
-  border-bottom: 2px solid var(--accent);
-  padding: 10px 12px 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.15);
-  max-height:var(--zvh-85,85vh);
-  overflow-y: auto;
-  z-index: 200;
-}
-/* #filter-overlay PC非表示ルール削除済み */
 #filter-toggle-btn.active {
   background: var(--text);
   color: var(--surface);
@@ -1434,9 +1380,6 @@ body.dark .ts-link:hover{background:#27323f;}
 .vp-dd-item.selected::after { content:"✓"; font-size:11px; }
 .vp-dd-new { padding:6px 12px; font-size:12px; cursor:pointer; color:var(--accent); border-top:1px solid var(--border); font-weight:600; }
 .vp-dd-new:hover { background:var(--surface2); }
-/* フィルターオーバーレイDDコンテナ */
-.fov-dd-row { flex:1; min-width:0; }
-.fov-dd { position:fixed !important; z-index:100000; min-width:200px; max-width:360px; }
 /* DD内 最近みた + サブタブ */
 .vp-dd-sec-hd { font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:6px 12px 3px; }
 .vp-dd-sec-div { height:1px; background:var(--border); margin:4px 0; }
@@ -1476,40 +1419,6 @@ body.theme-changing, body.theme-changing * { transition:background .3s, color .3
 .vp-chip.on-s2{background:#1a2a3e;color:#4dabf7;border-color:#1971c2;}
 .vp-chip.on-s3{background:#221a3a;color:#b197fc;border-color:#6b3fd4;}
 
-/* ── filter-overlay (v44 style) ── */
-#filter-overlay {
-  display: none;
-}
-#filter-overlay.show { display: block; }
-#org-filter-overlay { display: none; }
-#org-filter-overlay.show { display: block; }
-#filter-overlay-bg {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.3);
-  z-index: 99998;
-}
-#filter-overlay-panel {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 12px 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.15);
-  max-height:var(--zvh-85,85vh);
-  overflow-y: auto;
-  z-index: 99999;
-}
-@media (min-width: 1024px) {
-  #filter-overlay-panel,
-  #org-filter-overlay-panel {
-    right: auto;
-    width: 580px;
-    border-radius: 0 0 10px 0;
-  }
-}
-.fbar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.fbar-lbl { font-size:9px; font-weight:800; letter-spacing:.7px; color:var(--text2); text-transform:uppercase; min-width:60px; flex-shrink:0; }
 
 /* ── フィルターセクション グループ分け ── */
 .fsec {
@@ -1553,20 +1462,16 @@ body.theme-changing, body.theme-changing * { transition:background .3s, color .3
 
 /* ── タグカテゴリ非表示（body classで制御） ── */
 body.hide-tb  .vp-row-tb,
-body.hide-tb  .bb-bgrp-tb,
-body.hide-tb  .fov-row-tb  { display: none !important; }
+body.hide-tb  .bb-bgrp-tb { display: none !important; }
 
 body.hide-cat .vp-row-cat,
-body.hide-cat .bb-bgrp-cat,
-body.hide-cat .fov-row-cat { display: none !important; }
+body.hide-cat .bb-bgrp-cat { display: none !important; }
 
 body.hide-pos .vp-row-pos,
-body.hide-pos .bb-bgrp-pos,
-body.hide-pos .fov-row-pos { display: none !important; }
+body.hide-pos .bb-bgrp-pos { display: none !important; }
 
 body.hide-tags .vp-row-tags,
-body.hide-tags .bb-bgrp-tags,
-body.hide-tags .fov-row-tags { display: none !important; }
+body.hide-tags .bb-bgrp-tags { display: none !important; }
 
 /* ═══ AB LOOP EDITOR ═══ */
 .ab-skip-bar{display:flex;gap:3px;padding:5px 10px;justify-content:center;align-items:center}

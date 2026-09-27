@@ -273,49 +273,49 @@ export function togOrgF(type, val, el) {
 
 export function togOrgFav() {
   orgFavOnly = !orgFavOnly;
-  ['org-fs-chip-fav2','org-fov-chip-fav'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgFavOnly); });
+  ['org-fs-chip-fav2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgFavOnly); });
   renderOrg();
 }
 
 export function togOrgNext() {
   orgNextOnly = !orgNextOnly;
-  ['org-fs-chip-next','org-fov-chip-next'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgNextOnly); });
+  ['org-fs-chip-next'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgNextOnly); });
   renderOrg();
 }
 
 export function togOrgDrill() {
   orgDrillOnly = !orgDrillOnly;
-  ['org-fs-chip-drill','org-fov-chip-drill'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgDrillOnly); });
+  ['org-fs-chip-drill'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgDrillOnly); });
   renderOrg();
 }
 
 export function togOrgUnw() {
   orgUnwOnly = !orgUnwOnly;
-  ['org-fs-chip-unw2','org-fov-chip-unw'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgUnwOnly); });
+  ['org-fs-chip-unw2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgUnwOnly); });
   renderOrg();
 }
 
 export function togOrgWatched() {
   orgWatchedOnly = !orgWatchedOnly;
-  ['org-fov-chip-watched','org-fs-chip-watched'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgWatchedOnly); });
+  ['org-fs-chip-watched'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgWatchedOnly); });
   renderOrg();
 }
 
 export function togOrgBm() {
   orgBmOnly = !orgBmOnly;
-  ['org-fov-chip-bm','org-fs-chip-bm'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgBmOnly); });
+  ['org-fs-chip-bm'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgBmOnly); });
   renderOrg();
 }
 
 export function togOrgMemo() {
   orgMemoOnly = !orgMemoOnly;
-  ['org-fov-chip-memo','org-fs-chip-memo'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgMemoOnly); });
+  ['org-fs-chip-memo'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgMemoOnly); });
   renderOrg();
 }
 
 export function togOrgImg() {
   orgImgOnly = !orgImgOnly;
-  ['org-fov-chip-img','org-fs-chip-img'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgImgOnly); });
+  ['org-fs-chip-img'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgImgOnly); });
   renderOrg();
 }
 
@@ -325,7 +325,6 @@ export function clearOrgFilters() {
   orgMemoSearch = ''; orgChannelSearch = ''; orgPlaylistSearch = '';
   orgPrRank = null; orgPrDate = null;
   window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（半分だけ残さない）
-  syncOrgFilterOvRows();
   document.querySelectorAll('[id^="org-fs-"]').forEach(el => el.classList.remove('active'));
   window.refreshOpenSbAccordions?.('org');
   renderOrg();
@@ -641,33 +640,15 @@ export function orgFilt(list) {
 // ═══ Filter overlay ═══
 
 export function openOrgFilterOverlay() {
-  // Organize タブでも統合フィルターパネルを使用
+  // 統合フィルターパネルを開く（旧オーバーレイ #org-filter-overlay は v52.873 で削除）
   if (window.uniOpen) { window.uniOpen('src', 'org'); return; }
-  // fallback: 旧オーバーレイ
-  const ov = document.getElementById('org-filter-overlay');
-  if (!ov) return;
-  ov.classList.add('show');
-  document.body.style.overflow = 'hidden';
-  buildOrgFovRows();
-  syncOrgFilterOvRows();
-  window.renderSavedSearches?.();
+  window.toast?.('絞り込みを読み込めませんでした。再読み込みしてください');
 }
 
 // ── フィルター行ビルド — filter-overlay.js の共有関数に委譲 ──
-export function buildOrgFovRows() {
-  window.buildFovRows?.(true);
-}
 
-export function closeOrgFilterOverlay() {
-  const ov = document.getElementById('org-filter-overlay');
-  if (ov) ov.classList.remove('show');
-  document.body.style.overflow = '';
-}
 
 // フィルター行同期 — filter-overlay.js の共有関数に委譲
-export function syncOrgFilterOvRows() {
-  window.syncFilterOvRows?.(true);
-}
 
 
 // mkOrgChip → mkChip に統一
@@ -687,7 +668,6 @@ export function toggleOrgAcc(key) {
   if (arrow) arrow.classList.toggle('open', open);
   if (open) {
     if (key === 'recent') window.renderRecentSidebar?.();
-    if (key === 'saved')  window.renderSavedSearches?.();
     if (key === 'src')    window.buildOrgSbSrcChips?.();
   }
 }
@@ -2305,12 +2285,9 @@ window.togOrgWatched = togOrgWatched;
 window.togOrgBm = togOrgBm;
 window.togOrgMemo = togOrgMemo;
 window.togOrgImg = togOrgImg;
-window.buildOrgFovRows = buildOrgFovRows;
 window.clearOrgFilters = clearOrgFilters;
 window.orgFilt = orgFilt;
 window.openOrgFilterOverlay = openOrgFilterOverlay;
-window.closeOrgFilterOverlay = closeOrgFilterOverlay;
-window.syncOrgFilterOvRows = syncOrgFilterOvRows;
 window.mkOrgChip = mkOrgChip;
 window.showOrgFsBulkBtn = showOrgFsBulkBtn;
 window.toggleOrgAcc = toggleOrgAcc;

@@ -74,7 +74,6 @@ export function _restoreFromURL() {
   window.wkSetSearchWord?.(q);   // 検索語は1か所から配る（js/search-word.js）
   // Sync UI chips to match restored state
   _syncChipsToState();
-  window.syncFilterOvRows?.();
   window.buildSidebarFovRows?.();
   window.refreshOpenSbAccordions?.();
   _urlSyncPaused = false;
@@ -91,13 +90,12 @@ export function _syncChipsToState() {
   });
   // Boolean toggle chips
   const boolChips = {
-    favOnly:     ['chip-fav','m-chip-fav','fs-chip-fav2','fov-chip-fav'],
-    drillOnly:   ['fov-chip-drill'],
-    unwOnly:     ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'],
-    watchedOnly: ['chip-watched','fs-chip-watched','fov-chip-watched'],
-    bmOnly:      ['fov-chip-bm','fs-chip-bm'],
-    memoOnly:    ['fov-chip-memo','fs-chip-memo'],
-    imgOnly:     ['fov-chip-img','fs-chip-img']
+    favOnly:     ['chip-fav','m-chip-fav','fs-chip-fav2'],
+    unwOnly:     ['chip-unw','m-chip-unw','fs-chip-unw2'],
+    watchedOnly: ['chip-watched','fs-chip-watched'],
+    bmOnly:      ['fs-chip-bm'],
+    memoOnly:    ['fs-chip-memo'],
+    imgOnly:     ['fs-chip-img']
   };
   for (const [key, ids] of Object.entries(boolChips)) {
     ids.forEach(id => {
@@ -131,7 +129,7 @@ export function togPlat(p) {
 
 export function togFav() {
   window.favOnly = !window.favOnly;
-  ['chip-fav','m-chip-fav','fs-chip-fav2','fov-chip-fav'].forEach(id => {
+  ['chip-fav','m-chip-fav','fs-chip-fav2'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.favOnly);
   });
   window.AF();
@@ -139,23 +137,17 @@ export function togFav() {
 
 export function togNext() {
   window.nextOnly = !window.nextOnly;
-  ['fov-chip-next'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.nextOnly);
-  });
   window.AF();
 }
 
 export function togDrill() {
   window.drillOnly = !window.drillOnly;
-  ['fov-chip-drill'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.drillOnly);
-  });
   window.AF();
 }
 
 export function togUnw() {
   window.unwOnly = !window.unwOnly;
-  ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'].forEach(id => {
+  ['chip-unw','m-chip-unw','fs-chip-unw2'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.unwOnly);
   });
   window.AF();
@@ -163,7 +155,7 @@ export function togUnw() {
 
 export function togWatched() {
   window.watchedOnly = !window.watchedOnly;
-  ['chip-watched','fs-chip-watched','fov-chip-watched'].forEach(id => {
+  ['chip-watched','fs-chip-watched'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.watchedOnly);
   });
   window.AF();
@@ -171,7 +163,7 @@ export function togWatched() {
 
 export function togBm() {
   window.bmOnly = !window.bmOnly;
-  ['fov-chip-bm','fs-chip-bm'].forEach(id => {
+  ['fs-chip-bm'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.bmOnly);
   });
   window.AF();
@@ -179,7 +171,7 @@ export function togBm() {
 
 export function togMemo() {
   window.memoOnly = !window.memoOnly;
-  ['fov-chip-memo','fs-chip-memo'].forEach(id => {
+  ['fs-chip-memo'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.memoOnly);
   });
   window.AF();
@@ -187,7 +179,7 @@ export function togMemo() {
 
 export function togImg() {
   window.imgOnly = !window.imgOnly;
-  ['fov-chip-img','fs-chip-img'].forEach(id => {
+  ['fs-chip-img'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.imgOnly);
   });
   window.AF();
@@ -199,7 +191,6 @@ export function clearAll() {
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   window.prRank = null; window.prDate = null;
   window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（半分だけ残さない）
-  window.syncFilterOvRows?.();
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
   window.buildSidebarFovRows?.();
   window.refreshOpenSbAccordions?.();
@@ -220,6 +211,9 @@ export function saveOrgFilterPresets() {
   saveFilterPresets();
 }
 
+// 保存した絞り込み（filterPresets）: 一覧・読み込み・削除の画面は v52.873 で削除（表示先が旧オーバーレイの中だけだった）。
+// データは消さない。設定の保存（firebase.js）・バックアップがこの値を読むので、読み込みと同期はそのまま続ける
+// （ここを消すと、次の設定の保存で空の配列を書いてしまう）。
 // Firebase復元時に呼ばれる — ローカルと統合（上書きしない）
 export function loadFilterPresetsFromRemote(arr) {
   if (!Array.isArray(arr) || !arr.length) {
@@ -236,120 +230,15 @@ export function loadFilterPresetsFromRemote(arr) {
     localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
     window.saveUserSettings?.(); // Firebaseにも最新を保存
   }
-  window.renderFilterPresets?.();
 }
 
-export function saveFilterPreset() {
-  const name = document.getElementById('fov-save-name').value.trim();
-  if (!name) { window.toast('条件名を入力してください'); return; }
-  const snapshot = {
-    name,
-    filters: Object.fromEntries(Object.entries(window.filters).map(([k,v]) => [k,[...v]])),
-    favOnly: window.favOnly, unwOnly: window.unwOnly, watchedOnly: window.watchedOnly
-  };
-  const idx = filterPresets.findIndex(p => p.name === name);
-  if (idx >= 0) filterPresets[idx] = snapshot; else filterPresets.push(snapshot);
-  saveFilterPresets();
-  document.getElementById('fov-save-name').value = '';
-  renderFilterPresets();
-  window.toast('🔖 「' + name + '」を保存しました');
-}
 
-export function saveOrgFilterPreset() {
-  const name = document.getElementById('org-fov-save-name').value.trim();
-  if (!name) { window.toast('条件名を入力してください'); return; }
-  const snapshot = {
-    name,
-    filters: Object.fromEntries(Object.entries(window.orgFilters).map(([k,v]) => [k,[...v]])),
-    favOnly: window.orgFavOnly, unwOnly: window.orgUnwOnly
-  };
-  const idx = orgFilterPresets.findIndex(p => p.name === name);
-  if (idx >= 0) orgFilterPresets[idx] = snapshot; else orgFilterPresets.push(snapshot);
-  saveOrgFilterPresets();
-  document.getElementById('org-fov-save-name').value = '';
-  renderOrgFilterPresets();
-  window.toast('🔖 「' + name + '」を保存しました');
-}
 
-export function loadFilterPreset(idx) {
-  const p = filterPresets[idx]; if (!p) return;
-  Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  const fs = p.filters || {};
-  Object.keys(fs).forEach(k => { if (window.filters[k]) fs[k].forEach(v => window.filters[k].add(v)); });
-  window.tagFilter?.fromPlain(fs, window.filters, 'lib', 'lib');   // タグはどの呼び名で保存されていても入れる
-  window.favOnly    = p.favOnly    || false;
-  window.unwOnly    = p.unwOnly    || false;
-  window.watchedOnly = p.watchedOnly || false;
-  window.syncFilterOvRows?.();
-  window.AF?.();
-  window.closeFilterOverlay?.();
-  window.toast('🔖 「' + p.name + '」を読み込みました');
-}
 
-export function deleteFilterPreset(idx) {
-  const name = filterPresets[idx] ? filterPresets[idx].name : '';
-  filterPresets.splice(idx, 1);
-  saveFilterPresets();
-  renderFilterPresets();
-  window.toast('🗑 「' + name + '」を削除しました');
-}
 
-export function renderOrgFilterPresets() {
-  renderFilterPresets();
-}
 
-export function loadOrgFilterPreset(idx) {
-  const p = orgFilterPresets[idx]; if (!p) return;
-  Object.keys(window.orgFilters).forEach(k => window.orgFilters[k].clear());
-  const fs = p.filters || {};
-  Object.keys(fs).forEach(k => { if (window.orgFilters[k]) fs[k].forEach(v => window.orgFilters[k].add(v)); });
-  // タグはどの呼び名で保存されていても整理の表の呼び名で入れる（同じ名前で写すだけだと tbNew/cat/posNew が落ちていた）
-  window.tagFilter?.fromPlain(fs, window.orgFilters, 'lib', 'org');
-  window.orgFavOnly = p.favOnly || false;
-  window.orgUnwOnly = p.unwOnly || false;
-  window.syncOrgFilterOvRows?.();
-  window.renderOrg?.();
-  window.closeOrgFilterOverlay?.();
-  window.toast('🔖 「' + p.name + '」を読み込みました');
-}
 
-export function deleteOrgFilterPreset(i) {
-  deleteFilterPreset(i);
-}
 
-export function renderFilterPresets() {
-  // オーバーレイのプリセットのみ管理。サイドバー(fs-saved-list, org-fs-saved-list)はrenderSavedSearchesが担当
-  const makeHTML = (loadFn) => {
-    if (!filterPresets.length) {
-      return '<div style="font-size:10px;color:var(--text3);padding:4px 0">保存した検索条件はありません</div>';
-    }
-    return filterPresets.map(function(p, i) {
-      const count = (window.videos||[]).filter(function(v) {
-        if (v.archived) return false;
-        if (p.favOnly && !v.fav) return false;
-        if (p.unwOnly && v.watched) return false;
-        if (p.watchedOnly && !v.watched) return false;
-        const fs = p.filters || {};
-        if (fs.platform && fs.platform.length && !fs.platform.includes(v.pt)) return false;
-        if (fs.playlist && fs.playlist.length && !fs.playlist.includes(v.pl)) return false;
-        if (fs.prio && fs.prio.length && !fs.prio.includes(v.prio)) return false;
-        if (fs.status && fs.status.length && !fs.status.includes(v.status)) return false;
-        if (window.tagFilter && !window.tagFilter.match(v, fs, 'lib')) return false;
-        if (fs.channel && fs.channel.length && !fs.channel.includes(v.channel || v.ch)) return false;
-        return true;
-      }).length;
-      const badge = '<span style="font-size:9px;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:1px 6px;margin-left:5px;font-weight:700">'+count+'</span>';
-      return '<div class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:3px;max-width:100%">'
-        + '<span onclick="'+loadFn+'('+i+')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">'+p.name+badge+'</span>'
-        + '<span style="color:var(--text3);font-size:12px;flex-shrink:0;padding-left:4px" onclick="deleteFilterPreset('+i+')">×</span>'
-        + '</div>';
-    }).join('');
-  };
-  const libOv = document.getElementById('fov-preset-list');
-  if (libOv) libOv.innerHTML = makeHTML('loadFilterPreset');
-  const orgOv = document.getElementById('org-fov-preset-list');
-  if (orgOv) orgOv.innerHTML = makeHTML('loadOrgFilterPreset');
-}
 
 export function resetFilters() { clearAll(); }
 
@@ -574,8 +463,6 @@ export function AF() {
     rct.textContent = f.length + ' 件';
     rct.style.display = hasFilter ? 'inline' : 'none';
   }
-  const fhn = document.getElementById('fov-hit-num'); if (fhn) fhn.textContent = f.length;
-  const fhb = document.getElementById('fov-hit-badge'); if (fhb) fhb.textContent = f.length + ' 件';
   const tc = document.getElementById('totalCount'); if (tc) tc.textContent = total + ' videos';
   const sc = document.getElementById('snav-cnt'); if (sc) sc.textContent = total;
   if (window.bulkMode) window.updBulk?.();

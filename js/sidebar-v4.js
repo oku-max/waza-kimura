@@ -248,7 +248,7 @@
     if (!_ensureFilters()) return;
     const f = window.filters;
     const selCount = _cols().reduce((n, c) => n + _selOf(c.key).size, 0);
-    ['fs-v4-btn-badge','fov-v4-badge'].forEach(id => {
+    ['fs-v4-btn-badge'].forEach(id => {
       const b = document.getElementById(id);
       if (!b) return;
       if (selCount) { b.style.display = 'inline-block'; b.textContent = selCount; }
