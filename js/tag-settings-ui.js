@@ -134,11 +134,11 @@
       h += `<span class="ts-opt">` + (ro ? `<span data-user-text="1">${_esc(lbl)}</span>`
           : `<button class="ts-optname${S.tag && S.tag.kind === 'opt' && S.tag.gid === g.id && S.tag.v === o ? ' on' : ''}" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(o)}" data-user-text="1">${_esc(lbl)}</button>`)
         + `</span>`;
+      // 押したタグの操作は、そのタグのすぐ次の行に出す（選択肢が多いと、一覧の下に出しても画面の外になるため。v52.881）
+      if (S.tag && S.tag.gid === g.id && S.tag.kind === 'opt' && S.tag.v === o) h += `<div class="ts-tagwrap">${_tagBox(g, iss)}</div>`;
     });
     if (!g.options.length) h += `<span class="ts-dim">${_t('まだありません')}</span>`;
     h += `</div>`;
-    // 押したタグの操作（そのタグのすぐ下のまとまりに出す）
-    if (S.tag && S.tag.gid === g.id && S.tag.kind === 'opt') h += _tagBox(g, iss);
     // 選択肢に出していないもの（消してはいない。「出す」で戻る）
     if ((g.hidden || []).length) {
       h += `<div class="ts-lbl ts-mt">${_t('選択肢に出していないもの ' + g.hidden.length + '個')}</div><div class="ts-optwrap">`;
@@ -292,7 +292,10 @@
         const kind = a === 'tagopen' ? 'ghost' : 'opt', v = el.dataset.v;
         const same = S.tag && S.tag.gid === gid && S.tag.v === v && S.tag.kind === kind;
         S.tag = same ? null : { gid, v, kind, to: '' };
-        return render();
+        render();
+        // 開いた操作が画面の外にあれば、見えるところまで送る
+        if (!same) { const box = document.querySelector('#tag-display-settings .ts-tagbox'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+        return;
       }
       case 'tagclose': S.tag = null; return render();
       case 'rmoptok': if (g) _removeOpt(g, el.dataset.v); S.tag = null; return _after();
@@ -472,6 +475,8 @@
 #tag-display-settings .ts-opt button{background:none;border:none;color:var(--text3);font-size:14px;padding:2px 6px;cursor:pointer}
 #tag-display-settings .ts-hid{opacity:.6;padding-right:6px}
 #tag-display-settings .ts-tagbox{margin:8px 0}
+#tag-display-settings .ts-tagwrap{flex:0 0 100%;width:100%}
+#tag-display-settings .ts-tagwrap .ts-tagbox{margin:2px 0 6px}
 #tag-display-settings .ts-taghead{font-size:14px}
 #tag-display-settings .ts-taghead small{color:var(--text3);font-size:11px}
 #tag-display-settings .ts-do{border-top:1px solid var(--border2);padding-top:8px}

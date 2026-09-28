@@ -127,7 +127,10 @@ ck('選択肢に無いタグの行を押すと、そのすぐ下に操作が出�
 await click('[data-act="keep"][data-v="ニーカット"]'); await tick();
 ck('「選択肢に入れる」で選択肢に入る', await ev(() => window.tagPresets('tags').includes('ニーカット')));
 await click('[data-act="edit"][data-v="キムラ"]'); await tick();
-const obox = await ev(q => { const box = document.querySelector(q + '.ts-tagbox'); return { acts: [...(box?.querySelectorAll('[data-act]') || [])].map(b => b.dataset.act), text: box?.textContent || '' }; }, Q);
+const obox = await ev(q => { const box = document.querySelector(q + '.ts-tagbox'); const wrap = box?.parentElement;
+  return { acts: [...(box?.querySelectorAll('[data-act]') || [])].map(b => b.dataset.act), text: box?.textContent || '',
+    nextToChip: !!(wrap && wrap.classList.contains('ts-tagwrap') && wrap.previousElementSibling?.querySelector('[data-act="edit"]')?.dataset.v === 'キムラ') }; }, Q);
+ck('押したタグの操作は、そのタグのすぐ次に出る（選択肢が多くても一覧の下に隠れない。v52.881）', obox.nextToChip, obox);
 ck('選択肢のタグを押すと、できることが全部説明つきで出る（名前を変える・ほかのタグにまとめる・出さない・消す・動画からも外す）',
   ['editok', 'mergeok', 'hideopt', 'rmoptok', 'rmall', 'tagclose'].every(a => obox.acts.includes(a)) && /名前を変える|Rename/.test(obox.text) && /ほかのタグにまとめる|Merge into another tag/.test(obox.text), obox.acts);
 ck('押してもすぐ消さない（選ぶまで何も変えない）', await ev(() => window.tagPresets('tags').includes('キムラ')) && await ev(s => !!document.querySelector(s), Q + '.ts-confirm'));
