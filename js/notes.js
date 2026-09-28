@@ -3085,6 +3085,53 @@ function _filterVidList(filter) {
   return vs;
 }
 
+// ── タグの名前を変えた・まとめたとき（js/tag-ops.js。v52.883）──
+// ノートの動画リスト（条件で出すもの）の条件の中の値の名前も変える。控え（ノート・場所・前・後）を返す（取り消し用）
+function _vlEachFilterBlock(fn) {
+  const notes = _root.concat(...(_data || []).map(c => c.notes || []));
+  notes.forEach(n => (n.blocks || []).forEach((b, i) => {
+    if (b && b.type === 'vidlist' && b.filter && b.mode !== 'manual') fn(n, String(i), b);
+    if (b && b.type === 'col' && Array.isArray(b.cols)) b.cols.forEach((col, ci) => (col || []).forEach((cb, bi) => {
+      if (cb && cb.type === 'vidlist' && cb.filter && cb.mode !== 'manual') fn(n, i + '.' + ci + '.' + bi, cb);
+    }));
+  }));
+}
+function _vlRenameIn(filter, gid, from, to) {
+  const TF = window.tagFilter; if (!TF) return false;
+  // メモから作った「どのグループでもよい」形（{ tags:[…] } / anyTag）は、どのグループの名前変更でも同じ値を置き換える
+  if (_vlIsAnyTag(filter)) {
+    const a = Array.isArray(filter.tags) ? filter.tags : null;
+    const i = a ? a.indexOf(from) : -1;
+    if (i < 0) return false;
+    if (a.includes(to)) a.splice(i, 1); else a[i] = to;
+    return true;
+  }
+  return TF.renameIn(filter, gid, 'lib', from, to);
+}
+window._notesCondUsing = function(gid, from) {
+  let n = 0;
+  _vlEachFilterBlock((note, path, b) => { const c = JSON.parse(JSON.stringify(b.filter)); if (_vlRenameIn(c, gid, from, from + '\u0000')) n++; });
+  return n;
+};
+window._notesRenameCond = function(gid, from, to) {
+  const out = [];
+  _vlEachFilterBlock((note, path, b) => {
+    const before = JSON.stringify(b.filter);
+    if (_vlRenameIn(b.filter, gid, from, to)) out.push({ noteId: note.id, path, before, after: JSON.stringify(b.filter) });
+  });
+  if (out.length) _save();
+  return out;
+};
+window._notesRestoreCond = function(list) {
+  let n = 0;
+  (list || []).forEach(r => {
+    const ref = _vlGetBlockByPath(r.noteId, r.path);
+    if (ref && ref.block && JSON.stringify(ref.block.filter) === r.after) { ref.block.filter = JSON.parse(r.before); n++; }
+  });
+  if (n) _save();
+  return n;
+};
+
 // ── 動画リスト: 条件サマリー文字列 ──
 function _vlSummary(filter) {
   filter = _vlNorm(filter);

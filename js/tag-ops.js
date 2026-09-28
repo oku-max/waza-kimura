@@ -88,6 +88,8 @@
       _restore(v, b); done++;
     });
     (rec.opts || []).forEach(o => _setOptions(o.gid, o.before));
+    // 名前を変えたときに書き換えたリストの条件も戻す（その後にまた変えたリストは戻さない）
+    if (rec.cond) { window._cvRestoreCond?.(rec.cond.cv); window._notesRestoreCond?.(rec.cond.notes); }
     if (i >= 0) { list.splice(i, 1); _store(list); }
     if (_mem && _mem.id === rec.id) _mem = null;
     _refresh();
@@ -117,7 +119,11 @@
         <div style="font-weight:800;font-size:14px;margin-bottom:6px">${o.titleHTML}</div>
         <div style="margin-bottom:8px">${o.bodyHTML}</div>
         <div style="font-weight:700;margin-bottom:8px">${_t(o.n + '本の動画のタグが変わります')}</div>
-        ${lists.length ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px">⚠ ${_t('この値を条件に使っているカスタムリスト')}: <span data-user-text="1">${_esc(lists.slice(0, 5).map(l => '「' + l.label + '」').join('、'))}</span>${lists.length > 5 ? ' …' : ''}<br>${_t('リストの条件は書き換えません。出てくる動画が変わることがあります。')}</div>` : ''}
+        ${lists.length || o.notesN ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px">`
+          + (lists.length ? `${_t('この値を条件に使っているカスタムリスト')}:<br>` + lists.map(l => `<span data-user-text="1">「${_esc(l.label)}」</span> <b>${_t(l.before + '本 → ' + l.after + '本')}</b>`).join('<br>') + '<br>' : '')
+          + (o.ren ? _t('リストの条件も新しい名前に書き換えます。') : _t('リストの条件は書き換えません。'))
+          + (o.notesN ? '<br>' + _t('ノートの動画リスト ' + o.notesN + '個の条件も書き換えます。') : '')
+          + `</div>` : ''}
         <div style="font-size:11px;color:var(--text3);margin-bottom:12px">${_t('あとから「元に戻す」で戻せます。')}</div>
         <div style="display:flex;gap:8px"><button id="tagops-no" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;cursor:pointer">${_t('キャンセル')}</button>
         <button id="tagops-ok" style="flex:1;padding:9px;border-radius:8px;border:none;background:${o.danger ? 'var(--red,#ef4444)' : 'var(--accent)'};color:#fff;font-weight:700;font-family:inherit;cursor:pointer">${_esc(o.okLabel)}</button></div></div>`;
@@ -137,7 +143,18 @@
     const optGids = op.optGids || [];
     if (!targets.length && !op.optsChange) return false;
     const lists = (window._cvListsUsingGroupValues && op.cvNames) ? window._cvListsUsingGroupValues(op.cvNames, gids) : [];
-    const ans = await _confirm({ titleHTML: op.titleHTML || _esc(op.title), bodyHTML: op.bodyHTML || '', n: targets.length, lists, okLabel: op.okLabel || _t('実行'), danger: op.danger });
+    // それぞれのリストが何本から何本になるかを、実際に数える（言い切る。v52.883）。
+    // 変えた後の動画は写しで作る（本物の動画・選択肢には触らない）。名前を変えるときは条件の置き換えも込みで数える
+    if (lists.length && window._cvDynCount) {
+      const tset = new Set(targets);
+      let sim;
+      _sim = true;
+      try { sim = _all().map(v => { if (!tset.has(v)) return v; const c = _copy(v); op.apply(c); return c; }); }
+      finally { _sim = false; }
+      lists.forEach(l => { l.before = window._cvDynCount(l.id); l.after = window._cvDynCount(l.id, sim, op.condRename || null); });
+    }
+    const notesN = op.condRename && window._notesCondUsing ? window._notesCondUsing(op.condRename.gid, op.condRename.from) : 0;
+    const ans = await _confirm({ titleHTML: op.titleHTML || _esc(op.title), bodyHTML: op.bodyHTML || '', n: targets.length, lists, ren: !!op.condRename, notesN, okLabel: op.okLabel || _t('実行'), danger: op.danger });
     if (!ans) return false;
     const before = targets.map(v => _snap(v, gids));
     const optsBefore = optGids.map(gid => ({ gid, before: _opts(R().group(gid)).slice() }));
@@ -145,6 +162,14 @@
     if (op.optsChange) op.optsChange();
     const after = targets.map(v => _snap(v, gids));
     const rec = { id: 'u' + Date.now().toString(36), at: Date.now(), title: op.title, gids, before, after, opts: optsBefore };
+    // 名前を変えた・まとめたときは、そのタグで絞っていたもの（カスタムリスト・ノートの動画リストの条件、
+    // 今の絞り込み）も新しい名前にする。続けて同じ動画が出るように（オーナー v52.883）。消す操作では書き換えない
+    if (op.condRename) {
+      const c = op.condRename;
+      rec.cond = { cv: window._cvRenameCond ? window._cvRenameCond(c.gid, c.from, c.to) : [], notes: window._notesRenameCond ? window._notesRenameCond(c.gid, c.from, c.to) : [] };
+      const TF = window.tagFilter;
+      if (TF) { TF.renameIn(window.filters, c.gid, 'lib', c.from, c.to); TF.renameIn(window.orgFilters, c.gid, 'org', c.from, c.to); }
+    }
     const list = _load(); list.push(rec);
     const kept = _store(list).some(r => r.id === rec.id);
     _mem = rec;   // 控えに入りきらなくても、トーストの取り消しでは戻せるように手元に持つ
@@ -157,7 +182,32 @@
   // ── 操作 ──
   const _all = () => (window.videos || []);
   const _has = (v, g, val) => R().valuesOf(v, g.id).includes(val);
-  const _set = (v, g, val, on) => window.wkSetTagValue(v, g.id, val, on);
+  // 数えるための写しに書くときは、選択肢にも本物の動画にも触らない書き方にする（_sim）
+  let _sim = false;
+  function _pureSet(v, g, val, on) {
+    let arr;
+    if (FIELDS.includes(g.store)) {
+      if (!Array.isArray(v[g.store])) v[g.store] = [];
+      arr = v[g.store];
+      const sf = R().strayFieldOf ? R().strayFieldOf(g.store) : null;
+      if (!on && sf && Array.isArray(v[sf])) { const j = v[sf].indexOf(val); if (j >= 0) v[sf].splice(j, 1); }
+    } else {
+      if (!v.tg || typeof v.tg !== 'object' || Array.isArray(v.tg)) v.tg = {};
+      if (!Array.isArray(v.tg[g.id])) v.tg[g.id] = [];
+      arr = v.tg[g.id];
+    }
+    const i = arr.indexOf(val);
+    if (on && i < 0) arr.push(val);
+    if (!on && i >= 0) arr.splice(i, 1);
+  }
+  // 動画の写し（タグの欄だけ新しい配列にする）
+  function _copy(v) {
+    const c = Object.assign({}, v);
+    FIELDS.forEach(f => { if (Array.isArray(v[f])) c[f] = v[f].slice(); const sf = R().strayFieldOf ? R().strayFieldOf(f) : null; if (sf && Array.isArray(v[sf])) c[sf] = v[sf].slice(); });
+    if (v.tg && typeof v.tg === 'object' && !Array.isArray(v.tg)) c.tg = JSON.parse(JSON.stringify(v.tg));
+    return c;
+  }
+  const _set = (v, g, val, on) => (_sim ? _pureSet(v, g, val, on) : window.wkSetTagValue(v, g.id, val, on));
   const _q = s => '「<b data-user-text="1">' + _esc(s) + '</b>」';
   // 書き換えてよいのは今の4つと新しいタググループ（マーク・習得も v52.876 から普通のタググループ＝map）
   const _editable = g => !!g && (FIELDS.includes(g.store) || g.store === 'map');
@@ -185,7 +235,7 @@
       titleHTML: _q(from) + ' → ' + _q(to),
       bodyHTML: merge ? _t('同じタググループにある値にまとめます。両方付いている動画は1つになります。') : _t('選択肢と、付いている動画の値を変えます。'),
       okLabel: merge ? _t('まとめる') : _t('名前を変える'),
-      gids: [gid], optGids: [gid], cvNames: [from],
+      gids: [gid], optGids: [gid], cvNames: [from], condRename: { gid, from, to },
       targets: _all().filter(v => _has(v, g, from)),
       apply: v => { _set(v, g, to, true); _set(v, g, from, false); },
       optsChange: () => { if (!_opts(g).includes(to)) optAdd(g, to); if (_opts(g).includes(from)) optRemove(g, from); },
@@ -203,7 +253,7 @@
       titleHTML: _q(from) + ' → ' + _q(to),
       bodyHTML: _t('まとめると、前のタグが付いている動画は、まとめ先のタグに置き換わります。両方付いている動画は1つになります。'),
       okLabel: _t('まとめる'),
-      gids: [gid], optGids: [gid], cvNames: [from],
+      gids: [gid], optGids: [gid], cvNames: [from], condRename: { gid, from, to },
       targets: _all().filter(v => _has(v, g, from)),
       apply: v => { _set(v, g, to, true); _set(v, g, from, false); },
       optsChange: () => { if (_opts(g).includes(from)) { if (!_opts(g).includes(to)) optAdd(g, to); optRemove(g, from); } },

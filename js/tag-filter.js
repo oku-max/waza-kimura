@@ -173,6 +173,28 @@
     });
     return obj;
   }
+  // 条件の中の値の名前を変える（タグの名前を変えた・まとめたとき、そのタグで絞っていたものが続けて出るように。v52.883）。
+  // 条件に from が入っていなければ何もしない（false）。入っていれば from を to にする（to が既にあれば from を外すだけ）。
+  // 以前の形（favOnly 等の真偽値）から来た選択は書き換えずに、その場所の呼び名に to を足す（どちらでも当たる＝同じ動画が出る）。
+  // 値を消すことはしない（非空→空にしない）。
+  function renameIn(obj, gid, scheme, from, to) {
+    if (!obj || from == null || to == null || from === to) return false;
+    if (!selected(obj, gid, scheme).has(from)) return false;
+    let hit = false;
+    _readKeys(gid, scheme).forEach(k => {
+      const s = obj[k];
+      if (Array.isArray(s)) {
+        const i = s.indexOf(from);
+        if (i >= 0) { hit = true; if (s.includes(to)) s.splice(i, 1); else s[i] = to; }
+      } else if (_isSet(s) && s.has(from)) { hit = true; s.delete(from); s.add(to); }
+    });
+    if (!hit) {
+      const key = keyFor(gid, scheme);
+      if (_isSet(obj[key])) obj[key].add(to);
+      else { if (!Array.isArray(obj[key])) obj[key] = []; if (!obj[key].includes(to)) obj[key].push(to); }
+    }
+    return true;
+  }
   function clear(obj, scheme) {
     groups().forEach(g => _readKeys(g.id, scheme).forEach(k => {
       if (_isSet(obj[k])) obj[k].clear(); else if (Array.isArray(obj[k])) obj[k] = [];
@@ -182,6 +204,6 @@
   window.tagFilter = {
     FIELD_KEYS, FIELDS, SCHEMES,
     groups, gidOfField, fieldOf, keyFor, gidForKey,
-    selected, setFor, normalize, compile, match, hasAny, valuesOf, toPlain, fromPlain, clear,
+    selected, setFor, normalize, compile, match, hasAny, valuesOf, toPlain, fromPlain, clear, renameIn,
   };
 })();

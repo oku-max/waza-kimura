@@ -182,6 +182,51 @@ const add = await ev(() => { window.wkSetTagValue(window.videos[2], 'f_tags', '�
 ck('新しく打った値は選択肢に足す（今の4つ・新しいグループ）', add.tags.includes('新技') && add.map.includes('スパー'), add);
 ck('ほかの動画に付いている値（要確認の値）は勝手に足さない', !add.tags.includes('幽霊'), add);
 
+console.log('── 名前を変えると、そのタグで絞っていたリストも続けて出る（v52.883）──');
+const rn = await ev(async () => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const nid = window.__nid, views = window._cvGetViews();
+  views.push({ id: '_c2', label: '打込集', saveMode: 'dynamic', icon: '🔄', columns: [], rowData: {}, filterConditions: { [nid]: ['打ち込み'] }, searchQuery: '' });
+  views.push({ id: '_c3', label: '古いFav', saveMode: 'dynamic', icon: '🔄', columns: [], rowData: {}, filterConditions: { favOnly: true }, searchQuery: '' });
+  window.videos[0].tg = { [nid]: ['打ち込み'], mark: ['お気に入り'] }; window.videos[1].tg = { [nid]: ['打ち込み'], mark: ['お気に入り'] };
+  const out = { nid, before: window._cvResolveVideos('_c2').length, favBefore: window._cvResolveVideos('_c3').length };
+  let p = window.wkTagOps.renameValue(nid, '打ち込み', '打込');
+  await sleep(150); let d = document.getElementById('tagops-dlg'); out.text = d.textContent.replace(/\s+/g, ' '); d.querySelector('#tagops-ok').click(); await p; await sleep(100);
+  out.fc = JSON.parse(JSON.stringify(views.find(v => v.id === '_c2').filterConditions));
+  out.after = window._cvResolveVideos('_c2').length;
+  out.saved = (JSON.parse(localStorage.getItem('wk_cv_views') || '[]').find(v => v.id === '_c2') || {}).filterConditions;
+  document.querySelector('#toast .toast-undo-btn').click(); await sleep(150);
+  out.fcUndo = JSON.parse(JSON.stringify(views.find(v => v.id === '_c2').filterConditions));
+  // 以前の形の条件（favOnly）でも、マークの名前を変えたら続けて出る
+  p = window.wkTagOps.renameValue('mark', 'お気に入り', '★');
+  await sleep(150); d = document.getElementById('tagops-dlg'); out.favText = d.textContent.replace(/\s+/g, ' '); d.querySelector('#tagops-ok').click(); await p; await sleep(100);
+  out.favAfter = window._cvResolveVideos('_c3').length;
+  out.favFc = JSON.parse(JSON.stringify(views.find(v => v.id === '_c3').filterConditions));
+  document.querySelector('#toast .toast-undo-btn').click(); await sleep(150);
+  // 消す操作は条件を書き換えない（本数は言い切る）
+  p = window.wkTagOps.removeEverywhere(nid, '打ち込み');
+  await sleep(150); d = document.getElementById('tagops-dlg'); out.delText = d.textContent.replace(/\s+/g, ' '); d.querySelector('#tagops-no').click(); await p;
+  views.splice(views.findIndex(v => v.id === '_c2'), 1); views.splice(views.findIndex(v => v.id === '_c3'), 1);
+  // ノートの動画リスト（条件で出すもの）の条件も書き換える・取り消しで戻る
+  const noteId = window._notesCreateNote ? window._notesCreateNote({ name: 'N', blocks: [{ type: 'vidlist', name: 'L', mode: 'filter', filter: { [nid]: ['打ち込み'] } }, { type: 'col', cols: [[{ type: 'vidlist', mode: 'filter', filter: { tags: ['打ち込み'] } }], []] }] }) : null;
+  if (noteId) {
+    p = window.wkTagOps.renameValue(nid, '打ち込み', '打込');
+    await sleep(150); d = document.getElementById('tagops-dlg'); out.noteText = d.textContent.replace(/\s+/g, ' '); d.querySelector('#tagops-ok').click(); await p; await sleep(100);
+    const nn = window._notesGetNote(noteId); out.noteF = [nn.blocks[0].filter, nn.blocks[1].cols[0][0].filter];
+    document.querySelector('#toast .toast-undo-btn').click(); await sleep(150);
+    const nu = window._notesGetNote(noteId); out.noteU = [nu.blocks[0].filter, nu.blocks[1].cols[0][0].filter];
+  }
+  return out;
+});
+ck('確かめる画面に、リストが何本から何本になるかを言い切って出す（「変わることがあります」と書かない）', /打込集.*2本 → 2本/.test(rn.text) && /書き換えます/.test(rn.text) && !/ことがあります/.test(rn.text), rn.text);
+ck('★ 名前を変えると、そのタグを条件にしたリストの条件も新しい名前になり、同じ動画が出続ける', rn.before === 2 && rn.after === 2 && JSON.stringify(rn.fc) === JSON.stringify({ [rn.nid]: ['打込'] }), rn);
+ck('書き換えた条件は保存される（wk_cv_views）', JSON.stringify(rn.saved) === JSON.stringify({ [rn.nid]: ['打込'] }), rn.saved);
+ck('取り消すと、リストの条件も元の名前に戻る', JSON.stringify(rn.fcUndo) === JSON.stringify({ [rn.nid]: ['打ち込み'] }), rn.fcUndo);
+ck('以前の形の条件（favOnly）でも、マークの名前を変えたら続けて出る（favOnly は残し、新しい名前を足す）', rn.favBefore === 2 && rn.favAfter === 2 && rn.favFc.favOnly === true && JSON.stringify(rn.favFc.mark) === JSON.stringify(['★']), rn);
+ck('ノートの動画リストの条件も書き換え（段組みの中も・「どのグループでもよい」形も）、確かめる画面に個数を出し、取り消しで戻る',
+  /ノートの動画リスト 2個の条件も書き換えます/.test(rn.noteText || '') && JSON.stringify(rn.noteF) === JSON.stringify([{ [rn.nid]: ['打込'] }, { tags: ['打込'] }]) && JSON.stringify(rn.noteU) === JSON.stringify([{ [rn.nid]: ['打ち込み'] }, { tags: ['打ち込み'] }]), rn);
+ck('消す操作では条件を書き換えないと言い切り、本数も出す（2本 → 0本）', /打込集.*2本 → 0本/.test(rn.delText) && /書き換えません/.test(rn.delText) && !/ことがあります/.test(rn.delText), rn.delText);
+
 console.log('── 控えが大きすぎるとき ──');
 const big = await ev(async () => {
   const long = 'あ'.repeat(60);

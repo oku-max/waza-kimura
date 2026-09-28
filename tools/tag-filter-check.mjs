@@ -247,6 +247,24 @@ console.log('── ⑫ マーク・習得は普通のタググループ（v52.8
   ck('以前の条件の形は書き換えない（読むだけ）', (() => { const c = { favOnly: true, status: ['理解'] }; const b = J(c); TF.compile(c, 'fc'); TF.selected(c, 'mark', 'fc'); return J(c) === b; })());
 }
 
+console.log('── ⑭ 名前を変えたときの条件の書き換え（renameIn。v52.883）──');
+{
+  const c1 = { tech: ['キムラ', 'アームバー'] };
+  ck('条件の値を新しい名前にする（ほかの値はそのまま）', TF.renameIn(c1, 'f_tags', 'fc', 'キムラ', '木村') && J(c1.tech) === J(['木村', 'アームバー']));
+  const c2 = { tech: ['キムラ', '木村'] };
+  ck('新しい名前が既にあれば、古い方を外すだけ（二重にしない）', TF.renameIn(c2, 'f_tags', 'fc', 'キムラ', '木村') && J(c2.tech) === J(['木村']));
+  const c3 = { tech: ['アームバー'] };
+  ck('条件に無い値なら何もしない（false・形も変えない）', TF.renameIn(c3, 'f_tags', 'fc', 'キムラ', '木村') === false && J(c3) === J({ tech: ['アームバー'] }));
+  const c4 = { favOnly: true };
+  ck('以前の形（favOnly）は残し、新しい名前を足す（どちらでも当たる）', TF.renameIn(c4, 'mark', 'fc', 'お気に入り', '★') && c4.favOnly === true && J(c4.mark) === J(['★']));
+  const c5 = { tbNew: new Set(['トップ']) };
+  ck('今の絞り込み（Set）も書き換える', TF.renameIn(c5, 'f_tb', 'lib', 'トップ', '上') && c5.tbNew.has('上') && !c5.tbNew.has('トップ'));
+  const c6 = { tb: ['トップ'], tbNew: ['トップ'] };
+  ck('古い呼び名に入っている分も書き換える', TF.renameIn(c6, 'f_tb', 'lib', 'トップ', '上') && J(c6.tb) === J(['上']) && J(c6.tbNew) === J(['上']));
+  const src = fs.readFileSync(path.join(ROOT, 'js/tag-ops.js'), 'utf8');
+  ck('名前を変える・まとめる操作だけが条件を書き換える（消す操作は書き換えない）', (src.match(/condRename: \{ gid, from, to \}/g) || []).length === 2);
+}
+
 console.log('── ⑬ 未使用のタググループの条件（設定で選べる）──');
 {
   const cv = fs.readFileSync(path.join(ROOT, 'js/custom-view.js'), 'utf8');

@@ -1333,10 +1333,11 @@ function _cvApplyGlobalFilters(list) {
 //
 // 件数はビューを開いたときと同じ条件で数える（_cvUpdateSearch と同じ照合を使う）。
 // 動画がまだ読み込めていないときは 0 と嘘をつかず null を返す（呼び出し側で「—」）。
-function _dynamicList(v) {
-  const all = window.videos || [];
+// all / fc を渡すと、その動画・条件で数える（確かめる画面で「何本 → 何本」を出すため。読むだけ）
+function _dynamicList(v, all0, fc0) {
+  const all = all0 || window.videos || [];
   if (!all.length) return null;
-  let list = _applyConditions(v.filterConditions, all);   // null/未設定は「制限なし」
+  let list = _applyConditions(fc0 !== undefined ? fc0 : v.filterConditions, all);   // null/未設定は「制限なし」
   const q = (v.searchQuery || '').trim();
   if (q) {
     const parse = window._parseQuery, match = window._matchQuery;
@@ -1376,6 +1377,41 @@ window._cvListSummaries = () => _views.map(v => ({
   saveMode: v.saveMode === 'dynamic' ? 'dynamic' : 'static',
   count: (window._cvResolveVideos(v.id) || []).length
 }));
+// ── タグの名前を変えた・まとめたとき（js/tag-ops.js）──（v52.883。オーナー「名前を変えてるだけなら、続けて検索で出せるようにしろ」）
+// 条件で作ったリストの本数（vids: 変えた後の動画、ren: 条件の名前の置き換え {gid, from, to}）。読むだけ
+window._cvDynCount = (viewId, vids, ren) => {
+  const v = _views.find(x => x.id === viewId);
+  if (!v || v.saveMode !== 'dynamic') return null;
+  let fc = v.filterConditions;
+  if (ren && fc && window.tagFilter) { fc = JSON.parse(JSON.stringify(fc)); window.tagFilter.renameIn(fc, ren.gid, 'fc', ren.from, ren.to); }
+  const l = _dynamicList(v, vids, fc);
+  return l ? l.length : 0;
+};
+// 条件の中の値の名前を変える。変えたリストの控え（前・後）を返す（取り消し用）。値を消すことはしない
+window._cvRenameCond = (gid, from, to) => {
+  const TF = window.tagFilter; if (!TF) return [];
+  const out = [];
+  _views.forEach(v => {
+    if (v.saveMode !== 'dynamic' || !v.filterConditions) return;
+    const before = JSON.stringify(v.filterConditions);
+    if (TF.renameIn(v.filterConditions, gid, 'fc', from, to)) out.push({ id: v.id, before, after: JSON.stringify(v.filterConditions) });
+  });
+  // そのセッションで覚えている絞り込み（リストを行き来したときに戻すもの。保存はしない）も合わせる
+  Object.keys(_viewFilterSnapshots).forEach(k => TF.renameIn(_viewFilterSnapshots[k], gid, 'lib', from, to));
+  if (out.length) _save();
+  return out;
+};
+// 取り消し: その後にまた条件を変えていたリストは戻さない
+window._cvRestoreCond = (list) => {
+  let n = 0;
+  (list || []).forEach(r => {
+    const v = _views.find(x => x.id === r.id);
+    if (v && JSON.stringify(v.filterConditions) === r.after) { v.filterConditions = JSON.parse(r.before); n++; }
+  });
+  if (n) _save();
+  return n;
+};
+
 window._cvResolveVideos = (viewId) => {
   const v = _views.find(x => x.id === viewId);
   if (!v) return null;
