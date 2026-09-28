@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.884</title>
+<title>WAZA KIMURA v52.885</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1783,6 +1783,39 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
           <button onclick="adjustFontScale(0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">+</button>
         </div>
       </div>
+      <!-- 起動時の表示（v52.885 オーナー「これも外観設定に入れろ」。前はページ下の「タブ表示」）-->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">起動タブ</div>
+          <div style="font-size:11px;color:var(--text3)">起動・リロード時に最初に表示するタブ</div>
+        </div>
+        <select id="setting-startup-tab" onchange="saveSettings()" style="font-size:12px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="home">Library</option>
+          <option value="notes">Notes</option>
+          <option value="search">Search</option>
+          <option value="settings">Settings</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">起動時のリスト</div>
+          <div style="font-size:11px;color:var(--text3)">リロード・起動時に表示するリスト</div>
+        </div>
+        <select id="setting-startup-list" onchange="window._saveStartupListCfg?.()" style="font-size:12px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="last">前回開いたリスト</option>
+          <option value="master">マスター</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">「前回開いたリスト」の記憶範囲</div>
+          <div style="font-size:11px;color:var(--text3)">直近に開いたリストを端末ごとに覚えるか、全端末で共有するか</div>
+        </div>
+        <select id="setting-startup-scope" onchange="window._saveStartupListCfg?.()" style="font-size:12px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="device">この端末のみ</option>
+          <option value="shared">すべての端末で共有</option>
+        </select>
+      </div>
     </div>
 
     <!-- ═══ 言語 / Language ═══ -->
@@ -1840,42 +1873,10 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
       <div id="sub-opts-host"></div>
     </div>
 
-    <!-- ═══ タブ表示設定 ═══ -->
-    <div style="margin:32px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);">
+    <!-- ═══ オーナー専用（Community タブ・管理モード）。起動タブ・起動時のリスト・記憶範囲は v52.885 で外観設定へ ═══ -->
+    <div id="owner-only-settings" style="display:none;margin:32px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);">
       <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">タブ表示</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
-        <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text3)">起動タブ</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">起動・リロード時に最初に表示するタブ</div>
-        </div>
-        <select id="setting-startup-tab" onchange="saveSettings()" style="font-size:11px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="home">Library</option>
-          <option value="notes">Notes</option>
-          <option value="search">Search</option>
-          <option value="settings">Settings</option>
-        </select>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
-        <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text3)">起動時のリスト</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">リロード・起動時に表示するリスト</div>
-        </div>
-        <select id="setting-startup-list" onchange="window._saveStartupListCfg?.()" style="font-size:11px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="last">前回開いたリスト</option>
-          <option value="master">マスター</option>
-        </select>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
-        <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text3)">「前回開いたリスト」の記憶範囲</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">直近に開いたリストを端末ごとに覚えるか、全端末で共有するか</div>
-        </div>
-        <select id="setting-startup-scope" onchange="window._saveStartupListCfg?.()" style="font-size:11px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="device">この端末のみ</option>
-          <option value="shared">すべての端末で共有</option>
-        </select>
-      </div>
-      <div id="owner-only-settings" style="display:none">
+      <div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
           <div>
             <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
