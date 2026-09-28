@@ -20,7 +20,7 @@
   const _vis = g => { if (!_isField(g)) return true; const t = (window.tagSettings || []).find(x => x.key === g.store); return t ? t.visible !== false : true; };
 
   // 画面の状態（保存しない）
-  const S = { exp: null, unOpen: false, confirm: null, copy: null, edit: null, dup: null };
+  const S = { exp: null, unOpen: false, confirm: null, copy: null, edit: null, dup: null, merge: null };
 
   // ── 集計 ──
   // 重複している可能性のあるタグ: 選択肢に無いのに動画に付いている値（件数つき）。
@@ -181,8 +181,10 @@
         iss.ghosts.forEach(([v, n]) => {
           h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(v)}</b> <small>${_t('（' + n + '本に付いています）')}</small></span>`
             + (ro ? '' : `<span class="ts-btns"><button class="ts-mini" data-act="keep" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('選択肢に入れる')}</button>`
-              + `<button class="ts-mini" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('まとめる')}</button>`
+              + `<button class="ts-mini" data-act="merge" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('まとめる')}</button>`
               + `<button class="ts-mini ts-danger" data-act="rmghost" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('動画から外す')}</button></span>`) + `</div>`;
+          // まとめる: その行のすぐ下で「どの選択肢にまとめるか」を選ぶ（以前は名前の入力欄が画面の上の方に出て、押しても何も起きないように見えた）
+          if (S.merge && S.merge.gid === g.id && S.merge.v === v) h += _mergeBox(g, v, n);
         });
         h += `</div>`;
       }
@@ -202,6 +204,25 @@
       h += `</div>`;
     }
     if (S.copy && S.copy.to === g.id) h += _copyBox(g, all);
+    return h;
+  }
+
+  // 選択肢に無いタグを、選択肢のどれかにまとめる。何を何にまとめるかを名前で見せる
+  function _mergeBox(g, v, n) {
+    const to = S.merge.to || '';
+    const cands = (g.allOptions || g.options).filter(x => x !== v);
+    let h = `<div class="ts-confirm ts-merge"><div><b data-user-text="1">${_esc(v)}</b> <span>${_t('（' + n + '本に付いています）')}</span></div>`;
+    if (!cands.length) {
+      return h + `<p>${_t('まとめる先の選択肢がありません。先に選択肢を足してください。')}</p>`
+        + `<button class="ts-plain" data-act="mergecancel">${_t('閉じる')}</button></div>`;
+    }
+    h += `<p>${_t('どの選択肢にまとめますか？ まとめると、付いている動画のこのタグは、選んだ選択肢に置き換わります。')}</p>`
+      + `<select id="ts-merge-${_esc(g.id)}" class="ts-sel" data-chg="mergeto" data-gid="${_esc(g.id)}" aria-label="${_t('まとめる先')}">`
+      + `<option value=""${to ? '' : ' selected'}>${_t('選んでください')}</option>`
+      + cands.map(x => `<option value="${_esc(x)}"${x === to ? ' selected' : ''} data-user-text="1">${_esc(x)}</option>`).join('') + `</select>`;
+    if (to) h += `<div class="ts-mergeto"><b data-user-text="1">${_esc(v)}</b> → <b data-user-text="1">${_esc(to)}</b></div>`;
+    h += `<div class="ts-two"><button class="ts-plain" data-act="mergecancel">${_t('キャンセル')}</button>`
+      + `<button class="ts-gold" data-act="mergeok" data-gid="${_esc(g.id)}"${to ? '' : ' disabled'}>${_t('まとめる')}</button></div></div>`;
     return h;
   }
 
@@ -247,12 +268,12 @@
   function _countOn(g, v) { return (window.videos || []).filter(x => !x.archived && R().valuesOf(x, g.id).includes(v)).length; }
   function _after() { render(); window.AF?.(); }
   // 操作が済んだら（キャンセルでも）開いていた確認を閉じて描き直す
-  function _op(p) { if (!p || !p.then) return; p.then(done => { if (done) { S.confirm = null; S.edit = null; } render(); }); }
+  function _op(p) { if (!p || !p.then) return; p.then(done => { if (done) { S.confirm = null; S.edit = null; S.merge = null; } render(); }); }
 
   function _act(a, el) {
     const gid = el.dataset.gid, g = gid ? _group(gid) : null;
     switch (a) {
-      case 'exp': S.exp = S.exp === el.dataset.key ? null : el.dataset.key; S.confirm = null; S.copy = null; S.edit = null; S.dup = null; return render();
+      case 'exp': S.exp = S.exp === el.dataset.key ? null : el.dataset.key; S.confirm = null; S.copy = null; S.edit = null; S.dup = null; S.merge = null; return render();
       case 'unopen': S.unOpen = !S.unOpen; return render();
       case 'fillslot': R().setSlot(gid, +el.dataset.k); if (g && _isField(g)) window.tagSetVisible?.(g.store, true); S.exp = gid; return _after();
       case 'newgroup': { const id = R().createGroup('', +el.dataset.k); if (id) S.exp = id; return _after(); }
@@ -269,6 +290,10 @@
       case 'rmghost': return _op(window.wkTagOps?.removeGhost(gid, el.dataset.v));
       case 'edit': S.edit = { gid, v: el.dataset.v, n: g ? _countOn(g, el.dataset.v) : 0 }; S.confirm = null; render(); { const i = document.getElementById('ts-edit-' + gid); if (i) { i.focus(); i.select(); } } return;
       case 'editcancel': S.edit = null; return render();
+      // 選択肢に無いタグを、選択肢のどれかにまとめる（動画の値を変えるのは js/tag-ops.js の renameValue。確かめ・バックアップ・取り消しつき）
+      case 'merge': S.merge = (S.merge && S.merge.gid === gid && S.merge.v === el.dataset.v) ? null : { gid, v: el.dataset.v, to: '' }; S.edit = null; S.confirm = null; return render();
+      case 'mergecancel': S.merge = null; return render();
+      case 'mergeok': if (S.merge && S.merge.to) return _op(window.wkTagOps?.renameValue(gid, S.merge.v, S.merge.to)); return;
       case 'editok': { const i = document.getElementById('ts-edit-' + gid); return _op(window.wkTagOps?.renameValue(gid, S.edit && S.edit.v, i ? i.value : '')); }
       case 'undo': window.wkTagOps?.undo(); return _after();
       case 'addopt': return _addFromInput(gid);
@@ -386,6 +411,7 @@
       const t = e.target, g = t.dataset.gid && _group(t.dataset.gid);
       if (!g) return;
       if (t.dataset.chg === 'rename') { _rename(g, t.value); _after(); }
+      if (t.dataset.chg === 'mergeto' && S.merge) { S.merge.to = t.value; render(); }
       if (t.dataset.chg === 'slot') {
         const k = +t.value;
         R().setSlot(g.id, k);
@@ -434,6 +460,8 @@
 #tag-display-settings .ts-opt{display:inline-flex;align-items:center;gap:2px;background:var(--surface2);border-radius:14px;padding:4px 4px 4px 11px;font-size:13px}
 #tag-display-settings .ts-opt button{background:none;border:none;color:var(--text3);font-size:14px;padding:2px 6px;cursor:pointer}
 #tag-display-settings .ts-hid{opacity:.6;padding-right:6px}
+#tag-display-settings .ts-merge{margin:0 0 8px}
+#tag-display-settings .ts-mergeto{font-size:13px}
 #tag-display-settings .ts-opt .ts-show{font-size:11px;color:var(--accent);font-weight:700;margin-left:4px}
 #tag-display-settings .ts-addrow{display:flex;gap:6px;margin-top:8px}
 #tag-display-settings .ts-addrow input{flex:1;min-width:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 8px;font-size:14px;color:var(--text);font-family:inherit}

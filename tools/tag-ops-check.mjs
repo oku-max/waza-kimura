@@ -106,11 +106,18 @@ d = await dlg(true, false);
 let cur = JSON.parse(await V());
 ck('名前を変える: 選択肢と動画の値が変わる', cur[0].tags.includes('ニースライス') && !cur[0].tags.includes('ニーカット') && (await opts('tags')).includes('ニースライス'), cur[0]);
 // 選択肢に無い値（幽霊）は「重複している可能性のあるタグを整理する」を押したときだけ出る（v52.878）
-await ev(() => { if (!document.querySelector('#tag-display-settings [data-act="edit"][data-v="幽霊"]')) document.querySelector('#tag-display-settings [data-act="dup"][data-gid="f_tags"]').click(); });
+await ev(() => { if (!document.querySelector('#tag-display-settings [data-act="merge"][data-v="幽霊"]')) document.querySelector('#tag-display-settings [data-act="dup"][data-gid="f_tags"]').click(); });
 await tick(100);
-await ev(() => { document.querySelector('#tag-display-settings [data-act="edit"][data-v="幽霊"]').click(); });
+// 「まとめる」は、その行のすぐ下で「どの選択肢にまとめるか」を選ぶ（v52.879。以前は名前の入力欄が上の方に出て、押しても何も起きないように見えた）
+await ev(() => { document.querySelector('#tag-display-settings [data-act="merge"][data-v="幽霊"]').click(); });
 await tick(100);
-await ev(() => { const i = document.getElementById('ts-edit-f_tags'); i.value = 'キムラ'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+const mb = await ev(() => { const box = document.querySelector('#tag-display-settings .ts-merge'); const row = [...document.querySelectorAll('#tag-display-settings .ts-irow')].find(r => r.querySelector('[data-v="幽霊"]'));
+  return { box: !!box, nextToRow: !!(box && row && row.nextElementSibling === box), okDisabled: !!box?.querySelector('[data-act="mergeok"]')?.disabled, opts: [...(box?.querySelectorAll('option') || [])].map(o => o.value) }; });
+ck('まとめる: 押した行のすぐ下に、まとめる先の選択肢が出る（選ぶまで押せない）', mb.box && mb.nextToRow && mb.okDisabled && mb.opts.includes('キムラ') && !mb.opts.includes('幽霊'), mb);
+await ev(() => { const s = document.getElementById('ts-merge-f_tags'); s.value = 'キムラ'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+await tick(100);
+ck('まとめる: 何を何にまとめるかを名前で出す', /幽霊\s*→\s*キムラ/.test(await ev(() => document.querySelector('#tag-display-settings .ts-mergeto')?.textContent || '')));
+await ev(() => { document.querySelector('#tag-display-settings [data-act="mergeok"]').click(); });
 d = await dlg(true, false);
 cur = JSON.parse(await V());
 ck('まとめる: 選択肢に無い値を選択肢の値へ（アーカイブ済みの動画も）', d && /2本/.test(d.text) && cur[2].tags.join() === 'キムラ' && cur[3].tags.join() === 'キムラ', cur);
