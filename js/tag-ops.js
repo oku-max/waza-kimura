@@ -198,6 +198,24 @@
       optsChange: () => { if (!_opts(g).includes(to)) optAdd(g, to); if (_opts(g).includes(from)) optRemove(g, from); },
     });
   }
+  // まとめる（v52.880）: 同じタググループの、どのタグをどのタグにもまとめられる（選択肢でも、動画にだけ付いている値でも）。
+  // from が付いている動画は to に置き換わる（両方付いていれば1つになる）。
+  // 選択肢: from が選択肢なら外し、代わりに to を選択肢に入れる（to が選択肢に無かった場合）。
+  //         from が選択肢に無い値なら、選択肢は変えない。
+  function mergeValue(gid, from, to) {
+    const g = R().group(gid); to = String(to == null ? '' : to).trim();
+    if (!_editable(g) || !from || !to || to === from || !window.wkSetTagValue) return Promise.resolve(false);
+    return run({
+      title: '「' + from + '」を「' + to + '」にまとめる',
+      titleHTML: _q(from) + ' → ' + _q(to),
+      bodyHTML: _t('まとめると、前のタグが付いている動画は、まとめ先のタグに置き換わります。両方付いている動画は1つになります。'),
+      okLabel: _t('まとめる'),
+      gids: [gid], optGids: [gid], cvNames: [from],
+      targets: _all().filter(v => _has(v, g, from)),
+      apply: v => { _set(v, g, to, true); _set(v, g, from, false); },
+      optsChange: () => { if (_opts(g).includes(from)) { if (!_opts(g).includes(to)) optAdd(g, to); optRemove(g, from); } },
+    });
+  }
   // 選択肢に無い値を、動画から外す
   function removeGhost(gid, val) {
     const g = R().group(gid); if (!_editable(g) || !window.wkSetTagValue) return Promise.resolve(false);
@@ -250,5 +268,5 @@
     });
   }
 
-  window.wkTagOps = { run, undo, lastUndo, removeEverywhere, renameValue, removeGhost, openReset, _snap, _same };
+  window.wkTagOps = { run, undo, lastUndo, removeEverywhere, renameValue, mergeValue, removeGhost, openReset, _snap, _same };
 })();

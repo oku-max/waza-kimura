@@ -116,13 +116,21 @@ await click('[data-act="addopt"][data-gid="f_tags"]'); await tick();
 ck('選択肢を足せる', await ev(() => window.tagPresets('tags').includes('スパー')));
 ck('ほかのグループにもある名前は知らせない（v52.878 オーナー「知ったこっちゃない」）', await ev(s => !document.querySelector(s) && !/ほかのタググループ|Another tag group|Also in/.test(document.querySelector('#tag-display-settings').textContent), Q + '[data-act="pull"]'));
 ck('行に「要確認」の印を出さない', await ev(s => !document.querySelector(s), Q + '.ts-badge'));
-ck('選択肢に無いタグは、いきなり並べない（ボタンを押すまで出さない）', await ev(s => !document.querySelector(s), `${Q}[data-act="keep"]`) && await ev(s => !!document.querySelector(s) && /重複|duplicate/i.test(document.querySelector(s).textContent), `${Q}[data-act="dup"][data-gid="f_tags"]`));
+ck('選択肢に無いタグは、いきなり並べない（ボタンを押すまで出さない）', await ev(s => !document.querySelector(s), `${Q}[data-act="tagopen"]`) && await ev(s => !!document.querySelector(s) && /重複|duplicate/i.test(document.querySelector(s).textContent), `${Q}[data-act="dup"][data-gid="f_tags"]`));
 await click('[data-act="dup"][data-gid="f_tags"]'); await tick();
-ck('「重複している可能性のあるタグを整理する」を押すと、動画にだけある値（ニーカット）が出る', await ev(s => !!document.querySelector(s), `${Q}[data-act="keep"][data-v="ニーカット"]`));
+ck('「重複している可能性のあるタグを整理する」を押すと、動画にだけある値（ニーカット）が出る', await ev(s => !!document.querySelector(s), `${Q}[data-act="tagopen"][data-v="ニーカット"]`));
+await click('[data-act="tagopen"][data-v="ニーカット"]'); await tick();
+const gbox = await ev(q => { const row = document.querySelector(q + '[data-act="tagopen"][data-v="ニーカット"]'); const box = row?.nextElementSibling;
+  return { next: !!box?.classList.contains('ts-tagbox'), acts: [...(box?.querySelectorAll('[data-act]') || [])].map(b => b.dataset.act), merge: !!box?.querySelector('#ts-merge-f_tags') }; }, Q);
+ck('選択肢に無いタグの行を押すと、そのすぐ下に操作が出る（ほかのタグにまとめる・選択肢に入れる・動画から外す・閉じる）',
+  gbox.next && gbox.merge && ['mergeok', 'keep', 'rmghost', 'tagclose'].every(a => gbox.acts.includes(a)), gbox);
 await click('[data-act="keep"][data-v="ニーカット"]'); await tick();
 ck('「選択肢に入れる」で選択肢に入る', await ev(() => window.tagPresets('tags').includes('ニーカット')));
-await click('[data-act="rmopt"][data-v="キムラ"]'); await tick();
-ck('× はすぐ消さず、確認を出す', await ev(() => window.tagPresets('tags').includes('キムラ')) && await ev(s => !!document.querySelector(s), Q + '.ts-confirm'));
+await click('[data-act="edit"][data-v="キムラ"]'); await tick();
+const obox = await ev(q => { const box = document.querySelector(q + '.ts-tagbox'); return { acts: [...(box?.querySelectorAll('[data-act]') || [])].map(b => b.dataset.act), text: box?.textContent || '' }; }, Q);
+ck('選択肢のタグを押すと、できることが全部説明つきで出る（名前を変える・ほかのタグにまとめる・出さない・消す・動画からも外す）',
+  ['editok', 'mergeok', 'hideopt', 'rmoptok', 'rmall', 'tagclose'].every(a => obox.acts.includes(a)) && /名前を変える|Rename/.test(obox.text) && /ほかのタグにまとめる|Merge into another tag/.test(obox.text), obox.acts);
+ck('押してもすぐ消さない（選ぶまで何も変えない）', await ev(() => window.tagPresets('tags').includes('キムラ')) && await ev(s => !!document.querySelector(s), Q + '.ts-confirm'));
 await click('[data-act="rmoptok"]'); await tick();
 const rm = await ev(() => ({ opts: window.tagPresets('tags'), inVideos: window.videos.filter(v => (v.tags || []).includes('キムラ')).length }));
 ck('★ 確認後、選択肢からだけ外れる（動画のタグ「キムラ」は2本とも残る）', !rm.opts.includes('キムラ') && rm.inVideos === 2, rm);
@@ -130,7 +138,7 @@ ck('★ 確認後、選択肢からだけ外れる（動画のタグ「キムラ
 console.log('\n── 選択肢に出さない（消さない）──');
 const vHid = await ev(() => JSON.stringify(window.videos));
 await expand('f_tags');
-await click('[data-act="rmopt"][data-v="スパー"]'); await tick();
+await click('[data-act="edit"][data-v="スパー"]'); await tick();
 ck('× の確認に「選択肢に出さない（消さない）」がある', await ev(s => !!document.querySelector(s), `${Q}[data-act="hideopt"][data-v="スパー"]`));
 await click('[data-act="hideopt"][data-v="スパー"]'); await tick();
 const hd = await ev(() => { const g = window.tagRegistry.group('f_tags'); return { presets: window.tagPresets('tags'), opts: g.options, all: g.allOptions, hidden: g.hidden }; });
@@ -185,9 +193,9 @@ const badge = await ev(s => document.querySelector(s)?.textContent || '', `${Q}[
 await expand('f_pos'); await click('[data-act="show"]'); await tick();
 ck('非表示のグループは「非表示中」と出て、「表示する」で戻る', /非表示中|hidden/i.test(badge) && await ev(() => window.tagSettings.find(t => t.key === 'pos').visible === true), badge);
 await expand('mark');
-const mk = await ev(q => ({ disabled: document.getElementById('ts-slot-mark')?.disabled, x: document.querySelectorAll(q + '[data-act="rmopt"][data-gid="mark"]').length,
+const mk = await ev(q => ({ disabled: document.getElementById('ts-slot-mark')?.disabled,
   add: !!document.getElementById('ts-add-mark'), edit: document.querySelectorAll(q + '[data-act="edit"][data-gid="mark"]').length }), Q);
-ck('マーク: 普通のタググループ（v52.876）。使う場所を選べ、選択肢も足す・外す・名前を変えられる', mk.disabled === false && mk.x === 3 && mk.add && mk.edit === 3, mk);
+ck('マーク: 普通のタググループ（v52.876）。使う場所を選べ、選択肢も足す・外す・名前を変えられる', mk.disabled === false && mk.add && mk.edit === 3, mk);
 ck('マーク: 選択肢が固定という説明が出ない', !(await ev(q => [...document.querySelectorAll(q + '.ts-hint')].some(e => /固定|fixed/i.test(e.textContent)), Q)));
 
 console.log('\n── ドラッグで並べ替え（タグ1〜4の行）──');

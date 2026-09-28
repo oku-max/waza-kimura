@@ -83,7 +83,7 @@ await tick();
 const v0 = await V();
 
 console.log('── 選択肢を動画からも外す ──');
-await click(Q + '[data-act="rmopt"][data-v="キムラ"]'); await tick(100);
+await click(Q + '[data-act="edit"][data-v="キムラ"]'); await tick(100);
 await click(Q + '[data-act="rmall"]');
 let d = await dlg(false);
 ck('何本変わるかと、その値を条件に使っているカスタムリストの名前を先に見せる', d && /2本の動画のタグが変わります/.test(d.text) && /キムラ集/.test(d.text), d);
@@ -106,14 +106,14 @@ d = await dlg(true, false);
 let cur = JSON.parse(await V());
 ck('名前を変える: 選択肢と動画の値が変わる', cur[0].tags.includes('ニースライス') && !cur[0].tags.includes('ニーカット') && (await opts('tags')).includes('ニースライス'), cur[0]);
 // 選択肢に無い値（幽霊）は「重複している可能性のあるタグを整理する」を押したときだけ出る（v52.878）
-await ev(() => { if (!document.querySelector('#tag-display-settings [data-act="merge"][data-v="幽霊"]')) document.querySelector('#tag-display-settings [data-act="dup"][data-gid="f_tags"]').click(); });
+await ev(() => { if (!document.querySelector('#tag-display-settings [data-act="tagopen"][data-v="幽霊"]')) document.querySelector('#tag-display-settings [data-act="dup"][data-gid="f_tags"]').click(); });
 await tick(100);
 // 「まとめる」は、その行のすぐ下で「どの選択肢にまとめるか」を選ぶ（v52.879。以前は名前の入力欄が上の方に出て、押しても何も起きないように見えた）
-await ev(() => { document.querySelector('#tag-display-settings [data-act="merge"][data-v="幽霊"]').click(); });
+await ev(() => { document.querySelector('#tag-display-settings [data-act="tagopen"][data-v="幽霊"]').click(); });
 await tick(100);
-const mb = await ev(() => { const box = document.querySelector('#tag-display-settings .ts-merge'); const row = [...document.querySelectorAll('#tag-display-settings .ts-irow')].find(r => r.querySelector('[data-v="幽霊"]'));
+const mb = await ev(() => { const box = document.querySelector('#tag-display-settings .ts-tagbox'); const row = document.querySelector('#tag-display-settings [data-act="tagopen"][data-v="幽霊"]');
   return { box: !!box, nextToRow: !!(box && row && row.nextElementSibling === box), okDisabled: !!box?.querySelector('[data-act="mergeok"]')?.disabled, opts: [...(box?.querySelectorAll('option') || [])].map(o => o.value) }; });
-ck('まとめる: 押した行のすぐ下に、まとめる先の選択肢が出る（選ぶまで押せない）', mb.box && mb.nextToRow && mb.okDisabled && mb.opts.includes('キムラ') && !mb.opts.includes('幽霊'), mb);
+ck('まとめる: 押した行のすぐ下に、まとめ先が出る（選ぶまで押せない・自分は出さない）', mb.box && mb.nextToRow && mb.okDisabled && mb.opts.includes('キムラ') && !mb.opts.includes('幽霊'), mb);
 await ev(() => { const s = document.getElementById('ts-merge-f_tags'); s.value = 'キムラ'; s.dispatchEvent(new Event('change', { bubbles: true })); });
 await tick(100);
 ck('まとめる: 何を何にまとめるかを名前で出す', /幽霊\s*→\s*キムラ/.test(await ev(() => document.querySelector('#tag-display-settings .ts-mergeto')?.textContent || '')));
@@ -129,11 +129,24 @@ cur = JSON.parse(await V());
 ck('★ 操作の後にまた変えた動画は戻さない（後の変更を消さない）・変えていない動画は戻る',
   cur[2].tags.join() === 'キムラ,アームバー' && cur[3].tags.join() === '幽霊', cur.slice(2));
 
+console.log('── どのタグでも、ほかのタグにまとめられる（選択肢どうしも）──');
+await click(Q + '[data-act="edit"][data-v="ニースライス"]'); await tick(100);
+await ev(() => { const s = document.getElementById('ts-merge-f_tags'); s.value = 'キムラ'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+await tick(100);
+ck('選択肢のタグを押した操作にも「ほかのタグにまとめる」があり、A → B を名前で出す', /ニースライス\s*→\s*キムラ/.test(await ev(() => document.querySelector('#tag-display-settings .ts-mergeto')?.textContent || '')));
+await ev(() => { document.querySelector('#tag-display-settings [data-act="mergeok"]').click(); });
+d = await dlg(true, false);
+cur = JSON.parse(await V());
+ck('★ 選択肢どうしをまとめる: 動画の値が置き換わり（両方付いていれば1つ）、まとめた方は選択肢から消える',
+  d && cur[0].tags.join() === 'キムラ' && !(await opts('tags')).includes('ニースライス') && (await opts('tags')).includes('キムラ'), cur[0]);
+
 console.log('── 選択肢に無い値を外す ──');
 // 「ここに寄せる」（ほかのグループの同じ名前を寄せる）は v52.878 で廃止（オーナー「知ったこっちゃない」）
 await ev(() => { window.videos[0].cat.push('迷子'); document.querySelector('#tag-display-settings [data-act="exp"][data-key="f_cat"]').click(); });
 await tick(100);
 await click(Q + '[data-act="dup"][data-gid="f_cat"]');   // 重複している可能性のあるタグは、押したときだけ出る
+await tick(100);
+await click(Q + '[data-act="tagopen"][data-v="迷子"]');   // 行を押すと、その下に操作が出る
 await tick(100);
 await click(Q + '[data-act="rmghost"][data-v="迷子"]');
 d = await dlg(true, false);
@@ -145,7 +158,7 @@ const vB = await V();
 await ev(() => { window.__exp = window.wazaExportLight; window.wazaExportLight = async () => false; });
 await ev(() => { document.querySelector('#tag-display-settings [data-act="exp"][data-key="f_tags"]').click(); });
 await tick(100);
-await click(Q + '[data-act="rmopt"][data-v="アームバー"]'); await tick(100);
+await click(Q + '[data-act="edit"][data-v="アームバー"]'); await tick(100);
 await click(Q + '[data-act="rmall"]');
 d = await dlg(true, true);
 ck('★ バックアップを頼んで保存できなかったら、動画は変えない', d && await V() === vB, d);
