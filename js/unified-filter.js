@@ -553,8 +553,8 @@
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prD','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
         ).join('');
 
-        const colVis    = window.filterColVis || {};
-        const showRank   = colVis.rank   !== false;
+        // カウントの表示を切り替える設定（フィルター設定）は v52.882 で廃止。常に出す
+        const showRank   = true;
 
         const sections = [];
         if (markRows) sections.push(markRows);

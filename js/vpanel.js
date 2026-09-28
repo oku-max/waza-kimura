@@ -4588,7 +4588,7 @@ const CHAP_LABEL_MAX = 300;   // チャプター名の上限（暴走した返�
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
 
-// 検出の粒度。設定画面で選んだものを既定にし、確認ダイアログからその場でも変えられる。
+// 検出の粒度。既定はふつう。確認ダイアログで選ぶ（設定画面の粒度は v52.882 で廃止）。
 // minSec は「これより短い区切りは作らない」、maxCount は件数の上限。
 const CHAP_GRAINS = {
   fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, label: '細かめ' },
@@ -4597,9 +4597,10 @@ const CHAP_GRAINS = {
 };
 const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
 
+// 既定はふつう。設定画面の粒度（aiSettings.chapterGrain）は v52.882 で画面ごと廃止したので読まない
+// （見えない保存値が既定になって、選んだ覚えのない粒度で区切られないように）。確認ダイアログで選ぶ
 function _chapGrainKey(k) {
-  const v = k || window.aiSettings?.chapterGrain;
-  return CHAP_GRAINS[v] ? v : 'normal';
+  return CHAP_GRAINS[k] ? k : 'normal';
 }
 function _chapGrain(k) { return CHAP_GRAINS[_chapGrainKey(k)]; }
 
@@ -5365,7 +5366,7 @@ window.vpGenChapters = async function(id, preset) {
       return { parsed, d };
     };
 
-    // 粒度は設定を既定にし、確認ダイアログで変えられたらその粒度で検出し直す。
+    // 粒度はふつうを既定にし、確認ダイアログで変えられたらその粒度で検出し直す。
     // 表から作る場合は表のとおりに区切るので粒度は使わない。
     // メニューで選ばれた細かさを初期値にする（未指定なら設定画面の既定）
     let grainKey = _chapGrainKey(pickedGrain);
@@ -8289,7 +8290,7 @@ window.vpArchive = vpArchive;
 // 1本だけなので、バックアップの保存は既定でオフ（取り消しで戻せる）
 export function vpTagReset(id) {
   if (!window.wkTagOps) { window.toast?.('タグリセットを読み込めませんでした'); return; }
-  window.wkTagOps.openReset([id], { backupDefault: false });
+  window.wkTagOps.openReset([id]);
 }
 window.vpTagReset = vpTagReset;
 

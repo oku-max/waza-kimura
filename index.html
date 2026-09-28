@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.881</title>
+<title>WAZA KIMURA v52.882</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1330,9 +1330,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         <div class="fs-nav-i" onclick="scrollToSetting('sec-tag')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
           <span>🏷</span> タグ表示設定
         </div>
-        <div class="fs-nav-i" onclick="scrollToSetting('sec-ai')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
-          <span>🤖</span> AI取込設定
-        </div>
         <div class="fs-nav-i" onclick="scrollToSetting('sec-play')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
           <span>▶</span> 再生設定
         </div>
@@ -1750,8 +1747,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <div class="set-toc-h">目次</div>
     <div class="set-toc-i" data-sec="sec-language"   onclick="scrollToSetting('sec-language')"><span>🌐</span> 言語</div>
     <div class="set-toc-i" data-sec="sec-tag"        onclick="scrollToSetting('sec-tag')"><span>🏷</span> タグ表示設定</div>
-    <div class="set-toc-i" data-sec="sec-filter"     onclick="scrollToSetting('sec-filter')"><span>⛃</span> フィルター設定</div>
-    <div class="set-toc-i" data-sec="sec-ai"         onclick="scrollToSetting('sec-ai')"><span>🤖</span> AI取込設定</div>
     <div class="set-toc-i" data-sec="sec-play"       onclick="scrollToSetting('sec-play')"><span>▶</span> 再生設定</div>
     <div class="set-toc-i" data-sec="sec-sub"        onclick="scrollToSetting('sec-sub')"><span>💬</span> 字幕設定</div>
     <div class="set-toc-i" data-sec="sec-appearance" onclick="scrollToSetting('sec-appearance')"><span>🎨</span> 外観設定</div>
@@ -1778,13 +1773,9 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="set.tag">タグ設定</div>
     <div id="tag-display-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
 
-    <!-- ═══ フィルター設定 ═══ -->
-    <div id="sec-filter" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase" data-i18n="set.filter">フィルター設定</div>
-    <div id="filter-col-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
-
-    <!-- ═══ AI取込設定 ═══ -->
-    <div id="sec-ai" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">AI取込設定</div>
-    <div id="ai-settings-section" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;"></div>
+    <!-- フィルター設定（カウントの表示）と AI取込設定（チャプター取得・自動チャプターの粒度）は v52.882 で廃止
+         （オーナー「不要、削除」「チャプター設定時のVPanelでやる」）。カウントは常に出す・チャプターは取り込みで常に取る・
+         粒度は動画パネルの確認ダイアログで選ぶ（既定はふつう）。保存済みの値（filterColVis / aiSettings）は消さない。読まないだけ -->
 
     <!-- ═══ 再生設定 ═══ -->
     <div id="sec-play" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">再生設定</div>

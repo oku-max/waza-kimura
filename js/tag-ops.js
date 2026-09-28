@@ -5,7 +5,7 @@
 // 取り消しが無い・控えを取り忘れる、が起きるので、手順を1か所に固定する:
 //   1. 変わる動画を数える（0本なら動画には触らない）
 //   2. 確かめる: 何本変わるか・その値を条件に使っているカスタムリスト（条件は書き換えない）
-//   3. 先にバックアップを保存する（既定でオン。wazaExportLight）
+//   3. （v52.882 で「先にバックアップを保存する」の提案はやめた。オーナー「いらない、けして」。取り消しは残す）
 //   4. 変える前の値を控える（その操作で触るグループの欄だけ）
 //   5. 変える。書き込みは動画パネルと同じ wkSetTagValue（そのグループの配列の、その値だけ）
 //   6. 取り消しを出す（トースト＋設定画面の「直前の操作を元に戻す」）
@@ -118,15 +118,14 @@
         <div style="margin-bottom:8px">${o.bodyHTML}</div>
         <div style="font-weight:700;margin-bottom:8px">${_t(o.n + '本の動画のタグが変わります')}</div>
         ${lists.length ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px">⚠ ${_t('この値を条件に使っているカスタムリスト')}: <span data-user-text="1">${_esc(lists.slice(0, 5).map(l => '「' + l.label + '」').join('、'))}</span>${lists.length > 5 ? ' …' : ''}<br>${_t('リストの条件は書き換えません。出てくる動画が変わることがあります。')}</div>` : ''}
-        <label style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;font-size:12px"><input type="checkbox" id="tagops-bk"${o.backup === false ? '' : ' checked'}> ${_t('先にバックアップを保存する（おすすめ）')}</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">${_t('あとから「元に戻す」でも戻せます。')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">${_t('あとから「元に戻す」で戻せます。')}</div>
         <div style="display:flex;gap:8px"><button id="tagops-no" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;cursor:pointer">${_t('キャンセル')}</button>
         <button id="tagops-ok" style="flex:1;padding:9px;border-radius:8px;border:none;background:${o.danger ? 'var(--red,#ef4444)' : 'var(--accent)'};color:#fff;font-weight:700;font-family:inherit;cursor:pointer">${_esc(o.okLabel)}</button></div></div>`;
       document.body.appendChild(ov);
       const close = r => { ov.remove(); resolve(r); };
       ov.querySelector('#tagops-no').onclick = () => close(null);
       ov.addEventListener('click', e => { if (e.target === ov) close(null); });
-      ov.querySelector('#tagops-ok').onclick = () => close({ backup: ov.querySelector('#tagops-bk').checked });
+      ov.querySelector('#tagops-ok').onclick = () => close({ ok: true });
     });
   }
 
@@ -138,14 +137,8 @@
     const optGids = op.optGids || [];
     if (!targets.length && !op.optsChange) return false;
     const lists = (window._cvListsUsingGroupValues && op.cvNames) ? window._cvListsUsingGroupValues(op.cvNames, gids) : [];
-    const ans = await _confirm({ titleHTML: op.titleHTML || _esc(op.title), bodyHTML: op.bodyHTML || '', n: targets.length, lists, okLabel: op.okLabel || _t('実行'), danger: op.danger, backup: op.backupDefault !== false });
+    const ans = await _confirm({ titleHTML: op.titleHTML || _esc(op.title), bodyHTML: op.bodyHTML || '', n: targets.length, lists, okLabel: op.okLabel || _t('実行'), danger: op.danger });
     if (!ans) return false;
-    // バックアップを頼まれたのに保存できなかったら、操作はしない
-    if (ans.backup && window.wazaExportLight) {
-      let ok = false;
-      try { ok = (await window.wazaExportLight()) !== false; } catch (e) { ok = false; }
-      if (!ok) { window.toast?.(_t('バックアップを保存できなかったので、中止しました')); return false; }
-    }
     const before = targets.map(v => _snap(v, gids));
     const optsBefore = optGids.map(gid => ({ gid, before: _opts(R().group(gid)).slice() }));
     targets.forEach(v => op.apply(v));
@@ -259,7 +252,7 @@
       run({
         title, titleHTML: key === '*' ? _t('すべてのタグをリセット') : _q(pick[0].name) + ' ' + _t('をリセット'),
         bodyHTML: _t('選んだ動画から、このタグを外します。選択肢はそのままです。'),
-        okLabel: _t('リセット'), danger: true, backupDefault: opt.backupDefault,
+        okLabel: _t('リセット'), danger: true,
         gids: pick.map(g => g.id),
         cvNames: [...new Set(vids.flatMap(v => pick.flatMap(g => R().valuesOf(v, g.id))))],
         targets: vids.filter(v => pick.some(g => R().valuesOf(v, g.id).length)),

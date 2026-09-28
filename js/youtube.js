@@ -554,7 +554,7 @@ export async function ytImportUnimportedFromChecked() {
   }
   // チャプター/duration補完（quota枯渇中はスキップ）
   btn.textContent = `補完中 (${toAdd.length}本)...`;
-  if (!useRss && window.aiSettings?.fetchChaptersOnImport !== false) {
+  if (!useRss) {   // チャプターは常に取る（取得の切り替えは v52.882 で廃止）
     const descMap = await fetchVideoDescriptions(toAdd.map(t => t.vid), token);
     toAdd.forEach(t => {
       const d = descMap[t.vid] || {};
@@ -634,7 +634,7 @@ export async function ytFetchSelectedPlVideos(token) {
   }
   // チャプター（タイムスタンプ）をフェッチ（設定で有効な場合のみ・quota枯渇中はスキップ）
   const allVids = Object.values(_ytPendingVideos).flatMap(pl => pl.items).map(i => i.vid);
-  if (allVids.length && !useRss && window.aiSettings?.fetchChaptersOnImport !== false) {
+  if (allVids.length && !useRss) {   // チャプターは常に取る（取得の切り替えは v52.882 で廃止）
     document.getElementById('yt-import-ok').textContent = 'チャプター取得中...';
     const descMap = await fetchVideoDescriptions(allVids, token);
     Object.values(_ytPendingVideos).forEach(pl => {

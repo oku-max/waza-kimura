@@ -86,9 +86,8 @@
     const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
     const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
     const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
-    // filterColVis による条件表示
-    const _fcv      = window.filterColVis || {};
-    const _showRank   = _fcv.rank   !== false;
+    // カウントの表示を切り替える設定（フィルター設定）は v52.882 で廃止。常に出す
+    const _showRank   = true;
     const cntSec  = _showRank ? `
     <div style="flex:1;min-width:0">
       <div style="${subTitle}">カウンター</div>

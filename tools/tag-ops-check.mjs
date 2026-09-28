@@ -8,7 +8,7 @@
 //   本物の index.html を開き、約束ごとを「データが安全な結果になるか」で見る:
 //     ・キャンセルなら1文字も変わらない
 //     ・何本変わるか・その値を条件に使っているカスタムリスト（条件は書き換えない）を先に見せる
-//     ・バックアップは既定でオン（1本だけのリセットはオフ）。保存できなかったら何もしない
+//     ・確かめる画面に「先にバックアップを保存する」を出さない・勝手にファイルを保存しない（v52.882 オーナー「いらない、けして」）
 //     ・取り消し（トースト／設定の「元に戻す」）で元どおり。操作の後にまた変えた動画は戻さない
 //     ・控えが大きすぎたら localStorage に残さない（ほかのデータの場所を奪わない）。トーストの取り消しは使える
 //     ・新しく打った値は選択肢に足す。ほかの動画にある値は勝手に足さない
@@ -53,12 +53,11 @@ const ev = (fn, a) => pg.evaluate(fn, a);
 const tick = (ms = 200) => pg.waitForTimeout(ms);
 const V = () => ev(() => JSON.stringify(window.videos.map(v => ({ id: v.id, tb: v.tb, tbNew: v.tbNew, cat: v.cat, pos: v.pos, tags: v.tags, tg: v.tg }))));
 const opts = k => ev(k => window.tagPresets(k), k);
-// 確かめる画面: ok / キャンセル、バックアップのチェック
+// 確かめる画面: ok / キャンセル
 const dlg = (ok, backup) => ev(async ([ok, backup]) => {
   await new Promise(r => setTimeout(r, 150));
   const d = document.getElementById('tagops-dlg'); if (!d) return null;
-  const r = { text: d.textContent.replace(/\s+/g, ' '), bk: d.querySelector('#tagops-bk').checked };
-  if (backup != null) d.querySelector('#tagops-bk').checked = backup;
+  const r = { text: d.textContent.replace(/\s+/g, ' '), bk: !!d.querySelector('#tagops-bk') };
   d.querySelector(ok ? '#tagops-ok' : '#tagops-no').click();
   await new Promise(r => setTimeout(r, 350));
   return r;
@@ -87,12 +86,12 @@ await click(Q + '[data-act="edit"][data-v="キムラ"]'); await tick(100);
 await click(Q + '[data-act="rmall"]');
 let d = await dlg(false);
 ck('何本変わるかと、その値を条件に使っているカスタムリストの名前を先に見せる', d && /2本の動画のタグが変わります/.test(d.text) && /キムラ集/.test(d.text), d);
-ck('バックアップは既定でオン', d && d.bk === true);
+ck('確かめる画面に「先にバックアップを保存する」が無い', d && d.bk === false && !/バックアップ|backup/i.test(d.text), d);
 ck('★ キャンセルなら1文字も変わらない', await V() === v0 && (await opts('tags')).includes('キムラ'));
 await click(Q + '[data-act="rmall"]');
 d = await dlg(true, true);
 const after1 = JSON.parse(await V());
-ck('先にバックアップを保存した', downloads === 1, downloads);
+ck('勝手にバックアップのファイルを保存しない', downloads === 0, downloads);
 ck('付いている動画から外れ、選択肢からも外れる（ほかの値は無傷）', !after1.some(v => (v.tags || []).includes('キムラ')) && after1[0].tags.includes('ニーカット') && !(await opts('tags')).includes('キムラ'), after1);
 ck('カスタムリストの条件は書き換えない', await ev(() => JSON.parse(localStorage.getItem('wk_cv_views'))[0].filterConditions.tech.includes('キムラ')));
 await click('#toast .toast-undo-btn'); await tick();
@@ -153,17 +152,6 @@ d = await dlg(true, false);
 cur = JSON.parse(await V());
 ck('選択肢に無い値を動画から外す（その値だけ）', !cur[0].cat.includes('迷子') && cur[0].tags.length > 0, cur[0]);
 
-console.log('── バックアップが保存できなかったら何もしない ──');
-const vB = await V();
-await ev(() => { window.__exp = window.wazaExportLight; window.wazaExportLight = async () => false; });
-await ev(() => { document.querySelector('#tag-display-settings [data-act="exp"][data-key="f_tags"]').click(); });
-await tick(100);
-await click(Q + '[data-act="edit"][data-v="アームバー"]'); await tick(100);
-await click(Q + '[data-act="rmall"]');
-d = await dlg(true, true);
-ck('★ バックアップを頼んで保存できなかったら、動画は変えない', d && await V() === vB, d);
-await ev(() => { window.wazaExportLight = window.__exp; });
-
 console.log('── タグリセット（動画パネル・まとめて編集）──');
 const vR = await V();
 await ev(() => window.vpTagReset('t1')); await tick(100);
@@ -171,7 +159,7 @@ const rows = await ev(() => [...document.querySelectorAll('#vp-tag-reset-popup [
 ck('新しいタググループも並ぶ', rows.includes(await ev(() => window.__nid)), rows);
 await click('#vp-tag-reset-popup [data-reset="*"]');
 d = await dlg(true);
-ck('1本だけのリセットは、バックアップ既定オフ', d && d.bk === false, d);
+ck('1本だけのリセットにも、バックアップの提案は無い', d && d.bk === false, d);
 cur = JSON.parse(await V());
 ck('すべて外れる（その動画だけ）', !cur[0].tags.length && !cur[0].tb.length && cur[1].tags.length > 0, cur.slice(0, 2));
 await click('#toast .toast-undo-btn'); await tick();
@@ -201,7 +189,7 @@ const big = await ev(async () => {
   const before = localStorage.getItem('wk_tagOpsUndo');
   const p = window.wkTagOps.removeGhost('f_tags', '大量');
   await new Promise(r => setTimeout(r, 150));
-  const d = document.getElementById('tagops-dlg'); d.querySelector('#tagops-bk').checked = false; d.querySelector('#tagops-ok').click();
+  const d = document.getElementById('tagops-dlg'); d.querySelector('#tagops-ok').click();
   await p;
   const after = localStorage.getItem('wk_tagOpsUndo') || '[]';
   const removed = !window.videos.some(v => (v.tags || []).includes('大量'));

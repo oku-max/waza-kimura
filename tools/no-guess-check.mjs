@@ -103,6 +103,15 @@ const GONE = [
   ["store === 'mark'",   'マーク専用の保存場所の分岐'],
   ["store === 'status'", '習得専用の保存場所の分岐'],
   ['マークと習得の選択肢は固定', '選択肢が固定という説明'],
+  // v52.882: タグをまとめて変える確かめ画面の「先にバックアップを保存する（おすすめ）」はやめた（オーナー「いらない、けして」）
+  ['tagops-bk',              'まとめて変える操作の前のバックアップのチェック'],
+  ['先にバックアップを保存する', 'まとめて変える操作の前のバックアップの提案'],
+  // v52.882: 設定の「フィルター設定」（カウントの表示）と「AI取込設定」（チャプター取得・粒度）は廃止（オーナー「不要、削除」）
+  ['filter-col-settings',    'フィルター設定の画面の器'],
+  ['ai-settings-section',    'AI取込設定の画面の器'],
+  ['_renderAiImportSettings','AI取込設定の画面'],
+  ['_renderFilterColSettings','フィルター設定の画面'],
+  ['fetchChaptersOnImport !== false', 'チャプター取得の切り替え（常に取る）'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除

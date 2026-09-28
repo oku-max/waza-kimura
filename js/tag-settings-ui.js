@@ -34,8 +34,23 @@
       if (v.archived) return;
       R().valuesOf(v, g.id).forEach(t => { if (t && !opts.has(t)) cnt.set(t, (cnt.get(t) || 0) + 1); });
     });
-    const ghosts = [...cnt.entries()].sort((a, b) => b[1] - a[1]);
+    // 重複の相手（似ている選択肢）がある行を先に並べる
+    const ghosts = [...cnt.entries()].sort((a, b) => (_similar(g, b[0]).length > 0) - (_similar(g, a[0]).length > 0) || b[1] - a[1]);
     return { ghosts, n: ghosts.length };
+  }
+  // 重複の相手: 名前を検索と同じ揃え方（カタカナ/ひらがな・長音・末尾の「ガード」等）にして、
+  // 同じになる選択肢と、片方がもう片方を含む選択肢（2文字以上）。新しい判定は作らない（検索の _norm をそのまま使う）。
+  function _similar(g, v) {
+    const N = window._normTag || (x => String(x || '').toLowerCase());
+    const k = N(v);
+    if (!k) return [];
+    return (g.allOptions || g.options).filter(o => {
+      if (o === v) return false;
+      const ko = N(o);
+      if (!ko) return false;
+      if (ko === k) return true;
+      return Math.min(ko.length, k.length) >= 2 && (k.includes(ko) || ko.includes(k));
+    }).sort((a, b) => Math.abs(N(a).length - k.length) - Math.abs(N(b).length - k.length));
   }
 
   // ── 描画 ──
@@ -159,11 +174,16 @@
       h += `<button class="ts-acc ts-mt" data-act="dup" data-gid="${_esc(g.id)}"><span class="ts-grow">`
         + `<span class="ts-block">${_t('重複している可能性のあるタグを整理する（' + iss.n + '）')}</span></span><span class="ts-car">${open ? '▲' : '▼'}</span></button>`;
       if (open) {
-        h += `<div class="ts-note">${_t('動画に付いているのに、選択肢に無いタグです。選択肢の別の書き方かもしれません。')}</div><div class="ts-issue">`;
+        h += `<div class="ts-note">${_t('動画に付いているのに、選択肢に無いタグです。名前が似ている選択肢があれば「似ているタグ」に出します。')}</div><div class="ts-issue">`;
         iss.ghosts.forEach(([v, n]) => {
           const on = S.tag && S.tag.gid === g.id && S.tag.kind === 'ghost' && S.tag.v === v;
+          const sim = _similar(g, v);
           h += `<button class="ts-irow ts-irowbtn${on ? ' on' : ''}" data-act="tagopen" data-gid="${_esc(g.id)}" data-v="${_esc(v)}"${ro ? ' disabled' : ''}>`
-            + `<span><b data-user-text="1">${_esc(v)}</b> <small>${_t('（' + n + '本に付いています）')}</small></span><span class="ts-car">${on ? '▲' : '▼'}</span></button>`;
+            + `<span><b data-user-text="1">${_esc(v)}</b> <small>${_t('（' + n + '本に付いています）')}</small>`
+            + `<span class="ts-sim">` + (sim.length
+              ? `${_t('似ているタグ:')} <b data-user-text="1">${_esc(sim.join('・'))}</b>`
+              : `<span class="ts-simnone">${_t('似ているタグはありません')}</span>`) + `</span></span>`
+            + `<span class="ts-car">${on ? '▲' : '▼'}</span></button>`;
           // 押した行のすぐ下に、そのタグの操作を出す
           if (on) h += _tagBox(g, iss);
         });
@@ -291,7 +311,8 @@
       case 'edit': case 'tagopen': {
         const kind = a === 'tagopen' ? 'ghost' : 'opt', v = el.dataset.v;
         const same = S.tag && S.tag.gid === gid && S.tag.v === v && S.tag.kind === kind;
-        S.tag = same ? null : { gid, v, kind, to: '' };
+        // 選択肢に無いタグは、似ている選択肢（重複の相手）をまとめ先に最初から入れておく
+        S.tag = same ? null : { gid, v, kind, to: kind === 'ghost' && g ? (_similar(g, v)[0] || '') : '' };
         render();
         // 開いた操作が画面の外にあれば、見えるところまで送る
         if (!same) { const box = document.querySelector('#tag-display-settings .ts-tagbox'); if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
@@ -489,6 +510,9 @@
 #tag-display-settings .ts-choice.ts-danger b{color:#ef4444}
 #tag-display-settings .ts-irowbtn{width:100%;background:none;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:inherit;text-align:left;cursor:pointer}
 #tag-display-settings .ts-irowbtn.on{background:var(--surface2)}
+#tag-display-settings .ts-sim{display:block;font-size:11px;color:var(--text2);margin-top:2px}
+#tag-display-settings .ts-sim b{color:var(--accent)}
+#tag-display-settings .ts-simnone{color:var(--text3)}
 #tag-display-settings .ts-optname.on{font-weight:700;color:var(--accent)}
 #tag-display-settings .ts-mergeto{font-size:13px}
 #tag-display-settings .ts-opt .ts-show{font-size:11px;color:var(--accent);font-weight:700;margin-left:4px}

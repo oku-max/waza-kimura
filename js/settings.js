@@ -204,7 +204,6 @@ export function applyRemoteSettings(data) {
     Object.assign(filterColVis, data.filterColVis);
     try { localStorage.setItem('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
     window.filterColVis = filterColVis;
-    _renderFilterColSettings();
   }
   applyTagVisibility();
   applyTagLabels();
@@ -234,8 +233,6 @@ export function renderSettings() {
   // 起動時に動画がまだ無くて種が入らなかったグループを、ここで入れる（空→埋めるだけ）
   if (_seedTagPresets()) saveTagSettings();
   _renderTagDisplaySettings();
-  _renderFilterColSettings();
-  _renderAiImportSettings();
   window._cvSyncStartupUI?.(); // 起動リスト/範囲のセレクトを現在設定に同期
 }
 
@@ -369,48 +366,9 @@ export function renameTagGroup(key, name) {
 let _tagGroups = [];
 window.getTagGroups = () => _tagGroups;
 
-// ═══ AI取込設定（簡素化） ═══
-// 取り込み・チャプターの設定。
-// AIタグ判定は v52.806 で廃止したので（Notion 項目01/13）、ここはチャプター関連だけ。
-// 以前は全体が「AIタグ機能」のトグルで囲われていて、タグを切るとチャプター設定まで
-// 操作できなくなっていた。その囲いも外した。
-function _renderAiImportSettings() {
-  const el = document.getElementById('ai-settings-section'); if (!el) return;
-  const s = aiSettings;
-
-  const toggleHtml = (prop, label, desc) => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;margin-bottom:2px">${label}</div>
-        ${desc?`<div style="font-size:11px;color:var(--text3)">${desc}</div>`:''}
-      </div>
-      <label class="settings-toggle">
-        <input type="checkbox" ${s[prop]?'checked':''} onchange="aiSettings.${prop}=this.checked;saveAiSettings();_renderAiImportSettings()">
-        <span class="settings-toggle-slider"></span>
-      </label>
-    </div>`;
-
-  el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:14px">
-      ${toggleHtml('fetchChaptersOnImport', 'チャプター取得', 'YouTubeの説明文からタイムスタンプを解析')}
-      <div>
-        <div style="font-size:12px;font-weight:600;margin-bottom:2px">自動チャプターの粒度</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか</div>
-        <div style="display:flex;gap:6px">
-          ${[['fine','細かめ','1本の技ごと'],['normal','ふつう','標準'],['coarse','大きめ','章のかたまりで']].map(([v,label,desc])=>`
-            <button onclick="aiSettings.chapterGrain='${v}';saveAiSettings();_renderAiImportSettings()"
-              style="flex:1;padding:6px 4px;border-radius:8px;border:1.5px solid ${s.chapterGrain===v?'var(--accent)':'var(--border)'};
-                     font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;
-                     background:${s.chapterGrain===v?'var(--accent)':'var(--surface2)'};color:${s.chapterGrain===v?'#fff':'var(--text2)'}">
-              ${label}<div style="font-size:9.5px;font-weight:400;opacity:.85;margin-top:1px">${desc}</div>
-            </button>`).join('')}
-        </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:5px">貼り付けた一覧から作る時は、その通りに区切ります</div>
-      </div>
-    </div>`;
-}
-// expose for inline onchange
-window._renderAiImportSettings = _renderAiImportSettings;
+// ═══ AI取込設定の画面は v52.882 で廃止（オーナー「チャプター設定時のVPanelでやる」）═══
+// 粒度は動画パネルの確認ダイアログで選ぶ（既定はふつう）。チャプターは取り込みで常に取る。
+// 保存済みの aiSettings は消さない（読み込んで保存し直すだけ）。
 
 // 案A では選択肢の編集はモーダルの中だけ。この関数は呼び出し元が多いので、
 // 設定画面を描き直す入口として残す（中身の重複表示は v52.812 で廃止）。
@@ -517,6 +475,7 @@ export function applyRemoteAppearance(data) {
 loadAppearanceSettings();
 
 // ══ フィルターカラム表示設定 ══
+// 画面（フィルター設定）は v52.882 で廃止。どこからも読まない。保存済みの値は消さない（読み込んで保存し直すだけ）。
 export let filterColVis = { rank: true };
 (function _loadFilterColVis() {
   try {
@@ -539,24 +498,6 @@ export function saveFilterColVis() {
   }
 }
 
-function _renderFilterColSettings() {
-  const el = document.getElementById('filter-col-settings'); if (!el) return;
-  const items = [
-    { key: 'rank',   label: 'カウント', desc: '練習回数・最終カウント日' },
-  ];
-  el.innerHTML = items.map(item => `
-    <div style="display:flex;align-items:center;gap:12px">
-      <label class="settings-toggle">
-        <input type="checkbox" ${filterColVis[item.key]!==false?'checked':''}
-          onchange="filterColVis['${item.key}']=this.checked;saveFilterColVis()">
-        <span class="settings-toggle-slider"></span>
-      </label>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600">${item.label}</div>
-        <div style="font-size:10px;color:var(--text3)">${item.desc}</div>
-      </div>
-    </div>`).join('');
-}
 
 // ══ window.CATEGORIES / window.POSITIONS 同期ヘルパー ══
 // admin-dashboard や settings でカテゴリ/ポジションを追加・削除した後に呼ぶ。

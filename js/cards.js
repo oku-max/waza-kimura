@@ -98,9 +98,9 @@ export function cardHTML(v) {
   const vid   = v.id;
   const bulkMode = window.bulkMode || false;
   const selIds   = window.selIds   || new Set();
-  const _fcv      = window.filterColVis || {};
   // マーク（★・Next・ドリル）と習得の専用ボタンは v52.876 で廃止（普通のタグになった。タグ1〜4の枠に入れればバッジで出る）
-  const showRank   = _fcv.rank   !== false;
+  // カウントの表示を切り替える設定（フィルター設定）は v52.882 で廃止。常に出す
+  const showRank   = true;
   const _memoForPreview = v.memo
     ? v.memo.replace(/<img[^>]*>/gi, '').replace(/<div[^>]*>\s*<\/div>/gi, '').trim()
     : '';

@@ -810,9 +810,7 @@ export function renderOrg() {
   if (!tbody) return;
 
   // ── 行HTML生成関数 ──
-  const _fcv = window.filterColVis || {};
   const _fcvFilter = col => {
-    if (_fcv.rank   === false && col === 'counter') return false;
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
   };
@@ -931,9 +929,7 @@ export function syncOrgColHeaders() {
   const thead = document.querySelector('.org-table thead tr');
   if (!thead) return;
   [...thead.querySelectorAll('th[data-col]')].forEach(el => el.remove());
-  const _fcv2 = window.filterColVis || {};
   const _fcvFilter2 = col => {
-    if (_fcv2.rank   === false && col === 'counter') return false;
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
   };
@@ -1183,9 +1179,7 @@ export function orgTogSelAll(cb) {
 // ─── 列メニュー ───
 // 列メニューに並ぶ標準列（フィルタ設定で丸ごと隠れている列は出さない）
 function _orgMenuCols() {
-  const _fcv3 = window.filterColVis || {};
   return orgColOrder.filter(col => {
-    if (_fcv3.rank   === false && col === 'counter') return false;
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
   });
