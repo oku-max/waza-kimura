@@ -338,5 +338,27 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
   ck('⑪ 動画には触らない（一覧の枠だけ）', !/\bv\.|wkSetTagValue|videos/.test(code));
 }
 
+// ── ⑫ 選択肢に出さない（v52.878。削除はしないが、タグを付ける画面・絞り込みの候補に出さない）──
+{
+  const { win, R } = boot();
+  const ts0 = J(win.tagSettings);
+  ck('⑫ 出さないにすると: 候補（options）から外れ、全部（allOptions）と hidden には残る',
+    R.setOptionHidden('f_tb', 'トップ', true) && J(R.group('f_tb').options) === J(['ボトム']) && J(R.group('f_tb').allOptions) === J(['トップ', 'ボトム']) && J(R.group('f_tb').hidden) === J(['トップ']));
+  ck('⑫ 今の4つでも tagSettings（選択肢そのもの）は書き換えない', J(win.tagSettings) === ts0);
+  ck('⑫ 同じことを二度しても変えない（false）', R.setOptionHidden('f_tb', 'トップ', true) === false);
+  ck('⑫ 戻すと候補に戻り、空になった印は残さない', R.setOptionHidden('f_tb', 'トップ', false) && J(R.group('f_tb').options) === J(['トップ', 'ボトム']) && !('hide' in R.raw().groups.find(g => g.id === 'f_tb')));
+  ck('⑫ 新しいグループ・マークでも使える', R.setOptionHidden('mark', 'ドリル', true) && !R.group('mark').options.includes('ドリル') && R.group('mark').allOptions.includes('ドリル'));
+  ck('⑫ 空の値は受け取らない', R.setOptionHidden('mark', '  ', true) === false);
+  ck('⑫ 選択肢に無い値の印は hidden に出さない（選択肢から消したものは数えない）', R.setOptionHidden('mark', '存在しない', true) && !R.group('mark').hidden.includes('存在しない'));
+  const fut = R.raw(); fut.v = 99; R.applyRemote(fut);
+  ck('⑫ 自分より新しい形の一覧では変えない', R.setOptionHidden('f_tb', 'ボトム', true) === false);
+  const ops = read('js/tag-ops.js');
+  ck('⑫ まとめて変える操作の取り消しの控えは、出していない選択肢も含めた全部（allOptions）で取る（戻したときに消さない）',
+    /const _opts = g => \(g && \(g\.allOptions \|\| g\.options\)\) \|\| \[\]/.test(ops) && /before: _opts\(R\(\)\.group\(gid\)\)\.slice\(\)/.test(ops) && !/g\.options\.(filter|includes)/.test(ops));
+  const vp = read('js/vpanel-v4.js'), bk = read('js/bulk.js');
+  ck('⑫ 動画パネル・まとめて編集の候補は、出していないものを「ほかの動画に付いている値」として足さない',
+    /new Set\(g\.allOptions \|\| opts\)/.test(vp) && /new Set\(g\.allOptions \|\| g\.options\)/.test(bk) && /g\.allOptions \|\| g\.options \|\| \[\]\)\.includes\(val\)/.test(vp));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タググループの一覧: 問題なし');
 process.exit(fail ? 1 : 0);

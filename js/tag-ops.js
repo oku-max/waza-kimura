@@ -1,6 +1,6 @@
 // ═══ 動画のタグを書き換える操作の核（段階4）═══
 //
-// 選択肢の削除（動画からも外す）・名前を変える／まとめる・選択肢に無い値を外す・ほかのグループから寄せる
+// 選択肢の削除（動画からも外す）・名前を変える／まとめる・選択肢に無い値を外す
 // など、**たくさんの動画のタグを一度に変える操作**は、全部ここを通す。1つずつ書くと、どれか1つだけ
 // 取り消しが無い・控えを取り忘れる、が起きるので、手順を1か所に固定する:
 //   1. 変わる動画を数える（0本なら動画には触らない）
@@ -50,11 +50,13 @@
   const _isField = g => FIELDS.includes(g.store);
   function optAdd(g, v) { if (_isField(g)) window.tagOptAdd?.(g.store, v); else R().addOption(g.id, v); }
   function optRemove(g, v) { if (_isField(g)) window.tagOptRemove?.(g.store, v); else R().removeOption(g.id, v); }
+  // 選択肢の全部（「選択肢に出さない」にしたものも含む。v52.878）。出していないものを「無い」と取り違えない
+  const _opts = g => (g && (g.allOptions || g.options)) || [];
   // 選択肢を list の中身に戻す（取り消し用。足りないものを足し、無いものを外す）
   function _setOptions(gid, list) {
     const g = R().group(gid); if (!g || !Array.isArray(list)) return;
-    g.options.filter(v => !list.includes(v)).forEach(v => optRemove(g, v));
-    list.filter(v => !g.options.includes(v)).forEach(v => optAdd(g, v));
+    _opts(g).filter(v => !list.includes(v)).forEach(v => optRemove(g, v));
+    list.filter(v => !_opts(g).includes(v)).forEach(v => optAdd(g, v));
   }
 
   // ── 取り消しの記録 ──
@@ -145,7 +147,7 @@
       if (!ok) { window.toast?.(_t('バックアップを保存できなかったので、中止しました')); return false; }
     }
     const before = targets.map(v => _snap(v, gids));
-    const optsBefore = optGids.map(gid => ({ gid, before: (R().group(gid)?.options || []).slice() }));
+    const optsBefore = optGids.map(gid => ({ gid, before: _opts(R().group(gid)).slice() }));
     targets.forEach(v => op.apply(v));
     if (op.optsChange) op.optsChange();
     const after = targets.map(v => _snap(v, gids));
@@ -177,14 +179,14 @@
       gids: [gid], optGids: [gid], cvNames: [val],
       targets: _all().filter(v => _has(v, g, val)),
       apply: v => _set(v, g, val, false),
-      optsChange: () => { if (g.options.includes(val)) optRemove(g, val); },
+      optsChange: () => { if (_opts(g).includes(val)) optRemove(g, val); },
     });
   }
   // 名前を変える（to が選択肢にあれば、まとめる）
   function renameValue(gid, from, to) {
     const g = R().group(gid); to = String(to == null ? '' : to).trim();
     if (!_editable(g) || !to || to === from || !window.wkSetTagValue) return Promise.resolve(false);
-    const merge = g.options.includes(to);
+    const merge = _opts(g).includes(to);
     return run({
       title: merge ? '「' + from + '」を「' + to + '」にまとめる' : '「' + from + '」を「' + to + '」に変更',
       titleHTML: _q(from) + ' → ' + _q(to),
@@ -193,7 +195,7 @@
       gids: [gid], optGids: [gid], cvNames: [from],
       targets: _all().filter(v => _has(v, g, from)),
       apply: v => { _set(v, g, to, true); _set(v, g, from, false); },
-      optsChange: () => { if (!g.options.includes(to)) optAdd(g, to); if (g.options.includes(from)) optRemove(g, from); },
+      optsChange: () => { if (!_opts(g).includes(to)) optAdd(g, to); if (_opts(g).includes(from)) optRemove(g, from); },
     });
   }
   // 選択肢に無い値を、動画から外す
@@ -208,21 +210,6 @@
       apply: v => _set(v, g, val, false),
     });
   }
-  // ほかのグループに付いている同じ値を、このグループに寄せる（ほかのグループの選択肢からも外す）
-  function pullHere(gid, val, fromGids) {
-    const g = R().group(gid); if (!_editable(g) || !window.wkSetTagValue) return Promise.resolve(false);
-    const froms = (fromGids || []).map(id => R().group(id)).filter(f => _editable(f) && f.id !== gid);
-    return run({
-      title: '「' + val + '」を「' + g.name + '」に寄せる', titleHTML: _q(val) + ' → ' + _q(g.name),
-      bodyHTML: _t('ほかのタググループに付いている同じ値を、このタググループに移します。') + '<br><span data-user-text="1">' + _esc(froms.map(x => x.name).join('・')) + '</span>',
-      okLabel: _t('ここに寄せる'),
-      gids: [gid].concat(froms.map(x => x.id)), optGids: [gid].concat(froms.map(x => x.id)), cvNames: [val],
-      targets: _all().filter(v => froms.some(f => _has(v, f, val))),
-      apply: v => { _set(v, g, val, true); froms.forEach(f => _set(v, f, val, false)); },
-      optsChange: () => { if (!g.options.includes(val)) optAdd(g, val); froms.forEach(f => { if (f.options.includes(val)) optRemove(f, val); }); },
-    });
-  }
-
   // タグリセット（動画パネルの1本・まとめて編集の複数本、共通）。
   // グループごと、または全部のグループの値を外す。以前は今の4つだけで、まとめて編集の方は確かめも取り消しも無かった。
   function openReset(ids, opt) {
@@ -263,5 +250,5 @@
     });
   }
 
-  window.wkTagOps = { run, undo, lastUndo, removeEverywhere, renameValue, removeGhost, pullHere, openReset, _snap, _same };
+  window.wkTagOps = { run, undo, lastUndo, removeEverywhere, renameValue, removeGhost, openReset, _snap, _same };
 })();

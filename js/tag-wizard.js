@@ -170,7 +170,8 @@ function _allowNew(g) { return g.store === 'tags'; }
 // 候補: 選択肢（＋テクニックはほかの動画に付いている値）。今付いている値で選択肢に無いものは先頭
 function _cands(g, cur) {
   var opts = (g.options || []).filter(Boolean).slice();
-  if (_allowNew(g)) (window.videos || []).forEach(function(x){ _R().valuesOf(x, g.id).forEach(function(t){ if (t && opts.indexOf(t) < 0) opts.push(t); }); });
+  var hid = g.hidden || [];   // 選択肢に出していないもの（v52.878）は候補に出さない（今付いている値は下で先頭に出す）
+  if (_allowNew(g)) (window.videos || []).forEach(function(x){ _R().valuesOf(x, g.id).forEach(function(t){ if (t && opts.indexOf(t) < 0 && hid.indexOf(t) < 0) opts.push(t); }); });
   var extra = cur.filter(function(x){ return opts.indexOf(x) < 0; });
   return extra.concat(opts);
 }

@@ -313,6 +313,19 @@
     g.opts = after;
     return _commit();
   }
+  // 選択肢に出さない（v52.878。オーナー「削除はしないけど選択肢には出てこないようにする」）。
+  // 選択肢のまま残す（選択肢に無いタグ扱いにしない）が、タグを付ける画面・絞り込みの候補には出さない。
+  // 動画に付いている値はそのまま見える・外せる。今の4つもここ（一覧）に持つ（tagSettings は書かない）。
+  // 動画にも tagSettings の選択肢にも触らない。on=false で戻す。
+  function setOptionHidden(id, val, on) {
+    const g = _editable() && _g(id); if (!g) return false;
+    const v = String(val == null ? '' : val).trim(); if (!v) return false;
+    const before = _strs(g.hide);
+    if (before.includes(v) === !!on) return false;
+    g.hide = on ? before.concat([v]) : before.filter(x => x !== v);
+    if (!g.hide.length) delete g.hide;
+    return _commit();
+  }
   // 新しいタググループを作る。k を渡せばその枠に入れる（いた方は未使用へ）。作った ID を返す
   function createGroup(name, k) {
     if (!_editable()) return null;
@@ -350,13 +363,18 @@
   function optionLabel(g, value) {
     return String(value);
   }
+  // options    … 選択肢のうち「出す」もの（タグを付ける画面・絞り込みの候補はこれを使う）
+  // allOptions … 出していないものも含めた全部（設定の画面・選択肢に無いタグの判定・取り消しの控えはこれを使う）
+  // hidden     … 出していない選択肢（選択肢に今あるものだけ）
   function _resolve(g) {
     if (!g) return null;
     const slot = _reg.slots.indexOf(g.id);
+    const all = groupOptions(g), hide = _strs(g.hide);
+    const hidden = all.filter(x => hide.includes(x));
     return {
       id: g.id, store: g.store, def: g.def || null, search: g.search !== false,
       slot: slot >= 0 ? slot : -1,
-      name: groupName(g), options: groupOptions(g),
+      name: groupName(g), options: hidden.length ? all.filter(x => !hide.includes(x)) : all, allOptions: all, hidden,
     };
   }
   function groups() { _ensure(); return _reg.groups.map(_resolve); }
@@ -425,7 +443,7 @@
     strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
     migrateMarkStatus, MARK_VALUES, STATUS_VALUES,
-    setSlot, moveSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
+    setSlot, moveSlot, setSearch, setName, addOption, removeOption, setOptionHidden, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
     _valid, _fresh, LS_KEY,
   };
 })();

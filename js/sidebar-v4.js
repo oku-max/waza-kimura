@@ -201,7 +201,8 @@
       // 候補: タグ4は動画に付いている値、ほかは選択肢（今までどおり）
       const lists = {};
       _cols().forEach(c => {
-        const src = c.g.store === 'tags' ? _collectTags() : (c.g.options || []);
+        const base = c.g.store === 'tags' ? _collectTags().filter(n => !(c.g.hidden || []).includes(n)) : (c.g.options || []);   // 選択肢に出していないものは出さない
+        const src = base.concat([..._selOf(c.key)].filter(n => !base.includes(n)));   // 選んでいる値は必ず出す（見えない条件にしない）
         lists[c.key] = src.map(n => ({ name:n, cnt:_cnt(c.key, n), sel:_selOf(c.key).has(n) }));
       });
       trackEl.innerHTML = _cols().map(c => {

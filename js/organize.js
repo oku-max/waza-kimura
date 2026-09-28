@@ -1426,7 +1426,8 @@ function _inlineCfg(col) {
   if (!_isOrgTagCol(col)) return _INLINE_COLS[col] || null;
   const g = _orgSlotGroup(col);
   if (!g) return null;
-  const fromVideos = () => (window.videos || []).flatMap(x => _orgTagVals(x, g));
+  const _hid = new Set(g.hidden || []);   // 選択肢に出していないもの（v52.878）は候補に出さない
+  const fromVideos = () => (window.videos || []).flatMap(x => _orgTagVals(x, g)).filter(x => !_hid.has(x));
   const opts = (g.store === 'tb' || g.store === 'cat')
     ? () => (g.options || []).filter(Boolean).slice()
     : () => [...new Set([...(g.options || []), ...fromVideos()])].filter(Boolean).sort();

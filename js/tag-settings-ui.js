@@ -1,9 +1,11 @@
 // ═══ タグ設定の画面（段階3b。オーナー承認済みのモック「1画面」）═══
 // タグ1〜4 の枠と「未使用のタググループ」を同じ形の行で並べ、押すとその場で開く。
-// 開いた中で: 名前・使う場所（入れ替え）・選択肢（足す／外す）・要確認・検索の対象・
+// 開いた中で: 名前・使う場所（入れ替え）・選択肢（足す／外す／出さない）・重複している可能性のあるタグ・検索の対象・
 // ほかから選択肢をコピー・初期値に戻す。
 //
-// 動画には触らない（マージ・削除・「動画からも外す」「ここに寄せる」は段階4。先にバックアップと取り消しを付ける）。
+// 動画には触らない（マージ・削除・「動画からも外す」は段階4の js/tag-ops.js。先にバックアップと取り消しを付ける）。
+// 選択肢は「選択肢に出さない」（残したまま、タグを付ける画面・絞り込みの候補に出さない）もできる（v52.878）。
+// ほかのタググループにも同じ名前があることは知らせない（オーナー「知ったこっちゃない」v52.878）。
 // 書き込み先: 今の4つ（tb/cat/pos/tags）の名前・選択肢・表示は tagSettings（settings.js の入口）、
 //             それ以外（枠・検索の対象・マーク／習得／新しいグループの名前と選択肢）は一覧（tag-registry.js）。
 // マーク・習得は v52.876 から普通のタググループ（選択肢も自由に足し引きできる）。
@@ -18,20 +20,21 @@
   const _vis = g => { if (!_isField(g)) return true; const t = (window.tagSettings || []).find(x => x.key === g.store); return t ? t.visible !== false : true; };
 
   // 画面の状態（保存しない）
-  const S = { exp: null, unOpen: false, confirm: null, copy: null, addNote: null, edit: null };
+  const S = { exp: null, unOpen: false, confirm: null, copy: null, edit: null, dup: null };
 
   // ── 集計 ──
-  // 要確認: 選択肢に無いのに動画に付いている値（件数つき）と、ほかのグループにもある名前
-  function _issues(g, all) {
-    const opts = new Set(g.options);
+  // 重複している可能性のあるタグ: 選択肢に無いのに動画に付いている値（件数つき）。
+  // 「ラッソー」が選択肢にあって「ラッソーガード」が動画にだけ付いている、のような別の書き方が多い。
+  // 選択肢に出していないもの（allOptions）は選択肢にあるものとして数える。
+  function _issues(g) {
+    const opts = new Set(g.allOptions || g.options);
     const cnt = new Map();
     (window.videos || []).forEach(v => {
       if (v.archived) return;
       R().valuesOf(v, g.id).forEach(t => { if (t && !opts.has(t)) cnt.set(t, (cnt.get(t) || 0) + 1); });
     });
     const ghosts = [...cnt.entries()].sort((a, b) => b[1] - a[1]);
-    const dupes = g.options.map(v => ({ v, in: all.filter(o => o.id !== g.id && o.options.includes(v)) })).filter(d => d.in.length);
-    return { ghosts, dupes, n: ghosts.length + dupes.length };
+    return { ghosts, n: ghosts.length };
   }
 
   // ── 描画 ──
@@ -80,14 +83,13 @@
 
   function _row(g, k, all, grip) {
     const open = S.exp === g.id;
-    const iss = _issues(g, all);
+    const iss = _issues(g);
     const hidden = !_vis(g);
-    const n = g.options.length;
+    const n = g.options.length, nh = (g.hidden || []).length;
     let h = (grip ? `<div class="ts-slotrow">${grip}` : '') + `<button class="ts-row" data-act="exp" data-key="${_esc(g.id)}">`
       + (k >= 0 ? `<span class="ts-num">${_t('タグ' + (k + 1))}</span>` : `<span class="ts-num off">${_t('未使用')}</span>`)
       + `<span class="ts-name" data-user-text="1">${_esc(g.name)}</span>`
-      + `<span class="ts-sub">${_t(n + '個')}${g.search ? '' : `<span>${_t('・検索の対象外')}</span>`}${hidden ? `<span>${_t('・非表示中')}</span>` : ''}</span>`
-      + (iss.n ? `<span class="ts-badge">${_t('要確認 ' + iss.n)}</span>` : '')
+      + `<span class="ts-sub">${_t(n + '個')}${nh ? `<span>${_t('・' + nh + '個は出していない')}</span>` : ''}${g.search ? '' : `<span>${_t('・検索の対象外')}</span>`}${hidden ? `<span>${_t('・非表示中')}</span>` : ''}</span>`
       + `<span class="ts-car">${open ? '▲' : '▼'}</span></button>` + (grip ? `</div>` : '');
     if (open) h += `<div class="ts-panel">${_panel(g, k, all, iss)}</div>`;
     return h;
@@ -135,12 +137,18 @@
     });
     if (!g.options.length) h += `<span class="ts-dim">${_t('まだありません')}</span>`;
     h += `</div>`;
+    // 選択肢に出していないもの（消してはいない。「出す」で戻る）
+    if ((g.hidden || []).length) {
+      h += `<div class="ts-lbl ts-mt">${_t('選択肢に出していないもの ' + g.hidden.length + '個')}</div><div class="ts-optwrap">`;
+      g.hidden.forEach(o => {
+        h += `<span class="ts-opt ts-hid"><span data-user-text="1">${_esc(R().optionLabel(g, o))}</span>`
+          + (ro ? '' : `<button class="ts-show" data-act="unhide" data-gid="${_esc(g.id)}" data-v="${_esc(o)}">${_t('出す')}</button>`) + `</span>`;
+      });
+      h += `</div>`;
+    }
     if (!ro) {
       h += `<div class="ts-addrow"><input id="ts-add-${_esc(g.id)}" placeholder="${_t('選択肢を追加...')}" aria-label="${_t('選択肢を追加...')}" data-key="add" data-gid="${_esc(g.id)}">`
         + `<button class="ts-gold" data-act="addopt" data-gid="${_esc(g.id)}">${_t('追加')}</button></div>`;
-    }
-    if (S.addNote && S.addNote.gid === g.id) {
-      h += `<div class="ts-warn">${_t('ほかのタググループにも同じ名前があります。別のタグとして追加しました。')} <b data-user-text="1">${_esc(S.addNote.v)}</b> → <span data-user-text="1">${_esc(S.addNote.in.join('・'))}</span></div>`;
     }
     if (S.edit && S.edit.gid === g.id) {
       const e = S.edit;
@@ -154,27 +162,30 @@
     if (S.confirm && S.confirm.gid === g.id) {
       const c = S.confirm;
       h += `<div class="ts-confirm"><div><b data-user-text="1">${_esc(c.v)}</b> <span>${_t('（' + c.n + '本に付いています）')}</span></div>`
-        + `<p>${_t('選択肢から外します。付いている動画のタグはそのまま残り、「要確認」に出ます。')}</p>`
+        + `<p>${_t('「選択肢に出さない」は、消さずに残したまま、タグを付ける画面や絞り込みの候補に出さなくします。あとで戻せます。')}</p>`
+        + `<p>${_t('「選択肢から消す」は、選択肢から消します。どちらも、付いている動画のタグはそのまま残ります。')}</p>`
+        + `<button class="ts-gold" data-act="hideopt" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('選択肢に出さない（消さない）')}</button>`
         + `<div class="ts-two"><button class="ts-plain" data-act="cancel">${_t('キャンセル')}</button>`
-        + `<button class="ts-red" data-act="rmoptok" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('外す')}</button></div>`
+        + `<button class="ts-red" data-act="rmoptok" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('選択肢から消す')}</button></div>`
         + (c.n ? `<button class="ts-redline" data-act="rmall" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('動画からも外す（' + c.n + '本）')}</button>` : '')
         + `</div>`;
     }
 
-    // 要確認
+    // 重複している可能性のあるタグ（押したときだけ出す。オーナー「いきなり羅列されても鬱陶しい」v52.878）
     if (iss.n) {
-      h += `<div class="ts-lbl ts-mt ts-goldtxt">${_t('要確認')}</div><div class="ts-issue">`;
-      iss.ghosts.forEach(([v, n]) => {
-        h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(v)}</b> <small>${_t('選択肢に無いタグ・' + n + '本')}</small></span>`
-          + (ro ? '' : `<span class="ts-btns"><button class="ts-mini" data-act="keep" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('選択肢に入れる')}</button>`
-            + `<button class="ts-mini" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('まとめる')}</button>`
-            + `<button class="ts-mini ts-danger" data-act="rmghost" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('動画から外す')}</button></span>`) + `</div>`;
-      });
-      iss.dupes.forEach(d => {
-        h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(d.v)}</b> <small>${_t('ほかのタググループにもある:')} <span data-user-text="1">${_esc(d.in.map(x => x.name).join('・'))}</span></small></span>`
-          + (ro ? '' : `<button class="ts-mini" data-act="pull" data-gid="${_esc(g.id)}" data-v="${_esc(d.v)}" data-from="${_esc(d.in.map(x => x.id).join(','))}">${_t('ここに寄せる')}</button>`) + `</div>`;
-      });
-      h += `</div>`;
+      const open = S.dup === g.id;
+      h += `<button class="ts-acc ts-mt" data-act="dup" data-gid="${_esc(g.id)}"><span class="ts-grow">`
+        + `<span class="ts-block">${_t('重複している可能性のあるタグを整理する（' + iss.n + '）')}</span></span><span class="ts-car">${open ? '▲' : '▼'}</span></button>`;
+      if (open) {
+        h += `<div class="ts-note">${_t('動画に付いているのに、選択肢に無いタグです。選択肢の別の書き方かもしれません。')}</div><div class="ts-issue">`;
+        iss.ghosts.forEach(([v, n]) => {
+          h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(v)}</b> <small>${_t('（' + n + '本に付いています）')}</small></span>`
+            + (ro ? '' : `<span class="ts-btns"><button class="ts-mini" data-act="keep" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('選択肢に入れる')}</button>`
+              + `<button class="ts-mini" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('まとめる')}</button>`
+              + `<button class="ts-mini ts-danger" data-act="rmghost" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('動画から外す')}</button></span>`) + `</div>`;
+        });
+        h += `</div>`;
+      }
     }
 
     // 検索の対象
@@ -221,6 +232,7 @@
   function _addOpt(g, v) {
     if (_isField(g)) window.tagOptAdd?.(g.store, v);
     else R().addOption(g.id, v);
+    R().setOptionHidden(g.id, v, false);   // 前に「出さない」にして消した名前を入れ直したときは、出す
   }
   function _removeOpt(g, v) {
     if (_isField(g)) window.tagOptRemove?.(g.store, v);
@@ -240,7 +252,7 @@
   function _act(a, el) {
     const gid = el.dataset.gid, g = gid ? _group(gid) : null;
     switch (a) {
-      case 'exp': S.exp = S.exp === el.dataset.key ? null : el.dataset.key; S.confirm = null; S.copy = null; S.addNote = null; S.edit = null; return render();
+      case 'exp': S.exp = S.exp === el.dataset.key ? null : el.dataset.key; S.confirm = null; S.copy = null; S.edit = null; S.dup = null; return render();
       case 'unopen': S.unOpen = !S.unOpen; return render();
       case 'fillslot': R().setSlot(gid, +el.dataset.k); if (g && _isField(g)) window.tagSetVisible?.(g.store, true); S.exp = gid; return _after();
       case 'newgroup': { const id = R().createGroup('', +el.dataset.k); if (id) S.exp = id; return _after(); }
@@ -248,10 +260,13 @@
       case 'rmopt': S.confirm = { gid, v: el.dataset.v, n: g ? _countOn(g, el.dataset.v) : 0 }; return render();
       case 'cancel': S.confirm = null; return render();
       case 'rmoptok': if (g) _removeOpt(g, el.dataset.v); S.confirm = null; return _after();
+      // 選択肢に出さない／出す（一覧だけを変える。動画と tagSettings には触らない）
+      case 'hideopt': R().setOptionHidden(gid, el.dataset.v, true); S.confirm = null; window.toast?.(_t('選択肢に出さないようにしました（消していません）')); return _after();
+      case 'unhide': R().setOptionHidden(gid, el.dataset.v, false); return _after();
+      case 'dup': S.dup = S.dup === gid ? null : gid; return render();
       // ── 動画のタグを変える操作（段階4。確かめ・バックアップ・取り消しは js/tag-ops.js が持つ）──
       case 'rmall': return _op(window.wkTagOps?.removeEverywhere(gid, el.dataset.v));
       case 'rmghost': return _op(window.wkTagOps?.removeGhost(gid, el.dataset.v));
-      case 'pull': return _op(window.wkTagOps?.pullHere(gid, el.dataset.v, (el.dataset.from || '').split(',').filter(Boolean)));
       case 'edit': S.edit = { gid, v: el.dataset.v, n: g ? _countOn(g, el.dataset.v) : 0 }; S.confirm = null; render(); { const i = document.getElementById('ts-edit-' + gid); if (i) { i.focus(); i.select(); } } return;
       case 'editcancel': S.edit = null; return render();
       case 'editok': { const i = document.getElementById('ts-edit-' + gid); return _op(window.wkTagOps?.renameValue(gid, S.edit && S.edit.v, i ? i.value : '')); }
@@ -261,13 +276,13 @@
       case 'search': if (g) R().setSearch(gid, !g.search); return _after();
       case 'unusedcond': R().setPref('unusedCondApply', R().pref('unusedCondApply') === false); if (window._libViewMode === 'org') window.renderOrg?.(); return _after();
       case 'copy': S.copy = { to: gid, from: '', picks: [] }; return render();
-      case 'copyfrom': { const F = _group(gid), T = _group(S.copy.to); S.copy.from = gid; S.copy.picks = F && T ? F.options.filter(v => !T.options.includes(v)) : []; return render(); }
+      case 'copyfrom': { const F = _group(gid), T = _group(S.copy.to); S.copy.from = gid; S.copy.picks = F && T ? F.options.filter(v => !T.allOptions.includes(v)) : []; return render(); }
       case 'copypick': { const v = el.dataset.v, p = S.copy.picks; S.copy.picks = p.includes(v) ? p.filter(x => x !== v) : p.concat([v]); return render(); }
       case 'copycancel': S.copy = null; return render();
       case 'copydo': {
         const T = _group(S.copy.to); if (!T) return;
         const n = S.copy.picks.length;
-        S.copy.picks.forEach(v => { if (!T.options.includes(v)) _addOpt(T, v); });
+        S.copy.picks.forEach(v => { if (!T.allOptions.includes(v)) _addOpt(T, v); });
         S.copy = null; window.toast?.(_t(n + '個をコピーしました')); return _after();
       }
       case 'defone': return _resetOne(g);
@@ -278,10 +293,13 @@
     const g = _group(gid); if (!g) return;
     const inp = document.getElementById('ts-add-' + gid);
     const v = (inp && inp.value || '').trim();
-    if (!v || g.options.includes(v)) return;
-    const others = R().groups().filter(o => o.id !== gid && o.options.includes(v)).map(o => o.name);
+    if (!v) return;
+    if (g.allOptions.includes(v)) {
+      // 出していないものを打ったら、出す（二重には足さない）
+      if (g.hidden.includes(v)) { R().setOptionHidden(gid, v, false); if (inp) inp.value = ''; _after(); }
+      return;
+    }
     _addOpt(g, v);
-    S.addNote = others.length ? { gid, v, in: others } : null;
     _after();
     const again = document.getElementById('ts-add-' + gid); if (again) again.focus();
   }
@@ -292,7 +310,7 @@
     const d = R().DEFAULTS[g.def];
     const name = R().defaultName(g.def);
     if (_isField(g)) {
-      if (d) d.vals.forEach(v => { if (!g.options.includes(v)) window.tagOptAdd?.(g.store, v); });
+      if (d) d.vals.forEach(v => { if (!g.allOptions.includes(v)) window.tagOptAdd?.(g.store, v); });
       if (name && name !== g.name) window.renameTagGroup?.(g.store, name);
     } else if (name) {
       R().setName(g.id, name);
@@ -404,7 +422,6 @@
 #tag-display-settings .ts-name{font-size:15px;font-weight:600;min-width:0;overflow-wrap:anywhere}
 #tag-display-settings .ts-unset{flex:1;color:var(--text3)}
 #tag-display-settings .ts-sub{font-size:11px;color:var(--text3);flex:1;white-space:nowrap}
-#tag-display-settings .ts-badge{font-size:10px;font-weight:700;color:#b7791f;background:rgba(229,196,122,.18);border-radius:9px;padding:2px 7px;flex-shrink:0}
 #tag-display-settings .ts-car{font-size:11px;color:var(--text3)}
 #tag-display-settings .ts-panel{padding:10px 0 16px;border-bottom:1px solid var(--border2)}
 #tag-display-settings .ts-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -416,6 +433,8 @@
 #tag-display-settings .ts-ops{margin-top:12px}
 #tag-display-settings .ts-opt{display:inline-flex;align-items:center;gap:2px;background:var(--surface2);border-radius:14px;padding:4px 4px 4px 11px;font-size:13px}
 #tag-display-settings .ts-opt button{background:none;border:none;color:var(--text3);font-size:14px;padding:2px 6px;cursor:pointer}
+#tag-display-settings .ts-hid{opacity:.6;padding-right:6px}
+#tag-display-settings .ts-opt .ts-show{font-size:11px;color:var(--accent);font-weight:700;margin-left:4px}
 #tag-display-settings .ts-addrow{display:flex;gap:6px;margin-top:8px}
 #tag-display-settings .ts-addrow input{flex:1;min-width:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 8px;font-size:14px;color:var(--text);font-family:inherit}
 #tag-display-settings .ts-chip{padding:7px 12px;border-radius:16px;border:1px solid var(--border);background:none;font-size:13px;color:var(--text);cursor:pointer;font-family:inherit}

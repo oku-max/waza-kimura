@@ -197,7 +197,7 @@ function _bvpRenderDd(g, q) {
   const R = window.tagRegistry, sel = _bvpSel();
   const common = new Set([...new Set(sel.flatMap(v => R.valuesOf(v, g.id)))].filter(t => sel.every(v => R.valuesOf(v, g.id).includes(t))));
   // 候補 = 選択肢 ＋ ほかの動画に付いている値（動画パネルと同じ）
-  const seen = new Set(g.options), extra = new Set();
+  const seen = new Set(g.allOptions || g.options), extra = new Set();   // 選択肢に出していないものは候補に出さない
   (window.videos || []).forEach(x => R.valuesOf(x, g.id).forEach(t => { if (!seen.has(t)) extra.add(t); }));
   const cands = g.options.concat([...extra].sort((a, b) => String(a).localeCompare(String(b), 'ja')));
   const posDict = g.store === 'pos' ? new Map((window.POSITIONS || []).map(p => [p.ja, p.en || ''])) : null;

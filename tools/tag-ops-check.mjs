@@ -105,6 +105,9 @@ await ev(() => { document.getElementById('ts-edit-f_tags').value = 'ニースラ
 d = await dlg(true, false);
 let cur = JSON.parse(await V());
 ck('名前を変える: 選択肢と動画の値が変わる', cur[0].tags.includes('ニースライス') && !cur[0].tags.includes('ニーカット') && (await opts('tags')).includes('ニースライス'), cur[0]);
+// 選択肢に無い値（幽霊）は「重複している可能性のあるタグを整理する」を押したときだけ出る（v52.878）
+await ev(() => { if (!document.querySelector('#tag-display-settings [data-act="edit"][data-v="幽霊"]')) document.querySelector('#tag-display-settings [data-act="dup"][data-gid="f_tags"]').click(); });
+await tick(100);
 await ev(() => { document.querySelector('#tag-display-settings [data-act="edit"][data-v="幽霊"]').click(); });
 await tick(100);
 await ev(() => { const i = document.getElementById('ts-edit-f_tags'); i.value = 'キムラ'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
@@ -119,15 +122,11 @@ cur = JSON.parse(await V());
 ck('★ 操作の後にまた変えた動画は戻さない（後の変更を消さない）・変えていない動画は戻る',
   cur[2].tags.join() === 'キムラ,アームバー' && cur[3].tags.join() === '幽霊', cur.slice(2));
 
-console.log('── ここに寄せる・選択肢に無い値を外す ──');
-await ev(() => { document.querySelector('#tag-display-settings [data-act="exp"][data-key="f_pos"]').click(); });
-await tick(100);
-await click(Q + '[data-act="pull"][data-v="ハーフ"]');
-d = await dlg(true, false);
-cur = JSON.parse(await V());
-ck('ここに寄せる: ほかのグループ（カテゴリ）から外してこのグループへ・カテゴリの選択肢からも外す',
-  cur[1].pos.includes('ハーフ') && !cur[1].cat.includes('ハーフ') && !(await opts('cat')).includes('ハーフ'), cur[1]);
+console.log('── 選択肢に無い値を外す ──');
+// 「ここに寄せる」（ほかのグループの同じ名前を寄せる）は v52.878 で廃止（オーナー「知ったこっちゃない」）
 await ev(() => { window.videos[0].cat.push('迷子'); document.querySelector('#tag-display-settings [data-act="exp"][data-key="f_cat"]').click(); });
+await tick(100);
+await click(Q + '[data-act="dup"][data-gid="f_cat"]');   // 重複している可能性のあるタグは、押したときだけ出る
 await tick(100);
 await click(Q + '[data-act="rmghost"][data-v="迷子"]');
 d = await dlg(true, false);

@@ -750,7 +750,7 @@
       const tagCols = _gs.map(g => {
         const listKey = _FIELDS.includes(g.store) ? g.store : g.id;   // 並べ替えの記憶（今の4つは今までどおり）
         const src = g.store === 'tags'
-          ? [...new Set(_allVids.filter(v => !v.archived).flatMap(v => _TF().valuesOf(v, g.id)))].filter(Boolean).sort()
+          ? [...new Set(_allVids.filter(v => !v.archived).flatMap(v => _TF().valuesOf(v, g.id)))].filter(x => x && !(g.hidden || []).includes(x)).sort()   // 選択肢に出していないものは出さない（選んでいれば _mkItems が出す）
           : g.options.slice();
         const items = _mkItems(g, src, _ctxVideos(listKey));
         return _colHtml(_esc(g.name), listKey, items, { filterKey: _TF().keyFor(g.id, _sch()), userText: true });

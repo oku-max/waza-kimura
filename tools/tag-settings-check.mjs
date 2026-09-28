@@ -114,8 +114,11 @@ await expand('f_tags');
 await ev(() => { document.getElementById('ts-add-f_tags').value = 'スパー'; });
 await click('[data-act="addopt"][data-gid="f_tags"]'); await tick();
 ck('選択肢を足せる', await ev(() => window.tagPresets('tags').includes('スパー')));
-ck('ほかのグループにもある名前は知らせる', await ev(s => !!document.querySelector(s), Q + '.ts-warn'));
-ck('「選択肢に無いタグ」に動画にだけある値（ニーカット）が出る', await ev(s => !!document.querySelector(s), `${Q}[data-act="keep"][data-v="ニーカット"]`));
+ck('ほかのグループにもある名前は知らせない（v52.878 オーナー「知ったこっちゃない」）', await ev(s => !document.querySelector(s) && !/ほかのタググループ|Another tag group|Also in/.test(document.querySelector('#tag-display-settings').textContent), Q + '[data-act="pull"]'));
+ck('行に「要確認」の印を出さない', await ev(s => !document.querySelector(s), Q + '.ts-badge'));
+ck('選択肢に無いタグは、いきなり並べない（ボタンを押すまで出さない）', await ev(s => !document.querySelector(s), `${Q}[data-act="keep"]`) && await ev(s => !!document.querySelector(s) && /重複|duplicate/i.test(document.querySelector(s).textContent), `${Q}[data-act="dup"][data-gid="f_tags"]`));
+await click('[data-act="dup"][data-gid="f_tags"]'); await tick();
+ck('「重複している可能性のあるタグを整理する」を押すと、動画にだけある値（ニーカット）が出る', await ev(s => !!document.querySelector(s), `${Q}[data-act="keep"][data-v="ニーカット"]`));
 await click('[data-act="keep"][data-v="ニーカット"]'); await tick();
 ck('「選択肢に入れる」で選択肢に入る', await ev(() => window.tagPresets('tags').includes('ニーカット')));
 await click('[data-act="rmopt"][data-v="キムラ"]'); await tick();
@@ -123,6 +126,26 @@ ck('× はすぐ消さず、確認を出す', await ev(() => window.tagPresets('
 await click('[data-act="rmoptok"]'); await tick();
 const rm = await ev(() => ({ opts: window.tagPresets('tags'), inVideos: window.videos.filter(v => (v.tags || []).includes('キムラ')).length }));
 ck('★ 確認後、選択肢からだけ外れる（動画のタグ「キムラ」は2本とも残る）', !rm.opts.includes('キムラ') && rm.inVideos === 2, rm);
+
+console.log('\n── 選択肢に出さない（消さない）──');
+const vHid = await ev(() => JSON.stringify(window.videos));
+await expand('f_tags');
+await click('[data-act="rmopt"][data-v="スパー"]'); await tick();
+ck('× の確認に「選択肢に出さない（消さない）」がある', await ev(s => !!document.querySelector(s), `${Q}[data-act="hideopt"][data-v="スパー"]`));
+await click('[data-act="hideopt"][data-v="スパー"]'); await tick();
+const hd = await ev(() => { const g = window.tagRegistry.group('f_tags'); return { presets: window.tagPresets('tags'), opts: g.options, all: g.allOptions, hidden: g.hidden }; });
+ck('★ 出さないにすると: 選択肢（tagSettings）には残る・候補（options）には出ない・全部（allOptions）には入る',
+  hd.presets.includes('スパー') && !hd.opts.includes('スパー') && hd.all.includes('スパー') && hd.hidden.includes('スパー'), hd);
+ck('出していないものは「重複している可能性のあるタグ」に数えない（選択肢のまま）', await ev(s => !document.querySelector(s), `${Q}[data-act="keep"][data-v="スパー"]`));
+ck('設定の画面に「出す」ボタン付きで出る', await ev(s => !!document.querySelector(s), `${Q}[data-act="unhide"][data-v="スパー"]`));
+ck('★ 出さないにしても動画のデータは1文字も変わらない', await ev(() => JSON.stringify(window.videos)) === vHid);
+await click('[data-act="unhide"][data-v="スパー"]'); await tick();
+ck('「出す」で候補に戻る', await ev(() => window.tagRegistry.group('f_tags').options.includes('スパー') && !window.tagRegistry.group('f_tags').hidden.length));
+await ev(() => window.tagRegistry.setOptionHidden('f_tags', 'スパー', true));
+await expand('f_tags'); await expand('f_tags');
+await ev(() => { document.getElementById('ts-add-f_tags').value = 'スパー'; });
+await click('[data-act="addopt"][data-gid="f_tags"]'); await tick();
+ck('出していないものを追加欄に打つと、出す（二重には足さない）', await ev(() => window.tagRegistry.group('f_tags').options.includes('スパー') && window.tagPresets('tags').filter(x => x === 'スパー').length === 1));
 
 console.log('\n── 検索・コピー・初期値 ──');
 const s0 = await ev(() => window.tagRegistry.group('f_tags').search);
