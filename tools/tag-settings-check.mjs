@@ -158,6 +158,52 @@ await ev(() => { document.getElementById('ts-add-f_tags').value = 'スパー'; }
 await click('[data-act="addopt"][data-gid="f_tags"]'); await tick();
 ck('出していないものを追加欄に打つと、出す（二重には足さない）', await ev(() => window.tagRegistry.group('f_tags').options.includes('スパー') && window.tagPresets('tags').filter(x => x === 'スパー').length === 1));
 
+console.log('\n── 選択肢の表示順（v52.884）──');
+{
+  const vOrd = await ev(() => JSON.stringify(window.videos));
+  await ev(() => { ['並び1', '並び2'].forEach(x => window.tagOptAdd('tags', x)); window.renderTagShelf(); });   // 4つ以上にする
+  await expand('f_tags');
+  const p0 = await ev(() => window.tagPresets('tags').slice());
+  const first = p0[0];
+  await click(`[data-act="edit"][data-v="${first}"]`); await tick();
+  const mv = await ev(q => [...document.querySelectorAll(q + '.ts-tagbox [data-act="optmove"]')].map(b => b.dataset.to + (b.disabled ? ':off' : '')), Q);
+  ck('タグを押すと「表示順」（先頭へ・前へ・後ろへ・最後へ）が出る。先頭のタグは「先頭へ・前へ」が押せない', mv.join() === 'first:off,prev:off,next,last', mv);
+  await click(`[data-act="optmove"][data-to="last"][data-v="${first}"]`); await tick();
+  const p1 = await ev(() => window.tagPresets('tags').slice());
+  ck('★ 「最後へ」で最後に並ぶ（中身は同じ・足さない・消さない）', p1[p1.length - 1] === first && p1.length === p0.length && p0.every(x => p1.includes(x)), p1);
+  ck('動かしたタグの操作は開いたまま、そのタグのすぐ次に出る', await ev(([q, v]) => { const w = document.querySelector(q + '.ts-tagwrap'); return w?.previousElementSibling?.querySelector('[data-act="edit"]')?.dataset.v === v; }, [Q, first]));
+  await click(`[data-act="optmove"][data-to="prev"][data-v="${first}"]`); await tick();
+  const p2 = await ev(() => window.tagPresets('tags').slice());
+  ck('「← 前へ」で1つ前に動く', p2[p2.length - 2] === first && p2[p2.length - 1] === p1[p1.length - 2], p2);
+  // 出していないタグは、ほかのタグを動かしても元の位置のまま
+  const hid = p2[1];
+  await ev(h => window.tagRegistry.setOptionHidden('f_tags', h, true), hid);
+  await expand('f_tags'); await expand('f_tags');
+  await click('[data-act="tagclose"]'); await tick();   // 開いたままのタグを閉じてから（同じタグを押すと閉じるため）
+  await click(`[data-act="edit"][data-v="${p2[2]}"]`); await tick();
+  await click(`[data-act="optmove"][data-to="first"][data-v="${p2[2]}"]`); await tick();
+  const p3 = await ev(() => window.tagPresets('tags').slice());
+  ck('★ 出していないタグは、ほかのタグを動かしても同じ位置に残る（消えない）', p3[0] === p2[2] && p3[1] === hid && p3.length === p2.length, { p2, p3 });
+  await ev(h => window.tagRegistry.setOptionHidden('f_tags', h, false), hid);
+  ck('中身が違う並び（足りない・重なる）は書かない', await ev(() => {
+    const cur = window.tagPresets('tags').slice();
+    const a = window.tagOptOrder('tags', cur.slice(1)), b = window.tagOptOrder('tags', cur.slice(0, -1).concat([cur[0]]));
+    const c = window.tagRegistry.setOptionOrder('mark', ['お気に入り']);
+    return !a && !b && !c && JSON.stringify(window.tagPresets('tags')) === JSON.stringify(cur);
+  }));
+  ck('並びは端末の控え（wk_tagSettings）に保存される', await ev(() => JSON.stringify(JSON.parse(localStorage.getItem('wk_tagSettings')).find(t => t.key === 'tags').presets) === JSON.stringify(window.tagPresets('tags'))));
+  // 一覧が持つグループ（マーク）も同じ操作
+  await expand('mark');
+  const m0 = await ev(() => window.tagRegistry.group('mark').options.slice());
+  await click(`[data-act="edit"][data-gid="mark"][data-v="${m0[2]}"]`); await tick();
+  await click(`[data-act="optmove"][data-to="prev"][data-v="${m0[2]}"]`); await tick();
+  const m1 = await ev(() => window.tagRegistry.group('mark').options.slice());
+  ck('★ マーク（一覧が持つグループ）も並べ替えられ、一覧に保存される', JSON.stringify(m1) === JSON.stringify([m0[0], m0[2], m0[1]])
+    && await ev(w => JSON.stringify(JSON.parse(localStorage.getItem('wk_tagRegistry')).groups.find(g => g.id === 'mark').opts) === w, JSON.stringify(m1)), { m0, m1 });
+  ck('★ 並べ替えても動画のデータは1文字も変わらない', await ev(() => JSON.stringify(window.videos)) === vOrd);
+  await expand('f_tags');
+}
+
 console.log('\n── 検索・コピー・初期値 ──');
 const s0 = await ev(() => window.tagRegistry.group('f_tags').search);
 await click('[data-act="search"][data-gid="f_tags"]'); await tick();
@@ -205,7 +251,9 @@ console.log('\n── ドラッグで並べ替え（タグ1〜4の行）──')
 {
   await ev(() => { document.querySelectorAll('#tag-display-settings [data-act="exp"]').forEach(() => {}); window.renderTagShelf(); });
   const before = await slots();
-  const gb = await pg.locator(Q + '[data-grip="0"]').boundingBox();
+  // 設定の上に外観設定がある（v52.884）ので、画面の真ん中まで送ってから座標を取る（上端だと固定の見出しの下になる）
+  await pg.locator(Q + '.ts-slot[data-k="0"]').evaluate(e => e.scrollIntoView({ block: 'center' }));
+  const gb =await pg.locator(Q + '[data-grip="0"]').boundingBox();
   const rb = await pg.locator(Q + '.ts-slot[data-k="2"]').boundingBox();
   ck('行の左につかむ所（⠿）がある（4行とも）', await ev(q => document.querySelectorAll(q + '.ts-slot [data-grip]').length, Q) === 4);
   if (gb && rb) {

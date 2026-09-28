@@ -112,6 +112,8 @@ const GONE = [
   ['_renderAiImportSettings','AI取込設定の画面'],
   ['_renderFilterColSettings','フィルター設定の画面'],
   ['fetchChaptersOnImport !== false', 'チャプター取得の切り替え（常に取る）'],
+  // v52.884: 設定のタグの画面の「直前の操作: … 元に戻す」の帯はやめた（オーナー「いらない」）。取り消しはトーストで
+  ['直前の操作:',            '設定のタグの画面の「直前の操作」の帯'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除

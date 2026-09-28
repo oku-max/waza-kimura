@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.883</title>
+<title>WAZA KIMURA v52.884</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1327,6 +1327,9 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <div style="padding:14px 12px 8px;border-bottom:1px solid var(--border)">
       <div style="font-size:10px;font-weight:800;letter-spacing:.8px;color:var(--text3);margin-bottom:10px">SETTINGS</div>
       <div style="display:flex;flex-direction:column;gap:2px">
+        <div class="fs-nav-i" onclick="scrollToSetting('sec-appearance')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
+          <span>🎨</span> 外観設定
+        </div>
         <div class="fs-nav-i" onclick="scrollToSetting('sec-tag')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
           <span>🏷</span> タグ表示設定
         </div>
@@ -1335,9 +1338,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         </div>
         <div class="fs-nav-i" onclick="scrollToSetting('sec-sub')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
           <span>💬</span> 字幕設定
-        </div>
-        <div class="fs-nav-i" onclick="scrollToSetting('sec-appearance')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
-          <span>🎨</span> 外観設定
         </div>
       </div>
     </div>
@@ -1745,11 +1745,11 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
   <!-- 左カラム: 目次（節が増えたので一覧から飛べるようにする。スクロールで現在位置を追う） -->
   <nav class="set-toc" id="set-toc">
     <div class="set-toc-h">目次</div>
+    <div class="set-toc-i" data-sec="sec-appearance" onclick="scrollToSetting('sec-appearance')"><span>🎨</span> 外観設定</div>
     <div class="set-toc-i" data-sec="sec-language"   onclick="scrollToSetting('sec-language')"><span>🌐</span> 言語</div>
     <div class="set-toc-i" data-sec="sec-tag"        onclick="scrollToSetting('sec-tag')"><span>🏷</span> タグ表示設定</div>
     <div class="set-toc-i" data-sec="sec-play"       onclick="scrollToSetting('sec-play')"><span>▶</span> 再生設定</div>
     <div class="set-toc-i" data-sec="sec-sub"        onclick="scrollToSetting('sec-sub')"><span>💬</span> 字幕設定</div>
-    <div class="set-toc-i" data-sec="sec-appearance" onclick="scrollToSetting('sec-appearance')"><span>🎨</span> 外観設定</div>
     <div class="set-toc-i" data-sec="sec-backup"     onclick="scrollToSetting('sec-backup')"><span>💾</span> バックアップ / 復元</div>
   </nav>
   <div class="set-body">
@@ -1757,6 +1757,33 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <!-- ヘッダー -->
     <div style="font-size:16px;font-weight:800;margin-bottom:4px">Settings</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:20px" data-i18n="set.subtitle">表示・AI・再生・外観の設定</div>
+
+    <!-- ═══ 外観設定（いちばん上。オーナー指定 v52.884）═══ -->
+    <div id="sec-appearance" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase">外観設定</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:24px;display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">テーマ</div>
+        <div class="theme-selector">
+          <button id="theme-opt-auto" class="theme-opt" onclick="setTheme('auto')">自動</button>
+          <button id="theme-opt-light" class="theme-opt" onclick="setTheme('light')">ライト</button>
+          <button id="theme-opt-dark" class="theme-opt" onclick="setTheme('dark')">ダーク</button>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px">文字サイズ</div>
+            <div style="font-size:11px;color:var(--text3)">表示テキストの大きさを調整します</div>
+          </div>
+          <span id="font-scale-label" style="font-size:12px;font-weight:700;color:var(--accent);min-width:36px;text-align:right">100%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button onclick="adjustFontScale(-0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">−</button>
+          <input type="range" id="setting-fontscale" min="0.8" max="1.4" step="0.05" value="1" oninput="setFontScale(this.value)" style="flex:1;accent-color:var(--accent)">
+          <button onclick="adjustFontScale(0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">+</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ═══ 言語 / Language ═══ -->
     <div id="sec-language" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="settings.language">言語</div>
@@ -1811,33 +1838,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         生成済みの字幕にも教材付属の字幕にも効き、いつでも変更できます。
       </div>
       <div id="sub-opts-host"></div>
-    </div>
-
-    <!-- ═══ 外観設定 ═══ -->
-    <div id="sec-appearance" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">外観設定</div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:16px;">
-      <div>
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px">テーマ</div>
-        <div class="theme-selector">
-          <button id="theme-opt-auto" class="theme-opt" onclick="setTheme('auto')">自動</button>
-          <button id="theme-opt-light" class="theme-opt" onclick="setTheme('light')">ライト</button>
-          <button id="theme-opt-dark" class="theme-opt" onclick="setTheme('dark')">ダーク</button>
-        </div>
-      </div>
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div>
-            <div style="font-size:12px;font-weight:600;margin-bottom:2px">文字サイズ</div>
-            <div style="font-size:11px;color:var(--text3)">表示テキストの大きさを調整します</div>
-          </div>
-          <span id="font-scale-label" style="font-size:12px;font-weight:700;color:var(--accent);min-width:36px;text-align:right">100%</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button onclick="adjustFontScale(-0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">−</button>
-          <input type="range" id="setting-fontscale" min="0.8" max="1.4" step="0.05" value="1" oninput="setFontScale(this.value)" style="flex:1;accent-color:var(--accent)">
-          <button onclick="adjustFontScale(0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">+</button>
-        </div>
-      </div>
     </div>
 
     <!-- ═══ タブ表示設定 ═══ -->

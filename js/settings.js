@@ -335,6 +335,16 @@ function _removeTagFromModalValue(key, name) {
 // 名前と選択肢の正が tagSettings なので、書き込みはここを通す（動画には触らない）。
 window.tagOptAdd    = (key, v) => { const s = String(v == null ? '' : v).trim(); if (_TAG_KEYS.includes(key) && s) _addTagFromModalValue(key, s); };
 window.tagOptRemove = (key, v) => { if (_TAG_KEYS.includes(key)) _removeTagFromModalValue(key, v); };
+// 選択肢の表示順（v52.884）。並びだけを変える: 今の選択肢と同じ中身（足さない・消さない・重ならない）でなければ書かない
+window.tagOptOrder = (key, order) => {
+  const t = tagSettings.find(x => x.key === key);
+  if (!t || !Array.isArray(t.presets) || !Array.isArray(order)) return false;
+  const cur = t.presets, next = order.map(String);
+  if (next.length !== cur.length || new Set(next).size !== next.length || !next.every(x => cur.includes(x))) return false;
+  if (next.every((x, i) => x === cur[i])) return false;
+  t.presets = next; saveTagSettings();
+  return true;
+};
 window.tagSetVisible = (key, on) => {
   const t = tagSettings.find(x => x.key === key); if (!t) return;
   if ((t.visible !== false) === !!on) return;

@@ -63,9 +63,7 @@
     const ro = R().isReadOnly();
     let h = '';
     if (ro) h += `<div class="ts-warn">${_t('この一覧は新しい版のアプリで保存されています。この端末では変更できません。')}</div>`;
-    // 動画のタグを変えた直前の操作（js/tag-ops.js）。あとからでも戻せる
-    const last = window.wkTagOps && window.wkTagOps.lastUndo();
-    if (last && !ro) h += `<div class="ts-warn">${_t('直前の操作:')} <span data-user-text="1">${_esc(last.title)}</span> <button class="ts-mini" data-act="undo">${_t('元に戻す')}</button></div>`;
+    // 「直前の操作: … 元に戻す」の帯は出さない（v52.884 オーナー「いらない」）。取り消しは操作の直後のトーストで行う
     h += `<div class="ts-cap">${_t('使用中のタグ')}</div><div class="ts-card">`;
     // 行の左のつかむ所（⠿）を押したまま上下に動かすと、タグ1〜4の順番を並べ替えられる（_bindDrag）
     const grip = k => ro ? '' : `<span class="ts-grip" data-grip="${k}" title="${_t('ドラッグで並べ替え')}" aria-label="${_t('ドラッグで並べ替え')}">⠿</span>`;
@@ -143,7 +141,7 @@
     }
 
     // 選択肢
-    h += `<div class="ts-lbl ts-mt">${_t('選択肢 ' + g.options.length + '個')}<span class="ts-right">${_t('タグを押すと、名前の変更・まとめる・消すができます')}</span></div><div class="ts-optwrap">`;
+    h += `<div class="ts-lbl ts-mt">${_t('選択肢 ' + g.options.length + '個')}<span class="ts-right">${_t('タグを押すと、名前の変更・並べ替え・まとめる・消すができます')}</span></div><div class="ts-optwrap">`;
     g.options.forEach(o => {
       const lbl = R().optionLabel(g, o);
       h += `<span class="ts-opt">` + (ro ? `<span data-user-text="1">${_esc(lbl)}</span>`
@@ -226,6 +224,14 @@
       h += `<div class="ts-do"><label class="ts-lbl" for="ts-edit-${gid}">${_t('名前を変える')}</label>`
         + `<div class="ts-addrow ts-nomt"><input id="ts-edit-${gid}" value="${ev}" data-user-text="1" data-key="edit" data-gid="${gid}" aria-label="${_t('新しい名前')}">`
         + `<button class="ts-gold" data-act="editok" data-gid="${gid}">${_t('変える')}</button></div></div>`;
+      // 表示順（v52.884 オーナー「タグの表示順変えられるようにして」）。選択肢の並びだけを変える。動画には触らない
+      const i = g.options.indexOf(v), last = g.options.length - 1;
+      if (i >= 0 && last > 0) {
+        const mv = (to, lbl, off) => `<button class="ts-mini" data-act="optmove" data-to="${to}" data-gid="${gid}" data-v="${ev}"${off ? ' disabled' : ''}>${_t(lbl)}</button>`;
+        h += `<div class="ts-do"><div class="ts-lbl">${_t('表示順')}</div><div class="ts-chips">`
+          + mv('first', '先頭へ', i === 0) + mv('prev', '← 前へ', i === 0) + mv('next', '後ろへ →', i === last) + mv('last', '最後へ', i === last)
+          + `</div><div class="ts-small">${_t('動画パネルやまとめて編集で、タグはこの順に並びます。')}</div></div>`;
+      }
     }
     // ほかのタグにまとめる
     const cands = all.filter(x => x !== v);
@@ -293,6 +299,19 @@
     if (_isField(g)) window.renameTagGroup?.(g.store, s);
     else R().setName(g.id, s);
   }
+  // 表示順を変える。出している選択肢の中で動かし、出していないもの（hidden）は元の位置のまま。
+  // 書くのは並び順だけ（中身は同じ＝足さない・消さない。settings.js / tag-registry.js 側でも同じ中身かを確かめる）
+  function _moveOpt(g, v, to) {
+    const vis = g.options.slice(), i = vis.indexOf(v);
+    if (i < 0) return false;
+    vis.splice(i, 1);
+    const j = to === 'first' ? 0 : to === 'last' ? vis.length : to === 'prev' ? Math.max(0, i - 1) : Math.min(vis.length, i + 1);
+    if (j === i) return false;
+    vis.splice(j, 0, v);
+    let k = 0;
+    const order = g.allOptions.map(x => (g.options.includes(x) ? vis[k++] : x));
+    return _isField(g) ? !!window.tagOptOrder?.(g.store, order) : R().setOptionOrder(g.id, order);
+  }
   function _countOn(g, v) { return (window.videos || []).filter(x => !x.archived && R().valuesOf(x, g.id).includes(v)).length; }
   function _after() { render(); window.AF?.(); }
   // 操作が済んだら（キャンセルでも）開いていた確認を閉じて描き直す
@@ -319,6 +338,7 @@
         return;
       }
       case 'tagclose': S.tag = null; return render();
+      case 'optmove': if (g) _moveOpt(g, el.dataset.v, el.dataset.to); return _after();
       case 'rmoptok': if (g) _removeOpt(g, el.dataset.v); S.tag = null; return _after();
       // 選択肢に出さない／出す（一覧だけを変える。動画と tagSettings には触らない）
       case 'hideopt': R().setOptionHidden(gid, el.dataset.v, true); S.tag = null; window.toast?.(_t('選択肢に出さないようにしました（消していません）')); return _after();
@@ -330,7 +350,6 @@
       case 'editok': { const i = document.getElementById('ts-edit-' + gid); return _op(window.wkTagOps?.renameValue(gid, S.tag && S.tag.v, i ? i.value : '')); }
       // ほかのタグにまとめる（同じタググループのどのタグにでも。js/tag-ops.js の mergeValue）
       case 'mergeok': if (S.tag && S.tag.to) return _op(window.wkTagOps?.mergeValue(gid, S.tag.v, S.tag.to)); return;
-      case 'undo': window.wkTagOps?.undo(); return _after();
       case 'addopt': return _addFromInput(gid);
       case 'keep': if (g) _addOpt(g, el.dataset.v); S.tag = null; window.toast?.(_t('選択肢に入れました')); return _after();
       case 'search': if (g) R().setSearch(gid, !g.search); return _after();
@@ -525,6 +544,7 @@
 #tag-display-settings .ts-gold[disabled]{opacity:.4;cursor:default}
 #tag-display-settings .ts-goldtxt{color:#b7791f}
 #tag-display-settings .ts-mini{padding:7px 11px;border-radius:8px;border:1px solid var(--border);background:none;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit}
+#tag-display-settings .ts-mini[disabled]{opacity:.35;cursor:default}
 #tag-display-settings .ts-plain{padding:10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-family:inherit}
 #tag-display-settings .ts-redline{width:100%;margin-top:8px;padding:9px;border-radius:8px;border:1.5px solid #ef4444;background:transparent;color:#ef4444;font-weight:700;cursor:pointer;font-family:inherit}
 #tag-display-settings .ts-optname{background:none;border:none;padding:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}

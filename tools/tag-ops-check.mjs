@@ -123,7 +123,9 @@ ck('まとめる: 選択肢に無い値を選択肢の値へ（アーカイブ�
 
 console.log('── あとから「元に戻す」 ──');
 await ev(() => { window.wkSetTagValue(window.videos[2], 'f_tags', 'アームバー', true); window.renderTagShelf(); });
-await click(Q + '[data-act="undo"]'); await tick();
+// 設定画面に「直前の操作: … 元に戻す」の帯は出さない（v52.884 オーナー「いらない」）。取り消しは wkTagOps.undo（トーストの「元に戻す」）
+ck('設定画面に「直前の操作」の帯が出ていない', await ev(() => !document.querySelector('#tag-display-settings [data-act="undo"]') && !/直前の操作/.test(document.getElementById('tag-display-settings').textContent)));
+await ev(() => window.wkTagOps.undo()); await tick();
 cur = JSON.parse(await V());
 ck('★ 操作の後にまた変えた動画は戻さない（後の変更を消さない）・変えていない動画は戻る',
   cur[2].tags.join() === 'キムラ,アームバー' && cur[3].tags.join() === '幽霊', cur.slice(2));

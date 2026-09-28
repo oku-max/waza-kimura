@@ -313,6 +313,15 @@
     g.opts = after;
     return _commit();
   }
+  // 選択肢の表示順（v52.884）。並びだけを変える: 今の選択肢と同じ中身（足さない・消さない・重ならない）でなければ書かない
+  function setOptionOrder(id, order) {
+    const g = _editable() && _g(id); if (!g || g.store !== 'map' || !Array.isArray(order)) return false;
+    const cur = _strs(g.opts), next = order.map(String);
+    if (next.length !== cur.length || new Set(next).size !== next.length || !next.every(x => cur.includes(x))) return false;
+    if (next.every((x, i) => x === cur[i])) return false;
+    g.opts = next;
+    return _commit();
+  }
   // 選択肢に出さない（v52.878。オーナー「削除はしないけど選択肢には出てこないようにする」）。
   // 選択肢のまま残す（選択肢に無いタグ扱いにしない）が、タグを付ける画面・絞り込みの候補には出さない。
   // 動画に付いている値はそのまま見える・外せる。今の4つもここ（一覧）に持つ（tagSettings は書かない）。
@@ -443,7 +452,7 @@
     strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
     migrateMarkStatus, MARK_VALUES, STATUS_VALUES,
-    setSlot, moveSlot, setSearch, setName, addOption, removeOption, setOptionHidden, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
+    setSlot, moveSlot, setSearch, setName, addOption, removeOption, setOptionOrder, setOptionHidden, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
     _valid, _fresh, LS_KEY,
   };
 })();
