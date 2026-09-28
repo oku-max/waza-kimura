@@ -1025,6 +1025,7 @@ export async function loadTagRegistry(uid) {
   _regReady = true;
   const added = window.tagRegistry.reconcile(window.getTagTemplatesRaw?.() || null);
   if (!exists || added) saveTagRegistry();   // 待たない（後のノート等の読み込みを遅らせない）。失敗は中で扱う
+  if (added) window.AF?.();   // 枠が変わったとき（マークをタグ4へ 等）、カードの表示も合わせる
 
   // 他の端末での変更を受け取る（段階3a。一覧を画面で編集できるようになるため）。読むだけ。
   // 受け取らないもの: 自分が書いたもの／まだ送信中のもの／この端末が最後に書いたより古いもの

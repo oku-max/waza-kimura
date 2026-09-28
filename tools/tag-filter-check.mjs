@@ -182,7 +182,7 @@ console.log('── ⑧ 表示も枠から（段階2d）──');
   ck('統合フィルターのタグの列は枠から・見出しは付けた名前（T/B の決め打ちが無い）', /_R \? _R\.slots\(\) : \[\]/.test(uf) && !/_colHtml\('T\/B'/.test(uf));
   ck('統合フィルターの行・選択中は値を onclick の文字列に埋め込まない', /onclick="uniToggleEl\(this\)"/.test(uf) && !/uniToggle\('\$\{opts\.filterKey\}'/.test(uf) && !/uniToggle\('\$\{k\}'/.test(uf));
   ck('選択中の表示は、枠に無いグループの選択も出す（見えない条件にしない）', /_TF\(\)\.groups\(\)\.forEach\(g => \[\.\.\._TF\(\)\.selected\(f, g\.id, _sch\(\)\)\]/.test(uf));
-  ck('一覧に slotInfo（名前・選択肢を組み立てない軽い読み出し）', typeof R.slotInfo === 'function' && J(R.slotInfo().map(x => x && x.store)) === J(['tb', 'cat', 'pos', 'tags']));
+  ck('一覧に slotInfo（名前・選択肢を組み立てない軽い読み出し）', typeof R.slotInfo === 'function' && J(R.slotInfo().map(x => x && x.store)) === J(['tb', 'cat', 'pos', 'map']));   // reconcile でマークがタグ4へ（v52.877）
 }
 
 console.log('── ⑨ 整理の表・カスタムリストの表も枠から（段階3c）──');

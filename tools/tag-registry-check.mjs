@@ -83,6 +83,7 @@ function boot({ ls = {}, tagSettings, lang = 'ja' } = {}) {
 // ── ③ 旧テンプレート ──
 {
   const { R } = boot();
+  R.reconcile(null);   // 1回目はマークをタグ4へ入れる（⑪で見る）
   ck('③ 編集したことが無い（null）なら何も足さない', R.reconcile(null) === false && R.groups().length === 6);
   const raw = { seeded: true, list: [
     { id: 'pos', name: 'ポジション', values: ['クローズドガード', 'ハーフガード', 'ハーフガード', ''] },
@@ -95,7 +96,7 @@ function boot({ ls = {}, tagSettings, lang = 'ja' } = {}) {
   ck('③ もう一度呼んでも二度は足さない（false）', R.reconcile(raw) === false && R.groups().length === 8);
   ck('③ テンプレートが後で消えても、移したグループは残る', R.reconcile({ seeded: true, list: [] }) === false && R.groups().length === 8);
   ck('③ 新しいテンプレートだけを足す', R.reconcile({ seeded: true, list: [...raw.list, { id: 'u_new', name: '新', values: ['A'] }] }) === true && R.groups().length === 9);
-  ck('③ 枠（タグ1〜4）は変えない', J(R.slots().map(g => g.id)) === J(['f_tb', 'f_cat', 'f_pos', 'f_tags']));
+  ck('③ 枠（タグ1〜4）は変えない', J(R.slots().map(g => g.id)) === J(['f_tb', 'f_cat', 'f_pos', 'mark']));
   const en = boot({ lang: 'en' }).R; en.reconcile({ seeded: true, list: [{ id: 'x', name: 'Menu', values: [] }] });
   ck('③ 英語表示の人は「(old template)」', en.group('t_x').name === 'Menu (old template)');
 }
@@ -178,6 +179,7 @@ async function cloud({ settingsReady = true, docExists = false, docReg = null, g
   ck('⑥ クラウドに無いと確定したら、1回だけ作って書く', r.log.sets.length === 1 && boot().R._valid(r.log.sets[0].reg), J(r.log.sets.length));
   ck('⑥ 書く中身に savedBy と updatedAt', r.log.sets[0]?.savedBy === 'S' && !!r.log.sets[0]?.updatedAt);
   const existing = boot().R.raw();
+  existing.markSlot4 = true;   // マークをタグ4へ入れる整えは済んでいる
   existing.groups.push({ id: 'n1', store: 'map', name: '自作', opts: ['a'], search: true });
   r = await cloud({ docExists: true, docReg: existing });
   ck('⑥ クラウドにあって足すものが無ければ書かない', r.log.sets.length === 0);
@@ -251,6 +253,7 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
 // ── ⑨ 編集（段階3a）──
 {
   const { win, R, store } = boot();
+  { const r0 = R.raw(); r0.markSlot4 = true; R.applyRemote(r0); }   // マークをタグ4へ入れる整えは済んでいる（この節は テクニック＝タグ4 の並びで見る）
   let saves = 0, events = 0;
   win.saveTagRegistry = () => { saves++; };
   win.CustomEvent = function (n) { this.type = n; };
@@ -316,6 +319,23 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
   ck('⑩ 元の欄（fav/next/drill/status）は消さない・書き換えない', vids.every((v, i) => ['fav', 'next', 'drill', 'status'].every(k => J(v[k]) === J(before[i][k]))));
   ck('⑩ もう一度呼んでも何も変えない（0本）', R.migrateMarkStatus(vids) === 0);
   ck('⑩ 写した値は valuesOf で読める', J(R.valuesOf(by('a'), 'mark')) === J(['お気に入り', 'Next']) && J(R.valuesOf(by('b'), 'status')) === J(['理解']));
+}
+
+// ── ⑪ マークをタグ4に入れる（オーナー決定 2026-09-28・1回だけ）──
+{
+  const { R } = boot();
+  ck('⑪ 初めての整え（reconcile）でマークがタグ4に入り、いたグループは未使用へ（保存が要る＝true）',
+    R.reconcile(null) === true && J(R.slots().map(g => g && g.id)) === J(['f_tb', 'f_cat', 'f_pos', 'mark']) && R.group('f_tags').slot === -1);
+  ck('⑪ 済んだ印が一覧に残る（クラウド・端末の控えに乗る）', R.raw().markSlot4 === true);
+  ck('⑪ 二度目は何もしない', R.reconcile(null) === false);
+  R.setSlot('f_tags', 3);
+  ck('⑪ 自分でマークを外した後は、入れ直さない', R.reconcile(null) === false && R.group('mark').slot === -1 && R.group('f_tags').slot === 3);
+  const b = boot().R; b.setSlot('mark', 1);
+  ck('⑪ すでに枠にマークがあれば枠は触らない（印だけ付ける）', b.reconcile(null) === true && J(b.slots().map(g => g && g.id)) === J(['f_tb', 'mark', 'f_pos', 'f_tags']) && b.raw().markSlot4 === true);
+  const c = boot().R; const r0 = c.raw(); r0.markSlot4 = true; c.applyRemote(r0);
+  ck('⑪ 他の端末で済んでいれば（印あり）枠は触らない', c.reconcile(null) === false && c.group('mark').slot === -1);
+  const code = REG_SRC.slice(REG_SRC.indexOf('if (!r.markSlot4)'), REG_SRC.indexOf('if (!r.markSlot4)') + 400);
+  ck('⑪ 動画には触らない（一覧の枠だけ）', !/\bv\.|wkSetTagValue|videos/.test(code));
 }
 
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タググループの一覧: 問題なし');

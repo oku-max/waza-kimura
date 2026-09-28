@@ -157,6 +157,14 @@
       }
     });
     if (!Array.isArray(r.migratedTemplates)) { r.migratedTemplates = []; changed = true; }
+    // マークをタグ4に入れる（オーナー決定 2026-09-28。1回だけ）。いたグループは未使用へ（動画のタグは残る）。
+    // 印（markSlot4）を一覧に残すので、あとで自分でマークを外しても二度と入れ直さない。
+    // すでにどこかの枠にマークがあれば枠は触らず、印だけ付ける。
+    if (!r.markSlot4) {
+      if (r.slots.indexOf('mark') < 0 && r.groups.some(g => g.id === 'mark')) r.slots[3] = 'mark';
+      r.markSlot4 = true;
+      changed = true;
+    }
     // 編集したことのある旧テンプレートだけを、未使用のタググループにする（組み込みの見本は入れない）。
     // 一度移したものは印を付け、あとでテンプレートが消えても・グループを消しても二度と足さない。
     const list = templatesRaw && Array.isArray(templatesRaw.list) ? templatesRaw.list : [];

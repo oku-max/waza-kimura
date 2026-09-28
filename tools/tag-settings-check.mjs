@@ -75,6 +75,8 @@ await ev(() => {
   set('tb',['トップ','ボトム'],'トップ/ボトム'); set('cat',['パスガード','スイープ'],'カテゴリ');
   set('pos',['ハーフガード','クローズドガード'],'ポジション'); set('tags',['キムラ'],'テクニック');
   window.tagRegistry.reconcile({ seeded:true, list:[{ id:'u1', name:'練習メニュー', values:['打ち込み','スパー','キムラ'] }] });
+  window.__markSlot = JSON.stringify(window.tagRegistry.slots().map(g => g && g.id));   // 初めての reconcile でマークがタグ4に入る（オーナー決定 2026-09-28）
+  window.tagRegistry.setSlot('f_tags', 3);   // この検査は テクニック＝タグ4 の並びで見る（マークは未使用へ）
   window.__vsnap = JSON.stringify(window.videos);
   document.querySelectorAll('[id^="ob-"]').forEach(e => e.remove());
   window.switchTab('settings'); window.renderSettings?.();
@@ -98,6 +100,7 @@ const shape = await ev(s => { const el = document.querySelector(s); return { row
   unused: !!el?.querySelector('[data-act="unopen"]'), text: el?.textContent || '' }; }, '#tag-display-settings');
 ck('描画先 #tag-display-settings が index.html にあり、中身が描かれる', shape.rows >= 4, shape.rows);
 ck('未使用のタググループは畳んで出る', shape.unused);
+ck('初めての一覧の整えで、マークがタグ4に入る（いたテクニックは未使用へ）', await ev(() => window.__markSlot) === '["f_tb","f_cat","f_pos","mark"]', await ev(() => window.__markSlot));
 ck('今の枠はタグ1〜4が 上下/カテゴリ/ポジション/テクニック', JSON.stringify(await slots()) === '["f_tb","f_cat","f_pos","f_tags"]', await slots());
 
 console.log('\n── 使う場所・名前 ──');
