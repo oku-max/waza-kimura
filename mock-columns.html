@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 列をシンプルにする</title>
+<!--
+  見本の画面（v52.887 の計画「列をシンプルにする」）。
+  本物のデータには一切書き込まない（localStorage も Firestore も読まない・触らない）。
+  動画も列も値もこのページの中の作り物。閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1c1c1e;--card:#2c2c2e;--field:#38383a;--bd:#48484a;--line:#3a3a3c;--text:#e5e5e7;--sub:#9a9aa0;--dim:#6e6e73;--gold:#e5c47a;--red:#ff8080}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;min-height:100vh;padding-bottom:60px}
+button,input,select{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.banner b{color:#fff}
+.banner ul{margin:4px 0 0 18px}
+.lists{display:flex;gap:6px;padding:12px 16px 0;flex-wrap:wrap}
+.lst{padding:7px 12px;border-radius:9px;border:1px solid var(--bd);background:none;font-size:12px;color:var(--sub)}
+.lst.on{border-color:var(--gold);color:var(--gold);font-weight:700}
+.bar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.cnt{font-size:13px;color:var(--sub)}
+.colbtn{display:flex;align-items:center;gap:6px;background:none;border:1px solid transparent;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:700;color:var(--text)}
+.colbtn:hover{border-color:var(--bd)}
+.colbtn .ic{font-weight:900;letter-spacing:-1px}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;min-width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--bg);text-align:left;font-size:11px;font-weight:700;color:var(--sub);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--text)}
+th .car{opacity:.5;margin-left:4px}
+th.title{cursor:default;min-width:190px}
+td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+td.title{font-weight:600;white-space:normal;min-width:190px}
+.chip{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;margin-right:3px}
+.c0{background:rgba(74,144,217,.25);color:#70b0f0}.c1{background:rgba(224,144,0,.25);color:#f0b830}
+.c2{background:rgba(76,175,80,.25);color:#7ed680}.c3{background:rgba(224,90,0,.25);color:#f07840}
+.c4{background:rgba(160,90,200,.25);color:#c898f8}.c5{background:rgba(0,180,210,.25);color:#60d8f8}
+.cx{background:var(--field);color:var(--sub)}
+.star{background:none;border:none;font-size:15px;padding:0 1px;color:var(--dim)}
+.star.on{color:var(--gold)}
+.dash{color:var(--dim)}
+.cellbtn{background:none;border:none;text-align:left;min-width:60px;padding:2px 0}
+.txt{background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:12px;width:130px}
+.txt:hover,.txt:focus{border-color:var(--bd);outline:none;background:var(--field)}
+.num{width:60px}
+.chk{accent-color:var(--gold);width:16px;height:16px}
+.prog{display:flex;align-items:center;gap:6px}
+.prog input{width:80px;accent-color:var(--gold)}
+.prog span{font-size:11px;color:var(--sub);width:30px}
+.empty{padding:40px 16px;color:var(--sub);font-size:13px;text-align:center}
+
+/* シート・ポップアップ */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);border-radius:14px 14px 0 0;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;padding:16px 14px 22px}
+@media(min-width:700px){.ov{align-items:center}.sheet{border-radius:14px}}
+.sh{font-size:11px;font-weight:800;color:var(--sub);letter-spacing:.5px;margin-bottom:10px}
+.crow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px}
+.crow.drag{opacity:.4}
+.crow.over{box-shadow:inset 0 2px 0 var(--gold)}
+.hdl{width:14px;height:20px;cursor:grab;background:radial-gradient(circle,var(--dim) 1.3px,transparent 1.5px) 0 0/7px 6px;flex-shrink:0}
+.mv{background:none;border:1px solid var(--bd);border-radius:5px;width:32px;height:32px;font-size:13px;flex-shrink:0}
+.mv:disabled{opacity:.2}
+.crow label{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;cursor:pointer}
+.crow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .t{font-size:10px;color:var(--dim);flex-shrink:0}
+.edit{background:none;border:none;color:var(--sub);font-size:15px;padding:4px 8px;flex-shrink:0}
+.edit:hover{color:var(--gold)}
+.newcol{width:100%;margin-top:12px;padding:12px;border-radius:10px;border:1px dashed var(--bd);background:none;font-size:14px;color:var(--gold);font-weight:700}
+.sep{height:1px;background:var(--line);margin:10px 0}
+.mh{font-size:17px;font-weight:700;margin-bottom:14px}
+.lbl{font-size:11px;font-weight:700;color:var(--sub);margin:12px 0 6px}
+.inp{width:100%;background:var(--field);border:1px solid var(--bd);border-radius:8px;padding:9px 10px;font-size:14px;outline:none}
+.inp:focus{border-color:var(--gold)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tbtn{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:9px;border:1px solid var(--bd);background:var(--field);font-size:13px;text-align:left}
+.tbtn.on{border-color:var(--gold);color:var(--gold)}
+.tbtn i{font-style:normal;width:16px;text-align:center}
+.opt{display:flex;gap:6px;margin-bottom:6px}
+.opt .inp{padding:7px 9px;font-size:13px}
+.x{background:none;border:none;color:var(--sub);font-size:14px;padding:0 6px}
+.addopt{background:none;border:none;color:var(--gold);font-size:13px;padding:4px 0}
+.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.b2{padding:9px 16px;border-radius:9px;border:1px solid var(--bd);background:none;font-size:13px}
+.b1{padding:9px 18px;border-radius:9px;border:none;background:var(--gold);color:#1a1a1a;font-size:13px;font-weight:700}
+.danger{margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
+.dbtn{background:none;border:none;color:var(--red);font-size:13px;padding:4px 0}
+.note{font-size:11px;color:var(--dim);line-height:1.6;margin-top:4px}
+.tag{font-size:10px;background:#3a2f12;color:#f3dc9f;border-radius:4px;padding:1px 5px;margin-left:6px}
+.pop{position:fixed;z-index:60;background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.5);min-width:220px;max-width:280px;padding:6px}
+.pop .ph{font-size:11px;font-weight:700;color:var(--sub);padding:6px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.pi{display:block;width:100%;text-align:left;background:none;border:none;border-radius:6px;padding:8px;font-size:13px}
+.pi:hover{background:var(--field)}
+.fsec{padding:6px 8px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.fsec label{display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#f2f2f2;color:#1a1a1a;border-radius:10px;padding:10px 14px;font-size:13px;display:none;align-items:center;gap:12px;z-index:80;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:92vw}
+.toast.show{display:flex}
+.toast button{background:none;border:none;color:#b07a00;font-weight:700;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <b>見本です（v52.887 の計画）。</b>本物のデータには触りません。動画・列・値はこのページの中の作り物で、閉じれば消えます。<br>
+  試してほしいこと:
+  <ul>
+    <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、⠿ か ▲▼ で並べ替え</li>
+    <li>一番下の <b>＋ 新しい列を作る</b> → 今見ている表にチェック済みで出る</li>
+    <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
+    <li>自分で作った列の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
+    <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
+  </ul>
+</div>
+
+<div class="lists" id="lists"></div>
+<div class="bar">
+  <span class="cnt" id="cnt"></span>
+  <button class="colbtn" onclick="openColSheet()"><span class="ic">Ⅲ</span> 列</button>
+</div>
+<div class="wrap"><table id="tbl"></table></div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastUndo">↩ 取り消し</button></div>
+
+<script>
+// ══ 作り物のデータ（このページの中だけ）══
+const VIDEOS = [
+  { id:'v1', title:'01.vs クローズドガード', ch:'新・柔術日記', pl:'KOD シリーズ', dur:'12:40', add:'09/01', tb:'トップ', pos:'クローズドガード', lists:['a'] },
+  { id:'v2', title:'02. 基本原則', ch:'新・柔術日記', pl:'KOD シリーズ', dur:'08:05', add:'09/02', tb:'—', pos:'—', lists:['a','b'] },
+  { id:'v3', title:'03.ダブルアンダーパス', ch:'Grapplers', pl:'パス特集', dur:'15:22', add:'09/05', tb:'トップ', pos:'ハーフガード', lists:['a','b'] },
+  { id:'v4', title:'04.トレアンドパス', ch:'Grapplers', pl:'パス特集', dur:'06:48', add:'09/08', tb:'トップ', pos:'オープンガード', lists:['b'] },
+  { id:'v5', title:'05.レッグドラッグ', ch:'BJJ Lab', pl:'パス特集', dur:'10:10', add:'09/12', tb:'トップ', pos:'デラヒーバ', lists:['a'] },
+  { id:'v6', title:'06.ガード無効化', ch:'BJJ Lab', pl:'基礎', dur:'09:31', add:'09/15', tb:'ボトム', pos:'—', lists:['b'] },
+];
+const TABLES = [
+  { id:'master', name:'🏠 マスター' },
+  { id:'a', name:'📋 スパー準備' },
+  { id:'b', name:'📋 今月の課題' },
+];
+const TYPES = [
+  { t:'checkbox', i:'☐', n:'チェックボックス' }, { t:'select', i:'▾', n:'セレクト' },
+  { t:'multiselect', i:'≡', n:'マルチセレクト' }, { t:'text', i:'T', n:'テキスト' },
+  { t:'number', i:'#', n:'数値' }, { t:'progress', i:'%', n:'進捗バー' }, { t:'stars', i:'★', n:'評価' },
+];
+// 列は全部1つの一覧。builtin=最初からある列（✎ なし）
+let COLS = [
+  { id:'ch',  name:'チャンネル',   builtin:true, get:v => v.ch },
+  { id:'pl',  name:'プレイリスト', builtin:true, get:v => v.pl },
+  { id:'tb',  name:'TOP/BOTTOM',   builtin:true, get:v => v.tb, chip:true },
+  { id:'pos', name:'Position',     builtin:true, get:v => v.pos, chip:true },
+  { id:'dur', name:'長さ',         builtin:true, get:v => v.dur },
+  { id:'add', name:'追加日',       builtin:true, get:v => v.add },
+  { id:'u1', name:'習得度', type:'stars' },
+  { id:'u2', name:'フェーズ', type:'select', options:['学習中','反復中','使えてる'] },
+  { id:'u3', name:'課題', type:'text' },
+  { id:'u4', name:'スパーで使った', type:'checkbox' },
+];
+// 値は動画ごとに1つ（どの表でも同じ）
+const VALS = {
+  v1:{ u1:3, u2:'使えてる', u3:'膝の位置', u4:true }, v2:{ u1:1, u2:'学習中' },
+  v3:{ u1:2, u2:'反復中', u3:'頭の位置' }, v5:{ u2:'学習中' },
+};
+// 表ごとに「どの列を・どの順で出すか」
+const VIEW = {
+  master:{ order:['ch','pl','tb','pos','dur','add','u1','u2','u3','u4'], show:{ ch:true, pl:true, tb:true, dur:true, u1:true } },
+  a:     { order:['u1','u2','u3','tb','pos','ch','pl','dur','add','u4'], show:{ u1:true, u2:true, u3:true, tb:true, pos:true } },
+  b:     { order:['u2','u4','pl','tb','u1','u3','ch','pos','dur','add'], show:{ u2:true, u4:true, pl:true } },
+};
+let cur = 'master';
+let sort = null; // {id, asc}
+const filt = {}; // `${table}:${col}` -> Set
+let nextId = 5;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const col = id => COLS.find(c => c.id === id);
+const val = (v, c) => c.builtin ? c.get(v) : (VALS[v.id] || {})[c.id];
+const setVal = (vid, cid, x) => { (VALS[vid] = VALS[vid] || {})[cid] = x; };
+function ensureOrder(t) { // 新しく作った列は、どの表の一覧にも（出さない状態で）並ぶ
+  const o = VIEW[t].order; COLS.forEach(c => { if (!o.includes(c.id)) o.push(c.id); });
+  VIEW[t].order = o.filter(id => col(id));
+}
+
+// ══ 表 ══
+function rows() {
+  let list = VIDEOS.filter(v => cur === 'master' || v.lists.includes(cur));
+  Object.entries(filt).forEach(([k, set]) => {
+    const [t, cid] = k.split(':'); if (t !== cur || !set.size || !col(cid)) return;
+    const c = col(cid);
+    list = list.filter(v => { const x = val(v, c); return Array.isArray(x) ? x.some(y => set.has(y)) : set.has(x ?? '（空）'); });
+  });
+  if (sort && col(sort.id)) {
+    const c = col(sort.id);
+    const k = v => { const x = val(v, c); return Array.isArray(x) ? x.join(',') : (typeof x === 'number' || typeof x === 'boolean') ? +x : String(x ?? ''); };
+    list = [...list].sort((a, b) => (k(a) < k(b) ? -1 : k(a) > k(b) ? 1 : 0) * (sort.asc ? 1 : -1));
+  }
+  return list;
+}
+function render() {
+  ensureOrder(cur);
+  $('#lists').innerHTML = TABLES.map(t => `<button class="lst ${t.id === cur ? 'on' : ''}" onclick="go('${t.id}')">${esc(t.name)}</button>`).join('');
+  const shown = VIEW[cur].order.filter(id => VIEW[cur].show[id]).map(col);
+  const list = rows();
+  $('#cnt').textContent = `${list.length} 本`;
+  const thead = `<tr><th class="title">Title</th>` + shown.map(c => {
+    const s = sort && sort.id === c.id ? (sort.asc ? '▲' : '▼') : '';
+    const f = filt[cur + ':' + c.id]?.size ? ' ⏷' : '';
+    return `<th onclick="headMenu(event,'${c.id}')">${esc(c.name)}<span class="car">${s}${f} ▾</span></th>`;
+  }).join('') + `</tr>`;
+  const body = list.map(v => `<tr><td class="title">${esc(v.title)}</td>` + shown.map(c => `<td>${cell(v, c)}</td>`).join('') + `</tr>`).join('');
+  $('#tbl').innerHTML = thead + body;
+  if (!list.length) $('#tbl').insertAdjacentHTML('afterend', '');
+}
+function chipCls(c, x) { const i = (c.options || []).indexOf(x); return i < 0 ? 'cx' : 'c' + (i % 6); }
+function cell(v, c) {
+  const x = val(v, c);
+  if (c.builtin) return (x && x !== '—') ? (c.chip ? `<span class="chip cx">${esc(x)}</span>` : esc(x)) : '<span class="dash">—</span>';
+  switch (c.type) {
+    case 'stars': return [1,2,3,4,5].map(n => `<button class="star ${n <= (x||0) ? 'on' : ''}" onclick="setStar('${v.id}','${c.id}',${n})">★</button>`).join('');
+    case 'checkbox': return `<input type="checkbox" class="chk" ${x ? 'checked' : ''} onchange="setVal('${v.id}','${c.id}',this.checked)">`;
+    case 'text': return `<input class="txt" value="${esc(x || '')}" placeholder="—" onchange="setVal('${v.id}','${c.id}',this.value)">`;
+    case 'number': return `<input class="txt num" type="number" value="${x ?? ''}" onchange="setVal('${v.id}','${c.id}',this.value===''?null:+this.value)">${c.unit ? ' <span class="dash">' + esc(c.unit) + '</span>' : ''}`;
+    case 'progress': return `<div class="prog"><input type="range" min="0" max="100" value="${x || 0}" oninput="this.nextElementSibling.textContent=this.value+'%'" onchange="setVal('${v.id}','${c.id}',+this.value)"><span>${x || 0}%</span></div>`;
+    case 'select': return `<button class="cellbtn" onclick="pickSel(event,'${v.id}','${c.id}')">${x ? `<span class="chip ${chipCls(c, x)}">${esc(x)}</span>` : '<span class="dash">—</span>'}</button>`;
+    case 'multiselect': return `<button class="cellbtn" onclick="pickSel(event,'${v.id}','${c.id}')">${(x && x.length) ? x.map(y => `<span class="chip ${chipCls(c, y)}">${esc(y)}</span>`).join('') : '<span class="dash">—</span>'}</button>`;
+  }
+  return '';
+}
+function go(t) { cur = t; sort = null; closePop(); render(); }
+function setStar(vid, cid, n) { const x = (VALS[vid] || {})[cid]; setVal(vid, cid, x === n ? 0 : n); render(); }
+
+// セレクトのセルを押したとき
+function pickSel(e, vid, cid) {
+  e.stopPropagation();
+  const c = col(cid), x = (VALS[vid] || {})[cid];
+  const multi = c.type === 'multiselect';
+  const cur = multi ? (x || []) : x;
+  const html = `<div class="ph">${esc(c.name)}</div>` + (c.options || []).map(o => {
+    const on = multi ? cur.includes(o) : cur === o;
+    return `<button class="pi" onclick="chooseOpt('${vid}','${cid}',${JSON.stringify(o).replace(/"/g, '&quot;')})"><span class="chip ${chipCls(c, o)}">${esc(o)}</span>${on ? ' ✓' : ''}</button>`;
+  }).join('') + `<button class="pi" style="color:var(--sub)" onclick="chooseOpt('${vid}','${cid}',null)">クリア</button>`;
+  showPop(e.currentTarget, html);
+}
+function chooseOpt(vid, cid, o) {
+  const c = col(cid);
+  if (c.type === 'multiselect') {
+    let a = [...((VALS[vid] || {})[cid] || [])];
+    if (o == null) a = []; else a = a.includes(o) ? a.filter(y => y !== o) : [...a, o];
+    setVal(vid, cid, a);
+  } else setVal(vid, cid, o);
+  closePop(); render();
+}
+
+// ══ 列の見出しを押したとき ══
+function headMenu(e, cid) {
+  e.stopPropagation();
+  const c = col(cid);
+  let html = `<div class="ph">${esc(c.name)}</div>
+    <button class="pi" onclick="doSort('${cid}',true)">↑ 昇順に並べる</button>
+    <button class="pi" onclick="doSort('${cid}',false)">↓ 降順に並べる</button>`;
+  if (!c.builtin && (c.type === 'select' || c.type === 'multiselect' || c.type === 'checkbox')) {
+    const opts = c.type === 'checkbox' ? [true, false] : [...(c.options || []), '（空）'];
+    const set = filt[cur + ':' + cid] || new Set();
+    html += `<div class="fsec"><div class="lbl" style="margin:2px 0 4px">絞り込み</div>` + opts.map(o =>
+      `<label><input type="checkbox" class="chk" ${set.has(o) ? 'checked' : ''} onchange="togFilt('${cid}',${JSON.stringify(o).replace(/"/g, '&quot;')},this.checked)">${o === true ? 'オン' : o === false ? 'オフ' : esc(o)}</label>`).join('') + `</div>`;
+  }
+  if (!c.builtin) html += `<button class="pi" onclick="closePop();openEdit('${cid}')">✎ 名前・選択肢を直す</button>`;
+  html += `<button class="pi" onclick="hideCol('${cid}')">この表に出さない</button>`;
+  showPop(e.currentTarget, html);
+}
+function doSort(cid, asc) { sort = { id: cid, asc }; closePop(); render(); }
+function togFilt(cid, o, on) { const k = cur + ':' + cid; const s = filt[k] = filt[k] || new Set(); on ? s.add(o) : s.delete(o); render(); }
+function hideCol(cid) {
+  VIEW[cur].show[cid] = false; closePop(); render();
+  toast(`「${col(cid).name}」をこの表に出さないようにしました（Ⅲ 列 でいつでも戻せます）`, () => { VIEW[cur].show[cid] = true; render(); });
+}
+
+// ══ Ⅲ 列（入口はここだけ）══
+function openColSheet() {
+  closePop(); ensureOrder(cur);
+  const ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'colsheet';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div class="sheet" id="colsheetBody"></div>`;
+  document.body.appendChild(ov);
+  drawColSheet();
+}
+function drawColSheet() {
+  const el = $('#colsheetBody'); if (!el) return;
+  const o = VIEW[cur].order;
+  const tname = TABLES.find(t => t.id === cur).name;
+  el.innerHTML = `<div class="sh">表示する列 — ${esc(tname)}（ドラッグ / ▲▼で並べ替え）</div>` +
+    o.map((id, i) => { const c = col(id); return `
+      <div class="crow" draggable="true" data-id="${id}">
+        <div class="hdl"></div>
+        <button class="mv" onclick="mv('${id}',-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button class="mv" onclick="mv('${id}',1)" ${i === o.length - 1 ? 'disabled' : ''}>▼</button>
+        <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()"><span>${esc(c.name)}</span></label>
+        ${c.builtin ? '' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
+      </div>`; }).join('') +
+    `<button class="newcol" onclick="openNew()">＋ 新しい列を作る</button>
+     <div class="note" style="margin-top:10px">✎ が付いているのは自分で作った列。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
+  // ドラッグで並べ替え
+  let src = null;
+  el.querySelectorAll('.crow').forEach(r => {
+    r.ondragstart = () => { src = r.dataset.id; r.classList.add('drag'); };
+    r.ondragend = () => { r.classList.remove('drag'); el.querySelectorAll('.crow').forEach(x => x.classList.remove('over')); };
+    r.ondragover = e => { e.preventDefault(); el.querySelectorAll('.crow').forEach(x => x.classList.remove('over')); r.classList.add('over'); };
+    r.ondrop = e => { e.preventDefault(); if (!src || src === r.dataset.id) return;
+      const a = VIEW[cur].order; a.splice(a.indexOf(src), 1); a.splice(a.indexOf(r.dataset.id), 0, src); render(); drawColSheet(); };
+  });
+}
+function mv(id, d) { const a = VIEW[cur].order, i = a.indexOf(id), j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; render(); drawColSheet(); }
+
+// ══ ＋ 新しい列を作る ══
+let draft = null;
+function openNew() {
+  draft = { type: null, name: '', options: ['A', 'B', 'C'], unit: '' };
+  modal(`<div class="mh">新しい列を作る</div>
+    <div class="lbl">種類</div><div class="grid" id="tgrid"></div>
+    <div id="cfg"></div>
+    <div class="acts"><button class="b2" onclick="closeModal()">キャンセル</button><button class="b1" onclick="createCol()">作る</button></div>`);
+  drawNew();
+}
+function drawNew() {
+  $('#tgrid').innerHTML = TYPES.map(t => `<button class="tbtn ${draft.type === t.t ? 'on' : ''}" onclick="draft.type='${t.t}';drawNew()"><i>${t.i}</i>${t.n}</button>`).join('');
+  if (!draft.type) { $('#cfg').innerHTML = ''; return; }
+  $('#cfg').innerHTML = `<div class="lbl">列名</div><input class="inp" id="nname" placeholder="例: 習得度・課題・スパーで使った" value="${esc(draft.name)}" oninput="draft.name=this.value">` +
+    ((draft.type === 'select' || draft.type === 'multiselect') ? `<div class="lbl">選択肢</div><div id="nopts"></div><button class="addopt" onclick="draft.options.push('');drawNewOpts()">＋ 選択肢を足す</button>` : '') +
+    (draft.type === 'number' ? `<div class="lbl">単位</div><input class="inp" placeholder="例: 回・分" value="${esc(draft.unit)}" oninput="draft.unit=this.value">` : '');
+  drawNewOpts();
+}
+function drawNewOpts() {
+  const el = $('#nopts'); if (!el) return;
+  el.innerHTML = draft.options.map((o, i) => `<div class="opt"><input class="inp" value="${esc(o)}" oninput="draft.options[${i}]=this.value"><button class="x" onclick="draft.options.splice(${i},1);drawNewOpts()">✕</button></div>`).join('');
+}
+function createCol() {
+  if (!draft.type) { alert('種類を選んでください'); return; }
+  const t = TYPES.find(x => x.t === draft.type);
+  const c = { id: 'u' + (nextId++), name: draft.name.trim() || t.n, type: draft.type };
+  if (draft.type === 'select' || draft.type === 'multiselect') c.options = draft.options.map(s => s.trim()).filter(Boolean);
+  if (draft.type === 'number') c.unit = draft.unit.trim();
+  COLS.push(c);
+  Object.keys(VIEW).forEach(ensureOrder);
+  VIEW[cur].order = VIEW[cur].order.filter(id => id !== c.id); VIEW[cur].order.push(c.id);
+  VIEW[cur].show[c.id] = true;   // 今の表にはチェック済みで出る。ほかの表は一覧に並ぶだけ
+  closeModal(); render(); drawColSheet();
+  toast(`「${c.name}」を作りました。ほかのリストでも Ⅲ 列 から出せます`);
+}
+
+// ══ ✎ 名前・選択肢を直す ══
+let edit = null;
+function openEdit(cid) {
+  const c = col(cid);
+  edit = { id: cid, name: c.name, unit: c.unit || '', opts: (c.options || []).map(o => ({ orig: o, val: o })) };
+  const t = TYPES.find(x => x.t === c.type);
+  const used = VIDEOS.filter(v => { const x = (VALS[v.id] || {})[cid]; return !(x == null || x === '' || x === false || x === 0 || (Array.isArray(x) && !x.length)); }).length;
+  modal(`<div class="mh">列を直す</div>
+    <div class="lbl">列名</div><input class="inp" value="${esc(edit.name)}" oninput="edit.name=this.value">
+    <div class="lbl">種類</div><div style="font-size:13px;color:var(--sub)">${t.i} ${t.n}</div>
+    ${(c.type === 'select' || c.type === 'multiselect') ? `<div class="lbl">選択肢</div><div id="eopts"></div><button class="addopt" onclick="edit.opts.push({orig:null,val:''});drawEditOpts()">＋ 選択肢を足す</button>
+      <div class="note">名前を変えると、その値が入っている動画も新しい名前になります（タグと同じ）。消しても入力済みの値は残ります。</div>` : ''}
+    ${c.type === 'number' ? `<div class="lbl">単位</div><input class="inp" value="${esc(edit.unit)}" oninput="edit.unit=this.value">` : ''}
+    <div class="acts"><button class="b2" onclick="closeModal()">キャンセル</button><button class="b1" onclick="saveEdit()">保存</button></div>
+    <div class="danger"><button class="dbtn" onclick="delCol('${cid}',${used})">🗑 この列を消す</button><span class="tag">未決：付けるかどうか</span>
+      <div class="note">全部のリストとマスターから消え、入力した値も消えます（いま ${used} 本の動画に値あり）。</div></div>`);
+  drawEditOpts();
+}
+function drawEditOpts() {
+  const el = $('#eopts'); if (!el) return;
+  el.innerHTML = edit.opts.map((o, i) => `<div class="opt"><input class="inp" value="${esc(o.val)}" oninput="edit.opts[${i}].val=this.value"><button class="x" onclick="edit.opts.splice(${i},1);drawEditOpts()">✕</button></div>`).join('');
+}
+function saveEdit() {
+  const c = col(edit.id);
+  const before = { name: c.name, options: c.options ? [...c.options] : undefined, unit: c.unit, vals: JSON.parse(JSON.stringify(VALS)) };
+  c.name = edit.name.trim() || c.name;
+  if (c.type === 'number') c.unit = edit.unit.trim();
+  let changed = 0;
+  if (c.options) {
+    const next = [], ren = {};
+    edit.opts.forEach(o => { const v = o.val.trim(); if (!v) return; if (o.orig != null && o.orig !== v) ren[o.orig] = v; if (!next.includes(v)) next.push(v); });
+    c.options = next;
+    if (Object.keys(ren).length) Object.values(VALS).forEach(r => {
+      if (!(c.id in r)) return;
+      const x = r[c.id];
+      const y = Array.isArray(x) ? [...new Set(x.map(z => ren[z] ?? z))] : (ren[x] ?? x);
+      if (JSON.stringify(x) !== JSON.stringify(y)) { r[c.id] = y; changed++; }
+    });
+  }
+  closeModal(); render(); drawColSheet();
+  toast(changed ? `選択肢の名前を変えました（${changed}本の値も変更）` : `「${c.name}」を保存しました`, () => {
+    c.name = before.name; c.options = before.options; c.unit = before.unit;
+    Object.keys(VALS).forEach(k => delete VALS[k]); Object.assign(VALS, before.vals); render(); drawColSheet();
+  });
+}
+function delCol(cid, used) {
+  const c = col(cid);
+  if (!confirm(`列「${c.name}」を消しますか？\n\n全部のリストとマスターから消え、入力した値（${used}本）も消えます。`)) return;
+  const snap = { cols: [...COLS], vals: JSON.parse(JSON.stringify(VALS)), idx: COLS.indexOf(c) };
+  COLS = COLS.filter(x => x.id !== cid);
+  Object.values(VALS).forEach(r => delete r[cid]);
+  closeModal(); render(); drawColSheet();
+  toast(`「${c.name}」を消しました`, () => { COLS = snap.cols; Object.keys(VALS).forEach(k => delete VALS[k]); Object.assign(VALS, snap.vals); render(); drawColSheet(); });
+}
+
+// ══ 部品 ══
+function modal(html) {
+  closeModal();
+  const ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'modal'; ov.style.zIndex = 70;
+  ov.onclick = e => { if (e.target === ov) closeModal(); };
+  ov.innerHTML = `<div class="sheet">${html}</div>`;
+  document.body.appendChild(ov);
+}
+function closeModal() { $('#modal')?.remove(); }
+function showPop(anchor, html) {
+  closePop();
+  const p = document.createElement('div'); p.className = 'pop'; p.id = 'pop'; p.innerHTML = html;
+  p.onclick = e => e.stopPropagation();
+  document.body.appendChild(p);
+  const r = anchor.getBoundingClientRect();
+  p.style.top = Math.min(r.bottom + 4, innerHeight - p.offsetHeight - 8) + 'px';
+  p.style.left = Math.max(8, Math.min(r.left, innerWidth - p.offsetWidth - 8)) + 'px';
+}
+function closePop() { $('#pop')?.remove(); }
+document.addEventListener('click', closePop);
+let _tt;
+function toast(msg, undo) {
+  const t = $('#toast'); $('#toastMsg').textContent = msg;
+  const b = $('#toastUndo'); b.style.display = undo ? '' : 'none';
+  b.onclick = () => { t.classList.remove('show'); undo(); };
+  t.classList.add('show'); clearTimeout(_tt); _tt = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+render();
+</script>
+</body>
+</html>
