@@ -66,7 +66,10 @@ td.title{font-weight:600;white-space:normal;min-width:190px}
 .mv:disabled{opacity:.2}
 .crow label{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;cursor:pointer}
 .crow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.crow .t{font-size:10px;color:var(--dim);flex-shrink:0}
+.crow .t{font-size:11px;color:var(--sub);flex-shrink:0;min-width:70px;text-align:right}
+.ti{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--field);border:1px solid var(--bd);font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;font-style:normal}
+.ti.b{color:var(--sub)}
+th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:middle}
 .edit{background:none;border:none;color:var(--sub);font-size:15px;padding:4px 8px;flex-shrink:0}
 .edit:hover{color:var(--gold)}
 .newcol{width:100%;margin-top:12px;padding:12px;border-radius:10px;border:1px dashed var(--bd);background:none;font-size:14px;color:var(--gold);font-weight:700}
@@ -112,6 +115,7 @@ td.title{font-weight:600;white-space:normal;min-width:190px}
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
     <li>自分で作った列の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
     <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
+    <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では右に種類名も出る</li>
   </ul>
 </div>
 
@@ -146,12 +150,12 @@ const TYPES = [
 ];
 // 列は全部1つの一覧。builtin=最初からある列（✎ なし）
 let COLS = [
-  { id:'ch',  name:'チャンネル',   builtin:true, get:v => v.ch },
-  { id:'pl',  name:'プレイリスト', builtin:true, get:v => v.pl },
-  { id:'tb',  name:'TOP/BOTTOM',   builtin:true, get:v => v.tb, chip:true },
-  { id:'pos', name:'Position',     builtin:true, get:v => v.pos, chip:true },
-  { id:'dur', name:'長さ',         builtin:true, get:v => v.dur },
-  { id:'add', name:'追加日',       builtin:true, get:v => v.add },
+  { id:'ch',  name:'チャンネル',   builtin:true, kind:'text', get:v => v.ch },
+  { id:'pl',  name:'プレイリスト', builtin:true, kind:'text', get:v => v.pl },
+  { id:'tb',  name:'TOP/BOTTOM',   builtin:true, kind:'tag',  get:v => v.tb, chip:true },
+  { id:'pos', name:'Position',     builtin:true, kind:'tag',  get:v => v.pos, chip:true },
+  { id:'dur', name:'長さ',         builtin:true, kind:'time', get:v => v.dur },
+  { id:'add', name:'追加日',       builtin:true, kind:'date', get:v => v.add },
   { id:'u1', name:'習得度', type:'stars' },
   { id:'u2', name:'フェーズ', type:'select', options:['学習中','反復中','使えてる'] },
   { id:'u3', name:'課題', type:'text' },
@@ -173,6 +177,10 @@ let sort = null; // {id, asc}
 const filt = {}; // `${table}:${col}` -> Set
 let nextId = 5;
 
+// 列の種類（パッと見で分かるように、一覧と見出しにアイコンを出す）
+const KINDS = { text:{ i:'T', n:'テキスト' }, tag:{ i:'🏷', n:'タグ' }, time:{ i:'⏱', n:'時間' }, date:{ i:'📅', n:'日付' } };
+const typeOf = c => c.builtin ? KINDS[c.kind] : TYPES.find(t => t.t === c.type);
+const icon = c => `<i class="ti ${c.builtin ? 'b' : ''}" title="${typeOf(c).n}">${typeOf(c).i}</i>`;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const col = id => COLS.find(c => c.id === id);
@@ -207,7 +215,7 @@ function render() {
   const thead = `<tr><th class="title">Title</th>` + shown.map(c => {
     const s = sort && sort.id === c.id ? (sort.asc ? '▲' : '▼') : '';
     const f = filt[cur + ':' + c.id]?.size ? ' ⏷' : '';
-    return `<th onclick="headMenu(event,'${c.id}')">${esc(c.name)}<span class="car">${s}${f} ▾</span></th>`;
+    return `<th onclick="headMenu(event,'${c.id}')">${icon(c)}${esc(c.name)}<span class="car">${s}${f} ▾</span></th>`;
   }).join('') + `</tr>`;
   const body = list.map(v => `<tr><td class="title">${esc(v.title)}</td>` + shown.map(c => `<td>${cell(v, c)}</td>`).join('') + `</tr>`).join('');
   $('#tbl').innerHTML = thead + body;
@@ -237,7 +245,7 @@ function pickSel(e, vid, cid) {
   const c = col(cid), x = (VALS[vid] || {})[cid];
   const multi = c.type === 'multiselect';
   const cur = multi ? (x || []) : x;
-  const html = `<div class="ph">${esc(c.name)}</div>` + (c.options || []).map(o => {
+  const html = `<div class="ph">${icon(c)} ${esc(c.name)}</div>` + (c.options || []).map(o => {
     const on = multi ? cur.includes(o) : cur === o;
     return `<button class="pi" onclick="chooseOpt('${vid}','${cid}',${JSON.stringify(o).replace(/"/g, '&quot;')})"><span class="chip ${chipCls(c, o)}">${esc(o)}</span>${on ? ' ✓' : ''}</button>`;
   }).join('') + `<button class="pi" style="color:var(--sub)" onclick="chooseOpt('${vid}','${cid}',null)">クリア</button>`;
@@ -257,7 +265,7 @@ function chooseOpt(vid, cid, o) {
 function headMenu(e, cid) {
   e.stopPropagation();
   const c = col(cid);
-  let html = `<div class="ph">${esc(c.name)}</div>
+  let html = `<div class="ph">${icon(c)} ${esc(c.name)} <span style="font-weight:400">・${typeOf(c).n}</span></div>
     <button class="pi" onclick="doSort('${cid}',true)">↑ 昇順に並べる</button>
     <button class="pi" onclick="doSort('${cid}',false)">↓ 降順に並べる</button>`;
   if (!c.builtin && (c.type === 'select' || c.type === 'multiselect' || c.type === 'checkbox')) {
@@ -296,8 +304,9 @@ function drawColSheet() {
         <div class="hdl"></div>
         <button class="mv" onclick="mv('${id}',-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
         <button class="mv" onclick="mv('${id}',1)" ${i === o.length - 1 ? 'disabled' : ''}>▼</button>
-        <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()"><span>${esc(c.name)}</span></label>
-        ${c.builtin ? '' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
+        <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()">${icon(c)}<span>${esc(c.name)}</span></label>
+        <span class="t">${typeOf(c).n}</span>
+        ${c.builtin ? '<span class="edit" style="visibility:hidden">✎</span>' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
       </div>`; }).join('') +
     `<button class="newcol" onclick="openNew()">＋ 新しい列を作る</button>
      <div class="note" style="margin-top:10px">✎ が付いているのは自分で作った列。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
