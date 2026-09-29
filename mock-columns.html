@@ -92,7 +92,14 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
 .b2{padding:9px 16px;border-radius:9px;border:1px solid var(--bd);background:none;font-size:13px}
 .b1{padding:9px 18px;border-radius:9px;border:none;background:var(--gold);color:#1a1a1a;font-size:13px;font-weight:700}
 .danger{margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
-.dbtn{background:none;border:none;color:var(--red);font-size:13px;padding:4px 0}
+.dbtn{background:none;border:none;color:var(--sub);font-size:13px;padding:4px 0}
+.dbtn:hover{color:var(--text)}
+.stored{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+.stored summary{font-size:12px;color:var(--sub);cursor:pointer;padding:6px 4px;list-style:none}
+.stored summary::-webkit-details-marker{display:none}
+.srow{display:flex;align-items:center;gap:8px;padding:6px 4px 6px 44px;font-size:14px;color:var(--sub)}
+.srow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.back{background:none;border:1px solid var(--bd);border-radius:7px;padding:5px 10px;font-size:12px;color:var(--gold);flex-shrink:0}
 .note{font-size:11px;color:var(--dim);line-height:1.6;margin-top:4px}
 .tag{font-size:10px;background:#3a2f12;color:#f3dc9f;border-radius:4px;padding:1px 5px;margin-left:6px}
 .pop{position:fixed;z-index:60;background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.5);min-width:220px;max-width:280px;padding:6px}
@@ -115,7 +122,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
     <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、左の ⠿ をつかんで上下に動かすと並べ替え</li>
     <li>一番下の <b>＋ カスタム列を作る</b> → 今見ている表にチェック済みで出る</li>
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
-    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
+    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す／<b>📦 この列をしまう</b>（値は残る・Ⅲ 列の一番下から戻せる）。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
     <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
     <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では自分で作った列に種類名も出る</li>
   </ul>
@@ -211,7 +218,7 @@ function rows() {
 function render() {
   ensureOrder(cur);
   $('#lists').innerHTML = TABLES.map(t => `<button class="lst ${t.id === cur ? 'on' : ''}" onclick="go('${t.id}')">${esc(t.name)}</button>`).join('');
-  const shown = VIEW[cur].order.filter(id => VIEW[cur].show[id]).map(col);
+  const shown = VIEW[cur].order.filter(id => VIEW[cur].show[id] && !col(id).stored).map(col);
   const list = rows();
   $('#cnt').textContent = `${list.length} 本`;
   const thead = `<tr><th class="title">Title</th>` + shown.map(c => {
@@ -298,7 +305,8 @@ function openColSheet() {
 }
 function drawColSheet() {
   const el = $('#colsheetBody'); if (!el) return;
-  const o = VIEW[cur].order;
+  const o = VIEW[cur].order.filter(id => !col(id).stored);
+  const stored = COLS.filter(c => c.stored);
   const tname = TABLES.find(t => t.id === cur).name;
   el.innerHTML = `<div class="sh">表示する列 — ${esc(tname)}（⠿ をつかんで並べ替え）</div>` +
     o.map((id, i) => { const c = col(id); return `
@@ -309,7 +317,11 @@ function drawColSheet() {
         ${c.builtin ? '<span class="edit" style="visibility:hidden">✎</span>' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
       </div>`; }).join('') +
     `<button class="newcol" onclick="openNew()">＋ カスタム列を作る</button>
-     <div class="note" style="margin-top:10px">✎ が付いているのはカスタム列（自分で作った列）。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
+     <div class="note" style="margin-top:10px">✎ が付いているのはカスタム列（自分で作った列）。どのリスト・マスターでも同じ列で、値も同じです。</div>` +
+    (stored.length ? `<details class="stored" ${window._storedOpen ? 'open' : ''} ontoggle="window._storedOpen=this.open">
+      <summary>▸ しまった列（${stored.length}）— 入力した値はそのまま残っています</summary>` +
+      stored.map(c => `<div class="srow">${icon(c)}<span>${esc(c.name)}</span><button class="back" onclick="unstoreCol('${c.id}')">戻す</button></div>`).join('') +
+      `</details>` : '');
   // ⠿ をつかんで並べ替え（指でもマウスでも。Pointer Events）
   el.querySelectorAll('.hdl').forEach(h => {
     h.onpointerdown = e => {
@@ -328,7 +340,10 @@ function drawColSheet() {
       const up = () => {
         window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
         row.classList.remove('drag');
-        VIEW[cur].order = [...el.querySelectorAll('.crow')].map(r => r.dataset.id);
+        // しまった列は元の位置のまま、見えている列の並びだけ入れ替える
+        const moved = [...el.querySelectorAll('.crow')].map(r => r.dataset.id);
+        let k = 0;
+        VIEW[cur].order = VIEW[cur].order.map(id => col(id).stored ? id : moved[k++]);
         render(); drawColSheet();
       };
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
@@ -386,8 +401,8 @@ function openEdit(cid) {
       <div class="note">名前を変えると、その値が入っている動画も新しい名前になります（タグと同じ）。消しても入力済みの値は残ります。</div>` : ''}
     ${c.type === 'number' ? `<div class="lbl">単位</div><input class="inp" value="${esc(edit.unit)}" oninput="edit.unit=this.value">` : ''}
     <div class="acts"><button class="b2" onclick="closeModal()">キャンセル</button><button class="b1" onclick="saveEdit()">保存</button></div>
-    <div class="danger"><button class="dbtn" onclick="delCol('${cid}',${used})">🗑 この列を消す</button><span class="tag">未決：付けるかどうか</span>
-      <div class="note">全部のリストとマスターから消え、入力した値も消えます（いま ${used} 本の動画に値あり）。</div></div>`);
+    <div class="danger"><button class="dbtn" onclick="storeCol('${cid}')">📦 この列をしまう</button>
+      <div class="note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。Ⅲ 列 の一番下の「しまった列」からいつでも戻せます。</div></div>`);
   drawEditOpts();
 }
 function drawEditOpts() {
@@ -417,14 +432,17 @@ function saveEdit() {
     Object.keys(VALS).forEach(k => delete VALS[k]); Object.assign(VALS, before.vals); render(); drawColSheet();
   });
 }
-function delCol(cid, used) {
+// しまう: 一覧と表から見えなくするだけ。値（VALS）にも、表ごとのチェックにも触らない
+function storeCol(cid) {
   const c = col(cid);
-  if (!confirm(`列「${c.name}」を消しますか？\n\n全部のリストとマスターから消え、入力した値（${used}本）も消えます。`)) return;
-  const snap = { cols: [...COLS], vals: JSON.parse(JSON.stringify(VALS)), idx: COLS.indexOf(c) };
-  COLS = COLS.filter(x => x.id !== cid);
-  Object.values(VALS).forEach(r => delete r[cid]);
+  c.stored = true;
   closeModal(); render(); drawColSheet();
-  toast(`「${c.name}」を消しました`, () => { COLS = snap.cols; Object.keys(VALS).forEach(k => delete VALS[k]); Object.assign(VALS, snap.vals); render(); drawColSheet(); });
+  toast(`「${c.name}」をしまいました（値は残っています）`, () => unstoreCol(cid, true));
+}
+function unstoreCol(cid, quiet) {
+  const c = col(cid); c.stored = false;
+  render(); drawColSheet();
+  if (!quiet) toast(`「${c.name}」を戻しました`);
 }
 
 // ══ 部品 ══
