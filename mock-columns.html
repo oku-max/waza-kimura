@@ -122,7 +122,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
     <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、左の ⠿ をつかんで上下に動かすと並べ替え</li>
     <li>一番下の <b>＋ カスタム列を作る</b> → 今見ている表にチェック済みで出る</li>
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
-    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す／<b>📦 この列をしまう</b>（値は残る・Ⅲ 列の一番下から戻せる）。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
+    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す／<b>この列を非表示にする</b>（値は残る・Ⅲ 列の一番下から表示に戻せる）。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
     <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
     <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では自分で作った列に種類名も出る</li>
   </ul>
@@ -319,8 +319,8 @@ function drawColSheet() {
     `<button class="newcol" onclick="openNew()">＋ カスタム列を作る</button>
      <div class="note" style="margin-top:10px">✎ が付いているのはカスタム列（自分で作った列）。どのリスト・マスターでも同じ列で、値も同じです。</div>` +
     (stored.length ? `<details class="stored" ${window._storedOpen ? 'open' : ''} ontoggle="window._storedOpen=this.open">
-      <summary>▸ しまった列（${stored.length}）— 入力した値はそのまま残っています</summary>` +
-      stored.map(c => `<div class="srow">${icon(c)}<span>${esc(c.name)}</span><button class="back" onclick="unstoreCol('${c.id}')">戻す</button></div>`).join('') +
+      <summary>▸ 非表示の列（${stored.length}）— 入力した値はそのまま残っています</summary>` +
+      stored.map(c => `<div class="srow">${icon(c)}<span>${esc(c.name)}</span><button class="back" onclick="unstoreCol('${c.id}')">表示する</button></div>`).join('') +
       `</details>` : '');
   // ⠿ をつかんで並べ替え（指でもマウスでも。Pointer Events）
   el.querySelectorAll('.hdl').forEach(h => {
@@ -340,7 +340,7 @@ function drawColSheet() {
       const up = () => {
         window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
         row.classList.remove('drag');
-        // しまった列は元の位置のまま、見えている列の並びだけ入れ替える
+        // 非表示の列は元の位置のまま、見えている列の並びだけ入れ替える
         const moved = [...el.querySelectorAll('.crow')].map(r => r.dataset.id);
         let k = 0;
         VIEW[cur].order = VIEW[cur].order.map(id => col(id).stored ? id : moved[k++]);
@@ -401,8 +401,8 @@ function openEdit(cid) {
       <div class="note">名前を変えると、その値が入っている動画も新しい名前になります（タグと同じ）。消しても入力済みの値は残ります。</div>` : ''}
     ${c.type === 'number' ? `<div class="lbl">単位</div><input class="inp" value="${esc(edit.unit)}" oninput="edit.unit=this.value">` : ''}
     <div class="acts"><button class="b2" onclick="closeModal()">キャンセル</button><button class="b1" onclick="saveEdit()">保存</button></div>
-    <div class="danger"><button class="dbtn" onclick="storeCol('${cid}')">📦 この列をしまう</button>
-      <div class="note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。Ⅲ 列 の一番下の「しまった列」からいつでも戻せます。</div></div>`);
+    <div class="danger"><button class="dbtn" onclick="storeCol('${cid}')">🚫 この列を非表示にする</button>
+      <div class="note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。Ⅲ 列 の一番下の「非表示の列」からいつでも表示に戻せます。</div></div>`);
   drawEditOpts();
 }
 function drawEditOpts() {
@@ -432,17 +432,17 @@ function saveEdit() {
     Object.keys(VALS).forEach(k => delete VALS[k]); Object.assign(VALS, before.vals); render(); drawColSheet();
   });
 }
-// しまう: 一覧と表から見えなくするだけ。値（VALS）にも、表ごとのチェックにも触らない
+// 非表示: 一覧と表から見えなくするだけ。値（VALS）にも、表ごとのチェックにも触らない
 function storeCol(cid) {
   const c = col(cid);
   c.stored = true;
   closeModal(); render(); drawColSheet();
-  toast(`「${c.name}」をしまいました（値は残っています）`, () => unstoreCol(cid, true));
+  toast(`「${c.name}」を非表示にしました（値は残っています）`, () => unstoreCol(cid, true));
 }
 function unstoreCol(cid, quiet) {
   const c = col(cid); c.stored = false;
   render(); drawColSheet();
-  if (!quiet) toast(`「${c.name}」を戻しました`);
+  if (!quiet) toast(`「${c.name}」を表示に戻しました`);
 }
 
 // ══ 部品 ══
