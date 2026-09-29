@@ -229,6 +229,9 @@
     '・マスターや他のリストでも「＋ 列を追加」から使えるようになります': '・It becomes available in the master and other lists via “+ Add column”',
     '・値は動画ごとに1つになり、どこで直しても全部に反映されます': '・Each video gets one value; editing it anywhere updates it everywhere',
     '・このリストで入力済みの値はそのまま引き継ぎます': '・Values already entered in this list are carried over',
+    '🔗 すべて共有列にまとめる': '🔗 Merge all into shared columns',
+    '元の値は各リストに残します（消しません）。': 'The original values stay in each list (nothing is deleted).',
+    '次の列を共有列にまとめます。': 'The following columns will be merged into shared columns.',
     // タググループの名前変更（Notion 項目03）
     '名前は空にできません': 'The name cannot be empty',
     'グループ名': 'Group name',
@@ -1940,6 +1943,9 @@
     '# 行 / # 語': '# rows / # words',
     '# 行が一致': '# rows match',
     '🔗 共有列にしました（#本の値を引き継ぎ）': '🔗 Made it a shared column (carried over # values)',
+    '✏️ 選択肢の名前を変えました（#本の値も変更）': '✏️ Renamed the option (# values updated too)',
+    '🔗 #個の共有列にまとめました': '🔗 Merged into # shared columns',
+    'まだ共有列になっていない列が #個 あります。': '# columns are not shared yet.',
     // ── タグ設定 案A（v52.812）──
     '#個': '#',
     '#件': '#',

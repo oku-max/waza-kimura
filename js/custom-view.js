@@ -2056,6 +2056,66 @@ function closePopup() {
 // ── TH ドロップダウン（ソート・再設定・フィルター・操作を統合） ──
 let _openThDdCol = null, _openThDdViewId = null, _openThDdLastTime = 0;
 // col はクロージャから直接渡される列オブジェクト（find/indexOf 不要、重複IDにも対応）
+// ── 選択肢の名前を変える（入力済みの値も付け替える・取り消せる）──
+// 【データ経路】共有列: 全動画の v.cf[列id] → videos.json（debounceSave）
+//              リストだけの列: view.rowData → wk_cv_views / Firestore（_save）
+// 名前の対応 ren = {旧:新} を1回だけ当てる（A↔B の入れ替えも正しく入れ替わる）。
+// 同じ名前に2つをまとめたら、マルチセレクトは重ならないように1つにする。値は消さない。
+function _mapOptVal(val, ren) {
+  if (typeof val === 'string') return Object.prototype.hasOwnProperty.call(ren, val) ? ren[val] : val;
+  if (Array.isArray(val)) {
+    const out = [];
+    val.forEach(x => { const y = (typeof x === 'string' && Object.prototype.hasOwnProperty.call(ren, x)) ? ren[x] : x; if (!out.includes(y)) out.push(y); });
+    return out;
+  }
+  return val;
+}
+function _cvRenameOptions(view, col, nextOptions, ren) {
+  const prevOptions = [...(col.options || [])];
+  col.options = nextOptions;
+  const changed = []; // [{holder, key, before, after}]
+  if (Object.keys(ren).length) {
+    const touch = holder => {
+      if (!holder || typeof holder !== 'object' || !(col.id in holder)) return;
+      const before = holder[col.id];
+      const after = _mapOptVal(before, ren);
+      if (JSON.stringify(before) === JSON.stringify(after)) return;
+      holder[col.id] = after;
+      changed.push({ holder, before, after });
+    };
+    if (col.shared) (window.videos || []).forEach(v => touch(v.cf));
+    else Object.values(view.rowData || {}).forEach(touch);
+    // 開いている絞り込みの選択も新しい名前に
+    Object.values(filterState).forEach(fs => {
+      const f = fs && fs[col.id];
+      if (f && f.values instanceof Set) f.values = new Set([...f.values].map(x => _mapOptVal(x, ren)));
+    });
+  }
+  _save();
+  if (col.shared && changed.length) window.debounceSave?.();
+  _renderTable(view);
+  if (!changed.length) return;
+  const undo = () => {
+    // その後にまた変えたセルは戻さない（後の変更を消さない）
+    let n = 0;
+    changed.forEach(c => {
+      if (JSON.stringify(c.holder[col.id]) !== JSON.stringify(c.after)) return;
+      c.holder[col.id] = c.before; n++;
+    });
+    if (JSON.stringify(col.options) === JSON.stringify(nextOptions)) col.options = prevOptions;
+    _save();
+    if (col.shared && n) window.debounceSave?.();
+    _renderTable(view);
+  };
+  const msg = `✏️ 選択肢の名前を変えました（${changed.length}本の値も変更）`;
+  if (typeof window.toastUndo === 'function') window.toastUndo(msg, undo);
+  else if (typeof window.toast === 'function') window.toast(msg);
+}
+window._cvRenameOptions = (viewId, colId, next, ren) => {
+  const view = _findView(viewId); const col = view && (view.columns || []).find(c => c.id === colId);
+  if (col) _cvRenameOptions(view, col, next, ren);
+};
+
 function openThDropdown(btn, view, col) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
@@ -2090,16 +2150,17 @@ function openThDropdown(btn, view, col) {
   // ── 列の再設定（型によって表示を変える） ──
   if (col.type === 'select' || col.type === 'multiselect') {
     const sec = _mkSec('選択肢');
-    let curOpts = [...(col.options || [])];
+    // 元の名前を覚えておき、保存時に「どれをどう変えたか」を出す（入力済みの値も付け替えるため）
+    let curOpts = (col.options || []).map(o => ({ orig: o, val: o }));
     const optList = document.createElement('div');
     function renderOpts() {
       optList.innerHTML = '';
       curOpts.forEach((opt, i) => {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px';
-        const inp = document.createElement('input'); inp.type = 'text'; inp.value = opt;
+        const inp = document.createElement('input'); inp.type = 'text'; inp.value = opt.val;
         inp.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:3px 6px;min-width:0;outline:none';
-        inp.addEventListener('change', () => { curOpts[i] = inp.value; });
+        inp.addEventListener('input', () => { opt.val = inp.value; });
         const del = document.createElement('button'); del.textContent = '✕';
         del.style.cssText = 'background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 4px;flex-shrink:0';
         del.addEventListener('click', e => { e.stopPropagation(); curOpts.splice(i, 1); renderOpts(); });
@@ -2109,10 +2170,23 @@ function openThDropdown(btn, view, col) {
       actRow.style.cssText = 'display:flex;gap:6px;margin-top:4px';
       const addBtn2 = document.createElement('button'); addBtn2.textContent = '＋ 追加';
       addBtn2.style.cssText = 'font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0';
-      addBtn2.addEventListener('click', e => { e.stopPropagation(); curOpts.push(''); renderOpts(); setTimeout(() => { const ins = optList.querySelectorAll('input'); if (ins.length) ins[ins.length-1].focus(); }, 30); });
+      addBtn2.addEventListener('click', e => { e.stopPropagation(); curOpts.push({ orig: null, val: '' }); renderOpts(); setTimeout(() => { const ins = optList.querySelectorAll('input'); if (ins.length) ins[ins.length-1].focus(); }, 30); });
       const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
       saveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer;margin-left:auto';
-      saveBtn.addEventListener('click', e => { e.stopPropagation(); col.options = curOpts.map(o => o.trim()).filter(Boolean); _save(); _renderTable(currentView); closeThDropdown(); });
+      saveBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        // 名前を変えた選択肢 → 入力済みの値も新しい名前に（タグと同じ）。
+        // 消した選択肢の値はセルに残す（消さない）。
+        const next = [], ren = {};
+        curOpts.forEach(o => {
+          const v = String(o.val || '').trim();
+          if (!v) return;
+          if (o.orig != null && o.orig !== v) ren[o.orig] = v;
+          if (!next.includes(v)) next.push(v);
+        });
+        closeThDropdown();
+        _cvRenameOptions(currentView, col, next, ren);
+      });
       actRow.appendChild(addBtn2); actRow.appendChild(saveBtn); optList.appendChild(actRow);
     }
     renderOpts();
@@ -2286,20 +2360,19 @@ function openAddColModal(viewId) {
 function _renderSharedPick(viewId) {
   const view = _findView(viewId);
   const pick = document.getElementById('cv-shared-pick');
-  const opt  = document.getElementById('cv-shared-opt');
-  if (opt) {
-    // マスターに足す列は必ず共有列（マスターはリストではないので値の置き場が動画しかない）
-    opt.style.display = (view && view.isMaster) ? 'none' : '';
-    const chk = document.getElementById('cv-new-col-shared');
-    if (chk) chk.checked = true;
-  }
   if (!pick) return;
   const have = new Set((view?.columns || []).map(c => c.id));
   const avail = _shared.cols.filter(d => !have.has(d.id));
-  if (!avail.length) { pick.style.display = 'none'; pick.innerHTML = ''; return; }
+  // まだ共有列になっていない、リストだけの列（v52.886 以前に作った列）
+  const nLocal = _views.reduce((n, v) => n + (v.columns || []).filter(c => c && !c.shared && c.type).length, 0);
+  const unifyHtml = nLocal ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.5">
+      まだ共有列になっていない列が ${nLocal}個 あります。
+      <button type="button" onclick="window._cvUnifyAllCols()" style="display:block;margin-top:6px;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer">🔗 すべて共有列にまとめる</button>
+    </div>` : '';
+  if (!avail.length) { pick.style.display = unifyHtml ? '' : 'none'; pick.innerHTML = unifyHtml; return; }
   const icon = t => (TYPE_DEFS.find(d => d.type === t) || {}).icon || '';
   pick.style.display = '';
-  pick.innerHTML = `<div class="cv-modal-label">${_esc(T('cv.pickShared', '共有列から追加'))}</div>
+  pick.innerHTML = unifyHtml + `<div class="cv-modal-label">${_esc(T('cv.pickShared', '共有列から追加'))}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px">` +
     avail.map(d => `<button type="button" class="cv-type-btn" style="width:auto;flex:0 0 auto" onclick="window._cvAddSharedCol('${_esc(viewId)}','${_esc(d.id)}')"><span class="cv-type-icon">${_esc(icon(d.type))}</span>🔗 ${_esc(d.label || '')}</button>`).join('') +
     `</div><div class="cv-modal-label" style="margin-bottom:4px">${_esc(T('cv.orNewCol', 'または新しい列を作る'))}</div>`;
@@ -2314,6 +2387,112 @@ window._cvAddSharedCol = function(viewId, colId) {
   _save();
   window.cvCloseAddColModal();
   _renderTable(view);
+};
+
+// ── 既存の列を、すべて共有列にまとめる（v52.887）──
+// 種類と名前が同じ列は1つの共有列にまとめる（同じ名前の共有列が既にあればそこへ）。
+// 値: 動画ごとに1つにする。食い違いは
+//   チェックボックス … どれかでオンならオン
+//   マルチセレクト・トラッカー … 全部を足し合わせ
+//   それ以外 … 既に共有列に入っている値 → リストの並び順で先のリストの値
+// 元の列の定義は view.sharedFrom に、値は rowData にそのまま残す（消さない）。
+// id は種類と名前から決める（2台で別々に押しても同じ列になる）。
+function _hashKey(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36);
+}
+function _unifyPlan() {
+  const groups = new Map();
+  _views.forEach(view => (view.columns || []).forEach(col => {
+    if (!col || col.shared || !col.type) return;
+    const label = String(col.label || '').trim() || (TYPE_DEFS.find(d => d.type === col.type) || {}).label || '列';
+    const key = col.type + '\u0001' + label;
+    if (!groups.has(key)) groups.set(key, { key, type: col.type, label, items: [] });
+    groups.get(key).items.push({ view, col });
+  }));
+  const byId = _cvVideoById(window.videos || []);
+  const plans = [];
+  groups.forEach(g => {
+    const existing = _shared.cols.find(d => d.type === g.type && String(d.label || '').trim() === g.label);
+    const id = existing ? existing.id : ('gc_m' + _hashKey(g.key));
+    const vals = new Map(); // vid -> value
+    let conflicts = 0, missing = 0;
+    const merge = (vid, val) => {
+      if (!vals.has(vid)) { vals.set(vid, JSON.parse(JSON.stringify(val))); return; }
+      const cur = vals.get(vid);
+      if (g.type === 'checkbox') { if (!cur && val) vals.set(vid, true); return; }
+      if (g.type === 'multiselect' || g.type === 'tracker') {
+        const out = Array.isArray(cur) ? [...cur] : [];
+        (Array.isArray(val) ? val : []).forEach(x => { if (!out.includes(x)) out.push(x); });
+        vals.set(vid, out); return;
+      }
+      if (JSON.stringify(cur) !== JSON.stringify(val)) conflicts++;
+    };
+    // 既に共有列に入っている値が先
+    byId.forEach((v, vid) => { const cv = v.cf && v.cf[id]; if (!_isBlankVal(cv, g.type)) merge(vid, cv); });
+    g.items.forEach(({ view, col }) => Object.entries(view.rowData || {}).forEach(([vid, rd]) => {
+      if (!rd || typeof rd !== 'object') return;
+      const val = rd[col.id];
+      if (_isBlankVal(val, g.type)) return;
+      if (!byId.has(vid)) { missing++; return; }
+      merge(vid, val);
+    }));
+    const options = [...((existing && existing.options) || [])];
+    g.items.forEach(({ col }) => (col.options || []).forEach(o => { if (!options.includes(o)) options.push(o); }));
+    const lists = [...new Set(g.items.map(it => it.view.label || it.view.id))];
+    plans.push({ ...g, id, existing: !!existing, vals, conflicts, missing, options, lists });
+  });
+  return plans;
+}
+window._cvUnifyPlan = () => _unifyPlan().map(p => ({ label: p.label, type: p.type, id: p.id, lists: p.lists,
+  values: p.vals.size, conflicts: p.conflicts, missing: p.missing, cols: p.items.length }));
+window._cvUnifyAllCols = function(skipConfirm) {
+  const plans = _unifyPlan();
+  if (!plans.length) return 0;
+  const tl = t => (TYPE_DEFS.find(d => d.type === t) || {}).label || t;
+  const lines = plans.map(p => `・${p.label}（${tl(p.type)}）… ${p.lists.length}個のリストから → 1列 / 値 ${p.vals.size}本` +
+    (p.conflicts ? ` / 食い違い ${p.conflicts}本は先のリストの値` : '') + (p.existing ? ' / 同じ名前の共有列へ' : ''));
+  if (!skipConfirm && !confirm(`次の列を共有列にまとめます。\n\n${lines.join('\n')}\n\n元の値は各リストに残します（消しません）。`)) return 0;
+  const byId = _cvVideoById(window.videos || []);
+  let wroteVideos = 0;
+  plans.forEach(p => {
+    let def = _shDef(p.id);
+    if (!def) {
+      const first = p.items[0].col;
+      def = { id: p.id, ..._defSnap(first), label: p.label };
+      _shared.cols.push(def);
+    }
+    if (p.type === 'select' || p.type === 'multiselect') def.options = p.options;
+    p.vals.forEach((val, vid) => {
+      const v = byId.get(vid); if (!v) return;
+      if (!v.cf || typeof v.cf !== 'object') v.cf = {};
+      if (JSON.stringify(v.cf[p.id]) === JSON.stringify(val)) return;
+      v.cf[p.id] = val; wroteVideos++;
+    });
+    p.items.forEach(({ view, col }) => {
+      const idx = view.columns.indexOf(col);
+      if (idx < 0) return;
+      view.sharedFrom = Array.isArray(view.sharedFrom) ? view.sharedFrom : [];
+      view.sharedFrom.push({ col: JSON.parse(JSON.stringify(col)), to: p.id, at: Date.now() });
+      const already = view.columns.some(c => c !== col && c.id === p.id);
+      if (already) {
+        view.columns.splice(idx, 1);
+        if (Array.isArray(view.unifiedOrder)) view.unifiedOrder = view.unifiedOrder.filter(x => x !== col.id);
+      } else {
+        view.columns.splice(idx, 1, _mkRef({ id: p.id, width: col.width, hidden: col.hidden }));
+        if (Array.isArray(view.unifiedOrder)) view.unifiedOrder = view.unifiedOrder.map(x => x === col.id ? p.id : x);
+      }
+      clearFilter(view.id, col.id);
+      if (_cvSortColId === col.id) _cvSortColId = p.id;
+    });
+  });
+  _save();
+  if (wroteVideos) window.debounceSave?.();
+  window.cvCloseAddColModal?.();
+  if (typeof window.toast === 'function') window.toast(`🔗 ${plans.length}個の共有列にまとめました`);
+  const cur = _activeTableView(); if (cur) _renderTable(cur);
+  return plans.length;
 };
 
 // リストの列を共有列にする。
@@ -2455,9 +2634,8 @@ window.cvConfirmAddCol = function() {
   // ── 追加モード ──
   const view = _findView(_addColTargetViewId);
   if (!view) return;
-  // 共有列として作る（マスターは常に共有列。リストはチェックボックスで選ぶ）
-  const shChk = document.getElementById('cv-new-col-shared');
-  if (view.isMaster || (shChk && shChk.checked)) {
+  // 新しい列は必ず共有列（v52.887: リストだけの列は作らない＝値は動画ごとに1つ）
+  {
     const def = { id: _newSharedId(), type: _selectedType, label };
     if (_selectedType === 'select' || _selectedType === 'multiselect') {
       def.options = _newColOptions.filter(o => o.trim() !== '');
@@ -2474,29 +2652,6 @@ window.cvConfirmAddCol = function() {
     _renderTable(view);
     return;
   }
-  const newCol = { id: 'col' + (++_nextColId), type: _selectedType, label };
-  if (_selectedType === 'select' || _selectedType === 'multiselect') {
-    newCol.options = _newColOptions.filter(o => o.trim() !== '');
-  } else if (_selectedType === 'tracker') {
-    newCol.pastDays = _newColPastDays; newCol.futureDays = _newColFutureDays;
-  } else if (_selectedType === 'number') {
-    const unitEl = document.getElementById('cv-new-col-unit');
-    newCol.unit = unitEl ? unitEl.value.trim() : '';
-  }
-  const all = window.videos || [];
-  all.forEach(v => {
-    if (!view.rowData[v.id]) view.rowData[v.id] = {};
-    if (_selectedType === 'checkbox') view.rowData[v.id][newCol.id] = false;
-    else if (_selectedType === 'multiselect') view.rowData[v.id][newCol.id] = [];
-    else if (_selectedType === 'tracker') view.rowData[v.id][newCol.id] = [];
-    else if (_selectedType === 'stars') view.rowData[v.id][newCol.id] = 0;
-    else if (_selectedType === 'progress') view.rowData[v.id][newCol.id] = 0;
-    else view.rowData[v.id][newCol.id] = null;
-  });
-  view.columns.push(newCol);
-  _save();
-  window.cvCloseAddColModal();
-  _renderTable(view);
 };
 
 // ── フィルターシステム ──
@@ -3144,11 +3299,18 @@ window.cvConfirm = function() {
 
   // 各カスタム列に新しいIDを割り当て、cus:N → 新ID のマップを作る
   const colIdMap = {};
-  const cols = tpl.columns.map((c, i) => {
-    if (c.shared && c.sharedId) { colIdMap['cus:' + i] = c.sharedId; return _mkRef({ id: c.sharedId }); }
-    const newId = 'col' + (++_nextColId);
-    colIdMap['cus:' + i] = newId;
-    return { id: newId, ...c };
+  // テンプレートの列も共有列にする。種類と名前が同じ共有列があればそれを使う（同じ列を二重に作らない）
+  const cols = [];
+  tpl.columns.forEach((c, i) => {
+    let sid = (c.shared && c.sharedId) ? c.sharedId : null;
+    if (!sid) {
+      const label = String(c.label || '').trim() || (TYPE_DEFS.find(d => d.type === c.type) || {}).label || '列';
+      const found = _shared.cols.find(d => d.type === c.type && String(d.label || '').trim() === label);
+      sid = found ? found.id : ('gc_m' + _hashKey(c.type + '\u0001' + label));
+      if (!_shDef(sid)) _shared.cols.push({ id: sid, ..._defSnap(c), label });
+    }
+    colIdMap['cus:' + i] = sid;
+    if (!cols.some(x => x.id === sid)) cols.push(_mkRef({ id: sid }));
   });
 
   const view = {
