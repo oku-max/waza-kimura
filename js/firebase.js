@@ -857,6 +857,9 @@ export async function saveUserSettings() {
     // 「クラウドにも無い」ときだけ。
     tagTemplates:      window.getTagTemplatesRaw?.() || null,
     customViews:       window._cvViews         || [],
+    // 共有列（マスター・複数リストで使う列）の定義。一度も共有列を作っていない端末は null
+    // （＝何も持っていない端末がクラウドの共有列を空で上書きしない。読込側も null は無視）。
+    cvShared:          window._cvSharedRaw?.()  || null,
     updatedAt: new Date().toISOString()
   };
   // ── 見える化: 設定ドキュメントのサイズを計測（Firestoreは1ドキュメント=1MiB上限）──
@@ -939,6 +942,8 @@ export async function loadUserSettings(uid) {
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
+      // 共有列の定義はビューより先に取り込む（ビューの列が定義を参照するため）。足し合わせのみ。
+      if (data.cvShared) window._cvApplySharedRemote?.(data.cvShared);
       // カスタムビュー: 新形式(プレイリスト単位ドキュメント)＋旧形式(customViews配列)を安全マージ。
       // 新経路で例外が出ても旧形式にフォールバックし、既存データを失わない（非破壊）。
       try {

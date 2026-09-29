@@ -68,9 +68,6 @@ let _selectedType = null;
 let _newColOptions = [];
 let _newColPastDays = 3;
 let _newColFutureDays = 1;
-// edit-col modal state
-let _editColMode = false;
-let _editColId = null;
 
 // sort state
 let _cvSortColId = null, _cvSortAsc = true;
@@ -170,11 +167,163 @@ function _loadTemplates() {
   try { const r = localStorage.getItem(_UTPL_KEY); if (r) _cvUserTemplates = JSON.parse(r); } catch(e) {}
 }
 
+// ══════════════════════════════════════════════════════════
+// ── 共有列（マスターと複数のリストで使う列）──
+// ══════════════════════════════════════════════════════════
+// 【データ経路】
+//   定義: _shared.cols = [{id:'gc_…', type, label, options?, pastDays?, futureDays?, unit?}]
+//         → localStorage(wk_cv_shared) ＋ settings.cvShared（saveUserSettings）→ 全端末
+//   値:   動画オブジェクトの v.cf[列id]。videos.json（saveUserData の競合チェック付き経路）で保存。
+//         リストの rowData は使わない＝同じ動画はどのリスト・マスターでも同じ値。
+//   リスト側: view.columns に参照 {id, shared:true, width?, hidden?, def} だけを置く。
+//         type/label/options 等は定義へのアクセサ（列挙されない＝JSONには出ない）。
+//         def は定義の写し。定義が他端末の古い保存で消えても、使っているリストから復元できる。
+//   マスター: _shared.master = {columns:[参照…], unifiedOrder:[…]}
+// 【安全側の約束】
+//   ・共有列の定義は足すだけ。ライブラリから定義を消す操作は無い。
+//   ・リスト/マスターから「外す」は参照を外すだけ。動画の値（v.cf）は消さない。
+//   ・共有列にする変換は、元の列を view.sharedFrom に、値を rowData にそのまま残す。
+//   ・一度も共有列を持ったことの無い端末は cvShared に null を書く＝クラウドを空で上書きしない。
+const _SH_KEY = 'wk_cv_shared';
+const _SH_DEF_KEYS = ['type', 'label', 'options', 'pastDays', 'futureDays', 'unit'];
+const _MASTER_ID = '__master__';
+let _shared = { cols: [], master: { columns: [], unifiedOrder: [] } };
+const _masterView = { id: _MASTER_ID, label: 'マスター', isMaster: true, saveMode: 'dynamic',
+  columns: [], rowData: {}, unifiedOrder: [] };
+
+const _isSharedId = id => typeof id === 'string' && id.startsWith('gc_');
+function _shDef(id) { return _shared.cols.find(c => c.id === id) || null; }
+function _newSharedId() { return 'gc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function _defSnap(d) {
+  const o = {};
+  _SH_DEF_KEYS.forEach(k => { if (d[k] !== undefined) o[k] = JSON.parse(JSON.stringify(d[k])); });
+  return o;
+}
+// 定義の形が正しいものだけ受け取る
+function _cleanDef(d) {
+  if (!d || typeof d !== 'object' || !_isSharedId(d.id) || !d.type) return null;
+  return { id: d.id, ..._defSnap(d) };
+}
+
+// 参照（リスト/マスターの列）を作る。type/label 等は定義を読み書きする。
+function _mkRef(src) {
+  const ref = { id: src.id, shared: true };
+  if (src.width) ref.width = src.width;
+  if (src.hidden) ref.hidden = true;
+  // 定義が無い（他端末の古い保存で消えた等）なら、写しから定義を復元する（足すだけ）
+  if (!_shDef(src.id) && src.def && src.def.type) {
+    const d = _cleanDef({ id: src.id, ...src.def });
+    if (d) _shared.cols.push(d);
+  }
+  const d0 = _shDef(src.id);
+  if (d0) ref.def = _defSnap(d0);
+  else if (src.def) ref.def = src.def;
+  _SH_DEF_KEYS.forEach(k => Object.defineProperty(ref, k, {
+    get: () => { const d = _shDef(ref.id); return d ? d[k] : undefined; },
+    set: val => { const d = _shDef(ref.id); if (d) d[k] = val; },
+    enumerable: false, configurable: true
+  }));
+  return ref;
+}
+function _hydrateView(view) {
+  if (!view || !Array.isArray(view.columns)) return;
+  view.columns = view.columns.map(c => (c && c.shared) ? _mkRef(c) : c);
+}
+// 描画できる列（共有列で定義がまだ届いていないものは描かない。参照は消さない）
+function _liveCols(view) { return (view && view.columns || []).filter(c => c && c.type); }
+
+function _hasShared() { return _shared.cols.length > 0 || _masterView.columns.length > 0; }
+function _loadShared() {
+  try {
+    const raw = localStorage.getItem(_SH_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    _shared.cols = (Array.isArray(o.cols) ? o.cols : []).map(_cleanDef).filter(Boolean);
+    const m = o.master || {};
+    _masterView.columns = (Array.isArray(m.columns) ? m.columns : []).filter(c => c && _isSharedId(c.id)).map(_mkRef);
+    _masterView.unifiedOrder = Array.isArray(m.unifiedOrder) ? m.unifiedOrder : [];
+  } catch (e) { console.warn('[cvShared] load failed', e); }
+}
+function _sharedRaw() {
+  if (!_hasShared()) return null; // 一度も使っていない端末は null（クラウドを空で上書きしない）
+  return {
+    cols: _shared.cols.map(d => ({ id: d.id, ..._defSnap(d) })),
+    master: { columns: JSON.parse(JSON.stringify(_masterView.columns)), unifiedOrder: [...(_masterView.unifiedOrder || [])] }
+  };
+}
+function _saveShared() {
+  const raw = _sharedRaw();
+  if (!raw) return;
+  try { localStorage.setItem(_SH_KEY, JSON.stringify(raw)); } catch (e) {}
+}
+// 参照の写し(def)を最新の定義に揃える
+function _refreshSharedSnaps() {
+  const upd = c => { if (c && c.shared) { const d = _shDef(c.id); if (d) c.def = _defSnap(d); } };
+  _views.forEach(v => (v.columns || []).forEach(upd));
+  _masterView.columns.forEach(upd);
+}
+window._cvSharedRaw = _sharedRaw;
+// クラウドから受け取る。定義は id ごとに足し合わせ（クラウド優先・手元にしか無いものも残す）。
+// マスターの列は、クラウドに1つ以上あるときだけ採用（空で手元を上書きしない）。
+window._cvApplySharedRemote = function(obj) {
+  if (!obj || !Array.isArray(obj.cols)) return false;
+  obj.cols.map(_cleanDef).filter(Boolean).forEach(d => {
+    const i = _shared.cols.findIndex(c => c.id === d.id);
+    if (i >= 0) _shared.cols[i] = d; else _shared.cols.push(d);
+  });
+  const m = obj.master || {};
+  if (Array.isArray(m.columns) && m.columns.length) {
+    _masterView.columns = m.columns.filter(c => c && _isSharedId(c.id)).map(_mkRef);
+    if (Array.isArray(m.unifiedOrder)) _masterView.unifiedOrder = m.unifiedOrder;
+  }
+  _saveShared();
+  if (!_curId && window._libViewMode === 'org') window.renderOrg?.();
+  return true;
+};
+
+// ── セルの値の読み書き（共有列は動画、それ以外はリストの rowData）──
+function _videoOf(vid) { return _cvVideoById(window.videos || []).get(vid) || null; }
+function _cellVal(view, vid, col) {
+  if (!col) return undefined;
+  if (col.shared) { const v = _videoOf(vid); return (v && v.cf && typeof v.cf === 'object') ? v.cf[col.id] : undefined; }
+  return ((view.rowData || {})[vid] || {})[col.id];
+}
+function _setCellVal(view, vid, col, val) {
+  if (!col) return;
+  if (col.shared) {
+    const v = _videoOf(vid);
+    if (!v) return;
+    if (!v.cf || typeof v.cf !== 'object') v.cf = {};
+    v.cf[col.id] = val;
+    window.debounceSave?.();   // 動画データとして保存（videos.json）
+    return;
+  }
+  if (!view.rowData) view.rowData = {};
+  if (!view.rowData[vid]) view.rowData[vid] = {};
+  view.rowData[vid][col.id] = val;
+  _save();
+}
+
+function _findView(id) { return id === _MASTER_ID ? _masterView : _views.find(v => v.id === id); }
+// 列メニュー等が相手にする「いま表示中のテーブル」。マスターは共有列を持つときだけ
+// （持たないときは従来の列メニューのまま）。
+function _activeTableView() {
+  if (_curId) return _views.find(v => v.id === _curId) || null;
+  if (window._libViewMode === 'org' && _masterView.columns.length) return _masterView;
+  return null;
+}
+// マスターのテーブル描画後に共有列を差し込む（リスト表示中は何もしない）
+function _masterAfterRender() {
+  if (_curId) return;
+  _addCvCols(_masterView);
+}
+
 function _load() {
   try {
+    _loadShared();
     const raw = localStorage.getItem('wk_cv_views');
     if (raw) _views = JSON.parse(raw);
-    _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
+    _views.forEach(v => { if (!v.rowData) v.rowData = {}; _hydrateView(v); });
     _syncNextColId();
     _loadTemplates();
     const prefs = localStorage.getItem('wk_cv_col_prefs');
@@ -183,6 +332,8 @@ function _load() {
 }
 
 function _save() {
+  _refreshSharedSnaps();
+  _saveShared();
   try {
     localStorage.setItem('wk_cv_views', JSON.stringify(_views));
   } catch(e) {}
@@ -588,7 +739,8 @@ window._cvSaveAsTemplate = function(viewId) {
   if (!trimmed) return;
 
   // カスタム列を ID なしでコピー（cus:N プレースホルダー用）
-  const cols = (view.columns || []).map(({ id: _id, ...rest }) => rest);
+  // 共有列は定義を写さず「どの共有列か」だけ持つ（テンプレから作ったリストも同じ共有列を使う）
+  const cols = (view.columns || []).map(c => c.shared ? { shared: true, sharedId: c.id } : (({ id: _id, ...rest }) => rest)(c));
 
   // unifiedOrder の custom col ID → 'cus:N' に変換
   const colIdToCusN = {};
@@ -784,8 +936,7 @@ window._wkSortGroups.tpls = {
 window._wkSortGroups.unifiedcols = {
   ids: () => _cvVisibleUnifiedIds() || [],
   commit: (newVis) => {
-    if (!_curId) return;
-    const view = _views.find(v => v.id === _curId);
+    const view = _activeTableView();
     if (!view || !Array.isArray(view.unifiedOrder)) return;
     if (!window._cvFillVisibleSlots(view.unifiedOrder, _cvVisibleUnifiedIds() || [], newVis)) return;
     _syncStdColOrder(view);
@@ -977,6 +1128,7 @@ function _showView(id) {
 // ── テーブル再描画（列追加・削除・名前変更後）──
 function _renderTable(view) {
   if (!view) return;
+  if (view.isMaster) { if (!_curId) window.renderOrg?.(); return; }
   _showView(view.id);
 }
 
@@ -990,8 +1142,36 @@ function _renderTable(view) {
 const _STD_COL_IDS = new Set(['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo']);
 const _isCustomColId = id => !_STD_COL_IDS.has(id);
 
+// マスター用: 標準列の並びは常に orgColOrder に従い、共有列は「直前の標準列」の後ろに置く。
+// （マスターの標準列は共有列が無いあいだ従来の列メニューで並べ替わるので、
+//   unifiedOrder 側の標準列の並びを信じない）
+function _mergeMasterOrder(view) {
+  const std = window.orgColOrder || [];
+  const valid = new Set(_liveCols(view).map(c => c.id).concat((view.columns || []).map(c => c.id)));
+  const after = new Map(); // 標準列id(null=先頭) → [共有列id...]
+  const placed = new Set();
+  let last = null;
+  (view.unifiedOrder || []).forEach(id => {
+    if (!_isCustomColId(id)) { last = id; return; }
+    if (!valid.has(id) || placed.has(id)) return;
+    const key = (last === null || std.includes(last)) ? last : '__end__';
+    if (!after.has(key)) after.set(key, []);
+    after.get(key).push(id); placed.add(id);
+  });
+  const out = [...(after.get(null) || [])];
+  std.forEach(sid => { out.push(sid); out.push(...(after.get(sid) || [])); });
+  out.push(...(after.get('__end__') || []));
+  (view.columns || []).forEach(c => { if (!placed.has(c.id)) { out.push(c.id); placed.add(c.id); } });
+  return out;
+}
+
 // view.unifiedOrder を最新状態に同期
 function _ensureUnifiedOrder(view) {
+  if (view.isMaster) {
+    const next = _mergeMasterOrder(view);
+    if (JSON.stringify(next) !== JSON.stringify(view.unifiedOrder || [])) { view.unifiedOrder = next; _saveShared(); }
+    return;
+  }
   if (!view.unifiedOrder || !view.unifiedOrder.length) {
     // 初回: 標準列(現在の順)→カスタム列 の順で初期化
     view.unifiedOrder = [
@@ -1070,6 +1250,7 @@ function _reorderAllCols(view) {
 // セルはバッチ遅延追加があるため未追加行のみ処理
 function _addCvCols(view) {
   if (!view || !view.columns) return;
+  const liveCols = _liveCols(view);
 
   // カスタム列ヘッダー: 常に削除して再構築
   const theadRow = document.getElementById('orgTheadRow');
@@ -1085,7 +1266,7 @@ function _addCvCols(view) {
     });
     const baseW = fixedW + scrollW;
 
-    view.columns.forEach(col => {
+    liveCols.forEach(col => {
       const canFilter = FILTERABLE_TYPES.has(col.type);
       const filterActive = canFilter && hasActiveFilter(view.id, col.id);
       const th = document.createElement('th');
@@ -1095,7 +1276,8 @@ function _addCvCols(view) {
       th.style.cssText = `width:${col.width||120}px;min-width:60px`;
       const isSortActive = _cvSortColId === col.id;
       const sortIndText = isSortActive ? (_cvSortAsc ? '▲' : '▼') : '⇅';
-      th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
+      const shMark = col.shared ? `<span title="${T('cv.sharedCol','共有列')}" style="font-size:9px;margin-right:3px;opacity:.7">🔗</span>` : '';
+      th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${shMark}${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
       th.addEventListener('click', e => {
         if (e.target.closest('.cv-th-menu-btn')) return;
         e.stopPropagation();
@@ -1225,7 +1407,7 @@ function _addCvCols(view) {
 
     // テーブル幅を標準列＋カスタム列の合計に更新
     if (table) {
-      const cvW = view.columns.length * 120 + 80; // 120px/列 + 80px for add button
+      const cvW = liveCols.length * 120 + 80; // 120px/列 + 80px for add button
       table.style.width = (baseW + cvW) + 'px';
     }
   }
@@ -1237,14 +1419,12 @@ function _addCvCols(view) {
     if (tr.querySelector('.cv-custom-td')) return;
     const vid = tr.id.replace('org-row-', '');
     if (!vid) return;
-    if (!view.rowData[vid]) view.rowData[vid] = {};
-    const rd = view.rowData[vid];
-    view.columns.forEach(col => {
+    liveCols.forEach(col => {
       const td = document.createElement('td');
       td.className = 'cv-custom-td org-td';
       td.dataset.vid = vid;
       td.dataset.colId = col.id;
-      _renderCell(td, col, rd[col.id], view);
+      _renderCell(td, col, _cellVal(view, vid, col), view);
       tr.appendChild(td);
     });
     // 手動モード専用: 削除ボタン（emptyTdより先に追加）
@@ -1260,6 +1440,8 @@ function _addCvCols(view) {
     tr.appendChild(emptyTd);
   });
 
+  // マスターで共有列がまだ無いときは「＋ 列を追加」を出すだけ（並び・表示には触らない）
+  if (view.isMaster && !liveCols.length) return;
   _applyCvSort(view);
   _applyCustomFilters(view);
   // 統合順序を適用（標準列とカスタム列を混在配置）
@@ -1751,11 +1933,9 @@ function _renderCell(td, col, val, view) {
 
 // ── セル更新 ──
 window._cvSetCell = function(viewId, videoId, colId, val) {
-  const view = _views.find(v => v.id === viewId);
+  const view = _findView(viewId);
   if (!view) return;
-  if (!view.rowData[videoId]) view.rowData[videoId] = {};
-  view.rowData[videoId][colId] = val;
-  _save();
+  _setCellVal(view, videoId, (view.columns || []).find(c => c.id === colId), val);
 };
 window._cvRemoveVideo = function(viewId, videoId) {
   if (!confirm('本当に削除してよろしいですか？')) return;
@@ -1769,18 +1949,19 @@ window._cvRemoveVideo = function(viewId, videoId) {
 };
 
 window._cvRerender = function(viewId) {
-  const view = _views.find(v => v.id === viewId);
+  const view = _findView(viewId);
   if (view) _renderTable(view);
 };
 window._cvToggleTracker = function(viewId, videoId, colId, dateStr) {
-  const view = _views.find(v => v.id === viewId);
+  const view = _findView(viewId);
   if (!view) return;
-  if (!view.rowData[videoId]) view.rowData[videoId] = {};
-  let arr = Array.isArray(view.rowData[videoId][colId]) ? [...view.rowData[videoId][colId]] : [];
+  const col = (view.columns || []).find(c => c.id === colId);
+  if (!col) return;
+  const cur = _cellVal(view, videoId, col);
+  let arr = Array.isArray(cur) ? [...cur] : [];
   if (arr.includes(dateStr)) arr = arr.filter(d => d !== dateStr);
   else arr.push(dateStr);
-  view.rowData[videoId][colId] = arr;
-  _save();
+  _setCellVal(view, videoId, col, arr);
   // セル単体だけ再描画（テーブル全体の再レンダリング不要）
   const td = document.querySelector(`tr#org-row-${videoId} .cv-custom-td[data-col-id="${colId}"]`);
   if (td) _renderCell(td, view.columns.find(c => c.id === colId), arr, view);
@@ -1879,7 +2060,7 @@ function openThDropdown(btn, view, col) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
   if (!col || !col.type) return;
-  const currentView = _views.find(v => v.id === view.id) || view;
+  const currentView = _findView(view.id) || view;
   const _now = Date.now();
   const _isSameDd = (_openThDdCol === col && _openThDdViewId === currentView.id);
   const _timeDiff = _now - _openThDdLastTime;
@@ -1896,8 +2077,14 @@ function openThDropdown(btn, view, col) {
   // ── ヘッダー ──
   const hdr = document.createElement('div');
   hdr.style.cssText = 'padding:8px 12px 6px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)';
-  hdr.textContent = col.label;
+  hdr.textContent = (col.shared ? '🔗 ' : '') + col.label;
   dd.appendChild(hdr);
+  if (col.shared) {
+    const note = document.createElement('div');
+    note.style.cssText = 'padding:6px 12px;font-size:10px;color:var(--text3);line-height:1.5';
+    note.textContent = T('cv.sharedNote', '共有列: 値・列名・選択肢はマスターと他のリストでも共通です');
+    dd.appendChild(note);
+  }
 
 
   // ── 列の再設定（型によって表示を変える） ──
@@ -1999,14 +2186,39 @@ function openThDropdown(btn, view, col) {
   renameBtn.innerHTML = '📝 列名を変更';
   renameBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)';
   renameBtn.addEventListener('click', () => { const n = prompt('新しい列名:', col.label); if (n && n.trim()) { col.label = n.trim(); _save(); _renderTable(currentView); } closeThDropdown(); });
+  const _actS = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;';
+  actSec.appendChild(renameBtn);
+  // リストの列 → 共有列にする（マスター・他のリストでも使えるようにする）
+  if (!col.shared && !currentView.isMaster) {
+    const shareBtn = document.createElement('button');
+    shareBtn.textContent = T('cv.makeShared', '🔗 共有列にする（マスター・他のリストでも使う）');
+    shareBtn.style.cssText = _actS + 'color:var(--accent)';
+    shareBtn.addEventListener('click', () => { closeThDropdown(); window._cvShareCol(currentView.id, col.id); });
+    actSec.appendChild(shareBtn);
+  }
   const delBtn = document.createElement('button');
-  delBtn.innerHTML = '🗑 列を削除';
-  delBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:#e53e3e';
-  delBtn.addEventListener('click', () => {
-    if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = currentView.columns.indexOf(col); if (idx >= 0) currentView.columns.splice(idx, 1); Object.keys(currentView.rowData).forEach(vid => delete currentView.rowData[vid][col.id]); _save(); _renderTable(currentView); }
-    closeThDropdown();
-  });
-  actSec.appendChild(renameBtn); actSec.appendChild(delBtn);
+  if (col.shared) {
+    // 共有列は「外す」だけ。値（動画の cf）も定義も消さない。
+    delBtn.textContent = currentView.isMaster ? T('cv.unlinkMaster', '➖ マスターから外す') : T('cv.unlinkList', '➖ このリストから外す');
+    delBtn.style.cssText = _actS + 'color:var(--text2)';
+    delBtn.addEventListener('click', () => {
+      if (confirm(`列「${col.label}」を${currentView.isMaster ? 'マスター' : 'このリスト'}から外しますか？\n入力した値は消えません。「＋ 列を追加」からいつでも戻せます。`)) {
+        const idx = currentView.columns.indexOf(col);
+        if (idx >= 0) currentView.columns.splice(idx, 1);
+        clearFilter(currentView.id, col.id);
+        _save(); _renderTable(currentView);
+      }
+      closeThDropdown();
+    });
+  } else {
+    delBtn.innerHTML = '🗑 列を削除';
+    delBtn.style.cssText = _actS + 'color:#e53e3e';
+    delBtn.addEventListener('click', () => {
+      if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = currentView.columns.indexOf(col); if (idx >= 0) currentView.columns.splice(idx, 1); Object.keys(currentView.rowData).forEach(vid => delete currentView.rowData[vid][col.id]); _save(); _renderTable(currentView); }
+      closeThDropdown();
+    });
+  }
+  actSec.appendChild(delBtn);
   dd.appendChild(actSec);
 
   // ── 位置決め ──
@@ -2065,63 +2277,83 @@ function openAddColModal(viewId) {
   if (newLabel) newLabel.value = '';
   const extraConfig = document.getElementById('cv-extra-config');
   if (extraConfig) extraConfig.innerHTML = '';
+  _renderSharedPick(viewId);
   const modal = document.getElementById('cv-add-col-modal');
   if (modal) modal.style.display = 'flex';
 }
 
-// ── 列を編集モーダル（ヘッダークリック） ──
-function openColEditModal(view, colId) {
-  const col = view.columns.find(c => c.id === colId);
-  if (!col) return;
-  _editColMode = true;
-  _editColId = colId;
-  _addColTargetViewId = view.id;
-  _selectedType = col.type;
-
-  // 型グリッドを構築（現在の型を選択済みに）
-  const grid = document.getElementById('cv-type-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  TYPE_DEFS.forEach(def => {
-    const btn = document.createElement('button');
-    btn.className = 'cv-type-btn' + (def.type === col.type ? ' selected' : '');
-    btn.dataset.type = def.type;
-    btn.innerHTML = `<span class="cv-type-icon">${def.icon}</span>${def.label}`;
-    btn.addEventListener('click', () => {
-      _selectedType = def.type;
-      grid.querySelectorAll('.cv-type-btn').forEach(b => b.classList.toggle('selected', b.dataset.type === def.type));
-      showColConfig(def.type);
-    });
-    grid.appendChild(btn);
-  });
-
-  // 設定フォームを表示（showColConfigはデフォルト値でリセットする）
-  showColConfig(col.type);
-
-  // 既存値で上書き
-  const labelEl = document.getElementById('cv-new-col-label');
-  if (labelEl) labelEl.value = col.label || '';
-  if (col.type === 'select' || col.type === 'multiselect') {
-    _newColOptions = [...(col.options || [])];
-    _renderOptionsList();
-  } else if (col.type === 'tracker') {
-    _newColPastDays = col.pastDays ?? 3;
-    _newColFutureDays = col.futureDays ?? 1;
-    const _pv = document.getElementById('cv-past-days-val');
-    const _fv = document.getElementById('cv-future-days-val');
-    if (_pv) _pv.textContent = _newColPastDays;
-    if (_fv) _fv.textContent = _newColFutureDays;
-  } else if (col.type === 'number') {
-    const unitEl = document.getElementById('cv-new-col-unit');
-    if (unitEl) unitEl.value = col.unit || '';
+// 「列を追加」: 既にある共有列を選んで足す欄 ＋ 新しい列を共有列にするかの選択
+function _renderSharedPick(viewId) {
+  const view = _findView(viewId);
+  const pick = document.getElementById('cv-shared-pick');
+  const opt  = document.getElementById('cv-shared-opt');
+  if (opt) {
+    // マスターに足す列は必ず共有列（マスターはリストではないので値の置き場が動画しかない）
+    opt.style.display = (view && view.isMaster) ? 'none' : '';
+    const chk = document.getElementById('cv-new-col-shared');
+    if (chk) chk.checked = true;
   }
-
-  const modal = document.getElementById('cv-add-col-modal');
-  if (!modal) return;
-  modal.querySelector('h2').textContent = '列を編集';
-  modal.querySelector('.cv-btn-primary').textContent = '変更を保存';
-  modal.style.display = 'flex';
+  if (!pick) return;
+  const have = new Set((view?.columns || []).map(c => c.id));
+  const avail = _shared.cols.filter(d => !have.has(d.id));
+  if (!avail.length) { pick.style.display = 'none'; pick.innerHTML = ''; return; }
+  const icon = t => (TYPE_DEFS.find(d => d.type === t) || {}).icon || '';
+  pick.style.display = '';
+  pick.innerHTML = `<div class="cv-modal-label">${_esc(T('cv.pickShared', '共有列から追加'))}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px">` +
+    avail.map(d => `<button type="button" class="cv-type-btn" style="width:auto;flex:0 0 auto" onclick="window._cvAddSharedCol('${_esc(viewId)}','${_esc(d.id)}')"><span class="cv-type-icon">${_esc(icon(d.type))}</span>🔗 ${_esc(d.label || '')}</button>`).join('') +
+    `</div><div class="cv-modal-label" style="margin-bottom:4px">${_esc(T('cv.orNewCol', 'または新しい列を作る'))}</div>`;
 }
+
+// 共有列を、このリスト/マスターに足す（参照を足すだけ）
+window._cvAddSharedCol = function(viewId, colId) {
+  const view = _findView(viewId);
+  if (!view || !_shDef(colId)) return;
+  if ((view.columns || []).some(c => c.id === colId)) return;
+  view.columns.push(_mkRef({ id: colId }));
+  _save();
+  window.cvCloseAddColModal();
+  _renderTable(view);
+};
+
+// リストの列を共有列にする。
+//   値: rowData の空でない値を、その動画の v.cf[新id] に写す（v.cf に既に値があれば触らない）。
+//   元: 列の定義は view.sharedFrom に、値は rowData にそのまま残す（消さない＝戻せる）。
+// 空とみなす値（列を足したときの初期値）。数値列の 0 は意味のある値なので残す。
+const _isBlankVal = (x, type) => x == null || x === '' || x === false || (x === 0 && type !== 'number') || (Array.isArray(x) && !x.length);
+window._cvShareCol = function(viewId, colId) {
+  const view = _views.find(v => v.id === viewId);
+  if (!view) return;
+  const idx = (view.columns || []).findIndex(c => c.id === colId);
+  const col = view.columns[idx];
+  if (!col || col.shared) return;
+  if (!confirm(`列「${col.label}」を共有列にしますか？\n\n・マスターや他のリストでも「＋ 列を追加」から使えるようになります\n・値は動画ごとに1つになり、どこで直しても全部に反映されます\n・このリストで入力済みの値はそのまま引き継ぎます`)) return;
+  const byId = _cvVideoById(window.videos || []);
+  const newId = _newSharedId();
+  let moved = 0;
+  Object.entries(view.rowData || {}).forEach(([vid, rd]) => {
+    if (!rd || typeof rd !== 'object') return;
+    const val = rd[col.id];
+    if (_isBlankVal(val, col.type)) return;
+    const v = byId.get(vid);
+    if (!v) return;          // 動画が無い行は rowData に残るだけ
+    if (!v.cf || typeof v.cf !== 'object') v.cf = {};
+    if (v.cf[newId] !== undefined) return;
+    v.cf[newId] = JSON.parse(JSON.stringify(val));
+    moved++;
+  });
+  _shared.cols.push({ id: newId, ..._defSnap(col) });
+  view.sharedFrom = Array.isArray(view.sharedFrom) ? view.sharedFrom : [];
+  view.sharedFrom.push({ col: JSON.parse(JSON.stringify(col)), to: newId, at: Date.now() });
+  view.columns.splice(idx, 1, _mkRef({ id: newId, width: col.width, hidden: col.hidden }));
+  if (Array.isArray(view.unifiedOrder)) view.unifiedOrder = view.unifiedOrder.map(x => x === col.id ? newId : x);
+  clearFilter(view.id, col.id);
+  if (_cvSortColId === col.id) _cvSortColId = newId;
+  _save();
+  if (moved) window.debounceSave?.();
+  if (typeof window.toast === 'function') window.toast(`🔗 共有列にしました（${moved}本の値を引き継ぎ）`);
+  _renderTable(view);
+};
 
 function showColConfig(type) {
   const colConfig = document.getElementById('cv-col-config');
@@ -2213,8 +2445,6 @@ window.cvCloseAddColModal = function() {
     if (btn) btn.textContent = '追加する';
   }
   _selectedType = null;
-  _editColMode = false;
-  _editColId = null;
 };
 
 window.cvConfirmAddCol = function() {
@@ -2222,39 +2452,28 @@ window.cvConfirmAddCol = function() {
   const labelEl = document.getElementById('cv-new-col-label');
   const label = (labelEl ? labelEl.value.trim() : '') || TYPE_DEFS.find(d => d.type === _selectedType)?.label || '新しい列';
 
-  // ── 編集モード ──
-  if (_editColMode) {
-    const view = _views.find(v => v.id === _addColTargetViewId);
-    if (!view) return;
-    const col = view.columns.find(c => c.id === _editColId);
-    if (!col) return;
-    col.label = label;
-    if (col.type !== _selectedType) {
-      col.type = _selectedType;
-      Object.values(view.rowData).forEach(rd => { if (rd[_editColId] !== undefined) rd[_editColId] = null; });
-    }
+  // ── 追加モード ──
+  const view = _findView(_addColTargetViewId);
+  if (!view) return;
+  // 共有列として作る（マスターは常に共有列。リストはチェックボックスで選ぶ）
+  const shChk = document.getElementById('cv-new-col-shared');
+  if (view.isMaster || (shChk && shChk.checked)) {
+    const def = { id: _newSharedId(), type: _selectedType, label };
     if (_selectedType === 'select' || _selectedType === 'multiselect') {
-      col.options = _newColOptions.filter(o => o.trim() !== '');
-      delete col.pastDays; delete col.futureDays; delete col.unit;
+      def.options = _newColOptions.filter(o => o.trim() !== '');
     } else if (_selectedType === 'tracker') {
-      col.pastDays = _newColPastDays; col.futureDays = _newColFutureDays;
-      delete col.options; delete col.unit;
+      def.pastDays = _newColPastDays; def.futureDays = _newColFutureDays;
     } else if (_selectedType === 'number') {
       const unitEl = document.getElementById('cv-new-col-unit');
-      col.unit = unitEl ? unitEl.value.trim() : '';
-      delete col.options; delete col.pastDays; delete col.futureDays;
-    } else {
-      delete col.options; delete col.pastDays; delete col.futureDays; delete col.unit;
+      def.unit = unitEl ? unitEl.value.trim() : '';
     }
+    _shared.cols.push(def);
+    view.columns.push(_mkRef({ id: def.id }));
     _save();
-    _renderTable(view);
     window.cvCloseAddColModal();
+    _renderTable(view);
     return;
   }
-
-  // ── 追加モード ──
-  const view = _views.find(v => v.id === _addColTargetViewId);
-  if (!view) return;
   const newCol = { id: 'col' + (++_nextColId), type: _selectedType, label };
   if (_selectedType === 'select' || _selectedType === 'multiselect') {
     newCol.options = _newColOptions.filter(o => o.trim() !== '');
@@ -2297,10 +2516,10 @@ function _applyCustomFilters(view) {
     const vid = tr.id.replace('org-row-', '');
     if (!vid) { tr.style.display = ''; return; }
     let show = true;
-    for (const col of view.columns) {
+    for (const col of _liveCols(view)) {
       const f = fs[col.id];
       if (!f || !f.active) continue;
-      if (!passesFilter(col, f, (view.rowData[vid] || {})[col.id])) { show = false; break; }
+      if (!passesFilter(col, f, _cellVal(view, vid, col))) { show = false; break; }
     }
     tr.style.display = show ? '' : 'none';
   });
@@ -2592,14 +2811,14 @@ function _applyCvSort(view) {
     ind.style.opacity = on ? '1' : '0.5';
   });
   if (!_cvSortColId) return;
-  const col = view.columns.find(c => c.id === _cvSortColId);
+  const col = _liveCols(view).find(c => c.id === _cvSortColId);
   if (!col) return;
   const rows = [...tbody.querySelectorAll('tr.org-tr')];
   rows.sort((a, b) => {
     const va = a.id.replace('org-row-', '');
     const vb = b.id.replace('org-row-', '');
-    let av = (view.rowData[va] || {})[_cvSortColId];
-    let bv = (view.rowData[vb] || {})[_cvSortColId];
+    let av = _cellVal(view, va, col);
+    let bv = _cellVal(view, vb, col);
     if (col.type === 'number' || col.type === 'stars' || col.type === 'progress') {
       av = Number(av) || 0; bv = Number(bv) || 0;
     } else if (col.type === 'checkbox') {
@@ -2926,6 +3145,7 @@ window.cvConfirm = function() {
   // 各カスタム列に新しいIDを割り当て、cus:N → 新ID のマップを作る
   const colIdMap = {};
   const cols = tpl.columns.map((c, i) => {
+    if (c.shared && c.sharedId) { colIdMap['cus:' + i] = c.sharedId; return _mkRef({ id: c.sharedId }); }
     const newId = 'col' + (++_nextColId);
     colIdMap['cus:' + i] = newId;
     return { id: newId, ...c };
@@ -3004,7 +3224,7 @@ window._cvDeleteView = function(viewId) {
     _curId = null;
     window._cvVideoIds = null;
     window._cvCardVideoIds = null;
-    window._cvAfterRender = null;
+    window._cvAfterRender = _masterAfterRender;
     document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
     window._libView?.('card');
   }
@@ -3070,8 +3290,7 @@ window._cvGetColMenuSection = function() { return null; }; // 統合メニュー
 
 // 統合列メニューで「表示中」として並ぶ列のid（メニューの描画順＝ドラッグ対象の順）
 function _cvVisibleUnifiedIds() {
-  if (!_curId) return null;
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view || !Array.isArray(view.unifiedOrder)) return null;
   const stdVis = window.orgColVisibility || {};
   return view.unifiedOrder.filter(id => {
@@ -3085,8 +3304,7 @@ function _cvVisibleUnifiedIds() {
 }
 
 window._cvGetUnifiedMenuHTML = function() {
-  if (!_curId) return null;
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view) return null;
   _ensureUnifiedOrder(view);
 
@@ -3113,7 +3331,7 @@ window._cvGetUnifiedMenuHTML = function() {
   visOrder.forEach((id, i) => {
     const isCv   = _isCustomColId(id);
     const label  = isCv ? (view.columns.find(c => c.id === id)?.label || id) : _cvColLabel(id);
-    const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
+    const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">${_isSharedId(id) ? '🔗 共有' : 'カスタム'}</span>` : '';
     const disUp  = i === 0 ? 'disabled' : '';
     const disDown= i === visOrder.length - 1 ? 'disabled' : '';
     html += `
@@ -3150,8 +3368,7 @@ window._cvGetUnifiedMenuHTML = function() {
 
 // 統合メニューから列を移動（表示中の列の中での前後移動）
 window._cvUnifiedMoveCol = function(id, dir) {
-  if (!_curId) return;
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view) return;
   _ensureUnifiedOrder(view);
 
@@ -3186,8 +3403,7 @@ window._cvUnifiedMoveCol = function(id, dir) {
 
 // 統合メニューから列の表示/非表示を切替
 window._cvUnifiedSetVis = function(id, visible) {
-  if (!_curId) return;
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view) return;
 
   if (_isCustomColId(id)) {
@@ -3210,8 +3426,7 @@ window._cvUnifiedSetVis = function(id, visible) {
 
 // orgMoveCol のカスタムビュー文脈での上書き
 window.orgMoveColOverride = function(col, dir) {
-  if (!_curId) return false;
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view) return false;
   _ensureUnifiedOrder(view);
 
@@ -3233,8 +3448,7 @@ window.orgMoveColOverride = function(col, dir) {
 
 // ヘッダードラッグのカスタムビュー文脈での上書き
 window.orgDragReorderOverride = function(fromCol, toCol) {
-  if (!_curId) return false;
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view) return false;
   _ensureUnifiedOrder(view);
 
@@ -3253,7 +3467,7 @@ window.orgDragReorderOverride = function(fromCol, toCol) {
   return true;
 };
 window._cvRerenderCur = function() {
-  const view = _views.find(v => v.id === _curId);
+  const view = _activeTableView();
   if (!view) return;
   _renderTable(view);
 };
@@ -3277,7 +3491,7 @@ window._cvOnViewChange = function() {
   _cvSrchQ = window.wkSearchWord ? window.wkSearchWord() : '';
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
-  window._cvAfterRender = null;
+  window._cvAfterRender = _masterAfterRender; // マスターの表では共有列を描く
   window._vpFilteredList = null;
   document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
   const filterBtn = document.getElementById('org-filter-toggle-btn');
@@ -3304,6 +3518,7 @@ window._cvOnViewChange = function() {
 // ── 初期化 ──
 function _init() {
   _load();
+  if (!_curId && !window._cvAfterRender) window._cvAfterRender = _masterAfterRender;
   _renderViewBar();
 }
 
@@ -3321,7 +3536,7 @@ Object.defineProperty(window, '_cvActiveViewId', { get: () => _curId, configurab
 window._cvApplyLoadedViews = function(views) {
   if (!Array.isArray(views)) return;
   _views = views;
-  _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
+  _views.forEach(v => { if (!v.rowData) v.rowData = {}; _hydrateView(v); });
   _syncNextColId();
   _renderViewBar();
   // アクティブなテーブルビューがある場合、列ヘッダーを最新データで再構築（stale closure 対策）

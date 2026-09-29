@@ -215,6 +215,20 @@
     // 種入れプリセット／管理画面の別表記なので、固定文として持つ。
     'シングルレッグ': 'Single Leg',
     'シングルレッグX': 'Single Leg X',
+    // 共有列（マスター・複数リストで使うカスタム列 v52.886）
+    '共有列': 'Shared column',
+    '🔗 共有': '🔗 Shared',
+    '共有列から追加': 'Add a shared column',
+    'または新しい列を作る': 'Or create a new column',
+    '共有列にする（マスター・他のリストでも使える。値は動画ごとに共通）': 'Make it a shared column (usable in master and other lists; one value per video)',
+    '共有列: 値・列名・選択肢はマスターと他のリストでも共通です': 'Shared column: values, name and options are the same in master and other lists',
+    '🔗 共有列にする（マスター・他のリストでも使う）': '🔗 Make shared (use in master and other lists)',
+    '➖ このリストから外す': '➖ Remove from this list',
+    '➖ マスターから外す': '➖ Remove from master',
+    '入力した値は消えません。「＋ 列を追加」からいつでも戻せます。': 'Entered values are kept. You can add it back anytime via “+ Add column”.',
+    '・マスターや他のリストでも「＋ 列を追加」から使えるようになります': '・It becomes available in the master and other lists via “+ Add column”',
+    '・値は動画ごとに1つになり、どこで直しても全部に反映されます': '・Each video gets one value; editing it anywhere updates it everywhere',
+    '・このリストで入力済みの値はそのまま引き継ぎます': '・Values already entered in this list are carried over',
     // タググループの名前変更（Notion 項目03）
     '名前は空にできません': 'The name cannot be empty',
     'グループ名': 'Group name',
@@ -1925,6 +1939,7 @@
     // ── 管理画面「検索辞書」（v52.828）──
     '# 行 / # 語': '# rows / # words',
     '# 行が一致': '# rows match',
+    '🔗 共有列にしました（#本の値を引き継ぎ）': '🔗 Made it a shared column (carried over # values)',
     // ── タグ設定 案A（v52.812）──
     '#個': '#',
     '#件': '#',
@@ -2391,6 +2406,9 @@
     [/^「(.+)」をテンプレートとして保存しました$/, 'Saved “$1” as a template'],
     [/^「(.+)」を削除してよろしいですか？$/, 'Really delete “$1”?'],
     [/^列「(.+)」を削除しますか？$/, 'Delete the column “$1”?'],
+    [/^列「(.+)」をマスターから外しますか？$/, 'Remove the column “$1” from master?'],
+    [/^列「(.+)」をこのリストから外しますか？$/, 'Remove the column “$1” from this list?'],
+    [/^列「(.+)」を共有列にしますか？$/, 'Make the column “$1” a shared column?'],
     [/^⚙️ 「(.+)」を編集中。現在のフィルターで上書き保存します$/, 'Editing “$1”. Saving overwrites with current filters'],
     [/^⚙️ 編集中: (.+)$/, 'Editing: $1'],
     [/^💾 「(.+)」を上書き保存しました$/, '💾 Overwrote “$1”'],

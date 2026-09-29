@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.885</title>
+<title>WAZA KIMURA v52.886</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1690,6 +1690,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 <div id="cv-add-col-modal">
   <div class="cv-modal-box" onclick="event.stopPropagation()">
     <h2>列を追加</h2>
+    <div id="cv-shared-pick" style="display:none"></div>
     <div class="cv-type-grid" id="cv-type-grid"></div>
     <div id="cv-col-config" style="display:none">
       <div class="cv-modal-section">
@@ -1697,6 +1698,10 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         <input type="text" class="cv-modal-input" id="cv-new-col-label" placeholder="列名を入力...">
       </div>
       <div id="cv-extra-config"></div>
+      <label id="cv-shared-opt" class="cv-modal-section" style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;margin-top:10px">
+        <input type="checkbox" id="cv-new-col-shared" checked style="accent-color:var(--accent);width:16px;height:16px;margin-top:1px;flex-shrink:0">
+        <span>共有列にする（マスター・他のリストでも使える。値は動画ごとに共通）</span>
+      </label>
     </div>
     <div class="cv-modal-actions">
       <button class="cv-btn-cancel" onclick="window.cvCloseAddColModal()">キャンセル</button>
@@ -3239,6 +3244,7 @@ async function _wazaCollectLightData() {
     orgColOrder: window.orgColOrder || [],
     orgColVisibility: window.orgColVisibility || {},
     customViews: window._cvViews || [],          // カスタムビュー（設定docのデータ。従来は欠落していた）
+    cvShared: window._cvSharedRaw?.() || null,   // 共有列の定義とマスターの列（値は videos の cf に入っている）
     tagGroups: window.getTagGroups?.() || [],    // タググループ（同上）
     filterColVis: window.filterColVis || {},     // フィルター列の表示設定
     tagTemplates: window.getTagTemplatesRaw?.() || null,  // タグのテンプレート（編集したことがある時だけ中身がある。従来は欠落していた）
@@ -3349,6 +3355,8 @@ window.wazaImport = async function(input) {
     if (data.filterPresets) { window.filterPresets = data.filterPresets; }
     if (data.orgColOrder) { window.orgColOrder = data.orgColOrder; }
     if (data.orgColVisibility) { window.orgColVisibility = data.orgColVisibility; }
+    // 共有列の定義はビューより先に（ビューの列が参照する）。足し合わせのみ。
+    if (data.cvShared) window._cvApplySharedRemote?.(data.cvShared);
     // カスタムビュー / タググループを復元（従来は復元されず欠落していた）
     if (Array.isArray(data.customViews)) { window._cvApplyLoadedViews?.(data.customViews); window._cvSave?.(); }
     // tagSettings / aiSettings / tagGroups / filterColVis はまとめてここで復元する。
