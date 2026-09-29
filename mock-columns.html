@@ -115,7 +115,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
     <li>自分で作った列の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
     <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
-    <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では右に種類名も出る</li>
+    <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では自分で作った列に種類名も出る</li>
   </ul>
 </div>
 
@@ -305,7 +305,7 @@ function drawColSheet() {
         <button class="mv" onclick="mv('${id}',-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
         <button class="mv" onclick="mv('${id}',1)" ${i === o.length - 1 ? 'disabled' : ''}>▼</button>
         <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()">${icon(c)}<span>${esc(c.name)}</span></label>
-        <span class="t">${typeOf(c).n}</span>
+        ${c.builtin ? '' : `<span class="t">${typeOf(c).n}</span>`}
         ${c.builtin ? '<span class="edit" style="visibility:hidden">✎</span>' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
       </div>`; }).join('') +
     `<button class="newcol" onclick="openNew()">＋ 新しい列を作る</button>
