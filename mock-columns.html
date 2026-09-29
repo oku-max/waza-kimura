@@ -67,6 +67,7 @@ td.title{font-weight:600;white-space:normal;min-width:190px}
 .crow.drag .hdl{cursor:grabbing}
 .crow label{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;cursor:pointer}
 .crow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cbadge{font-size:9px;font-weight:700;color:var(--gold);border:1px solid rgba(229,196,122,.5);border-radius:4px;padding:1px 5px;margin-left:6px;flex-shrink:0;letter-spacing:.3px}
 .crow .t{font-size:11px;color:var(--sub);flex-shrink:0;min-width:70px;text-align:right}
 .ti{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--field);border:1px solid var(--bd);font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;font-style:normal}
 .ti.b{color:var(--sub)}
@@ -112,9 +113,9 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
   試してほしいこと:
   <ul>
     <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、左の ⠿ をつかんで上下に動かすと並べ替え</li>
-    <li>一番下の <b>＋ 新しい列を作る</b> → 今見ている表にチェック済みで出る</li>
+    <li>一番下の <b>＋ カスタム列を作る</b> → 今見ている表にチェック済みで出る</li>
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
-    <li>自分で作った列の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
+    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
     <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
     <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では自分で作った列に種類名も出る</li>
   </ul>
@@ -303,12 +304,12 @@ function drawColSheet() {
     o.map((id, i) => { const c = col(id); return `
       <div class="crow" data-id="${id}">
         <div class="hdl" title="つかんで並べ替え"></div>
-        <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()">${icon(c)}<span>${esc(c.name)}</span></label>
+        <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()">${icon(c)}<span>${esc(c.name)}</span>${c.builtin ? '' : '<em class="cbadge" style="font-style:normal">カスタム</em>'}</label>
         ${c.builtin ? '' : `<span class="t">${typeOf(c).n}</span>`}
         ${c.builtin ? '<span class="edit" style="visibility:hidden">✎</span>' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
       </div>`; }).join('') +
-    `<button class="newcol" onclick="openNew()">＋ 新しい列を作る</button>
-     <div class="note" style="margin-top:10px">✎ が付いているのは自分で作った列。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
+    `<button class="newcol" onclick="openNew()">＋ カスタム列を作る</button>
+     <div class="note" style="margin-top:10px">✎ が付いているのはカスタム列（自分で作った列）。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
   // ⠿ をつかんで並べ替え（指でもマウスでも。Pointer Events）
   el.querySelectorAll('.hdl').forEach(h => {
     h.onpointerdown = e => {
@@ -339,7 +340,7 @@ function drawColSheet() {
 let draft = null;
 function openNew() {
   draft = { type: null, name: '', options: ['A', 'B', 'C'], unit: '' };
-  modal(`<div class="mh">新しい列を作る</div>
+  modal(`<div class="mh">カスタム列を作る</div>
     <div class="lbl">種類</div><div class="grid" id="tgrid"></div>
     <div id="cfg"></div>
     <div class="acts"><button class="b2" onclick="closeModal()">キャンセル</button><button class="b1" onclick="createCol()">作る</button></div>`);
@@ -368,7 +369,7 @@ function createCol() {
   VIEW[cur].order = VIEW[cur].order.filter(id => id !== c.id); VIEW[cur].order.push(c.id);
   VIEW[cur].show[c.id] = true;   // 今の表にはチェック済みで出る。ほかの表は一覧に並ぶだけ
   closeModal(); render(); drawColSheet();
-  toast(`「${c.name}」を作りました。ほかのリストでも Ⅲ 列 から出せます`);
+  toast(`カスタム列「${c.name}」を作りました。ほかのリストでも Ⅲ 列 から出せます`);
 }
 
 // ══ ✎ 名前・選択肢を直す ══
@@ -378,7 +379,7 @@ function openEdit(cid) {
   edit = { id: cid, name: c.name, unit: c.unit || '', opts: (c.options || []).map(o => ({ orig: o, val: o })) };
   const t = TYPES.find(x => x.t === c.type);
   const used = VIDEOS.filter(v => { const x = (VALS[v.id] || {})[cid]; return !(x == null || x === '' || x === false || x === 0 || (Array.isArray(x) && !x.length)); }).length;
-  modal(`<div class="mh">列を直す</div>
+  modal(`<div class="mh">カスタム列を直す</div>
     <div class="lbl">列名</div><input class="inp" value="${esc(edit.name)}" oninput="edit.name=this.value">
     <div class="lbl">種類</div><div style="font-size:13px;color:var(--sub)">${t.i} ${t.n}</div>
     ${(c.type === 'select' || c.type === 'multiselect') ? `<div class="lbl">選択肢</div><div id="eopts"></div><button class="addopt" onclick="edit.opts.push({orig:null,val:''});drawEditOpts()">＋ 選択肢を足す</button>
