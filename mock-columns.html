@@ -123,7 +123,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
     <li>一番下の <b>＋ カスタム列を作る</b> → 今見ている表にチェック済みで出る</li>
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
     <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す／<b>この列を非表示にする</b>（値は残る・Ⅲ 列の一番下から表示に戻せる）。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
-    <li>列の見出しを押す → 並べ替え・絞り込み・直す・この表に出さない</li>
+    <li>列の見出しを押す → 並べ替え・絞り込み・直す（この表で隠すのは Ⅲ 列 のチェックを外す）</li>
     <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では自分で作った列に種類名も出る</li>
   </ul>
 </div>
@@ -284,15 +284,10 @@ function headMenu(e, cid) {
       `<label><input type="checkbox" class="chk" ${set.has(o) ? 'checked' : ''} onchange="togFilt('${cid}',${JSON.stringify(o).replace(/"/g, '&quot;')},this.checked)">${o === true ? 'オン' : o === false ? 'オフ' : esc(o)}</label>`).join('') + `</div>`;
   }
   if (!c.builtin) html += `<button class="pi" onclick="closePop();openEdit('${cid}')">✎ 名前・選択肢を直す</button>`;
-  html += `<button class="pi" onclick="hideCol('${cid}')">この表に出さない</button>`;
   showPop(e.currentTarget, html);
 }
 function doSort(cid, asc) { sort = { id: cid, asc }; closePop(); render(); }
 function togFilt(cid, o, on) { const k = cur + ':' + cid; const s = filt[k] = filt[k] || new Set(); on ? s.add(o) : s.delete(o); render(); }
-function hideCol(cid) {
-  VIEW[cur].show[cid] = false; closePop(); render();
-  toast(`「${col(cid).name}」をこの表に出さないようにしました（Ⅲ 列 でいつでも戻せます）`, () => { VIEW[cur].show[cid] = true; render(); });
-}
 
 // ══ Ⅲ 列（入口はここだけ）══
 function openColSheet() {
