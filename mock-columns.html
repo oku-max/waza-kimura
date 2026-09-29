@@ -59,11 +59,12 @@ td.title{font-weight:600;white-space:normal;min-width:190px}
 @media(min-width:700px){.ov{align-items:center}.sheet{border-radius:14px}}
 .sh{font-size:11px;font-weight:800;color:var(--sub);letter-spacing:.5px;margin-bottom:10px}
 .crow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px}
-.crow.drag{opacity:.4}
-.crow.over{box-shadow:inset 0 2px 0 var(--gold)}
-.hdl{width:14px;height:20px;cursor:grab;background:radial-gradient(circle,var(--dim) 1.3px,transparent 1.5px) 0 0/7px 6px;flex-shrink:0}
-.mv{background:none;border:1px solid var(--bd);border-radius:5px;width:32px;height:32px;font-size:13px;flex-shrink:0}
-.mv:disabled{opacity:.2}
+.crow{min-height:44px}
+.crow.drag{background:var(--field);box-shadow:0 4px 16px rgba(0,0,0,.5);position:relative;z-index:2}
+/* つかむところ。指でも押しやすいよう当たりを広く取り、つかんでいる間は画面がスクロールしない */
+.hdl{width:36px;height:40px;cursor:grab;touch-action:none;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.hdl::before{content:'';width:14px;height:20px;background:radial-gradient(circle,var(--dim) 1.5px,transparent 1.7px) 0 0/7px 6px}
+.crow.drag .hdl{cursor:grabbing}
 .crow label{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;cursor:pointer}
 .crow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crow .t{font-size:11px;color:var(--sub);flex-shrink:0;min-width:70px;text-align:right}
@@ -110,7 +111,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
   <b>見本です（v52.887 の計画）。</b>本物のデータには触りません。動画・列・値はこのページの中の作り物で、閉じれば消えます。<br>
   試してほしいこと:
   <ul>
-    <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、⠿ か ▲▼ で並べ替え</li>
+    <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、左の ⠿ をつかんで上下に動かすと並べ替え</li>
     <li>一番下の <b>＋ 新しい列を作る</b> → 今見ている表にチェック済みで出る</li>
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
     <li>自分で作った列の <b>✎</b> → 名前・選択肢を直す。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
@@ -298,29 +299,41 @@ function drawColSheet() {
   const el = $('#colsheetBody'); if (!el) return;
   const o = VIEW[cur].order;
   const tname = TABLES.find(t => t.id === cur).name;
-  el.innerHTML = `<div class="sh">表示する列 — ${esc(tname)}（ドラッグ / ▲▼で並べ替え）</div>` +
+  el.innerHTML = `<div class="sh">表示する列 — ${esc(tname)}（⠿ をつかんで並べ替え）</div>` +
     o.map((id, i) => { const c = col(id); return `
-      <div class="crow" draggable="true" data-id="${id}">
-        <div class="hdl"></div>
-        <button class="mv" onclick="mv('${id}',-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
-        <button class="mv" onclick="mv('${id}',1)" ${i === o.length - 1 ? 'disabled' : ''}>▼</button>
+      <div class="crow" data-id="${id}">
+        <div class="hdl" title="つかんで並べ替え"></div>
         <label><input type="checkbox" class="chk" ${VIEW[cur].show[id] ? 'checked' : ''} onchange="VIEW[cur].show['${id}']=this.checked;render()">${icon(c)}<span>${esc(c.name)}</span></label>
         ${c.builtin ? '' : `<span class="t">${typeOf(c).n}</span>`}
         ${c.builtin ? '<span class="edit" style="visibility:hidden">✎</span>' : `<button class="edit" title="名前・選択肢を直す" onclick="openEdit('${id}')">✎</button>`}
       </div>`; }).join('') +
     `<button class="newcol" onclick="openNew()">＋ 新しい列を作る</button>
      <div class="note" style="margin-top:10px">✎ が付いているのは自分で作った列。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
-  // ドラッグで並べ替え
-  let src = null;
-  el.querySelectorAll('.crow').forEach(r => {
-    r.ondragstart = () => { src = r.dataset.id; r.classList.add('drag'); };
-    r.ondragend = () => { r.classList.remove('drag'); el.querySelectorAll('.crow').forEach(x => x.classList.remove('over')); };
-    r.ondragover = e => { e.preventDefault(); el.querySelectorAll('.crow').forEach(x => x.classList.remove('over')); r.classList.add('over'); };
-    r.ondrop = e => { e.preventDefault(); if (!src || src === r.dataset.id) return;
-      const a = VIEW[cur].order; a.splice(a.indexOf(src), 1); a.splice(a.indexOf(r.dataset.id), 0, src); render(); drawColSheet(); };
+  // ⠿ をつかんで並べ替え（指でもマウスでも。Pointer Events）
+  el.querySelectorAll('.hdl').forEach(h => {
+    h.onpointerdown = e => {
+      e.preventDefault();
+      const row = h.closest('.crow');
+      // 行を動かすと要素の追跡が外れるので、動きは画面全体で受ける
+      row.classList.add('drag');
+      const move = ev => {
+        const rows = [...el.querySelectorAll('.crow')].filter(r => r !== row);
+        const after = rows.find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        after ? el.insertBefore(row, after) : rows.length && rows[rows.length - 1].after(row);
+        // 端に来たら一覧をスクロール
+        const box = el.getBoundingClientRect();
+        if (ev.clientY < box.top + 30) el.scrollTop -= 8; else if (ev.clientY > box.bottom - 30) el.scrollTop += 8;
+      };
+      const up = () => {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+        row.classList.remove('drag');
+        VIEW[cur].order = [...el.querySelectorAll('.crow')].map(r => r.dataset.id);
+        render(); drawColSheet();
+      };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    };
   });
 }
-function mv(id, d) { const a = VIEW[cur].order, i = a.indexOf(id), j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; render(); drawColSheet(); }
 
 // ══ ＋ 新しい列を作る ══
 let draft = null;
