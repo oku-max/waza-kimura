@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.890</title>
+<title>WAZA KIMURA v52.891</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1394,9 +1394,6 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
     <div class="fs-scroll" id="org-fs-accordion-area">
 
       <!-- ═ 統合フィルターパネル 3ボタン ═ -->
-      <div class="fs-acc-sec">
-        <div class="fs-acc-hdr" onclick="uniOpen('state','org')">
-          <span>その他 <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('src','org')">
@@ -1406,6 +1403,9 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
         <div class="fs-acc-hdr" onclick="uniOpen('tag','org')">
           <span>タグ <span id="org-uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
+      <div class="fs-acc-sec">
+        <div class="fs-acc-hdr" onclick="uniOpen('state','org')">
+          <span>その他 <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
 
 
 
@@ -1482,18 +1482,18 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
               <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 12px;text-align:center;border:1.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit" data-i18n="sb.advSearch">詳細検索</button>
             </div>
             <!-- アコーディオンフィルター -->
-            <div class="fs-acc-sec">
-              <div class="fs-acc-hdr" onclick="uniOpen('state')">
-                <span><span data-i18n="sb.state">その他</span> <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('src')">
                 <span><span data-i18n="sb.src">ソース・チャンネル・プレイリスト</span> <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
-            <div class="fs-acc-sec" style="border-bottom:none">
+            <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('tag')">
                 <span><span data-i18n="sb.tag">タグ</span> <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
+            <div class="fs-acc-sec" style="border-bottom:none">
+              <div class="fs-acc-hdr" onclick="uniOpen('state')">
+                <span><span data-i18n="sb.state">その他</span> <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
           </div>
         </div>
         <span id="fs-v4-btn-badge" style="display:none"></span>
