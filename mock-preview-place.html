@@ -17,7 +17,7 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
 .bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
-.tab{flex:1;min-width:0;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap}
+.tab{flex:1 1 118px;min-width:0;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap}
 .tab.on{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 1px var(--accent)}
 .row2{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text3);flex-wrap:wrap}
 .seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
@@ -74,6 +74,18 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .openbtn{border:0;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:700;margin-top:6px}
 .thumb.pvthumb .open-ov span{background:var(--accent);color:var(--on-accent)}
 
+/* 案F・G: サムネの真下のボタン（サムネと同じ幅） */
+.tcol{display:flex;flex-direction:column;gap:6px;flex-shrink:0;width:150px;max-width:100%}
+.tcol .thumb{width:100%;min-width:0}
+.list.grid .tcol{width:100%;gap:0}
+.card.pv-wide .tcol{width:100%}
+.under{border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:8px;padding:7px 4px;font-size:12.5px;font-weight:700;width:100%}
+.list.grid .under{border-radius:0;border-width:1px 0}
+.under.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.lblrow{display:none;gap:6px;align-items:center;flex-wrap:wrap}
+.lblrow.show{display:flex}
+@media(max-width:700px){.tcol{width:120px}}
+
 /* 案E: 長押し・ホバー */
 .hold-ring{position:absolute;inset:0;border:3px solid var(--accent);border-radius:inherit;opacity:0;pointer-events:none}
 .thumb.holding .hold-ring{opacity:1;animation:ring .5s linear forwards}
@@ -87,14 +99,18 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 </head>
 <body>
 <div class="banner">
-  見本の画面です（本物のデータには触りません）。上の A〜E を切り替えて、押し比べてください。<br>
-  どの案も <b>サムネを押す＝動画パネルを開く</b>（D だけ逆）。プレビューは音なしでその場で再生します。
+  見本の画面です（本物のデータには触りません）。上の A〜G を切り替えて、押し比べてください。<br>
+  どの案も <b>サムネを押す＝動画パネルを開く</b>（D・F だけ逆）。プレビューは音なしでその場で再生します。
 </div>
 <div class="bar">
   <div class="tabs" id="tabs"></div>
   <div class="row2">
     <span>並び</span>
     <div class="seg" id="lay"><button data-v="list" class="on">スマホ（1列）</button><button data-v="grid">タブレット・PC（列）</button></div>
+  </div>
+  <div class="row2 lblrow" id="lblrow">
+    <span>F の開くボタンの文言</span>
+    <div class="seg" id="lbl"></div>
   </div>
 </div>
 <div class="desc" id="desc"></div>
@@ -112,9 +128,13 @@ const PLANS = {
   B: { name:'B タイトルの右', desc:`タイトルの右端に小さな <b>プレビュー</b> のボタン。サムネは「開く」だけ。<br><span class="pro">○ 目に入りやすい。サムネとははっきり別の場所。</span><br><span class="con">× タイトルが少し狭くなる。タイトルを押しても何も起きないのと並ぶので、押せる場所がまた1つ増える。</span>` },
   C: { name:'C サムネの真下の帯', desc:`サムネのすぐ下に <b>▶ 開く ｜ プレビュー</b> の2つを並べた帯。サムネの中には何も置かない。<br><span class="pro">○ 2つの違いが文字で並んで見える。一番迷わない。</span><br><span class="con">× カードが1段高くなる。サムネを押しても開くので「開く」は2か所になる。</span>` },
   D: { name:'D サムネ＝プレビュー', desc:`役割を入れ替える: <b>サムネを押すとプレビュー</b>、動画パネルは <b>開く</b> ボタンで。<br><span class="pro">○ 「押したら動く」がいちばん自然。ボタンは1つだけ。</span><br><span class="con">× 今までの「サムネ＝動画パネル」が変わる（慣れの問題）。表の画面やノートは今までどおりなので、画面によって違う。</span>` },
+  F: { name:'F 押す＝プレビュー', desc:`<b>サムネを押すとプレビュー</b>。サムネの <b>真下</b> に動画パネルを開くボタン（文言は上で切り替え）。<br><span class="pro">○ 押したらその場で動く。開くボタンがサムネのすぐ下なので、どの動画のボタンか迷わない。</span><br><span class="con">× 今までの「サムネ＝動画パネル」が変わる（表の画面・ノートは今までどおり）。</span>` },
+  G: { name:'G 真下にプレビュー', desc:`サムネを押すと <b>今までどおり動画パネル</b>。サムネの <b>真下</b> に <b>プレビュー</b> のボタン。<br><span class="pro">○ 今の操作は何も変わらない。ボタンがサムネのすぐ下なので、サムネの中の ▶ と混ざらない。</span><br><span class="con">× カードの左側が1段高くなる（スマホの1列ではタイトルの横の空きに収まる）。</span>` },
   E: { name:'E 長押し／マウスを乗せる', desc:`ボタンを置かない。<b>スマホはサムネを長押し</b>、<b>PC はマウスを1秒乗せる</b>とプレビュー。普通に押せば今までどおり開く。<br><span class="pro">○ 画面が今と全く同じ。YouTube と同じ操作。</span><br><span class="con">× 知らないと気づかない（ボタンが無い）。長押しは端末のメニューとぶつかることがある。</span>` },
 };
 let plan = 'A', layout = 'list', playing = null;
+const LABELS = ['開く', '詳細', '再生', '動画を開く', 'くわしく'];
+let fLabel = '開く';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function thumbHTML(v, i) {
@@ -122,14 +142,14 @@ function thumbHTML(v, i) {
     return `<iframe src="https://www.youtube.com/embed/${v.id}?autoplay=1&mute=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
       <button class="x" onclick="event.stopPropagation();stop()" aria-label="閉じる">✕</button>`;
   }
-  const ovLabel = plan === 'D' ? 'プレビュー' : '開く';
+  const ovLabel = (plan === 'D' || plan === 'F') ? 'プレビュー' : '開く';
   return `<img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt=""><div class="pb">YT</div><div class="dur">▶ ${v.dur}</div>
     <div class="open-ov"><span>${ovLabel}</span></div><div class="hold-ring"></div>`;
 }
 function card(v, i) {
   const on = playing === i;
-  const thumbClick = playing === i ? '' : (plan === 'D' ? `toggle(${i})` : `openPanel(${i})`);
-  const thumbCls = 'thumb' + (plan === 'D' ? ' pvthumb' : '');
+  const thumbClick = playing === i ? '' : ((plan === 'D' || plan === 'F') ? `toggle(${i})` : `openPanel(${i})`);
+  const thumbCls = 'thumb' + ((plan === 'D' || plan === 'F') ? ' pvthumb' : '');
   const tagHTML = `<div class="tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
   let titleBlock = `<div class="title">${esc(v.title)}</div><div class="ch">${esc(v.ch)}</div>`;
   if (plan === 'B') titleBlock = `<div class="titlerow"><div class="title">${esc(v.title)}</div><button class="pill ${on?'on':''}" onclick="toggle(${i})">${on?'停止':'プレビュー'}</button></div><div class="ch">${esc(v.ch)}</div>`;
@@ -141,10 +161,18 @@ function card(v, i) {
   const stripInGrid = layout === 'grid' ? strip : '';
   const stripInList = layout === 'list' ? strip : '';
   return `<div class="card ${wide ? 'pv-wide' : ''}">
-    <div class="main"><div class="${thumbCls}" id="th-${i}" onclick="${thumbClick}">${thumbHTML(v, i)}</div>${stripInGrid}<div class="body">${titleBlock}</div></div>
+    <div class="main">${tcol(v, i, thumbCls, thumbClick, on)}${stripInGrid}<div class="body">${titleBlock}</div></div>
     ${stripInList}${tagHTML}${acts}</div>`;
 }
+function tcol(v, i, cls, click, on) {
+  const th = `<div class="${cls}" id="th-${i}" onclick="${click}">${thumbHTML(v, i)}</div>`;
+  if (plan === 'F') return `<div class="tcol">${th}<button class="under" onclick="openPanel(${i})">${esc(fLabel)}</button></div>`;
+  if (plan === 'G') return `<div class="tcol">${th}<button class="under ${on?'on':''}" onclick="toggle(${i})">${on?'停止':'プレビュー'}</button></div>`;
+  return th;
+}
 function render() {
+  document.getElementById('lblrow').classList.toggle('show', plan === 'F');
+  document.getElementById('lbl').innerHTML = LABELS.map(l => `<button class="${l===fLabel?'on':''}" onclick="fLabel='${l}';render()">${l}</button>`).join('');
   document.getElementById('tabs').innerHTML = Object.keys(PLANS).map(k => `<button class="tab ${k===plan?'on':''}" onclick="setPlan('${k}')">${PLANS[k].name}</button>`).join('');
   document.getElementById('desc').innerHTML = PLANS[plan].desc;
   const l = document.getElementById('list');
