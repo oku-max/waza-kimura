@@ -219,6 +219,9 @@
     // 列設定（v52.887）
     '列設定': 'Column settings',
     '🗑 この列を完全に削除する': '🗑 Delete this column permanently',
+    '1つ減らす': 'Minus one',
+    '1つ増やす': 'Plus one',
+    '最後に数えた日': 'Last counted',
     '直後なら「↩ 取り消し」で戻せます。': 'You can undo right after with “↩ Undo”.',
     '表示する列・カスタム列': 'Columns shown · custom columns',
     '表示する列 — ': 'Columns shown — ',

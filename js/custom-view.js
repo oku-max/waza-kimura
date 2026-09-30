@@ -30,6 +30,7 @@ const TYPE_DEFS = [
   { type:'number',      icon:'#', label:'数値' },
   { type:'progress',    icon:'%', label:'進捗バー' },
   { type:'stars',       icon:'★', label:'評価' },
+  { type:'counter',     icon:'±', label:'カウンター' },   // v52.889: −/数字/＋。押した日時も記録（v.cfLog）
 ];
 
 // 列の種類をパッと見で分かるようにするアイコン（列設定の一覧・表の見出し）。
@@ -50,7 +51,7 @@ function _colIconHTML(id, col) {
 }
 window._cvColIconHTML = id => _colIconHTML(id);
 
-const FILTERABLE_TYPES = new Set(['checkbox','select','multiselect','text','number','stars','progress','tracker']);
+const FILTERABLE_TYPES = new Set(['checkbox','select','multiselect','text','number','stars','progress','tracker','counter']);
 
 const CV_TEMPLATES = [
   { id:'drill', icon:'🏋️', label:'ドリル管理', desc:'練習頻度と進捗を追う',
@@ -333,8 +334,12 @@ function _purgeDeletedValues(onlyId) {
   if (!ids.length) return 0;
   let n = 0;
   (window.videos || []).forEach(v => {
-    if (!v.cf || typeof v.cf !== 'object') return;
-    ids.forEach(id => { if (id in v.cf) { delete v.cf[id]; n++; } });
+    const hasCf = v.cf && typeof v.cf === 'object';
+    if (!hasCf && !v.cfLog) return;
+    ids.forEach(id => {
+      if (hasCf && id in v.cf) { delete v.cf[id]; n++; }
+      if (v.cfLog && typeof v.cfLog === 'object' && id in v.cfLog) { delete v.cfLog[id]; n++; }
+    });
   });
   if (n) window.debounceSave?.();
   return n;
@@ -1825,6 +1830,25 @@ function _renderCell(td, col, val, view) {
       wrap.appendChild(barWrap); wrap.appendChild(pctLabel); td.appendChild(wrap);
       break;
     }
+    case 'counter': {
+      // −/数字/＋（動画パネルのカウンターと同じ動き: ＋で日時を1つ記録、−で最後の記録を1つ取り消す）
+      td.style.width = '130px';
+      const vid = td.dataset.vid;
+      const n = Number(val) || 0;
+      const log = _counterLog(vid, col.id);
+      const last = log.length ? log[log.length - 1] : 0;
+      const ago = last ? (window.vpCntFormatAgo ? window.vpCntFormatAgo(last) : '') : '';
+      const bS = 'width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;line-height:1;cursor:pointer;padding:0;flex-shrink:0;font-family:inherit';
+      td.innerHTML = `<div style="display:flex;align-items:center;gap:6px">
+        <button type="button" class="cv-cnt-dec" style="${bS}" title="1つ減らす">−</button>
+        <span class="cv-cnt-n" style="min-width:18px;text-align:center;font-weight:700;font-size:13px">${n}</span>
+        <button type="button" class="cv-cnt-inc" style="${bS};border-color:var(--accent);color:var(--accent)" title="1つ増やす">＋</button>
+        ${ago ? `<span class="cv-cnt-ago" style="font-size:10px;color:var(--text3);white-space:nowrap" title="最後に数えた日">${_esc(ago)}</span>` : ''}
+      </div>`;
+      td.querySelector('.cv-cnt-dec').addEventListener('click', e => { e.stopPropagation(); window._cvCounterStep(view.id, vid, col.id, -1); });
+      td.querySelector('.cv-cnt-inc').addEventListener('click', e => { e.stopPropagation(); window._cvCounterStep(view.id, vid, col.id, 1); });
+      break;
+    }
     case 'number': {
       td.style.width = '90px';
       const wrap = document.createElement('div');
@@ -1983,6 +2007,29 @@ function _renderCell(td, col, val, view) {
 }
 
 // ── セル更新 ──
+// カウンター列の日時の記録。動画の v.cfLog[列id] = [押した日時(ms)...]（値 v.cf[列id] と同じ動画データで保存）
+function _counterLog(vid, colId) {
+  const v = _videoOf(vid);
+  const l = v && v.cfLog && v.cfLog[colId];
+  return Array.isArray(l) ? l : [];
+}
+window._cvCounterStep = function(viewId, videoId, colId, dir) {
+  const view = _findView(viewId);
+  const col = view && ((view.columns || []).find(c => c.id === colId));
+  const v = _videoOf(videoId);
+  if (!col || col.type !== 'counter' || !col.shared || !v) return;
+  if (!v.cf || typeof v.cf !== 'object') v.cf = {};
+  const n = Number(v.cf[colId]) || 0;
+  if (dir < 0 && n <= 0) return;
+  if (!v.cfLog || typeof v.cfLog !== 'object') v.cfLog = {};
+  const log = Array.isArray(v.cfLog[colId]) ? v.cfLog[colId] : (v.cfLog[colId] = []);
+  if (dir > 0) { v.cf[colId] = n + 1; log.push(Date.now()); }
+  else { v.cf[colId] = n - 1; if (log.length) log.pop(); }
+  window.debounceSave?.();
+  // その行のセルだけ描き直す（表全体は描き直さない）
+  document.querySelectorAll(`tr#org-row-${CSS.escape(videoId)} .cv-custom-td[data-col-id="${CSS.escape(colId)}"]`).forEach(td => _renderCell(td, col, v.cf[colId], view));
+};
+
 window._cvSetCell = function(viewId, videoId, colId, val) {
   const view = _findView(viewId);
   if (!view) return;
@@ -2298,7 +2345,8 @@ function openThDropdown(btn, view, col) {
       case 'select':
       case 'multiselect': buildSelFilterUI(sec, currentView, col, f);     break;
       case 'text':        buildTextFilterUI(sec, currentView, col, f);    break;
-      case 'number':      buildNumFilterUI(sec, currentView, col, f);     break;
+      case 'number':
+      case 'counter':     buildNumFilterUI(sec, currentView, col, f);     break;
       case 'stars':       buildStarsFilterUI(sec, currentView, col, f);   break;
       case 'progress':    buildProgressFilterUI(sec, currentView, col, f); break;
       case 'tracker':     buildTrackerFilterUI(sec, currentView, col, f);  break;
@@ -2724,7 +2772,8 @@ function passesFilter(col, f, value) {
     case 'text':
       if (!f.active || !f.text) return true;
       return (value || '').toLowerCase().includes(f.text.toLowerCase());
-    case 'number': {
+    case 'number':
+    case 'counter': {
       if (!f.active || f.val === '' || f.val == null) return true;
       const n = Number(value);
       if (isNaN(n)) return false;
@@ -2994,7 +3043,7 @@ function _applyCvSort(view) {
     const vb = b.id.replace('org-row-', '');
     let av = _cellVal(view, va, col);
     let bv = _cellVal(view, vb, col);
-    if (col.type === 'number' || col.type === 'stars' || col.type === 'progress') {
+    if (col.type === 'number' || col.type === 'stars' || col.type === 'progress' || col.type === 'counter') {
       av = Number(av) || 0; bv = Number(bv) || 0;
     } else if (col.type === 'checkbox') {
       av = av ? 1 : 0; bv = bv ? 1 : 0;

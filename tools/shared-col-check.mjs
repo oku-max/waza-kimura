@@ -366,6 +366,44 @@ ck('★ 取り消しの時間が過ぎると、その列の値だけが動画か
 ck('★ 削除した列は、リストに残った写しから復活しない', x1.noHeal);
 ck('★ 別の端末で削除した印が届くと、この端末からも消える', x1.remote);
 
+console.log('\n── カウンター（−/数字/＋・押した日時も記録 v52.889）──');
+const k1 = await pg.evaluate(async () => {
+  window._cvPickerSelect('_a'); await new Promise(r => setTimeout(r, 500));
+  window.cvOpenAddCol('_a'); await new Promise(r => setTimeout(r, 100));
+  const btn = document.querySelector('#cv-type-grid .cv-type-btn[data-type="counter"]');
+  const label = btn?.textContent || '';
+  btn.click();
+  document.getElementById('cv-new-col-label').value = 'スパーで使った回数';
+  window.cvConfirmAddCol(); await new Promise(r => setTimeout(r, 500));
+  const id = window._cvSharedRaw().cols.find(c => c.label === 'スパーで使った回数').id;
+  const td = () => document.querySelector(`#org-row-v1 .cv-custom-td[data-col-id="${id}"]`);
+  const other = JSON.stringify(window.videos.map(v => Object.fromEntries(Object.entries(v.cf || {}).filter(([k]) => k !== id))));
+  td().querySelector('.cv-cnt-inc').click(); td().querySelector('.cv-cnt-inc').click(); td().querySelector('.cv-cnt-inc').click();
+  const after3 = { n: window.videos[0].cf[id], log: window.videos[0].cfLog?.[id]?.length, shown: td().querySelector('.cv-cnt-n').textContent, ago: td().querySelector('.cv-cnt-ago')?.textContent || '' };
+  td().querySelector('.cv-cnt-dec').click();
+  const after2 = { n: window.videos[0].cf[id], log: window.videos[0].cfLog?.[id]?.length };
+  // 0 から − は何もしない
+  const td2 = document.querySelector(`#org-row-v2 .cv-custom-td[data-col-id="${id}"]`);
+  td2.querySelector('.cv-cnt-dec').click();
+  const zero = { n: window.videos[1].cf?.[id], log: window.videos[1].cfLog?.[id] };
+  const icon = document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${id}"] .cv-col-ic`)?.textContent;
+  const same = JSON.stringify(window.videos.map(v => Object.fromEntries(Object.entries(v.cf || {}).filter(([k]) => k !== id)))) === other;
+  // 絞り込み（2以上）・並べ替え
+  window._cvSetCell('_a', 'v3', id, 0);
+  const view = window._cvGetViews().find(v => v.id === '_a');
+  // 削除すると記録も消える
+  window._cvDeleteCol(id, true); await new Promise(r => setTimeout(r, 200)); window._cvFlushDeletes();
+  const gone = !('cfLog' in window.videos[0]) || !(id in (window.videos[0].cfLog || {}));
+  return { label, after3, after2, zero, icon, same, gone };
+});
+ck('★ 種類に「カウンター」がある', /カウンター/.test(k1.label), k1.label);
+ck('★ ＋3回で 3・日時も3つ記録・画面にも 3 と「今日」', k1.after3.n === 3 && k1.after3.log === 3 && k1.after3.shown === '3' && /今日/.test(k1.after3.ago), JSON.stringify(k1.after3));
+ck('★ −で 2・最後の記録を1つ取り消す', k1.after2.n === 2 && k1.after2.log === 2, JSON.stringify(k1.after2));
+ck('0 のときの − は何もしない（何も書かない）', k1.zero.n === undefined && k1.zero.log === undefined, JSON.stringify(k1.zero));
+ck('見出しのアイコンは ±', k1.icon === '±', k1.icon);
+ck('ほかの列の値は触らない', k1.same);
+ck('カウンター列を完全に削除すると、日時の記録も消える', k1.gone);
+
 console.log('\n── クラウドとのやりとり ──');
 const r7 = await pg.evaluate((gid) => {
   const before = window._cvSharedRaw();
