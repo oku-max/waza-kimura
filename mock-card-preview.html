@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — カードで動画をプレビュー</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--radius:12px}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:900px;margin:0 auto;padding-bottom:60px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.opts{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:10px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)}
+.opts b{color:var(--text)}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--surface);border:0;padding:6px 10px;font-size:12px;color:var(--text2)}
+.seg button.on{background:var(--accent);color:#1c1c1e;font-weight:700}
+.try{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border)}
+.try input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
+.try button{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px}
+.hdr{padding:10px 16px;font-size:13px;color:var(--text3)}
+
+.card-list{padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.card-main{display:flex;gap:14px;padding:14px}
+.card-thumb{width:170px;min-width:170px;aspect-ratio:16/9;max-width:100%;background:var(--surface3);border-radius:8px;overflow:hidden;position:relative;cursor:pointer;flex-shrink:0}
+.card-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card-thumb iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.pb{position:absolute;top:4px;right:4px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;color:#fff}
+.pb-yt{background:rgba(192,57,43,.9)}.pb-gd{background:rgba(26,115,232,.9)}.pb-x{background:#000}.pb-vm{background:rgba(23,159,204,.95)}
+.dur-badge{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.82);color:#fff;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px}
+/* ここが足すもの: プレビューのボタン（サムネ右下） */
+.pv-btn{position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.78);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;font-size:11px;font-weight:700;padding:3px 7px;line-height:1.3}
+.pv-btn:active{background:var(--accent);color:#1c1c1e}
+.pv-close{position:absolute;top:4px;left:4px;z-index:2;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.8);color:#fff;border:1px solid rgba(255,255,255,.4);font-size:13px;line-height:1}
+.pv-note{position:absolute;left:0;right:0;bottom:0;z-index:2;background:rgba(0,0,0,.72);color:#fff;font-size:10px;padding:3px 6px;pointer-events:none}
+/* 「カード幅に広げる」のとき */
+.card.wide .card-main{flex-direction:column}
+.card.wide .card-thumb{width:100%;min-width:0}
+.card-body{flex:1;min-width:0}
+.card-title{font-size:15px;font-weight:700;line-height:1.45;margin-bottom:6px}
+.card-ch{font-size:13px;color:var(--accent);font-weight:600}
+.v4{display:flex;gap:6px;padding:8px 14px;border-top:1px solid var(--border);font-size:12px}
+.v4 span{padding:3px 10px;border-radius:12px;background:rgba(255,200,80,.14);color:var(--text2)}
+.card-actions{display:flex;border-top:1px solid var(--border)}
+.card-actions button{flex:1;background:none;border:0;padding:10px;font-size:13px;color:var(--text2)}
+.card-actions button+button{border-left:1px solid var(--border)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
+.toast.on{opacity:1}
+@media(max-width:560px){.card-thumb{width:128px;min-width:128px}.card-title{font-size:13px}}
+</style>
+</head>
+<body>
+<div class="banner">
+  見本の画面です（本物のデータには触りません）。<br>
+  サムネ右下の <b>▶ プレビュー</b> を押すと、その場で音なし再生します。同時に動くのは1本だけ。<br>
+  サムネ自体を押したときは今までどおり動画パネルが開きます（見本では通知だけ出します）。
+</div>
+<div class="opts">
+  <b>再生する大きさ</b>
+  <div class="seg" id="sizeSeg">
+    <button data-v="thumb" class="on">サムネの大きさのまま</button>
+    <button data-v="wide">カード幅に広げる</button>
+  </div>
+</div>
+<div class="try">
+  <input id="tryUrl" placeholder="自分の動画のURLを貼って試す（YouTube / Vimeo / Drive）">
+  <button id="tryAdd">カードを足す</button>
+</div>
+<div class="hdr">見本 <span id="cnt"></span> 本</div>
+<div class="card-list" id="list"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const VIDEOS = [
+  { plat:'yt', id:'taiqQJGJXCY', title:'DEEP HALF CLUBがオススメする様々なディープハーフスイープを紹介した', ch:'『ブラジリアン柔術』DEEP HALF CLUB', tags:['ディープハーフ'] },
+  { plat:'yt', id:'o_DG3s1_ztY', title:'歴代最強のハーフガーダーから学ぶ王者達のDEEP HALFについて解説した', ch:'『ブラジリアン柔術』DEEP HALF CLUB', tags:[] },
+  { plat:'yt', id:'XtBGHmC5t8s', title:'【岩崎正寛/DEEP HALF CLUB】アマゾン返し伝授！！【パスガードフィットネス】', ch:'『ブラジリアン柔術』DEEP HALF CLUB', tags:['パスガード'] },
+  { plat:'x',  id:'0', title:'（X の投稿の見本）X は埋め込みで再生できないので、プレビューのボタンを出しません', ch:'@example', tags:[] },
+];
+let size = 'thumb';
+let playing = null;   // いまプレビュー中の動画の番号（同時に1本だけ）
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function thumbOf(v){
+  if (v.plat==='yt') return `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`;
+  if (v.plat==='gd') return `https://drive.google.com/thumbnail?id=${v.id}&sz=w320`;
+  if (v.plat==='vm') return `https://vumbnail.com/${v.id}.jpg`;
+  return '';
+}
+// プレビュー用の埋め込み（音なし・自動再生・頭から）
+function previewUrl(v){
+  if (v.plat==='yt') return `https://www.youtube.com/embed/${v.id}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`;
+  if (v.plat==='vm') return `https://player.vimeo.com/video/${v.id}?autoplay=1&muted=1&playsinline=1`;
+  if (v.plat==='gd') return `https://drive.google.com/file/d/${v.id}/preview`;
+  return '';
+}
+const LABEL = { yt:'YT', gd:'GD', x:'𝕏', vm:'Vimeo' };
+
+function thumbInner(v, i){
+  if (playing === i) {
+    const note = v.plat==='gd' ? '<div class="pv-note">Drive は自動再生できません。▶ を押してください</div>' : '';
+    return `<iframe src="${previewUrl(v)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+      <button class="pv-close" onclick="event.stopPropagation();stopPreview()" aria-label="プレビューを閉じる">✕</button>${note}`;
+  }
+  const img = thumbOf(v) ? `<img src="${thumbOf(v)}" alt="">` : '';
+  const btn = v.plat==='x' ? '' : `<button class="pv-btn" onclick="event.stopPropagation();startPreview(${i})">▶ プレビュー</button>`;
+  return `${img}<div class="pb pb-${v.plat}">${LABEL[v.plat]}</div><div class="dur-badge">12:34</div>${btn}`;
+}
+
+function render(){
+  document.getElementById('cnt').textContent = VIDEOS.length;
+  document.getElementById('list').innerHTML = VIDEOS.map((v,i) => `
+    <div class="card ${playing===i && size==='wide' ? 'wide' : ''}" id="card-${i}">
+      <div class="card-main">
+        <div class="card-thumb" onclick="${playing===i ? '' : `openPanel(${i})`}">${thumbInner(v,i)}</div>
+        <div class="card-body"><div class="card-title">${esc(v.title)}</div><div class="card-ch">${esc(v.ch)}</div></div>
+      </div>
+      ${v.tags.length ? `<div class="v4">${v.tags.map(t=>`<span>#${esc(t)}</span>`).join('')}</div>` : ''}
+      <div class="card-actions"><button>💬 メモ</button><button>📦 アーカイブ</button></div>
+    </div>`).join('');
+}
+// 別のカードを押したら、前のカードはサムネに戻る（描き直すだけ）
+function startPreview(i){ playing = i; render(); }
+function stopPreview(){ playing = null; render(); }
+function openPanel(i){ toast('本物ではここで動画パネルが開きます: ' + VIDEOS[i].title.slice(0,24) + '…'); }
+
+let tt;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('on'),2200); }
+
+document.getElementById('sizeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  size = b.dataset.v;
+  document.querySelectorAll('#sizeSeg button').forEach(x => x.classList.toggle('on', x===b));
+  render();
+});
+
+function parseUrl(u){
+  let m;
+  if ((m = u.match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/))) return { plat:'yt', id:m[1] };
+  if ((m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/))) return { plat:'vm', id:m[1] };
+  if ((m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) return { plat:'gd', id:m[1] };
+  return null;
+}
+document.getElementById('tryAdd').addEventListener('click', () => {
+  const inp = document.getElementById('tryUrl');
+  const p = parseUrl(inp.value.trim());
+  if (!p) { toast('YouTube / Vimeo / Drive のURLを貼ってください'); return; }
+  VIDEOS.unshift({ ...p, title:'貼ったURLの動画', ch:'（見本）', tags:[] });
+  if (playing !== null) playing++;
+  inp.value = ''; render();
+});
+render();
+</script>
+</body>
+</html>
