@@ -143,7 +143,47 @@ export function cardHTML(v) {
   const cntBadges = '';
   const vDot = v.verified ? '<div class="verify-dot verified"></div>'
              : v.ai       ? '<div class="verify-dot ai-unverified"></div>' : '';
+  // プレビュー（v52.896）: サムネの中で音なし再生。X は埋め込みで再生できないので出さない
+  const pvBtn = isX ? '' : `<button class="card-pv-btn" onclick="event.stopPropagation();wkCardPreview('${vid}')" title="プレビュー">▶ プレビュー</button>`;
   const btnMemo = `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>`;
-  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div></div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
+  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div>${pvBtn}</div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
 }
 
+
+// ═══ カードのプレビュー（v52.896） ═══
+// サムネの上に音なしの埋め込みを重ねるだけ。サムネ（img）や data-emb は触らない
+// （動画パネル・サムネの読み込み直しがそれを読むため）。データには一切書かない。
+// 同時に1本だけ。一覧を描き直すと重ねたものごと消えるので、それで閉じたことにする。
+let _pvId = null;
+function _pvUrl(card) {
+  const emb = card.dataset.emb || '';
+  const plat = card.dataset.plat;
+  if (!emb || plat === 'x') return '';
+  if (plat === 'yt') return emb + '&mute=1&playsinline=1';
+  if (plat === 'vm') return emb + '&muted=1&playsinline=1';
+  return emb;   // Drive は自動再生・音なしを指定できない（▶ を押せば再生）
+}
+export function wkCardPreviewStop() {
+  if (_pvId) document.getElementById('pv-' + _pvId)?.remove();
+  _pvId = null;
+}
+export function wkCardPreview(vid) {
+  if (window.bulkMode) return;
+  const same = _pvId === vid;
+  wkCardPreviewStop();
+  if (same) return;
+  const card  = document.getElementById('card-' + vid);
+  const thumb = document.getElementById('thumb-' + vid);
+  const url = card && _pvUrl(card);
+  if (!thumb || !url) return;
+  const layer = document.createElement('div');
+  layer.className = 'card-pv-layer';
+  layer.id = 'pv-' + vid;
+  layer.onclick = e => e.stopPropagation();   // 重ねた上の操作で動画パネルを開かない
+  layer.innerHTML = `<iframe src="${url.replace(/"/g, '&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe><button class="card-pv-close" title="プレビューを閉じる">✕</button>`;
+  layer.querySelector('.card-pv-close').onclick = e => { e.stopPropagation(); wkCardPreviewStop(); };
+  thumb.appendChild(layer);
+  _pvId = vid;
+}
+window.wkCardPreview = wkCardPreview;
+window.wkCardPreviewStop = wkCardPreviewStop;
