@@ -85,7 +85,7 @@
     'sb.filter':         { ja: 'フィルター', en: 'Filters' },
     'sb.advSearch':      { ja: '詳細検索', en: 'Advanced search' },
     'sb.state':          { ja: 'その他', en: 'Other' },
-    'sb.src':            { ja: 'ソース・チャンネル・プレイリスト', en: 'Source / Channel / Playlist' },
+    'sb.src':            { ja: 'チャンネル・プレイリスト', en: 'Channel / Playlist' },
     'sb.tag':            { ja: 'タグ', en: 'Tags' },
     'sb.saved':          { ja: '保存した検索条件', en: 'Saved searches' },
     'sb.savedNone':      { ja: '保存した検索条件はありません', en: 'No saved searches' },

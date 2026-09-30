@@ -420,7 +420,7 @@ function _sbmInject() {
   document.body.insertAdjacentHTML('beforeend', `
 <div id="sbm-bd" onclick="sbmClose()"></div>
 <div id="sbm-popup" role="dialog" aria-modal="true">
-  <div class="sbm-hdr"><h2>ソース・チャンネル・プレイリスト</h2><div class="sbm-x" onclick="sbmClose()">✕</div></div>
+  <div class="sbm-hdr"><h2>チャンネル・プレイリスト</h2><div class="sbm-x" onclick="sbmClose()">✕</div></div>
   <div class="sbm-search"><input id="sbm-q" placeholder="🔍 検索..." oninput="sbmRender()"></div>
   <div class="sbm-cols">
     <div class="sbm-col narrow"><div class="sbm-col-hdr"><span>Source</span></div><div class="sbm-col-body" id="sbm-col-src"></div></div>
