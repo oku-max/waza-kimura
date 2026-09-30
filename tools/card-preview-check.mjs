@@ -173,6 +173,25 @@ await page.setViewportSize({ width: 390, height: 900 });
   await page.evaluate(() => window.wkCardPreviewStop());
   await page.evaluate(() => { delete window.getDriveTokenIfAvailable; });
 }
+// Drive の認証がこの端末に無いとき: 動画パネルと同じ「Googleで認証して再生」を出し、認証できたら <video>（v52.902）
+{
+  const hang = () => {};
+  await page.route('**/api/drive**', hang);
+  await page.evaluate(() => {
+    window._showGDriveAuthUI = (box, fileId, onAuth) => {
+      box.innerHTML = `<button id="gd-auth-play-btn">Googleで認証して再生</button>`;
+      box.querySelector('button').onclick = () => onAuth('TK2');
+    };
+  });
+  await page.evaluate(id => window.wkCardPreview(id), gd.id);
+  ok(!!(await page.$(`#thumb-${gd.id} #gd-auth-play-btn`)) && !(await page.$(`#thumb-${gd.id} iframe`)), '認証が無ければ「Googleで認証して再生」を出す（黙って埋め込みに戻さない）');
+  await page.click(`#thumb-${gd.id} #gd-auth-play-btn`);
+  const src = await page.$eval(`#thumb-${gd.id} .card-pv-layer video`, v => v.getAttribute('src')).catch(() => null);
+  ok(src === '/api/drive?fileId=FILE1&token=TK2' && (await page.evaluate(() => window.opened.length)) === 0, `認証できたら <video>（${src}）・動画パネルは開かない`);
+  await page.evaluate(() => window.wkCardPreviewStop());
+  await page.evaluate(() => { delete window._showGDriveAuthUI; });
+  await page.unroute('**/api/drive**', hang);
+}
 // YouTube は高くしない（帯が無い）
 await page.click(`#card-${yt[0].id} .card-pv-btn`);
 const yh = await page.$eval(`#thumb-${yt[0].id}`, t => [t.clientWidth, t.clientHeight]);

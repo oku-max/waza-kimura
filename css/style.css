@@ -86,6 +86,8 @@ body.bulk-mode .card-pv-btn{display:none;}
 .card-pv-layer{position:absolute;inset:0;z-index:4;background:#000;cursor:default;overflow:hidden;}
 .card-pv-layer iframe,.card-pv-layer video{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .card-pv-layer video{object-fit:contain;background:#000;}
+.card-pv-auth{position:absolute;inset:0;overflow:auto;}
+.card-pv-auth > div{padding:10px!important;gap:8px!important;}
 /* （Drive にログインしていないときだけ埋め込みを使う。ログインしていれば <video>。下は埋め込みのとき）
    Drive の埋め込みは、上に黒い帯（再生バー・別窓ボタン）を持ち、映像をその下に置く。
    帯の高さは端末で違う（オーナーの画面の実測: PC 約51px・スマホ 約60px）。ずらして隠すと、スマホでは帯にある
