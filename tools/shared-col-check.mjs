@@ -104,16 +104,19 @@ ck('共有にしなかった列はそのまま', await pg.evaluate(() => JSON.pa
 console.log('\n── リストBに足すと、同じ値が見える ──');
 const r2 = await pg.evaluate(async (gid) => {
   window._cvPickerSelect('_b'); await new Promise(r => setTimeout(r, 600));
-  window.cvOpenAddCol('_b'); await new Promise(r => setTimeout(r, 100));
-  const pick = document.getElementById('cv-shared-pick');
-  const pickTxt = pick?.style.display !== 'none' ? pick.textContent : '';
-  window._cvAddSharedCol('_b', gid); await new Promise(r => setTimeout(r, 600));
+  // 列設定を開く → ほかのリストで作ったカスタム列が、チェックの外れた状態で並んでいる → チェックを入れる
+  window.toggleOrgColMenu(); await new Promise(r => setTimeout(r, 200));
+  const row = document.querySelector(`#org-col-menu-panel .cv-colmenu-row[data-cv-id="${gid}"]`);
+  const box = row?.querySelector('input[type=checkbox]');
+  const pickTxt = row ? row.textContent + (box.checked ? ' [checked]' : ' [unchecked]') : '';
+  box.checked = true; box.dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 600));
+  document.getElementById('org-col-menu')?.remove();
   const th = !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${gid}"]`);
   const td = document.querySelector(`#org-row-v1 .cv-custom-td[data-col-id="${gid}"]`);
   const on = td ? td.querySelectorAll('span,button').length : -1;
   return { pickTxt, th, tdHtml: td ? td.innerHTML.slice(0, 400) : null };
 }, gid);
-ck('★「列を追加」に共有列の候補が出る', /習得度/.test(r2.pickTxt), r2.pickTxt);
+ck('★ 列設定に、ほかのリストで作ったカスタム列がチェックの外れた状態で並ぶ', /習得度/.test(r2.pickTxt) && /カスタム/.test(r2.pickTxt) && /\[unchecked\]/.test(r2.pickTxt), r2.pickTxt);
 ck('★ リストBの表に共有列の見出しが出る', r2.th);
 ck('リストBの行にセルがある', !!r2.tdHtml, r2.tdHtml);
 
@@ -141,22 +144,28 @@ console.log('\n── マスターで使う ──');
 const r5 = await pg.evaluate(async (gid) => {
   window._cvClearSelection(); await new Promise(r => setTimeout(r, 300));
   window._libView?.('org'); await new Promise(r => setTimeout(r, 800));
-  const addBtn = !!document.querySelector('#orgTheadRow .cv-custom-th button[onclick*="__master__"]');
-  window._cvAddSharedCol('__master__', gid); await new Promise(r => setTimeout(r, 800));
+  const addBtn = !document.querySelector('#orgTheadRow .cv-custom-th button') && !/列を追加/.test(document.getElementById('orgTheadRow')?.textContent || '');
+  window._cvUnifiedSetVis(gid, true); await new Promise(r => setTimeout(r, 800));
   const th = !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${gid}"]`);
   const td = !!document.querySelector(`#org-row-v1 .cv-custom-td[data-col-id="${gid}"]`);
   window._cvSetCell('__master__', 'v3', gid, 2);
   // マスターで新しい列を作る → 必ず共有列
-  window.cvOpenAddCol('__master__'); await new Promise(r => setTimeout(r, 100));
+  window.toggleOrgColMenu(); await new Promise(r => setTimeout(r, 200));
+  document.querySelector('#org-col-menu-panel .cv-newcol').click(); await new Promise(r => setTimeout(r, 100));
   const optHidden = !document.getElementById('cv-shared-opt') && !document.getElementById('cv-new-col-shared');
   document.querySelector('#cv-type-grid .cv-type-btn[data-type="checkbox"]').click();
   document.getElementById('cv-new-col-label').value = 'マスター専用チェック';
+  const h2 = document.querySelector('#cv-add-col-modal h2').textContent;
   window.cvConfirmAddCol(); await new Promise(r => setTimeout(r, 800));
+  const menuHasNew = /マスター専用チェック/.test(document.getElementById('org-col-menu-panel')?.textContent || '');
+  document.getElementById('org-col-menu')?.remove();
   const raw = window._cvSharedRaw();
-  return { addBtn, th, td, v3: window.videos[2].cf, optHidden, raw,
+  return { addBtn, th, td, v3: window.videos[2].cf, optHidden, raw, h2, menuHasNew,
     masterThs: [...document.querySelectorAll('#orgTheadRow .cv-custom-th[data-col-id]')].map(e => e.dataset.colId) };
 }, gid);
-ck('★ マスターの表に「＋ 列を追加」がある', r5.addBtn);
+ck('★ 表の右端に「＋ 列を追加」は無い（入口は列設定だけ）', r5.addBtn);
+ck('列設定の「＋ カスタム列を作る」で作る画面が開く（見出し「カスタム列を作る」）', r5.h2 === 'カスタム列を作る', r5.h2);
+ck('作った列が、開いている列設定の一覧にすぐ出る', r5.menuHasNew);
 ck('★ マスターの表に共有列の見出しが出る', r5.th, JSON.stringify(r5.masterThs));
 ck('★ マスターの行にセルが出る', r5.td);
 ck('マスターで入れた値も動画に入る', r5.v3?.[gid] === 2 && r5.v3.keep === 1, JSON.stringify(r5.v3));
@@ -177,10 +186,10 @@ const r5b = await pg.evaluate(async (gid) => {
   for (let i = 0; i < 20; i++) window._cvUnifiedMoveCol(gid, -1);
   await new Promise(r => setTimeout(r, 300));
   const ths = [...document.querySelectorAll('#orgTheadRow th[data-col]')].map(e => e.dataset.col);
-  return { hasShared: /習得度2/.test(html) && /共有/.test(html), same: [...before].sort().join() === [...after].sort().join(),
+  return { hasShared: /習得度2/.test(html) && /カスタム/.test(html) && !/共有/.test(html) && !/▲|▼/.test(html), same: [...before].sort().join() === [...after].sort().join(),
            moved: after[0] === vis[1], first: ths[0], order: window._cvSharedRaw().master.unifiedOrder.slice(0, 3) };
 }, gid);
-ck('マスターの列メニューに共有列が出る', r5b.hasShared);
+ck('マスターの列設定にカスタム列が出る（「共有」の言葉・▲▼ は無い）', r5b.hasShared);
 ck('★ マスターで標準列を動かしても orgColOrder は同じ列の並べ替えのまま', r5b.same && r5b.moved, JSON.stringify(r5b));
 ck('★ 共有列を先頭へ動かすと表の先頭に来る（並びは保存される）', r5b.first === 'cv:' + gid && r5b.order[0] === gid, JSON.stringify(r5b));
 
@@ -189,17 +198,113 @@ const r6 = await pg.evaluate(async (gid) => {
   window._cvPickerSelect('_b'); await new Promise(r => setTimeout(r, 600));
   const th = document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${gid}"]`);
   th.click(); await new Promise(r => setTimeout(r, 200));
-  const btn = [...document.querySelectorAll('#cv-th-dropdown button')].find(x => /このリストから外す/.test(x.textContent));
-  const hasDel = [...document.querySelectorAll('#cv-th-dropdown button')].some(x => /列を削除/.test(x.textContent));
-  btn?.click(); await new Promise(r => setTimeout(r, 600));
+  const items = [...document.querySelectorAll('#cv-th-dropdown button')].map(x => x.textContent.trim());
+  document.body.click();
+  window.toggleOrgColMenu(); await new Promise(r => setTimeout(r, 200));
+  const box = document.querySelector(`#org-col-menu-panel .cv-colmenu-row[data-cv-id="${gid}"] input[type=checkbox]`);
+  box.checked = false; box.dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 600));
+  document.getElementById('org-col-menu')?.remove();
   const b = JSON.parse(localStorage.getItem('wk_cv_views')).find(v => v.id === '_b');
-  return { found: !!btn, hasDel, bCols: b.columns, v1: window.videos[0].cf?.[gid], v2: window.videos[1].cf?.[gid],
-           still: window._cvSharedRaw().cols.some(c => c.id === gid) };
+  return { items, bCols: b.columns, th: !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${gid}"]`),
+           v1: window.videos[0].cf?.[gid], v2: window.videos[1].cf?.[gid], still: window._cvSharedRaw().cols.some(c => c.id === gid) };
 }, gid);
-ck('共有列のメニューは「外す」（「削除」ではない）', r6.found && !r6.hasDel, JSON.stringify(r6));
-ck('リストBから外れる', r6.bCols.length === 0, JSON.stringify(r6.bCols));
+ck('見出しのメニューは 並べ替え・絞り込み・✎ だけ（削除・外す・この表に出さない・列名を変更 は無い）',
+  r6.items.some(t => /昇順/.test(t)) && r6.items.some(t => /降順/.test(t)) && r6.items.some(t => /名前・選択肢を直す/.test(t)) &&
+  !r6.items.some(t => /削除|外す|出さない|列名を変更|共有/.test(t)), JSON.stringify(r6.items));
+ck('列設定でチェックを外すと、リストBの表から消える（参照は残して隠すだけ）', !r6.th && r6.bCols.some(c => c.id === gid && c.hidden), JSON.stringify(r6.bCols));
 ck('★ 動画の値は残る', r6.v1 === 3 && r6.v2 === 4, JSON.stringify(r6));
 ck('★ 共有列の定義も残る（他のリストとマスターで使っている）', r6.still);
+
+console.log('\n── 列設定の見た目（v52.887）──');
+const g1 = await pg.evaluate(async (gid) => {
+  window._cvPickerSelect('_a'); await new Promise(r => setTimeout(r, 600));
+  const btn = document.querySelector('.org-col-vis-btn')?.textContent.trim();
+  const ths = [...document.querySelectorAll('#orgTheadRow th')].map(t => ({ col: t.dataset.col || t.dataset.colId, ic: !!t.querySelector('.cv-col-ic') }));
+  window.toggleOrgColMenu(); await new Promise(r => setTimeout(r, 200));
+  const panel = document.getElementById('org-col-menu-panel');
+  const rows = [...panel.querySelectorAll('.cv-colmenu-row')].map(r => ({ id: r.dataset.cvId, ic: !!r.querySelector('.cv-col-ic'),
+    badge: !!r.querySelector('.cv-cbadge'), type: r.querySelector('.cv-col-type')?.textContent || '', edit: !!r.querySelector('button.cv-col-edit') }));
+  const arrows = /▲|▼/.test(panel.textContent);
+  const create = panel.querySelector('.cv-newcol')?.textContent.trim();
+  document.getElementById('org-col-menu')?.remove();
+  return { btn, ths, rows, arrows, create };
+}, gid);
+ck('★ ボタンの名前が「列設定」', g1.btn === '列設定', g1.btn);
+ck('表の見出しに種類のアイコンが付く（標準の列もカスタム列も）', g1.ths.filter(t => t.col).every(t => t.ic), JSON.stringify(g1.ths));
+const cRow = g1.rows.find(r => r.id === gid), sRow = g1.rows.find(r => r.id === 'channel');
+ck('★ カスタム列の行: アイコン・「カスタム」の印・種類名・✎', cRow && cRow.ic && cRow.badge && cRow.type === '評価' && cRow.edit, JSON.stringify(cRow));
+ck('★ 最初からある列の行: アイコンだけ（印・種類名・✎ なし）', sRow && sRow.ic && !sRow.badge && !sRow.type && !sRow.edit, JSON.stringify(sRow));
+ck('並べ替えの ▲▼ は無い（⠿ のドラッグだけ）', !g1.arrows);
+ck('一番下に「＋ カスタム列を作る」', g1.create === '＋ カスタム列を作る', g1.create);
+
+console.log('\n── ✎ カスタム列を直す ──');
+const e1 = await pg.evaluate(async () => {
+  window.cvOpenAddCol('_a'); await new Promise(r => setTimeout(r, 100));
+  document.querySelector('#cv-type-grid .cv-type-btn[data-type="select"]').click();
+  document.getElementById('cv-new-col-label').value = '段階X';
+  window.cvConfirmAddCol(); await new Promise(r => setTimeout(r, 500));
+  const id = window._cvSharedRaw().cols.find(c => c.label === '段階X').id;
+  window._cvSetCell('_a', 'v1', id, 'A'); window._cvSetCell('_a', 'v2', id, 'B');
+  window._cvOpenColEdit('_a', id); await new Promise(r => setTimeout(r, 100));
+  const ov = document.getElementById('cv-col-edit');
+  const title = ov.querySelector('h2').textContent;
+  const inp = ov.querySelectorAll('#cv-ce-opts input')[0];
+  inp.value = 'ガードA'; inp.dispatchEvent(new Event('input'));
+  const lab = ov.querySelector('#cv-ce-label'); lab.value = '段階Y'; lab.dispatchEvent(new Event('input'));
+  ov.querySelector('#cv-ce-save').click(); await new Promise(r => setTimeout(r, 500));
+  const d = window._cvSharedRaw().cols.find(c => c.id === id);
+  return { id, title, label: d.label, opts: d.options, v1: window.videos[0].cf[id], v2: window.videos[1].cf[id], closed: !document.getElementById('cv-col-edit') };
+});
+ck('✎ の画面の見出しは「カスタム列を直す」', e1.title === 'カスタム列を直す', e1.title);
+ck('★ ✎ で選択肢 A→ガードA にすると入力済みの値も変わる', e1.v1 === 'ガードA' && e1.v2 === 'B' && JSON.stringify(e1.opts) === JSON.stringify(['ガードA','B','C']), JSON.stringify(e1));
+ck('✎ で列名も変わる', e1.label === '段階Y' && e1.closed, JSON.stringify(e1));
+
+console.log('\n── この列を非表示にする（値は消さない）──');
+const h1 = await pg.evaluate(async (id) => {
+  const before = JSON.stringify(window.videos.map(v => v.cf || null));
+  window._cvOpenColEdit('_a', id); await new Promise(r => setTimeout(r, 100));
+  const note = document.querySelector('#cv-col-edit .cv-col-danger')?.textContent || '';
+  document.querySelector('#cv-ce-off').click(); await new Promise(r => setTimeout(r, 600));
+  const thA = !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${id}"]`);
+  window.toggleOrgColMenu(); await new Promise(r => setTimeout(r, 200));
+  const panel = document.getElementById('org-col-menu-panel');
+  const inList = !!panel.querySelector(`.cv-colmenu-row[data-cv-id="${id}"]`);
+  const offTxt = panel.querySelector('.cv-off')?.textContent || '';
+  const after = JSON.stringify(window.videos.map(v => v.cf || null));
+  const saved = JSON.parse(localStorage.getItem('wk_cv_shared')).cols.find(c => c.id === id);
+  // 表示に戻す
+  panel.querySelector('.cv-off-back').click(); await new Promise(r => setTimeout(r, 600));
+  const back = !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${id}"]`);
+  const backInList = !!document.querySelector(`#org-col-menu-panel .cv-colmenu-row[data-cv-id="${id}"]`);
+  document.getElementById('org-col-menu')?.remove();
+  return { note, thA, inList, offTxt, same: before === after, savedOff: saved.off, back, backInList };
+}, e1.id);
+ck('非表示の説明に「値は消えません」と本数が出る', /入力した値は消えません/.test(h1.note) && /本の動画に値あり/.test(h1.note), h1.note);
+ck('★ 非表示にすると表から消える', !h1.thA);
+ck('★ 列設定の一覧からも消え、一番下の「非表示の列」に出る', !h1.inList && /非表示の列（1）/.test(h1.offTxt) && /段階Y/.test(h1.offTxt), h1.offTxt);
+ck('★ 非表示にしても動画の値は1文字も変わらない', h1.same);
+ck('非表示は定義に残る（全端末に同期される）', h1.savedOff === true, h1.savedOff);
+ck('★「表示する」で表にも一覧にも戻る', h1.back && h1.backInList, JSON.stringify(h1));
+
+console.log('\n── 前の版の「リストだけの列」を読み込み時に自動でまとめる ──');
+const a1 = await pg.evaluate(async () => {
+  const views = window._cvGetViews();
+  const b = views.find(v => v.id === '_b');
+  b.columns.push({ id:'col901', type:'text', label:'自動まとめ' }); b.rowData.v1 = { ...(b.rowData.v1 || {}), col901:'元の値' };
+  const a = views.find(v => v.id === '_a');
+  a.columns.push({ id:'col902', type:'text', label:'自動まとめ' });
+  window._cvSave();
+  const n = window._cvAutoUnify();
+  const n2 = window._cvAutoUnify();
+  const lib = window._cvSharedRaw().cols.filter(c => c.label === '自動まとめ');
+  const saved = JSON.parse(localStorage.getItem('wk_cv_views'));
+  return { n, n2, lib: lib.map(c => c.id), aHas: saved.find(v => v.id === '_a').columns.some(c => c.id === lib[0]?.id && c.shared),
+           bHas: saved.find(v => v.id === '_b').columns.some(c => c.id === lib[0]?.id && c.shared),
+           v1: window.videos[0].cf[lib[0]?.id], kept: saved.find(v => v.id === '_b').rowData.v1.col901 };
+});
+ck('★ 同じ種類・同じ名前の列が1つのカスタム列になり、両方のリストに出る', a1.n >= 1 && a1.lib.length === 1 && a1.aHas && a1.bHas, JSON.stringify(a1));
+ck('★ 値は動画に移り、元の値もリストに残る', a1.v1 === '元の値' && a1.kept === '元の値', JSON.stringify(a1));
+ck('2回目は何もしない（1回きり）', a1.n2 === 0, a1.n2);
 
 console.log('\n── クラウドとのやりとり ──');
 const r7 = await pg.evaluate((gid) => {
@@ -238,7 +343,7 @@ const r10 = await pg.evaluate((gid) => {
   return tpls[tpls.length - 1]?.columns;
 }, gid);
 ck('テンプレートには「どの共有列か」だけが入る', r10?.[0]?.shared === true && r10[0].sharedId === gid && !r10[0].type, JSON.stringify(r10));
-ck('共有でない列はこれまで通り定義ごと入る', r10?.[1]?.type === 'text' && !r10[1].id, JSON.stringify(r10));
+ck('列は全部カスタム列なので、テンプレートにも「どの列か」だけが入る（v52.887）', Array.isArray(r10) && r10.length > 1 && r10.every(c => c.shared && c.sharedId && !c.type), JSON.stringify(r10));
 
 console.log('\n── ① 選択肢の名前を変えると、入力済みの値も変わる（タグと同じ）──');
 const o1 = await pg.evaluate(async () => {
@@ -257,12 +362,14 @@ const o1 = await pg.evaluate(async () => {
   const mul = await mk('multiselect', '技');
   window._cvSetCell('_a', 'v1', sel, 'A'); window._cvSetCell('_a', 'v2', sel, 'B'); window._cvSetCell('_a', 'v3', sel, 'C');
   window._cvSetCell('_a', 'v1', mul, ['A', 'B']);
-  // 画面から: 見出しメニューで1つ目の選択肢 A を「ガード」に書き換えて保存
+  // 画面から: 見出し → ✎ 名前・選択肢を直す で1つ目の選択肢 A を「ガード」に書き換えて保存
   const th = document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${sel}"]`);
   th.click(); await new Promise(r => setTimeout(r, 200));
-  const inp = document.querySelector('#cv-th-dropdown input[type="text"]');
+  [...document.querySelectorAll('#cv-th-dropdown button')].find(b => /名前・選択肢を直す/.test(b.textContent)).click();
+  await new Promise(r => setTimeout(r, 150));
+  const inp = document.querySelector('#cv-col-edit #cv-ce-opts input');
   inp.value = 'ガード'; inp.dispatchEvent(new Event('input'));
-  [...document.querySelectorAll('#cv-th-dropdown button')].find(b => b.textContent === '保存').click();
+  document.querySelector('#cv-ce-save').click();
   await new Promise(r => setTimeout(r, 600));
   const r1 = { v1: window.videos[0].cf[sel], v2: window.videos[1].cf[sel], opts: window._cvSharedRaw().cols.find(c => c.id === sel).options,
                cell: document.querySelector(`#org-row-v1 .cv-custom-td[data-col-id="${sel}"]`)?.textContent || '' };
@@ -301,7 +408,7 @@ ck('★ 選択肢を消しても、入力済みの値は消えない', o1.r6.v1 
 ck('リストだけの列（旧データ）も付け替わる', o1.r7.v1 === 'Q', JSON.stringify(o1.r7));
 ck('共有列の付け替えは動画の保存を呼ぶ', o1.saves >= 1, o1.saves);
 
-console.log('\n── ② 既存の列をすべて共有列にまとめる ──');
+console.log('\n── ② 既存の列をすべてカスタム列にまとめる（まとめ方の中身）──');
 const u1 = await pg.evaluate(async () => {
   const views = window._cvGetViews();
   const a = views.find(v => v.id === '_a'), b = views.find(v => v.id === '_b');
@@ -314,9 +421,6 @@ const u1 = await pg.evaluate(async () => {
   b.rowData.v1 = { ...(b.rowData.v1 || {}), col501:'後', col502:true, col504:['Y'], col505:0 };
   b.rowData.v3 = { col501:'bのv3' };
   window._cvSave();
-  window.cvOpenAddCol('_b'); await new Promise(r => setTimeout(r, 100));
-  const banner = document.getElementById('cv-shared-pick')?.textContent || '';
-  window.cvCloseAddColModal();
   const plan = window._cvUnifyPlan();
   const before = JSON.stringify(views.map(v => v.rowData));
   const n = window._cvUnifyAllCols(true); await new Promise(r => setTimeout(r, 500));
@@ -328,11 +432,10 @@ const u1 = await pg.evaluate(async () => {
   const kadai = idOf('text', '課題'), yatta = idOf('checkbox', 'やった'), menu = idOf('multiselect', 'メニュー'), num = idOf('number', '課題');
   const cf = id => window.videos.map(v => v.cf && v.cf[id]);
   const after = JSON.stringify(saved.map(v => v.rowData));
-  return { banner, plan, n, local, aCols, bCols, kadai, yatta, menu, num, kadaiVals: cf(kadai), yattaVals: cf(yatta), menuVals: cf(menu), numVals: cf(num),
+  return { plan, n, local, aCols, bCols, kadai, yatta, menu, num, kadaiVals: cf(kadai), yattaVals: cf(yatta), menuVals: cf(menu), numVals: cf(num),
     menuOpts: lib.find(c => c.id === menu)?.options, rowKept: before === after, sharedFrom: saved.find(v => v.id === '_b').sharedFrom?.length,
     again: window._cvUnifyAllCols(true) };
 });
-ck('「列を追加」に、まだ共有でない列の数とまとめるボタンが出る', /まだ共有列になっていない列が/.test(u1.banner), u1.banner);
 ck('★ まとめた後、共有でない列は1つも残らない', u1.local.length === 0, JSON.stringify(u1.local));
 ck('★ 同じ種類・同じ名前の列は1つの共有列になる（名前の前後の空白は無視）', !!u1.kadai && u1.aCols.includes(u1.kadai) && u1.bCols.includes(u1.kadai), JSON.stringify(u1));
 ck('同じリストに同じ列が2つあっても1列にまとまる', u1.bCols.filter(x => x === u1.kadai).length === 1, JSON.stringify(u1.bCols));

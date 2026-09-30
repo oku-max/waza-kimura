@@ -1083,6 +1083,28 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 /* 列メニューの行（ドラッグ対象） */
 .cv-colmenu-row { display:flex;align-items:center;gap:4px;padding:2px 0 }
 .cv-colmenu-row.cv-sort-dragging { background:var(--surface2)!important;padding:2px 6px }
+/* 列設定（v52.887）: 種類のアイコン・カスタムの印・種類名・✎・非表示の列 */
+.cv-col-ic { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text3);flex-shrink:0;margin-right:6px;vertical-align:middle;line-height:1 }
+.cv-col-ic-c { color:var(--accent) }
+th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
+.cv-col-lbl { display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;flex:1;min-width:0;padding:6px 0 }
+.cv-col-lbl input { accent-color:var(--accent);width:16px;height:16px;flex-shrink:0 }
+.cv-col-name { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0 }
+.cv-cbadge { font-style:normal;font-size:9px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px;flex-shrink:0;opacity:.85 }
+.cv-col-type { font-size:11px;color:var(--text3);flex-shrink:0;white-space:nowrap }
+.cv-col-edit { background:none;border:none;color:var(--text3);font-size:15px;padding:6px 8px;cursor:pointer;flex-shrink:0 }
+.cv-col-edit:hover { color:var(--accent) }
+.cv-newcol { width:100%;margin-top:12px;padding:11px;border-radius:10px;border:1px dashed var(--border2);background:none;font-size:13px;color:var(--accent);font-weight:700;cursor:pointer;font-family:inherit }
+.cv-col-note { font-size:11px;color:var(--text3);line-height:1.6;margin-top:8px }
+.cv-off { margin-top:12px;border-top:1px solid var(--border);padding-top:6px }
+.cv-off summary { font-size:12px;color:var(--text3);cursor:pointer;padding:6px 2px;list-style:none }
+.cv-off summary::-webkit-details-marker { display:none }
+.cv-off-row { display:flex;align-items:center;gap:6px;padding:5px 2px 5px 28px;font-size:13px;color:var(--text3) }
+.cv-off-row .cv-col-name { flex:1 }
+.cv-off-back { background:none;border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-size:12px;color:var(--accent);cursor:pointer;flex-shrink:0;font-family:inherit }
+.cv-col-edit-ov { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10030;display:flex;align-items:center;justify-content:center }
+.cv-col-danger { margin-top:16px;padding-top:10px;border-top:1px solid var(--border) }
+.cv-col-off-btn { background:none;border:none;color:var(--text2);font-size:13px;padding:4px 0;cursor:pointer;font-family:inherit }
 .cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
 .cv-chip:hover { background:var(--surface3);color:var(--text) }
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
@@ -1550,8 +1572,8 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
       <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
         <button class="lib-sb-toggle" onclick="libSbToggle()" style="flex-shrink:0">≡</button>
         <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
-        <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
+        <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列・カスタム列">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列設定
         </button>
         <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
           <select id="org-tbl-sort-key" onchange="orgTblSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer;max-width:160px"></select>
@@ -1689,8 +1711,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 <!-- カスタムビュー: 列を追加モーダル -->
 <div id="cv-add-col-modal">
   <div class="cv-modal-box" onclick="event.stopPropagation()">
-    <h2>列を追加</h2>
-    <div id="cv-shared-pick" style="display:none"></div>
+    <h2>カスタム列を作る</h2>
     <div class="cv-type-grid" id="cv-type-grid"></div>
     <div id="cv-col-config" style="display:none">
       <div class="cv-modal-section">
@@ -1701,7 +1722,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     </div>
     <div class="cv-modal-actions">
       <button class="cv-btn-cancel" onclick="window.cvCloseAddColModal()">キャンセル</button>
-      <button class="cv-btn-primary" onclick="window.cvConfirmAddCol()">追加する</button>
+      <button class="cv-btn-primary" onclick="window.cvConfirmAddCol()">作る</button>
     </div>
   </div>
 </div>

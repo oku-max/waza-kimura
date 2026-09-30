@@ -961,6 +961,9 @@ export function syncOrgColHeaders() {
     const labelSpan = document.createElement('span');
     labelSpan.textContent = orgColLabel(col);
     th.textContent = '';
+    // 列の種類のアイコン（テキスト・タグ・時間・日付など。カスタム列と同じ見せ方）
+    const _ic = window._cvColIconHTML?.(col);
+    if (_ic) th.insertAdjacentHTML('beforeend', _ic);
     th.appendChild(labelSpan);
     th.appendChild(sortIndicator);
     // フィルターアクティブインジケーター
@@ -1191,12 +1194,10 @@ function _buildOrgColMenuHTML() {
   if (unified != null) return unified;
 
   const _visibleOrgCols = _orgMenuCols();
-  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（ドラッグ / ↑↓で並替え）</div>' +
+  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（⠿ をつかんで並べ替え）</div>' +
     _visibleOrgCols.map((col, i) => `
       <div class="cv-colmenu-row" data-cv-sort="orgcols" data-cv-id="${col}">
-        <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
-        <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
-        <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===_visibleOrgCols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===_visibleOrgCols.length-1?'disabled':''}>▼</button>
+        <div class="cv-drag-handle" title="つかんで並べ替え"></div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
           <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
           <span data-user-text="1">${_orgEsc(orgColLabel(col))}</span>

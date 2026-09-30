@@ -979,6 +979,9 @@ export async function loadUserSettings(uid) {
     // ここまで来た = 読み込みが成功した（設定docが無い新規ユーザーでも例外は出ない）。
     // これ以降の saveUserSettings を許可する。読込が throw した場合は false のまま＝保存ロック。
     _settingsReady = true;
+    // 前の版で作った「リストだけの列」をカスタム列にまとめる（v52.887・1回きり・値は消さない）。
+    // 動画を読めているときだけ（値を動画へ写すため）。保存が解禁された後に走らせる。
+    if (_videosReady) window._cvAutoUnify?.();
   } catch (e) { console.error('loadUserSettings:', e); }
 }
 

@@ -32,6 +32,24 @@ const TYPE_DEFS = [
   { type:'stars',       icon:'★', label:'評価' },
 ];
 
+// 列の種類をパッと見で分かるようにするアイコン（列設定の一覧・表の見出し）。
+// 最初からある列は種類名を出さずアイコンだけ（灰色）、カスタム列は金色。
+const _STD_KIND = { channel:'text', playlist:'text', memo:'text', tb:'tag', action:'tag', position:'tag', technique:'tag',
+  duration:'time', addedAt:'date', counter:'count' };
+const _STD_KIND_ICON = { text:'T', tag:'🏷', time:'⏱', date:'📅', count:'#' };
+function _colIconHTML(id, col) {
+  let ic, custom = false;
+  if (_STD_KIND[id]) ic = _STD_KIND_ICON[_STD_KIND[id]];
+  else {
+    const c = col || _shDef(id);
+    const t = c && TYPE_DEFS.find(d => d.type === c.type);
+    if (!t) return '';
+    ic = t.icon; custom = true;
+  }
+  return `<i class="cv-col-ic${custom ? ' cv-col-ic-c' : ''}" style="font-style:normal">${ic}</i>`;
+}
+window._cvColIconHTML = id => _colIconHTML(id);
+
 const FILTERABLE_TYPES = new Set(['checkbox','select','multiselect','text','number','stars','progress','tracker']);
 
 const CV_TEMPLATES = [
@@ -71,6 +89,9 @@ let _newColFutureDays = 1;
 
 // sort state
 let _cvSortColId = null, _cvSortAsc = true;
+// カスタム列で並べたときの、標準の並べ替えの状態。標準の並べ替えを変えたらカスタム列の並べ替えは解除する
+let _cvSortStd = '';
+const _stdSortSig = () => String(window.orgSortCol) + ':' + String(window.orgSortAsc);
 // quick-add state
 let _cvQuickAddViewId = null;
 // new view type selection state
@@ -185,7 +206,8 @@ function _loadTemplates() {
 //   ・共有列にする変換は、元の列を view.sharedFrom に、値を rowData にそのまま残す。
 //   ・一度も共有列を持ったことの無い端末は cvShared に null を書く＝クラウドを空で上書きしない。
 const _SH_KEY = 'wk_cv_shared';
-const _SH_DEF_KEYS = ['type', 'label', 'options', 'pastDays', 'futureDays', 'unit'];
+// off … 「この列を非表示にする」（全部のリスト・マスターの一覧と表から見えなくする。値は消さない）
+const _SH_DEF_KEYS = ['type', 'label', 'options', 'pastDays', 'futureDays', 'unit', 'off'];
 const _MASTER_ID = '__master__';
 let _shared = { cols: [], master: { columns: [], unifiedOrder: [] } };
 const _masterView = { id: _MASTER_ID, label: 'マスター', isMaster: true, saveMode: 'dynamic',
@@ -229,8 +251,10 @@ function _hydrateView(view) {
   if (!view || !Array.isArray(view.columns)) return;
   view.columns = view.columns.map(c => (c && c.shared) ? _mkRef(c) : c);
 }
-// 描画できる列（共有列で定義がまだ届いていないものは描かない。参照は消さない）
-function _liveCols(view) { return (view && view.columns || []).filter(c => c && c.type); }
+// 描画できる列（共有列で定義がまだ届いていないもの・非表示にした列は描かない。参照は消さない）
+function _liveCols(view) { return (view && view.columns || []).filter(c => c && c.type && !c.off); }
+// どの表の一覧にも並べるカスタム列（非表示にしたものも位置は保つので全部）
+function _libIds() { return _shared.cols.map(d => d.id); }
 
 function _hasShared() { return _shared.cols.length > 0 || _masterView.columns.length > 0; }
 function _loadShared() {
@@ -309,7 +333,7 @@ function _findView(id) { return id === _MASTER_ID ? _masterView : _views.find(v 
 // （持たないときは従来の列メニューのまま）。
 function _activeTableView() {
   if (_curId) return _views.find(v => v.id === _curId) || null;
-  if (window._libViewMode === 'org' && _masterView.columns.length) return _masterView;
+  if (window._libViewMode === 'org') return _masterView;
   return null;
 }
 // マスターのテーブル描画後に共有列を差し込む（リスト表示中は何もしない）
@@ -1147,7 +1171,7 @@ const _isCustomColId = id => !_STD_COL_IDS.has(id);
 //   unifiedOrder 側の標準列の並びを信じない）
 function _mergeMasterOrder(view) {
   const std = window.orgColOrder || [];
-  const valid = new Set(_liveCols(view).map(c => c.id).concat((view.columns || []).map(c => c.id)));
+  const valid = new Set((view.columns || []).map(c => c.id).concat(_libIds()));
   const after = new Map(); // 標準列id(null=先頭) → [共有列id...]
   const placed = new Set();
   let last = null;
@@ -1161,7 +1185,7 @@ function _mergeMasterOrder(view) {
   const out = [...(after.get(null) || [])];
   std.forEach(sid => { out.push(sid); out.push(...(after.get(sid) || [])); });
   out.push(...(after.get('__end__') || []));
-  (view.columns || []).forEach(c => { if (!placed.has(c.id)) { out.push(c.id); placed.add(c.id); } });
+  (view.columns || []).map(c => c.id).concat(_libIds()).forEach(id => { if (!placed.has(id)) { out.push(id); placed.add(id); } });
   return out;
 }
 
@@ -1172,31 +1196,26 @@ function _ensureUnifiedOrder(view) {
     if (JSON.stringify(next) !== JSON.stringify(view.unifiedOrder || [])) { view.unifiedOrder = next; _saveShared(); }
     return;
   }
+  const before = JSON.stringify(view.unifiedOrder || []);
   if (!view.unifiedOrder || !view.unifiedOrder.length) {
     // 初回: 標準列(現在の順)→カスタム列 の順で初期化
     view.unifiedOrder = [
       ...(window.orgColOrder || []),
       ...(view.columns || []).filter(c => !c.hidden).map(c => c.id)
     ];
-    _save();
-    return;
   }
   const current = new Set(view.unifiedOrder);
-  // 新しい標準列を末尾に追加
-  (window.orgColOrder || []).forEach(id => {
+  // 新しい標準列・この表の列・どの表でも使えるカスタム列を末尾に追加
+  (window.orgColOrder || []).concat((view.columns || []).map(c => c.id), _libIds()).forEach(id => {
     if (!current.has(id)) { view.unifiedOrder.push(id); current.add(id); }
   });
-  // 新しいカスタム列を末尾に追加
-  (view.columns || []).forEach(c => {
-    if (!current.has(c.id)) { view.unifiedOrder.push(c.id); current.add(c.id); }
-  });
-  // 削除されたカスタム列を除去（標準列は非表示でも保持）
-  const validCustom = new Set((view.columns || []).map(c => c.id));
+  // 無くなった列を除去（標準列は非表示でも保持・カスタム列は定義が残っていれば保持）
+  const validCustom = new Set((view.columns || []).map(c => c.id).concat(_libIds()));
   const validStd    = new Set(window.orgColOrder || []);
   view.unifiedOrder = view.unifiedOrder.filter(id =>
     _isCustomColId(id) ? validCustom.has(id) : validStd.has(id)
   );
-  _save();
+  if (JSON.stringify(view.unifiedOrder) !== before) _save();
 }
 
 // orgColOrder を view.unifiedOrder の標準列部分に同期
@@ -1250,7 +1269,12 @@ function _reorderAllCols(view) {
 // セルはバッチ遅延追加があるため未追加行のみ処理
 function _addCvCols(view) {
   if (!view || !view.columns) return;
-  const liveCols = _liveCols(view);
+  const liveCols = _liveCols(view).filter(c => !c.hidden);   // 列設定でチェックを外した列は描かない
+  // マスターでカスタム列を出していないときは何も足さない（列は「列設定」から出す）
+  if (view.isMaster && !liveCols.length) {
+    document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
+    return;
+  }
 
   // カスタム列ヘッダー: 常に削除して再構築
   const theadRow = document.getElementById('orgTheadRow');
@@ -1276,8 +1300,7 @@ function _addCvCols(view) {
       th.style.cssText = `width:${col.width||120}px;min-width:60px`;
       const isSortActive = _cvSortColId === col.id;
       const sortIndText = isSortActive ? (_cvSortAsc ? '▲' : '▼') : '⇅';
-      const shMark = col.shared ? `<span title="${T('cv.sharedCol','共有列')}" style="font-size:9px;margin-right:3px;opacity:.7">🔗</span>` : '';
-      th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${shMark}${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
+      th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${_colIconHTML(col.id, col)}${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
       th.addEventListener('click', e => {
         if (e.target.closest('.cv-th-menu-btn')) return;
         e.stopPropagation();
@@ -1391,7 +1414,7 @@ function _addCvCols(view) {
       };
     });
 
-    // 手動モード専用: 削除列ヘッダー（addThより先に追加してaddThが常に最後）
+    // 手動モード専用: 削除列ヘッダー（行をリストから外す ✕ の列）
     if (view.saveMode !== 'dynamic') {
       const delTh = document.createElement('th');
       delTh.className = 'cv-custom-th';
@@ -1399,15 +1422,11 @@ function _addCvCols(view) {
       delTh.innerHTML = `<div class="th-inner"></div>`;
       theadRow.appendChild(delTh);
     }
-    // 「＋ 列を追加」ボタン（常に最後）
-    const addTh = document.createElement('th');
-    addTh.className = 'cv-custom-th';
-    addTh.innerHTML = `<div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div>`;
-    theadRow.appendChild(addTh);
+    // 列を足す入口は「列設定」の1か所だけ（v52.887: 表の右端の「＋ 列を追加」は廃止）
 
     // テーブル幅を標準列＋カスタム列の合計に更新
     if (table) {
-      const cvW = liveCols.length * 120 + 80; // 120px/列 + 80px for add button
+      const cvW = liveCols.length * 120 + (view.saveMode !== 'dynamic' ? 40 : 0); // 120px/列 + 行を外す ✕ の列
       table.style.width = (baseW + cvW) + 'px';
     }
   }
@@ -1435,9 +1454,6 @@ function _addCvCols(view) {
       delTd.innerHTML = `<button onclick="window._cvRemoveVideo('${view.id}','${_esc(vid)}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:4px;line-height:1" title="リストから削除" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>`;
       tr.appendChild(delTd);
     }
-    const emptyTd = document.createElement('td');
-    emptyTd.className = 'cv-custom-td';
-    tr.appendChild(emptyTd);
   });
 
   // マスターで共有列がまだ無いときは「＋ 列を追加」を出すだけ（並び・表示には触らない）
@@ -2111,6 +2127,87 @@ function _cvRenameOptions(view, col, nextOptions, ren) {
   if (typeof window.toastUndo === 'function') window.toastUndo(msg, undo);
   else if (typeof window.toast === 'function') window.toast(msg);
 }
+// ── ✎ カスタム列を直す（名前・選択肢・日数・単位／この列を非表示にする）──
+// 描画先は毎回 body に作る（index.html に器を置かない＝「器が無くて黙って抜ける」を起こさない）
+window._cvOpenColEdit = function(viewId, colId) {
+  const view = _findView(viewId);
+  const col = view && ((view.columns || []).find(c => c.id === colId) || (_isSharedId(colId) ? _mkRef({ id: colId }) : null));
+  if (!col || !col.type) return;
+  document.getElementById('cv-col-edit')?.remove();
+  const tdef = TYPE_DEFS.find(d => d.type === col.type);
+  const isSel = col.type === 'select' || col.type === 'multiselect';
+  const st = { label: col.label || '', opts: (col.options || []).map(o => ({ orig: o, val: o })),
+               past: col.pastDays ?? 3, future: col.futureDays ?? 1, unit: col.unit || '' };
+  const used = col.shared ? (window.videos || []).filter(v => v.cf && !_isBlankVal(v.cf[col.id], col.type)).length : 0;
+  const ov = document.createElement('div');
+  ov.id = 'cv-col-edit';
+  ov.className = 'cv-col-edit-ov';
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  ov.innerHTML = `<div class="cv-modal-box" onclick="event.stopPropagation()">
+    <h2>カスタム列を直す</h2>
+    <div class="cv-modal-section"><div class="cv-modal-label">列名</div><input type="text" class="cv-modal-input" id="cv-ce-label"></div>
+    <div class="cv-modal-section"><div class="cv-modal-label">種類</div><div style="font-size:13px;color:var(--text2)">${_colIconHTML(col.id, col)}${_esc(tdef ? tdef.label : '')}</div></div>
+    ${isSel ? `<div class="cv-modal-section"><div class="cv-modal-label">選択肢</div><div class="cv-options-list" id="cv-ce-opts"></div>
+      <button class="cv-add-option-btn" id="cv-ce-addopt">＋ 選択肢を追加</button>
+      <div class="cv-col-note">名前を変えると、その値が入っている動画も新しい名前になります（タグと同じ）。消しても入力済みの値は残ります。</div></div>` : ''}
+    ${col.type === 'tracker' ? `<div class="cv-modal-section"><div class="cv-modal-label">過去◯日 / 未来◯日</div>
+      <div style="display:flex;gap:10px;align-items:center"><input type="number" min="0" max="7" class="cv-modal-input" id="cv-ce-past" style="width:70px"> / <input type="number" min="0" max="7" class="cv-modal-input" id="cv-ce-future" style="width:70px"></div></div>` : ''}
+    ${col.type === 'number' ? `<div class="cv-modal-section"><div class="cv-modal-label">単位</div><input type="text" class="cv-modal-input" id="cv-ce-unit" placeholder="例: 回、分、kg"></div>` : ''}
+    <div class="cv-modal-actions"><button class="cv-btn-cancel" id="cv-ce-cancel">キャンセル</button><button class="cv-btn-primary" id="cv-ce-save">保存</button></div>
+    ${col.shared ? `<div class="cv-col-danger"><button class="cv-col-off-btn" id="cv-ce-off">🚫 この列を非表示にする</button>
+      <div class="cv-col-note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。列設定の一番下の「非表示の列」からいつでも表示に戻せます。</div></div>` : ''}
+  </div>`;
+  document.body.appendChild(ov);
+  const $e = id => ov.querySelector('#' + id);
+  $e('cv-ce-label').value = st.label;
+  $e('cv-ce-label').addEventListener('input', e => { st.label = e.target.value; });
+  if (col.type === 'tracker') {
+    $e('cv-ce-past').value = st.past; $e('cv-ce-future').value = st.future;
+  }
+  if (col.type === 'number') $e('cv-ce-unit').value = st.unit;
+  const drawOpts = () => {
+    const box = $e('cv-ce-opts'); if (!box) return;
+    box.innerHTML = '';
+    st.opts.forEach((o, i) => {
+      const row = document.createElement('div'); row.className = 'cv-option-row';
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = o.val;
+      inp.addEventListener('input', () => { o.val = inp.value; });
+      const del = document.createElement('button'); del.className = 'cv-option-del'; del.textContent = '✕';
+      del.addEventListener('click', () => { st.opts.splice(i, 1); drawOpts(); });
+      row.appendChild(inp); row.appendChild(del); box.appendChild(row);
+    });
+  };
+  drawOpts();
+  $e('cv-ce-addopt')?.addEventListener('click', () => { st.opts.push({ orig: null, val: '' }); drawOpts(); const ins = $e('cv-ce-opts').querySelectorAll('input'); ins[ins.length - 1]?.focus(); });
+  $e('cv-ce-cancel').addEventListener('click', () => ov.remove());
+  $e('cv-ce-off')?.addEventListener('click', () => { ov.remove(); window._cvSetColOff(col.id, true); });
+  $e('cv-ce-save').addEventListener('click', () => {
+    const label = st.label.trim();
+    if (label) col.label = label;
+    if (col.type === 'tracker') {
+      const clamp = x => Math.max(0, Math.min(7, parseInt(x, 10) || 0));
+      col.pastDays = clamp($e('cv-ce-past').value); col.futureDays = clamp($e('cv-ce-future').value);
+    }
+    if (col.type === 'number') col.unit = $e('cv-ce-unit').value.trim();
+    ov.remove();
+    if (isSel) {
+      const next = [], ren = {};
+      st.opts.forEach(o => {
+        const v = String(o.val || '').trim();
+        if (!v) return;
+        if (o.orig != null && o.orig !== v) ren[o.orig] = v;
+        if (!next.includes(v)) next.push(v);
+      });
+      _cvRenameOptions(view, col, next, ren);   // 保存・再描画・取り消しのトーストまで
+    } else {
+      _save();
+      _renderTable(view);
+    }
+    _cvRedrawColMenu();
+  });
+  setTimeout(() => $e('cv-ce-label')?.focus(), 50);
+};
+
 window._cvRenameOptions = (viewId, colId, next, ren) => {
   const view = _findView(viewId); const col = view && (view.columns || []).find(c => c.id === colId);
   if (col) _cvRenameOptions(view, col, next, ren);
@@ -2134,102 +2231,24 @@ function openThDropdown(btn, view, col) {
   dd.innerHTML = '';
   dd.style.cssText = 'position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:230px;max-width:270px;max-height:80vh;overflow-y:auto;padding:0';
 
-  // ── ヘッダー ──
+  // ── ヘッダー（アイコン・列名・種類）──
   const hdr = document.createElement('div');
   hdr.style.cssText = 'padding:8px 12px 6px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)';
-  hdr.textContent = (col.shared ? '🔗 ' : '') + col.label;
+  const tdef = TYPE_DEFS.find(d => d.type === col.type);
+  hdr.innerHTML = `${_colIconHTML(col.id, col)}<span data-user-text="1">${_esc(col.label)}</span> <span style="font-weight:400">・${_esc(tdef ? tdef.label : '')}</span>`;
   dd.appendChild(hdr);
-  if (col.shared) {
-    const note = document.createElement('div');
-    note.style.cssText = 'padding:6px 12px;font-size:10px;color:var(--text3);line-height:1.5';
-    note.textContent = T('cv.sharedNote', '共有列: 値・列名・選択肢はマスターと他のリストでも共通です');
-    dd.appendChild(note);
-  }
+  const _actS = 'display:block;width:100%;text-align:left;padding:7px 10px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)';
 
-
-  // ── 列の再設定（型によって表示を変える） ──
-  if (col.type === 'select' || col.type === 'multiselect') {
-    const sec = _mkSec('選択肢');
-    // 元の名前を覚えておき、保存時に「どれをどう変えたか」を出す（入力済みの値も付け替えるため）
-    let curOpts = (col.options || []).map(o => ({ orig: o, val: o }));
-    const optList = document.createElement('div');
-    function renderOpts() {
-      optList.innerHTML = '';
-      curOpts.forEach((opt, i) => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px';
-        const inp = document.createElement('input'); inp.type = 'text'; inp.value = opt.val;
-        inp.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:3px 6px;min-width:0;outline:none';
-        inp.addEventListener('input', () => { opt.val = inp.value; });
-        const del = document.createElement('button'); del.textContent = '✕';
-        del.style.cssText = 'background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 4px;flex-shrink:0';
-        del.addEventListener('click', e => { e.stopPropagation(); curOpts.splice(i, 1); renderOpts(); });
-        row.appendChild(inp); row.appendChild(del); optList.appendChild(row);
-      });
-      const actRow = document.createElement('div');
-      actRow.style.cssText = 'display:flex;gap:6px;margin-top:4px';
-      const addBtn2 = document.createElement('button'); addBtn2.textContent = '＋ 追加';
-      addBtn2.style.cssText = 'font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0';
-      addBtn2.addEventListener('click', e => { e.stopPropagation(); curOpts.push({ orig: null, val: '' }); renderOpts(); setTimeout(() => { const ins = optList.querySelectorAll('input'); if (ins.length) ins[ins.length-1].focus(); }, 30); });
-      const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-      saveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer;margin-left:auto';
-      saveBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        // 名前を変えた選択肢 → 入力済みの値も新しい名前に（タグと同じ）。
-        // 消した選択肢の値はセルに残す（消さない）。
-        const next = [], ren = {};
-        curOpts.forEach(o => {
-          const v = String(o.val || '').trim();
-          if (!v) return;
-          if (o.orig != null && o.orig !== v) ren[o.orig] = v;
-          if (!next.includes(v)) next.push(v);
-        });
-        closeThDropdown();
-        _cvRenameOptions(currentView, col, next, ren);
-      });
-      actRow.appendChild(addBtn2); actRow.appendChild(saveBtn); optList.appendChild(actRow);
-    }
-    renderOpts();
-    sec.appendChild(optList);
-    dd.appendChild(sec);
-  } else if (col.type === 'tracker') {
-    const sec = _mkSec('日数設定');
-    let curPast = col.pastDays ?? 4, curFuture = col.futureDays ?? 1;
-    const _btnS = 'width:24px;height:24px;border-radius:5px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0';
-    const mkStp = (lbl, getV, setV) => {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
-      const l = document.createElement('span');
-      l.style.cssText = 'font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap;min-width:22px';
-      l.textContent = lbl;
-      const dec = document.createElement('button'); dec.textContent = '−'; dec.style.cssText = _btnS;
-      const valEl = document.createElement('span');
-      valEl.style.cssText = 'font-size:14px;font-weight:700;color:var(--text);min-width:32px;text-align:center';
-      valEl.textContent = getV() + '日';
-      const inc = document.createElement('button'); inc.textContent = '＋'; inc.style.cssText = _btnS;
-      dec.addEventListener('click', e => { e.stopPropagation(); if (getV() > 0) { setV(getV() - 1); valEl.textContent = getV() + '日'; } });
-      inc.addEventListener('click', e => { e.stopPropagation(); if (getV() < 7) { setV(getV() + 1); valEl.textContent = getV() + '日'; } });
-      row.appendChild(l); row.appendChild(dec); row.appendChild(valEl); row.appendChild(inc);
-      return row;
-    };
-    sec.appendChild(mkStp('過去', () => curPast, v => { curPast = v; }));
-    sec.appendChild(mkStp('未来', () => curFuture, v => { curFuture = v; }));
-    const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer;margin-top:4px;display:block';
-    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.pastDays = curPast; col.futureDays = curFuture; _save(); _renderTable(currentView); closeThDropdown(); });
-    sec.appendChild(saveBtn);
-    dd.appendChild(sec);
-  } else if (col.type === 'number') {
-    const sec = _mkSec('単位');
-    const inp = document.createElement('input'); inp.type = 'text'; inp.value = col.unit || '';
-    inp.placeholder = '例: 回、分、kg';
-    inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:4px 8px;outline:none;margin-bottom:6px';
-    const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer';
-    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.unit = inp.value.trim(); _save(); _renderTable(currentView); closeThDropdown(); });
-    sec.appendChild(inp); sec.appendChild(saveBtn);
-    dd.appendChild(sec);
-  }
+  // ── 並べ替え ──
+  const sortSec = document.createElement('div');
+  sortSec.style.cssText = 'padding:4px 6px';
+  [['↑ 昇順に並べる', true], ['↓ 降順に並べる', false]].forEach(([lbl, asc]) => {
+    const b = document.createElement('button'); b.textContent = lbl; b.style.cssText = _actS;
+    if (_cvSortColId === col.id && _cvSortAsc === asc) b.style.color = 'var(--accent)';
+    b.addEventListener('click', e => { e.stopPropagation(); _cvSortColId = col.id; _cvSortAsc = asc; _cvSortStd = _stdSortSig(); _applyCvSort(currentView); closeThDropdown(); });
+    sortSec.appendChild(b);
+  });
+  dd.appendChild(sortSec);
 
   // ── フィルター ──
   if (FILTERABLE_TYPES.has(col.type)) {
@@ -2253,46 +2272,14 @@ function openThDropdown(btn, view, col) {
     dd.appendChild(sec);
   }
 
-  // ── 操作 ──
+  // ── 名前・選択肢を直す（✎。非表示にするのもここから）──
   const actSec = document.createElement('div');
   actSec.style.cssText = 'padding:4px 6px;border-top:1px solid var(--border)';
-  const renameBtn = document.createElement('button');
-  renameBtn.innerHTML = '📝 列名を変更';
-  renameBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)';
-  renameBtn.addEventListener('click', () => { const n = prompt('新しい列名:', col.label); if (n && n.trim()) { col.label = n.trim(); _save(); _renderTable(currentView); } closeThDropdown(); });
-  const _actS = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;';
-  actSec.appendChild(renameBtn);
-  // リストの列 → 共有列にする（マスター・他のリストでも使えるようにする）
-  if (!col.shared && !currentView.isMaster) {
-    const shareBtn = document.createElement('button');
-    shareBtn.textContent = T('cv.makeShared', '🔗 共有列にする（マスター・他のリストでも使う）');
-    shareBtn.style.cssText = _actS + 'color:var(--accent)';
-    shareBtn.addEventListener('click', () => { closeThDropdown(); window._cvShareCol(currentView.id, col.id); });
-    actSec.appendChild(shareBtn);
-  }
-  const delBtn = document.createElement('button');
-  if (col.shared) {
-    // 共有列は「外す」だけ。値（動画の cf）も定義も消さない。
-    delBtn.textContent = currentView.isMaster ? T('cv.unlinkMaster', '➖ マスターから外す') : T('cv.unlinkList', '➖ このリストから外す');
-    delBtn.style.cssText = _actS + 'color:var(--text2)';
-    delBtn.addEventListener('click', () => {
-      if (confirm(`列「${col.label}」を${currentView.isMaster ? 'マスター' : 'このリスト'}から外しますか？\n入力した値は消えません。「＋ 列を追加」からいつでも戻せます。`)) {
-        const idx = currentView.columns.indexOf(col);
-        if (idx >= 0) currentView.columns.splice(idx, 1);
-        clearFilter(currentView.id, col.id);
-        _save(); _renderTable(currentView);
-      }
-      closeThDropdown();
-    });
-  } else {
-    delBtn.innerHTML = '🗑 列を削除';
-    delBtn.style.cssText = _actS + 'color:#e53e3e';
-    delBtn.addEventListener('click', () => {
-      if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = currentView.columns.indexOf(col); if (idx >= 0) currentView.columns.splice(idx, 1); Object.keys(currentView.rowData).forEach(vid => delete currentView.rowData[vid][col.id]); _save(); _renderTable(currentView); }
-      closeThDropdown();
-    });
-  }
-  actSec.appendChild(delBtn);
+  const editBtn = document.createElement('button');
+  editBtn.textContent = '✎ 名前・選択肢を直す';
+  editBtn.style.cssText = _actS;
+  editBtn.addEventListener('click', e => { e.stopPropagation(); closeThDropdown(); window._cvOpenColEdit(currentView.id, col.id); });
+  actSec.appendChild(editBtn);
   dd.appendChild(actSec);
 
   // ── 位置決め ──
@@ -2351,31 +2338,8 @@ function openAddColModal(viewId) {
   if (newLabel) newLabel.value = '';
   const extraConfig = document.getElementById('cv-extra-config');
   if (extraConfig) extraConfig.innerHTML = '';
-  _renderSharedPick(viewId);
   const modal = document.getElementById('cv-add-col-modal');
   if (modal) modal.style.display = 'flex';
-}
-
-// 「列を追加」: 既にある共有列を選んで足す欄 ＋ 新しい列を共有列にするかの選択
-function _renderSharedPick(viewId) {
-  const view = _findView(viewId);
-  const pick = document.getElementById('cv-shared-pick');
-  if (!pick) return;
-  const have = new Set((view?.columns || []).map(c => c.id));
-  const avail = _shared.cols.filter(d => !have.has(d.id));
-  // まだ共有列になっていない、リストだけの列（v52.886 以前に作った列）
-  const nLocal = _views.reduce((n, v) => n + (v.columns || []).filter(c => c && !c.shared && c.type).length, 0);
-  const unifyHtml = nLocal ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.5">
-      まだ共有列になっていない列が ${nLocal}個 あります。
-      <button type="button" onclick="window._cvUnifyAllCols()" style="display:block;margin-top:6px;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent);cursor:pointer">🔗 すべて共有列にまとめる</button>
-    </div>` : '';
-  if (!avail.length) { pick.style.display = unifyHtml ? '' : 'none'; pick.innerHTML = unifyHtml; return; }
-  const icon = t => (TYPE_DEFS.find(d => d.type === t) || {}).icon || '';
-  pick.style.display = '';
-  pick.innerHTML = unifyHtml + `<div class="cv-modal-label">${_esc(T('cv.pickShared', '共有列から追加'))}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px">` +
-    avail.map(d => `<button type="button" class="cv-type-btn" style="width:auto;flex:0 0 auto" onclick="window._cvAddSharedCol('${_esc(viewId)}','${_esc(d.id)}')"><span class="cv-type-icon">${_esc(icon(d.type))}</span>🔗 ${_esc(d.label || '')}</button>`).join('') +
-    `</div><div class="cv-modal-label" style="margin-bottom:4px">${_esc(T('cv.orNewCol', 'または新しい列を作る'))}</div>`;
 }
 
 // 共有列を、このリスト/マスターに足す（参照を足すだけ）
@@ -2387,6 +2351,7 @@ window._cvAddSharedCol = function(viewId, colId) {
   _save();
   window.cvCloseAddColModal();
   _renderTable(view);
+  _cvRedrawColMenu();
 };
 
 // ── 既存の列を、すべて共有列にまとめる（v52.887）──
@@ -2447,7 +2412,17 @@ function _unifyPlan() {
 }
 window._cvUnifyPlan = () => _unifyPlan().map(p => ({ label: p.label, type: p.type, id: p.id, lists: p.lists,
   values: p.vals.size, conflicts: p.conflicts, missing: p.missing, cols: p.items.length }));
-window._cvUnifyAllCols = function(skipConfirm) {
+// 読み込み直後に1回だけ（firebase.js の loadUserSettings の最後から）。前の版で作った
+// 「リストだけの列」を全部カスタム列にまとめる（v52.887・オーナー決定: 値は入れていないので全部まとめてよい）。
+// 元の値・元の列は各リストに残す。id は種類と名前から決まるので、2台で走っても同じ列になる。
+window._cvAutoUnify = function() {
+  try {
+    const n = window._cvUnifyAllCols(true, true);
+    if (n) console.log('[cvUnify] リストだけの列をカスタム列にまとめました:', n);
+    return n;
+  } catch (e) { console.error('[cvUnify] まとめに失敗（何も変えていません）', e); return 0; }
+};
+window._cvUnifyAllCols = function(skipConfirm, quiet) {
   const plans = _unifyPlan();
   if (!plans.length) return 0;
   const tl = t => (TYPE_DEFS.find(d => d.type === t) || {}).label || t;
@@ -2490,7 +2465,7 @@ window._cvUnifyAllCols = function(skipConfirm) {
   _save();
   if (wroteVideos) window.debounceSave?.();
   window.cvCloseAddColModal?.();
-  if (typeof window.toast === 'function') window.toast(`🔗 ${plans.length}個の共有列にまとめました`);
+  if (!quiet && typeof window.toast === 'function') window.toast(`${plans.length}個のカスタム列にまとめました`);
   const cur = _activeTableView(); if (cur) _renderTable(cur);
   return plans.length;
 };
@@ -2620,8 +2595,8 @@ window.cvCloseAddColModal = function() {
     modal.style.display = 'none';
     const h2 = modal.querySelector('h2');
     const btn = modal.querySelector('.cv-btn-primary');
-    if (h2) h2.textContent = '列を追加';
-    if (btn) btn.textContent = '追加する';
+    if (h2) h2.textContent = 'カスタム列を作る';
+    if (btn) btn.textContent = '作る';
   }
   _selectedType = null;
 };
@@ -2646,10 +2621,12 @@ window.cvConfirmAddCol = function() {
       def.unit = unitEl ? unitEl.value.trim() : '';
     }
     _shared.cols.push(def);
-    view.columns.push(_mkRef({ id: def.id }));
+    view.columns.push(_mkRef({ id: def.id }));   // 今の表にはチェック済みで出す。ほかの表は列設定に並ぶだけ
     _save();
     window.cvCloseAddColModal();
     _renderTable(view);
+    _cvRedrawColMenu();
+    if (typeof window.toast === 'function') window.toast(`カスタム列「${label}」を作りました。ほかのリストでも列設定から出せます`);
     return;
   }
 };
@@ -2955,6 +2932,7 @@ function buildProgressFilterUI(popup, view, col, f) {
 function _applyCvSort(view) {
   const tbody = document.getElementById('orgList');
   if (!tbody) return;
+  if (_cvSortColId && _cvSortStd !== _stdSortSig()) _cvSortColId = null; // 標準の並べ替えが選ばれた
   // sort indicator sync
   document.querySelectorAll('.cv-custom-th').forEach(th => {
     const ind = th.querySelector('.cv-sort-ind');
@@ -3450,140 +3428,116 @@ window.cvMoveCol = function(colId, dir) {
 // カスタムビュー中は標準列+カスタム列を一本のリストで表示
 window._cvGetColMenuSection = function() { return null; }; // 統合メニューで置き換え済み
 
-// 統合列メニューで「表示中」として並ぶ列のid（メニューの描画順＝ドラッグ対象の順）
+// 列設定の一覧に並ぶ列のid（描画順＝ドラッグ対象の順）。チェックの有無に関係なく全部並ぶ。
+//   標準列: 表に出せない列（空いたタグの枠・v52.876 で無くなった列）は出さない。位置は動かさない
+//   カスタム列: 非表示にした列（def.off）は一番下の「非表示の列」に回す
 function _cvVisibleUnifiedIds() {
   const view = _activeTableView();
-  if (!view || !Array.isArray(view.unifiedOrder)) return null;
-  const stdVis = window.orgColVisibility || {};
+  if (!view) return null;
+  _ensureUnifiedOrder(view);
+  if (!Array.isArray(view.unifiedOrder)) return null;
   return view.unifiedOrder.filter(id => {
     if (_isCustomColId(id)) {
-      const col = (view.columns || []).find(c => c.id === id);
-      return col && !col.hidden;
+      const ref = (view.columns || []).find(c => c.id === id);
+      if (_isSharedId(id)) { const d = _shDef(id); return !!d && !d.off; }
+      return !!(ref && ref.type);
     }
-    // 表に出ない標準列（空いたタグの枠・v52.876 で無くなった列）はメニューにも出さない。位置は動かさない
-    return stdVis[id] !== false && (window._orgColShown ? window._orgColShown(id) : true);
+    return window._orgColShown ? window._orgColShown(id) : true;
   });
+}
+// その表に出しているか（チェックの状態）
+function _cvColChecked(view, id) {
+  if (_isCustomColId(id)) { const ref = (view.columns || []).find(c => c.id === id); return !!(ref && !ref.hidden); }
+  return (window.orgColVisibility || {})[id] !== false;
 }
 
 window._cvGetUnifiedMenuHTML = function() {
   const view = _activeTableView();
   if (!view) return null;
-  _ensureUnifiedOrder(view);
-
-  const stdVis = window.orgColVisibility || {};
-  const order  = view.unifiedOrder;
-
-  // 表示中の列（DOM上に存在する列）
-  const visOrder = _cvVisibleUnifiedIds() || [];
-
-  // 非表示の列
-  const hiddenIds = order.filter(id => {
-    if (_isCustomColId(id)) {
-      const col = view.columns.find(c => c.id === id);
-      return col && col.hidden;
-    }
-    return stdVis[id] === false && (window._orgColShown ? window._orgColShown(id) : true);
-  });
-
-  const _btnS = `background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center`;
-  const _cbS  = `accent-color:var(--accent);width:14px;height:14px`;
-
-  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（ドラッグ / ↑↓で並替え）</div>';
-
-  visOrder.forEach((id, i) => {
-    const isCv   = _isCustomColId(id);
-    const label  = isCv ? (view.columns.find(c => c.id === id)?.label || id) : _cvColLabel(id);
-    const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">${_isSharedId(id) ? '🔗 共有' : 'カスタム'}</span>` : '';
-    const disUp  = i === 0 ? 'disabled' : '';
-    const disDown= i === visOrder.length - 1 ? 'disabled' : '';
+  const ids = _cvVisibleUnifiedIds() || [];
+  const tname = view.isMaster ? T('cv.master', 'マスター') : (view.label || '');
+  let html = `<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列 — <span data-user-text="1">${_esc(tname)}</span>（⠿ をつかんで並べ替え）</div>`;
+  ids.forEach(id => {
+    const isCv  = _isCustomColId(id);
+    const col   = isCv ? ((view.columns || []).find(c => c.id === id) || _shDef(id)) : null;
+    const label = isCv ? (col?.label || id) : _cvColLabel(id);
+    const tdef  = isCv ? TYPE_DEFS.find(d => d.type === col?.type) : null;
     html += `
-      <div class="cv-colmenu-row" data-cv-sort="unifiedcols" data-cv-id="${id}">
-        <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
-        <button onclick="window._cvUnifiedMoveCol('${id}',-1)" style="${_btnS};opacity:${disUp?'.2':'1'}" ${disUp}>▲</button>
-        <button onclick="window._cvUnifiedMoveCol('${id}',1)"  style="${_btnS};opacity:${disDown?'.2':'1'}" ${disDown}>▼</button>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
-          <input type="checkbox" checked onchange="window._cvUnifiedSetVis('${id}',this.checked)" style="${_cbS}">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}${badge}</span>
+      <div class="cv-colmenu-row" data-cv-sort="unifiedcols" data-cv-id="${_esc(id)}">
+        <div class="cv-drag-handle" title="つかんで並べ替え"></div>
+        <label class="cv-col-lbl">
+          <input type="checkbox" ${_cvColChecked(view, id) ? 'checked' : ''} onchange="window._cvUnifiedSetVis('${_esc(id)}',this.checked)">
+          ${_colIconHTML(id, col)}<span class="cv-col-name" data-user-text="1">${_esc(label)}</span>${isCv ? '<em class="cv-cbadge">カスタム</em>' : ''}
         </label>
+        ${isCv ? `<span class="cv-col-type">${_esc(tdef ? tdef.label : '')}</span><button class="cv-col-edit" title="名前・選択肢を直す" onclick="window._cvOpenColEdit('${_esc(view.id)}','${_esc(id)}')">✎</button>` : '<span class="cv-col-edit" style="visibility:hidden">✎</span>'}
       </div>`;
   });
-
-  if (hiddenIds.length) {
-    html += '<div style="height:1px;background:var(--border);margin:8px 0"></div>';
-    hiddenIds.forEach(id => {
-      const isCv  = _isCustomColId(id);
-      const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : _cvColLabel(id);
-      const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
-      html += `
-        <div class="cv-colmenu-row" style="opacity:.5">
-          <span style="min-width:96px"></span>
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
-            <input type="checkbox" onchange="window._cvUnifiedSetVis('${id}',this.checked)" style="${_cbS}">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}${badge}</span>
-          </label>
-        </div>`;
-    });
+  html += `<button class="cv-newcol" onclick="window.cvOpenAddCol('${_esc(view.id)}')">＋ カスタム列を作る</button>
+    <div class="cv-col-note">✎ が付いているのはカスタム列（自分で作った列）。どのリスト・マスターでも同じ列で、値も同じです。</div>`;
+  const off = _shared.cols.filter(d => d.off);
+  if (off.length) {
+    html += `<details class="cv-off" ${window._cvOffOpen ? 'open' : ''} ontoggle="window._cvOffOpen=this.open">
+      <summary>▸ 非表示の列（${off.length}）— 入力した値はそのまま残っています</summary>` +
+      off.map(d => `<div class="cv-off-row">${_colIconHTML(d.id, d)}<span class="cv-col-name" data-user-text="1">${_esc(d.label || '')}</span><button class="cv-off-back" onclick="window._cvSetColOff('${_esc(d.id)}',false)">表示する</button></div>`).join('') +
+      `</details>`;
   }
-
   return html;
 };
+function _cvRedrawColMenu() {
+  const panel = document.getElementById('org-col-menu-panel');
+  if (panel) panel.innerHTML = window._buildOrgColMenuHTML?.() || window._cvGetUnifiedMenuHTML() || '';
+}
 
-// 統合メニューから列を移動（表示中の列の中での前後移動）
+// 一覧の中で1つ前後へ動かす（画面のボタンは無い。ドラッグは _wkSortGroups.unifiedcols）
 window._cvUnifiedMoveCol = function(id, dir) {
   const view = _activeTableView();
   if (!view) return;
-  _ensureUnifiedOrder(view);
-
-  const stdVis = window.orgColVisibility || {};
-  const order  = view.unifiedOrder;
-
-  // 表示中の列インデックスで移動
-  const visIds = order.filter(oid => {
-    if (_isCustomColId(oid)) { const c = view.columns.find(cc => cc.id === oid); return c && !c.hidden; }
-    return stdVis[oid] !== false;
-  });
-  const visIdx = visIds.indexOf(id);
-  if (visIdx < 0) return;
-  const newVisIdx = visIdx + dir;
-  if (newVisIdx < 0 || newVisIdx >= visIds.length) return;
-
-  const targetId = visIds[newVisIdx];
-  const i = order.indexOf(id);
-  const j = order.indexOf(targetId);
-  if (i < 0 || j < 0) return;
-  [order[i], order[j]] = [order[j], order[i]];
-
-  // 標準列の並び順も同期
+  const ids = _cvVisibleUnifiedIds() || [];
+  const i = ids.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  const next = [...ids]; [next[i], next[j]] = [next[j], next[i]];
+  if (!window._cvFillVisibleSlots(view.unifiedOrder, ids, next)) return;
   _syncStdColOrder(view);
   _save();
   _reorderAllCols(view);
-
-  // モーダル内容を更新
-  const panel = document.getElementById('org-col-menu-panel');
-  if (panel) panel.innerHTML = window._cvGetUnifiedMenuHTML() || '';
+  _cvRedrawColMenu();
 };
 
-// 統合メニューから列の表示/非表示を切替
+// 列設定のチェック: この表に出す／出さない（値には触らない）
 window._cvUnifiedSetVis = function(id, visible) {
   const view = _activeTableView();
   if (!view) return;
-
   if (_isCustomColId(id)) {
-    const col = view.columns.find(c => c.id === id);
-    if (!col) return;
+    let col = (view.columns || []).find(c => c.id === id);
+    if (!col) {
+      if (!visible || !_shDef(id)) return;
+      col = _mkRef({ id });          // ほかの表で作ったカスタム列を、この表にも出す
+      view.columns.push(col);
+    }
     col.hidden = !visible;
     _save();
-    window._cvRerenderCur?.();
+    _renderTable(view);
   } else {
     window.orgColVisibility[id] = visible;
     view.colVis = { ...window.orgColVisibility };
     _save();
     window._saveOrgColPrefs?.();
-    window._cvRerenderCur?.();
+    _renderTable(view);
   }
-  // メニューパネルを即座に再描画（列が表示/非表示セクション間を移動するため）
-  const panel = document.getElementById('org-col-menu-panel');
-  if (panel) panel.innerHTML = window._cvGetUnifiedMenuHTML() || '';
+  _cvRedrawColMenu();
+};
+
+// 「この列を非表示にする」／「表示する」: 全部のリスト・マスターで見えなくする／戻す。値・各表のチェックには触らない
+window._cvSetColOff = function(id, off, quiet) {
+  const d = _shDef(id);
+  if (!d) return;
+  if (off) d.off = true; else delete d.off;
+  _save();
+  const cur = _activeTableView(); if (cur) _renderTable(cur);
+  _cvRedrawColMenu();
+  if (quiet || typeof window.toast !== 'function') return;
+  if (off && typeof window.toastUndo === 'function') window.toastUndo(`「${d.label}」を非表示にしました（値は残っています）`, () => window._cvSetColOff(id, false, true));
+  else window.toast(off ? `「${d.label}」を非表示にしました（値は残っています）` : `「${d.label}」を表示に戻しました`);
 };
 
 // orgMoveCol のカスタムビュー文脈での上書き
