@@ -8,6 +8,9 @@
 //  ⑤ サムネ（img）と data-emb を書き換えない（動画パネル・サムネの読み込み直しがそれを読む）
 //  ⑥ 動画のデータ（window.videos）を1文字も変えない
 //  ⑦ まとめて選ぶモードでは開かない
+//  ⑧ サムネが狭い（スマホ）ときはプレビュー中だけカード幅に広げ、閉じると戻る。広い（PC）ときは広げない
+//  ⑨ Drive は上の黒い帯を隠す形（.gd）で重ねる
+//  ⑩ ボタンは見た目より広く押せる（ボタンの少し外を押してもプレビューになり、動画パネルは開かない）
 //
 // 使い方: node tools/card-preview-check.mjs   終了コード: 0 = 期待どおり / 1 = ずれあり
 import http from 'http';
@@ -107,6 +110,37 @@ ok(await page.evaluate(() => JSON.stringify(window.videos) === window.__before),
 console.log('⑦ まとめて選ぶモードでは開かない');
 await page.evaluate(id => { window.bulkMode = true; window.wkCardPreview(id); }, yt[0].id);
 ok(await page.$$eval('.card-pv-layer', l => l.length) === 0, 'bulkMode では重ねない');
+
+console.log('⑧ スマホではカード幅に広げる');
+await page.evaluate(() => { window.bulkMode = false; window.opened = []; });
+const w0 = await page.$eval(`#thumb-${yt[0].id}`, e => e.clientWidth);
+await page.click(`#card-${yt[0].id} .card-pv-btn`);
+const w1 = await page.$eval(`#thumb-${yt[0].id}`, e => e.clientWidth);
+const cw = await page.$eval(`#card-${yt[0].id}`, e => e.clientWidth);
+ok(w0 < 320 && w1 > w0 && w1 >= cw * 0.9, `サムネ ${w0}px → プレビュー中 ${w1}px（カード ${cw}px）`);
+const h1 = await page.$eval(`#thumb-${yt[0].id}`, e => e.clientHeight);
+ok(Math.abs(h1 - w1 * 9 / 16) <= 2, `16:9 で出る（高さ ${h1}px）`);
+await page.click(`#thumb-${yt[0].id} .card-pv-close`);
+ok(await page.$eval(`#thumb-${yt[0].id}`, e => e.clientWidth) === w0, '閉じると元の大きさ');
+await page.setViewportSize({ width: 1400, height: 900 });
+const wd = await page.$eval(`#thumb-${yt[0].id}`, e => e.clientWidth);
+await page.click(`#card-${yt[0].id} .card-pv-btn`);
+ok(!(await page.$eval(`#card-${yt[0].id}`, e => e.classList.contains('pv-wide'))) || wd < 320, `サムネが広い（${wd}px）ときは広げない`);
+await page.evaluate(() => window.wkCardPreviewStop());
+await page.setViewportSize({ width: 390, height: 900 });
+
+console.log('⑨ Drive');
+const gd = by('gd');
+await page.click(`#card-${gd.id} .card-pv-btn`);
+const gdTop = await page.$eval(`#thumb-${gd.id} .card-pv-layer`, l => l.classList.contains('gd') ? getComputedStyle(l.querySelector('iframe')).top : null);
+ok(gdTop && parseFloat(gdTop) < 0, `Drive は上へずらして帯を隠す（top ${gdTop}）`);
+await page.evaluate(() => window.wkCardPreviewStop());
+
+console.log('⑩ ボタンの少し外を押してもプレビュー');
+const bb = await page.$eval(`#card-${yt[1].id} .card-pv-btn`, b => { const r = b.getBoundingClientRect(); return { x: r.left, y: r.top, h: r.height }; });
+await page.mouse.click(bb.x - 6, bb.y - 5);
+ok(!!(await page.$(`#thumb-${yt[1].id} .card-pv-layer`)) && (await page.evaluate(() => window.opened.length)) === 0, 'ボタンの左上 6px 外を押してもプレビューになり、動画パネルは開かない');
+await page.evaluate(() => window.wkCardPreviewStop());
 
 ok(errs.length === 0, 'ページのエラーなし ' + (errs.join(' / ')));
 await browser.close(); srv.close();
