@@ -101,20 +101,7 @@
       if (excludeKey !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                         return false;
       if (!_tagOk(v)) return false;
       if (excludeKey !== 'videoIds' && f.videoIds?.size   && !f.videoIds.has(v.id)) return false;
-      const prRank = isOrg ? window.orgPrRank : window.prRank;
-      const prDate = isOrg ? window.orgPrDate : window.prDate;
-      if (excludeKey !== 'prRank' && prRank != null && window.vpCntRank) {
-        if (String(window.vpCntRank(v.practice).lv) !== String(prRank)) return false;
-      }
-      if (excludeKey !== 'prDate' && prDate) {
-        const lp = v.lastPracticed || 0;
-        const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-        if (prDate === 'week'    && !(lp && days <= 7))   return false;
-        if (prDate === 'month'   && !(lp && days <= 30))  return false;
-        if (prDate === 'quarter' && !(lp && days <= 90))  return false;
-        if (prDate === 'stale'   && !(lp && days > 90))   return false;
-        if (prDate === 'never'   && lp)                   return false;
-      }
+      // 進捗ランク・最終カウント日（古い練習回数）の絞り込みは v52.890 で廃止。保存済みの状態が残っていても効かせない
       return true;
     });
   }
@@ -319,8 +306,6 @@
     return (isOrg ? window.orgBmOnly   : window.bmOnly)   ||
            (isOrg ? window.orgMemoOnly : window.memoOnly) ||
            (isOrg ? window.orgImgOnly  : window.imgOnly)  ||
-           (isOrg ? window.orgPrRank   : window.prRank) != null ||
-           !!(isOrg ? window.orgPrDate : window.prDate)  ||
            ['platform','channel','playlist','videoIds'].some(k => f[k]?.size > 0) ||
            _TF().hasAny(f, _sch());
   }
@@ -456,9 +441,7 @@
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const stateN = ((isOrg ? window.orgBmOnly : window.bmOnly) ? 1 : 0)
       + ((isOrg ? window.orgMemoOnly : window.memoOnly) ? 1 : 0)
-      + ((isOrg ? window.orgImgOnly : window.imgOnly) ? 1 : 0)
-      + ((isOrg ? window.orgPrRank : window.prRank) != null ? 1 : 0)
-      + ((isOrg ? window.orgPrDate : window.prDate) ? 1 : 0);
+      + ((isOrg ? window.orgImgOnly : window.imgOnly) ? 1 : 0);
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
     const tagN = _TF().groups().reduce((n, g) => n + _TF().selected(f, g.id, isOrg ? 'org' : 'lib').size, 0);
     const vidN = f.videoIds?.size || 0;
@@ -493,7 +476,7 @@
     };
 
     if (_tab === 'state') {
-      // ══ 1列目: ブックマーク・メモ・画像 + 進捗ランク + 最終カウント日 (統合) ══
+      // ══ 1列目: ブックマーク・メモ・画像（進捗ランク・最終カウント日は v52.890 で廃止）══
       // マーク（★・Next・ドリル）と習得は v52.876 から普通のタググループ。タグのタブで絞る。
       const markItems = [
         { name:'📌 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),       key:'@bm'    },
@@ -501,33 +484,6 @@
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
 
-      const RANKS = window.RANK_DEFS || [];
-      const rankCtx = _ctxVideos('prRank');
-      const rankItems = RANKS.map(r => {
-        return { name: r.name, cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length, sel: (isOrg ? window.orgPrRank : window.prRank) === String(r.lv), key: String(r.lv) };
-      });
-
-      const pdBuckets = [
-        { name:'今週 (7日以内)',  k:'week'  },
-        { name:'今月 (30日以内)', k:'month' },
-        { name:'3ヶ月以内',      k:'quarter' },
-        { name:'それ以前',       k:'stale' },
-        { name:'未カウント',     k:'never' }
-      ];
-      const pdCtx = _ctxVideos('prDate');
-      const pdItems = pdBuckets.map(b => {
-        let c = 0;
-        for (const v of pdCtx) {
-          const lp = v.lastPracticed || 0;
-          const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-          if (b.k === 'week'    && lp && days <= 7)   c++;
-          else if (b.k === 'month'   && lp && days <= 30)  c++;
-          else if (b.k === 'quarter' && lp && days <= 90)  c++;
-          else if (b.k === 'stale'   && lp && days > 90)   c++;
-          else if (b.k === 'never'   && !lp)               c++;
-        }
-        return { name:b.name, cnt:c, sel: (isOrg ? window.orgPrDate : window.prDate) === b.k, key:b.k };
-      });
 
       const mkCol1 = () => {
         const grpLabel = s => `<div style="padding:6px 12px 2px;font-size:9px;font-weight:800;color:var(--accent);letter-spacing:.5px">${s}</div>`;
@@ -539,31 +495,8 @@
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('${r.key}','')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
         ).join('');
 
-        let rankArr = rankItems.slice();
-        if (_q) rankArr = rankArr.filter(r => r.name.toLowerCase().includes(_q));
-        rankArr = rankArr.filter(r => r.sel || r.cnt > 0);
-        const rankRows = rankArr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@rank','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
-        ).join('');
-
-        let pdArr = pdItems.slice();
-        if (_q) pdArr = pdArr.filter(r => r.name.toLowerCase().includes(_q));
-        pdArr = pdArr.filter(r => r.sel || r.cnt > 0);
-        const pdRows = pdArr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prD','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
-        ).join('');
-
-        // カウントの表示を切り替える設定（フィルター設定）は v52.882 で廃止。常に出す
-        const showRank   = true;
-
         const sections = [];
         if (markRows) sections.push(markRows);
-        if (showRank) {
-          sections.push(`${grpLabel('カウント（自動）')}${rankRows}`);
-          sections.push(`${grpLabel('最終カウント日')}${pdRows}`);
-        } else {
-          sections.push(`${grpLabel('最終カウント日')}${pdRows}`);
-        }
 
         const colHdr   = 'その他';
 
@@ -766,19 +699,9 @@
     const _bm    = isOrg ? window.orgBmOnly    : window.bmOnly;
     const _memo  = isOrg ? window.orgMemoOnly  : window.memoOnly;
     const _img   = isOrg ? window.orgImgOnly   : window.imgOnly;
-    const _prR   = isOrg ? window.orgPrRank    : window.prRank;
-    const _prD   = isOrg ? window.orgPrDate    : window.prDate;
     if (_bm)   pills.push(['@bm',   '📌 ブックマーク']);
     if (_memo) pills.push(['@memo', '💬 メモ']);
     if (_img)  pills.push(['@img',  '🖼 画像あり']);
-    if (_prR != null && window.RANK_DEFS) {
-      const r = window.RANK_DEFS[Number(_prR)];
-      if (r) pills.push(['@rank', r.name]);
-    }
-    if (_prD) {
-      const map = { week:'今週',month:'今月',quarter:'3ヶ月以内',stale:'それ以前',never:'未カウント' };
-      pills.push(['@prD', map[_prD] || _prD]);
-    }
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
@@ -903,8 +826,6 @@
     snap._watchedOnly = !!window.watchedOnly;
     snap._bmOnly = !!window.bmOnly;
     snap._memoOnly = !!window.memoOnly;
-    snap._prRank = window.prRank ?? null;
-    snap._prDate = window.prDate ?? null;
     snap.titleQ = _queries['video'] || '';
     return snap;
   }
@@ -939,8 +860,6 @@
     window.watchedOnly = !!snap._watchedOnly;
     window.bmOnly      = !!snap._bmOnly;
     window.memoOnly    = !!snap._memoOnly;
-    window.prRank = snap._prRank ?? null;
-    window.prDate = snap._prDate ?? null;
     _queries['video'] = snap.titleQ || '';
     window.AF?.();
   }
@@ -1028,16 +947,6 @@
     if (key === '@bm')   { isOrg ? window.togOrgBm?.()      : window.togBm?.();      _render(); return; }
     if (key === '@memo') { isOrg ? window.togOrgMemo?.()    : window.togMemo?.();    _render(); return; }
     if (key === '@img')   { isOrg ? window.togOrgImg?.()    : window.togImg?.();     _render(); return; }
-    if (key === '@rank') {
-      if (isOrg) { window.orgPrRank = (String(window.orgPrRank) === String(val)) ? null : String(val); }
-      else       { window.prRank    = (String(window.prRank)    === String(val)) ? null : String(val); }
-      refresh(); _render(); return;
-    }
-    if (key === '@prD') {
-      if (isOrg) { window.orgPrDate = (window.orgPrDate === val) ? null : val; }
-      else       { window.prDate    = (window.prDate    === val) ? null : val; }
-      refresh(); _render(); return;
-    }
     // Set系（タグの呼び名なら、古い呼び名に入っていた分も寄せてから切り替える）
     const _g = _TF().gidForKey(key, _sch());
     const set = _g ? _TF().setFor(f, _g, _sch()) : (f[key] || (f[key] = new Set()));

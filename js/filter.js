@@ -271,20 +271,7 @@ function _libConds(parsed, tagOk) {
     { name: 'ブックマークがあるものだけ', ok: v => !(window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) },
     { name: 'メモがあるものだけ',      ok: v => !(window.memoOnly && !v.memo) },
     { name: '画像があるものだけ',      ok: v => !(window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) },
-    { name: '進捗ランク', ok: v => {
-        if (window.prRank == null || !window.vpCntRank) return true;
-        return String(window.vpCntRank(v.practice).lv) === String(window.prRank);
-      } },
-    { name: '練習した時期', ok: v => {
-        if (!window.prDate) return true;
-        const lp = v.lastPracticed || 0;
-        const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-        if (window.prDate === 'week')  return !!(lp && days <= 7);
-        if (window.prDate === 'month') return !!(lp && days <= 30);
-        if (window.prDate === 'stale') return !!(lp && days > 30);
-        if (window.prDate === 'never') return !lp;
-        return true;
-      } },
+    // 「進捗ランク」「練習した時期」（古い練習回数の絞り込み）は v52.890 で廃止。保存済みの状態が残っていても効かせない
     { name: 'ソース（YouTube/Drive等）', ok: v => !(F().platform.size && !F().platform.has(v.pt)) },
     { name: 'ワード検索',              ok: v => _matchQuery(v, parsed, null) },
     { name: 'プレイリスト',            ok: v => !(F().playlist.size && !F().playlist.has(v.pl)) },

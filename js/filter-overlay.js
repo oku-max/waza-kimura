@@ -225,11 +225,6 @@ function _sbContextVideos(filterKey, f) {
     if (!_tagOk(v)) return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     // org固有フィルター（Library側では該当Setが空なので無影響）
-    if (filterKey !== 'counter'      && f?.counter?.size) {
-      const _pc = v.practice || 0;
-      const _cv = _pc === 0 ? '未練習' : _pc <= 3 ? '1〜3回' : _pc <= 10 ? '4〜10回' : '11回以上';
-      if (!f.counter.has(_cv)) return false;
-    }
     if (filterKey !== 'memo'         && f?.memo?.size         && !f.memo.has(v.memo ? 'あり' : 'なし'))                  return false;
     if (filterKey !== 'addedAtFilter'&& f?.addedAtFilter?.size) {
       const _d = v.addedAt ? new Date(v.addedAt) : null;
@@ -266,7 +261,7 @@ function _sbPickerRenderList(containerId, filterKey, q) {
 
   // 件数を出すときに効いている条件（_sbContextVideos と同じもの）がほかにあるか。
   // タグはどの呼び名で入っていても数える（以前は古い呼び名だけ見ていて、絞っているのに「全チャンネル」と出ていた）
-  const hasOtherFilter = ['platform','channel','playlist','prio','counter','memo','addedAtFilter','durationFilter']
+  const hasOtherFilter = ['platform','channel','playlist','prio','memo','addedAtFilter','durationFilter']
     .some(k => k !== filterKey && f?.[k]?.size > 0) || !!window.tagFilter?.hasAny(f, 'lib');
   const secLabel = filterKey === 'channel'
     ? (hasOtherFilter ? `絞り込み結果のチャンネル (${allItems.length}件)` : '全チャンネル')

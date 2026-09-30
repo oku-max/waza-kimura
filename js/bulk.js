@@ -26,30 +26,9 @@ export function buildBulkDrawerHTML() {
   const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // ── カウント section ──
-  // お気に入り・Next・習得度の欄は v52.876 で廃止（普通のタグになり、下のタグの欄で付け外しする）
-  const p = (() => { const vals = selVids.map(v=>v.practice||0); return vals.every(v=>v===vals[0]) ? vals[0]+'回' : '（複数）'; })();
-  const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
-  const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
-  const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
-  // カウントの表示を切り替える設定（フィルター設定）は v52.882 で廃止。常に出す
-  const _showRank   = true;
-
-  const _cntSec = _showRank ? `
-      <div style="flex:1;min-width:0">
-        <div style="${subTitle}">カウント</div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button onclick="bvpBumpCounter(-1)" style="${btnS}">−</button>
-          <span id="bvp-counter-label" style="font-size:18px;font-weight:800;color:#e8590c;min-width:28px;text-align:center;font-variant-numeric:tabular-nums">${p}</span>
-          <button onclick="bvpBumpCounter(1)" style="${btnP}">＋</button>
-          <button onclick="bvpResetCounter()" class="chip" style="cursor:pointer;font-size:10px;color:var(--text3)">0にリセット</button>
-        </div>
-      </div>` : '';
-  const markSec = _cntSec ? `<div class="fsec">
-    <div style="display:flex;gap:14px;align-items:flex-start">
-      ${_cntSec}
-    </div>
-  </div>` : '';
+  // 練習回数（カウント）の欄は v52.890 で廃止（オーナー「古い、使ってない」）。数えるのはカスタム列の「± カウンター」。
+  // 保存済みの v.practice は消さない（読まない・書かないだけ）。
+  const markSec = '';
 
   // ── チャンネル・プレイリスト section ──
   const commonCh = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
@@ -279,37 +258,6 @@ export function bvpToggleWatch(el) {
 
 
 
-export function bvpBumpCounter(delta) {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
-  vids.forEach(v => {
-    v.practice = Math.max(0, (v.practice||0) + delta);
-    if(delta > 0) v.lastPracticed = new Date().toISOString().slice(0,10);
-  });
-  // ラベル更新
-  const lbl = document.getElementById('bvp-counter-label');
-  if(lbl){
-    const vals = vids.map(v=>v.practice||0);
-    const allSame = vals.every(v=>v===vals[0]);
-    lbl.textContent = allSame ? vals[0]+'回' : '（複数）';
-  }
-  window.toastUndo?.((window.selIds||new Set()).size+'本の練習回数を'+(delta>0?'+':'')+ delta, bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpResetCounter() {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
-  vids.forEach(v => { v.practice = 0; });
-  const lbl = document.getElementById('bvp-counter-label');
-  if(lbl) lbl.textContent = '0回';
-  window.toastUndo?.((window.selIds||new Set()).size+'本の練習回数をリセット', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
 
 // ── 一括 V4タグ操作 (VPanel v4と同じ構造) ──
 
@@ -709,8 +657,6 @@ window.closeBulkVPanel = closeBulkVPanel;
 window.buildBulkDrawerHTML = buildBulkDrawerHTML;
 window.bvpSet = bvpSet;
 window.bvpToggleWatch = bvpToggleWatch;
-window.bvpBumpCounter = bvpBumpCounter;
-window.bvpResetCounter = bvpResetCounter;
 window.bvpChSuggest = bvpChSuggest;
 window.bvpSetChannel = bvpSetChannel;
 window.bvpPlSuggest = bvpPlSuggest;

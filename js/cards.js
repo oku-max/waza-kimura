@@ -139,13 +139,8 @@ export function cardHTML(v) {
   // 旧「💬 一言解説」の表示は廃止（2026-09-20）。AI要約をやめたので更新されない。
   // データ（v.aiDesc）は消していないので、出したくなれば1行で戻せる。
   const aiDescLine = '';
-  // カウンターバッジ (B案: 下段インライン)
-  const _pc = v.practice || 0;
-  const _ago = v.lastPracticed ? (window.vpCntFormatAgo?.( v.lastPracticed) || '') : '';
-  const cntBadges = showRank ? `<div class="card-cnt" style="display:flex;gap:10px;padding:5px 10px 7px;font-size:10px;font-weight:700;align-items:center;line-height:1">
-    <span style="display:inline-flex;align-items:center;gap:3px;color:${_pc>0?'#e8590c':'var(--text3)'};${_pc===0?'opacity:.55':''}">🥋 ${_pc||'未'}</span>
-    <span style="margin-left:auto;font-size:9px;color:var(--text3);font-weight:600">${_ago||'—'}</span>
-  </div>` : '';
+  // 練習回数のバッジは v52.890 で廃止（古いカウンター。数えるのはカスタム列の「± カウンター」）
+  const cntBadges = '';
   const vDot = v.verified ? '<div class="verify-dot verified"></div>'
              : v.ai       ? '<div class="verify-dot ai-unverified"></div>' : '';
   const btnMemo = `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>`;

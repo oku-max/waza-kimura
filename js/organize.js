@@ -11,8 +11,8 @@ export let orgFilters = {
 export let orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 export let orgMemoSearch = ''; export let orgChannelSearch = ''; export let orgPlaylistSearch = '';
 export let orgPrRank = null, orgPrDate = null;
-const _ORG_DEFAULT_ORDER = ['tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
-const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, duration: true};
+const _ORG_DEFAULT_ORDER = ['tb', 'action', 'position', 'technique', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, playlist: true, memo: true, addedAt: true, duration: true};
 const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
@@ -57,7 +57,7 @@ function _saveOrgColPrefs() {
   buildOrgTblSortOptions();
 }
 
-const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','counter','channel','playlist','addedAt','duration','lastPlayed']);
+const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','channel','playlist','addedAt','duration','lastPlayed']);
 function _syncOrgTblSortUI() {
   const sel = document.getElementById('org-tbl-sort-key');
   const btn = document.getElementById('org-tbl-sort-dir');
@@ -104,7 +104,8 @@ const _orgTagVals = (v, g) => (window.tagRegistry ? window.tagRegistry.valuesOf(
 // v52.876 でマーク・習得を普通のタググループにしたので、専用の列（★・Next・ドリル・習得）は無くなった。
 // 保存済みの列の並び・表示（この端末・クラウド・カスタムリストごと）には名前が残っているが、書き換えずに出さないだけにする。
 // 見たいときは、タグ設定でマーク・習得をタグ1〜4の枠に入れる（タグの列として出る）。
-const _ORG_GONE_COLS = new Set(['fav', 'next', 'drill', 'status']);
+// counter（練習回数「カウント」）は v52.890 で廃止（オーナー「古い、使ってない」）。数えるのはカスタム列の「± カウンター」
+const _ORG_GONE_COLS = new Set(['fav', 'next', 'drill', 'status', 'counter']);
 // 列を出すか（タグの列: 枠が埋まっていて、そのグループが非表示でない。もう無い列は出さない。ほかの列は常に true）
 function _orgTagColShown(col) {
   if (_ORG_GONE_COLS.has(col)) return false;
@@ -566,25 +567,9 @@ export function orgFilt(list) {
       if (adv.status === 'memo'    && !v.memo) return false;
     }
     if (orgFilters.playlist.size && !_matchFilt(orgFilters.playlist, v.pl ? [v.pl] : [])) return false;
-    if (orgFilters.counter.size) {
-      const pc = v.practice || 0;
-      const cVal = pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上';
-      if (!orgFilters.counter.has(cVal)) return false;
-    }
     if (!_tagOk(v)) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
-    // 練習ランク / 最終練習日
-    if (orgPrRank != null && window.vpCntRank) {
-      if (String(window.vpCntRank(v.practice).lv) !== String(orgPrRank)) return false;
-    }
-    if (orgPrDate) {
-      const lp = v.lastPracticed || 0;
-      const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-      if (orgPrDate === 'week'  && !(lp && days <= 7))  return false;
-      if (orgPrDate === 'month' && !(lp && days <= 30)) return false;
-      if (orgPrDate === 'stale' && !(lp && days > 30))  return false;
-      if (orgPrDate === 'never' && lp)                  return false;
-    }
+    // 練習ランク / 最終練習日の絞り込みは v52.890 で廃止（古い練習回数）。保存済みの状態が残っていても効かせない
     if (orgFilters.memo.size) {
       const memoVal = v.memo ? 'あり' : 'なし';
       if (!orgFilters.memo.has(memoVal)) return false;
@@ -700,7 +685,7 @@ function _updateOrgResetBtn() {
   if (!btn) return;
   const active = Object.values(orgFilters).some(s => s.size > 0)
     || orgUnwOnly || orgWatchedOnly
-    || orgBmOnly || orgMemoOnly || orgImgOnly || orgPrRank || orgPrDate;
+    || orgBmOnly || orgMemoOnly || orgImgOnly;
   btn.style.display = active ? 'inline-block' : 'none';
 }
 
@@ -769,15 +754,12 @@ export function renderOrg() {
     if (orgSortCol === 'title')    { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
     else if (orgSortCol === 'channel')   { av = (a.ch||'').toLowerCase(); bv = (b.ch||'').toLowerCase(); }
     else if (orgSortCol === 'playlist')  { av = (a.pl||'').toLowerCase(); bv = (b.pl||'').toLowerCase(); }
-    else if (orgSortCol === 'counter')   { av=a.practice||0; bv=b.practice||0; }
     else if (orgSortCol === 'addedAt')   { av = a.addedAt||''; bv = b.addedAt||''; }
     else if (orgSortCol === 'duration')  { av = a.duration||0; bv = b.duration||0; }
     else if (_isOrgTagCol(orgSortCol))  { const g = _orgSlotGroup(orgSortCol); av = g ? _orgTagVals(a, g).join() : ''; bv = g ? _orgTagVals(b, g).join() : ''; }
     else if (orgSortCol === 'lastPlayed')    { av=a.lastPlayed||0; bv=b.lastPlayed||0; }
     else if (orgSortCol === 'playCount')     { av=a.playCount||0; bv=b.playCount||0; }
-    else if (orgSortCol === 'practice')      { av=a.practice||0; bv=b.practice||0; }
     else if (orgSortCol === 'views')         { av=a.views||0; bv=b.views||0; }
-    else if (orgSortCol === 'lastPracticed') { av=a.lastPracticed||0; bv=b.lastPracticed||0; }
     else return 0;
     if (av < bv) return orgSortAsc ? -1 : 1;
     if (av > bv) return orgSortAsc ? 1 : -1;
@@ -838,15 +820,6 @@ export function renderOrg() {
     const scrollCells = visCols.map(col => {
       if (_isOrgTagCol(col)) { const g = _orgSlotGroup(col); return mkTagCell(g ? _orgTagVals(v, g) : [], null, col); }
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
-      if (col === 'counter') {
-        const pc = v.practice || 0;
-        const ago = v.lastPracticed ? (window.vpCntFormatAgo?.(v.lastPracticed) || '') : '';
-        return `<td class="org-td" data-col="counter" style="white-space:nowrap">
-          <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700">
-            <span style="color:${pc > 0 ? '#e8590c' : 'var(--text3)'};${pc === 0 ? 'opacity:.55' : ''}">${pc || '未'}</span>
-            <span style="font-size:9px;color:var(--text3);font-weight:600">${ago || '—'}</span>
-          </div></td>`;
-      }
       if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
       if (col === 'addedAt') {
@@ -1490,11 +1463,6 @@ function _handleInlineTrigger(e) {
   const videoId = tr.id.replace('org-row-', '');
   e.preventDefault?.();
   e.stopPropagation?.();
-  // counter列: ダブルクリック/ロングプレスで練習+1
-  if (col === 'counter') {
-    _orgBumpPractice(videoId, td);
-    return;
-  }
   if (!_inlineCfg(col)) return;
   _openOrgInlineEditor(videoId, col, td);
 }
@@ -1742,25 +1710,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && _orgInlineActive) _closeOrgInlineEditor(false);
 });
 
-// ── Counter: 練習カウント+1 ──
-function _orgBumpPractice(videoId, td) {
-  const v = (window.videos || []).find(x => x.id === videoId);
-  if (!v) return;
-  v.practice = (v.practice || 0) + 1;
-  v.lastPracticed = Date.now();
-  // セルを即時更新
-  const ago = window.vpCntFormatAgo?.(v.lastPracticed) || '';
-  td.innerHTML = `<div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700">
-    <span style="color:#e8590c">${v.practice}</span>
-    <span style="font-size:9px;color:var(--text3);font-weight:600">${ago || '—'}</span>
-  </div>`;
-  // 短いフラッシュで視覚フィードバック
-  td.style.transition = 'background .15s';
-  td.style.background = 'rgba(232,89,12,.12)';
-  setTimeout(() => { td.style.background = ''; }, 400);
-  window.AF?.();
-  window.toast?.(`🥋 練習 ${v.practice}回目を記録`);
-}
 
 // ── 列フィルター設定 ──
 const _BLANK = '(空白)';
@@ -1774,10 +1723,6 @@ function _colFilterCfg(col) {
 }
 const _colFilterConfig = {
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
-  counter:         { filterKey: 'counter',         valueGetter: v => {
-    const pc = v.practice || 0;
-    return [pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上'];
-  }, noSearch: true },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
   memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true, memoTextSearch: true },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
@@ -1839,7 +1784,7 @@ export function openOrgColFilter(col, thEl) {
   });
 
   const filterSet = cfg ? (orgFilters[cfg.filterKey] || (orgFilters[cfg.filterKey] = new Set())) : new Set();
-  const sortableCols = ['channel','playlist','addedAt','duration','counter','tb','action','position','technique','memo'];
+  const sortableCols = ['channel','playlist','addedAt','duration','tb','action','position','technique','memo'];
 
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');

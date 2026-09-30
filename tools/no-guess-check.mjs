@@ -114,6 +114,17 @@ const GONE = [
   ['fetchChaptersOnImport !== false', 'チャプター取得の切り替え（常に取る）'],
   // v52.884: 設定のタグの画面の「直前の操作: … 元に戻す」の帯はやめた（オーナー「いらない」）。取り消しはトーストで
   ['直前の操作:',            '設定のタグの画面の「直前の操作」の帯'],
+  // v52.890: 古い練習回数のカウンター（v.practice）は廃止（オーナー「古い、使ってない」「データも不要」）。
+  // 数えるのはカスタム列の「± カウンター」。保存済みの v.practice は消さない（読まない・書かないだけ）
+  ['vpCounterSectionHTML',   '動画パネルの練習回数のカウンター欄'],
+  ['vpCntInc',               '練習回数を1つ増やす'],
+  ['vpCntDec',               '練習回数を1つ減らす'],
+  ['vpCntRank',              '練習回数の進捗ランク'],
+  ['RANK_DEFS',              '進捗ランクの段階'],
+  ['bvpBumpCounter',         'まとめて編集の練習回数'],
+  ['_orgBumpPractice',       '表の「カウント」列の +1'],
+  ['v.practice',             '動画の練習回数を読む・書く'],
+  ['lastPracticed',          '最後に練習した日を読む・書く'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除
