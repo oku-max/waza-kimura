@@ -143,8 +143,9 @@ export function cardHTML(v) {
   const cntBadges = '';
   const vDot = v.verified ? '<div class="verify-dot verified"></div>'
              : v.ai       ? '<div class="verify-dot ai-unverified"></div>' : '';
-  // プレビュー（v52.896）: サムネの中で音なし再生。X は埋め込みで再生できないので出さない
-  const pvBtn = isX ? '' : `<button class="card-pv-btn" onclick="event.stopPropagation();wkCardPreview('${vid}')" title="プレビュー">▶<span class="card-pv-lbl"> プレビュー</span></button>`;
+  // プレビュー（v52.896）: サムネの中で音なし再生。X は埋め込みで再生できないので出さない。
+  // ボタンは文字だけ（▶ を付けない。長さのバッジの ▶ と2つ並んで分かりにくい。v52.903 オーナー）
+  const pvBtn = isX ? '' : `<button class="card-pv-btn" onclick="event.stopPropagation();wkCardPreview('${vid}')" title="プレビュー">プレビュー</button>`;
   const btnMemo = `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>`;
   return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div>${pvBtn}</div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
 }

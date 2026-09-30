@@ -76,6 +76,8 @@ console.log('① ボタンの有無');
 for (const p of ['yt','gd','vm']) ok(by(p)?.btn, `${p} に ▶ プレビュー がある`);
 ok(by('x') && !by('x').btn, 'x には無い');
 
+const labels = await page.$$eval('.card-pv-btn', bs => bs.map(b => b.textContent.trim()));
+ok(labels.length && labels.every(t => t === 'プレビュー'), `ボタンは「プレビュー」の文字だけ（▶ を付けない。長さのバッジの ▶ と紛れる）: ${[...new Set(labels)].join(',')}`);
 console.log('② 押すと音なしの埋め込みが重なる');
 const yt = plats.filter(x => x.plat === 'yt');
 await page.click(`#card-${yt[0].id} .card-pv-btn`);

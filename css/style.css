@@ -71,9 +71,6 @@ body.bulk-mode .card-sel-ov{display:block;}
 /* 押せる範囲をボタンの見た目より広くする（押し損ねて動画パネルが開かないように） */
 .card-pv-btn::before{content:'';position:absolute;inset:-10px -6px -6px -12px;}
 .card-pv-btn:active{background:var(--accent);color:var(--on-accent,#111);}
-/* サムネが狭いときは ▶ だけ（文字でサムネを隠さない） */
-.card-thumb{container-type:inline-size;}
-@container (max-width:240px){.card-pv-lbl{display:none;}.card-pv-btn{padding:3px 8px;font-size:12px;}}
 /* マウスのとき: サムネに乗せるとボタンが目立ち、ボタンに乗せると中央の ▶（動画パネル）を消して枠を光らせる。
    どちらを押すと何が起きるかが、押す前に分かるように */
 @media (hover:hover){
