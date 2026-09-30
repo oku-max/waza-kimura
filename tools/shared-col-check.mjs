@@ -306,6 +306,66 @@ ck('★ 同じ種類・同じ名前の列が1つのカスタム列になり、�
 ck('★ 値は動画に移り、元の値もリストに残る', a1.v1 === '元の値' && a1.kept === '元の値', JSON.stringify(a1));
 ck('2回目は何もしない（1回きり）', a1.n2 === 0, a1.n2);
 
+console.log('\n── この列を完全に削除する（値ごと・確認と取り消しつき v52.888）──');
+const x1 = await pg.evaluate(async () => {
+  // 2つのリストとマスターに出している列を作り、値を入れる
+  window.cvOpenAddCol('_a'); await new Promise(r => setTimeout(r, 100));
+  document.querySelector('#cv-type-grid .cv-type-btn[data-type="text"]').click();
+  document.getElementById('cv-new-col-label').value = '消す列';
+  window.cvConfirmAddCol(); await new Promise(r => setTimeout(r, 400));
+  const id = window._cvSharedRaw().cols.find(c => c.label === '消す列').id;
+  const b = window._cvGetViews().find(v => v.id === '_b'); b.columns.push({ id, shared: true }); window._cvApplyLoadedViews(window._cvGetViews());
+  window._cvSetCell('_a', 'v1', id, 'あ'); window._cvSetCell('_a', 'v2', id, 'い');
+  const other = window._cvSharedRaw().cols.find(c => c.label !== '消す列').id;
+  const otherVals = JSON.stringify(window.videos.map(v => v.cf && v.cf[other]));
+  // ✎ の画面から削除（確認は OK）
+  window._cvOpenColEdit('_a', id); await new Promise(r => setTimeout(r, 100));
+  const note = document.querySelector('#cv-col-edit .cv-col-danger')?.textContent || '';
+  let asked = '';
+  const _c = window.confirm; window.confirm = m => { asked = m; return true; };
+  document.querySelector('#cv-ce-del').click(); await new Promise(r => setTimeout(r, 500));
+  window.confirm = _c;
+  const views = JSON.parse(localStorage.getItem('wk_cv_views'));
+  const raw = window._cvSharedRaw();
+  const r = { id, note, asked,
+    inLib: raw.cols.some(c => c.id === id), tomb: raw.deleted.includes(id),
+    inViews: views.some(v => (v.columns || []).some(c => c.id === id) || (v.unifiedOrder || []).includes(id)),
+    th: !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${id}"]`),
+    valBeforeFlush: window.videos[0].cf[id] };
+  // 取り消し → 全部戻る
+  window.__cvLastDeleteUndo(); await new Promise(r => setTimeout(r, 500));
+  const raw2 = window._cvSharedRaw();
+  r.undo = { inLib: raw2.cols.some(c => c.id === id), tomb: raw2.deleted.includes(id), v1: window.videos[0].cf[id],
+    inA: window._cvGetViews().find(v => v.id === '_a').columns.some(c => c.id === id),
+    inB: window._cvGetViews().find(v => v.id === '_b').columns.some(c => c.id === id),
+    th: !!document.querySelector(`#orgTheadRow .cv-custom-th[data-col-id="${id}"]`) };
+  // もう一度削除して、値を消すところまで
+  window._cvDeleteCol(id, true); await new Promise(r => setTimeout(r, 300));
+  window._cvFlushDeletes();
+  r.after = { v1: window.videos[0].cf[id], v2: window.videos[1].cf[id], has: window.videos.some(v => v.cf && id in v.cf),
+    otherSame: JSON.stringify(window.videos.map(v => v.cf && v.cf[other])) === otherVals };
+  // 写し(def)を持った参照が残っていても、復活しない
+  const a = window._cvGetViews().find(v => v.id === '_a');
+  a.columns.push({ id, shared: true, def: { type: 'text', label: '消す列' } });
+  window._cvApplyLoadedViews(window._cvGetViews());
+  r.noHeal = !window._cvSharedRaw().cols.some(c => c.id === id) && !window._cvGetViews().find(v => v.id === '_a').columns.some(c => c.id === id);
+  // 別の端末から削除した印が届いた場合
+  window._cvApplySharedRemote({ cols: [{ id: 'gc_rmdel', type: 'text', label: '別端末で消す' }], master: { columns: [], unifiedOrder: [] } });
+  window._cvUnifiedSetVis('gc_rmdel', true);
+  const had = window._cvGetViews().find(v => v.id === '_a').columns.some(c => c.id === 'gc_rmdel');
+  window._cvApplySharedRemote({ cols: [], deleted: ['gc_rmdel'], master: { columns: [], unifiedOrder: [] } });
+  r.remote = had && !window._cvSharedRaw().cols.some(c => c.id === 'gc_rmdel') && !window._cvGetViews().some(v => v.columns.some(c => c.id === 'gc_rmdel'));
+  return r;
+});
+ck('✎ の画面に「完全に削除する」と、値も消えること・本数・取り消しの説明が出る', /完全に削除する/.test(x1.note) && /値（2 本）も消えます/.test(x1.note) && /取り消し/.test(x1.note), x1.note);
+ck('★ 押すと本数つきで確かめる', /完全に削除しますか/.test(x1.asked) && /2本の動画に入っている値も消えます/.test(x1.asked), x1.asked);
+ck('★ 定義・全リスト・マスターから消え、削除した印が残る', !x1.inLib && x1.tomb && !x1.inViews && !x1.th, JSON.stringify(x1));
+ck('値は取り消しの時間が過ぎるまで消さない', x1.valBeforeFlush === 'あ', x1.valBeforeFlush);
+ck('★ 取り消すと、定義・両方のリスト・値・表示が全部戻る', x1.undo.inLib && !x1.undo.tomb && x1.undo.v1 === 'あ' && x1.undo.inA && x1.undo.inB && x1.undo.th, JSON.stringify(x1.undo));
+ck('★ 取り消しの時間が過ぎると、その列の値だけが動画から消える（ほかの列の値は1文字も変わらない）', x1.after.v1 === undefined && !x1.after.has && x1.after.otherSame, JSON.stringify(x1.after));
+ck('★ 削除した列は、リストに残った写しから復活しない', x1.noHeal);
+ck('★ 別の端末で削除した印が届くと、この端末からも消える', x1.remote);
+
 console.log('\n── クラウドとのやりとり ──');
 const r7 = await pg.evaluate((gid) => {
   const before = window._cvSharedRaw();

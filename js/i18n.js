@@ -218,6 +218,8 @@
     // 共有列（マスター・複数リストで使うカスタム列 v52.886）
     // 列設定（v52.887）
     '列設定': 'Column settings',
+    '🗑 この列を完全に削除する': '🗑 Delete this column permanently',
+    '直後なら「↩ 取り消し」で戻せます。': 'You can undo right after with “↩ Undo”.',
     '表示する列・カスタム列': 'Columns shown · custom columns',
     '表示する列 — ': 'Columns shown — ',
     '表示する列 —': 'Columns shown —',
@@ -1968,6 +1970,8 @@
     '▸ 非表示の列（#）— 入力した値はそのまま残っています': '▸ Hidden columns (#) — entered values are kept',
     '全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま # 本の動画に値あり）。列設定の一番下の「非表示の列」からいつでも表示に戻せます。': 'It disappears from every list and the master. Entered values are kept (# videos have values). You can show it again anytime from “Hidden columns” at the bottom of Column settings.',
     '#個のカスタム列にまとめました': 'Merged into # custom columns',
+    '全部のリストとマスターから消え、入力した値（# 本）も消えます。直後なら「↩ 取り消し」で戻せます。': 'It is removed from every list and the master, and its entered values (# videos) are deleted too. You can undo right after with “↩ Undo”.',
+    '全部のリストとマスターから消え、#本の動画に入っている値も消えます。': 'It is removed from every list and the master, and the values on # videos are deleted too.',
     '✏️ 選択肢の名前を変えました（#本の値も変更）': '✏️ Renamed the option (# values updated too)',
     '🔗 #個の共有列にまとめました': '🔗 Merged into # shared columns',
     'まだ共有列になっていない列が #個 あります。': '# columns are not shared yet.',
@@ -2442,6 +2446,8 @@
     [/^列「(.+)」を共有列にしますか？$/, 'Make the column “$1” a shared column?'],
     [/^「(.+)」を非表示にしました（値は残っています）$/, 'Hid “$1” (values are kept)'],
     [/^「(.+)」を表示に戻しました$/, 'Showing “$1” again'],
+    [/^カスタム列「(.+)」を完全に削除しますか？$/, 'Permanently delete the custom column “$1”?'],
+    [/^「(.+)」を削除しました$/, 'Deleted “$1”'],
     [/^カスタム列「(.+)」を作りました。ほかのリストでも列設定から出せます$/, 'Created the custom column “$1”. Other lists can show it from Column settings'],
     [/^\s*・(.+)$/, (m, t) => (_autoMap.get(t) != null ? '· ' + _autoMap.get(t) : null)],
     [/^⚙️ 「(.+)」を編集中。現在のフィルターで上書き保存します$/, 'Editing “$1”. Saving overwrites with current filters'],

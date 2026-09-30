@@ -209,7 +209,9 @@ const _SH_KEY = 'wk_cv_shared';
 // off … 「この列を非表示にする」（全部のリスト・マスターの一覧と表から見えなくする。値は消さない）
 const _SH_DEF_KEYS = ['type', 'label', 'options', 'pastDays', 'futureDays', 'unit', 'off'];
 const _MASTER_ID = '__master__';
-let _shared = { cols: [], master: { columns: [], unifiedOrder: [] } };
+// deleted … 「完全に削除」した列の id（削除した印）。全端末に同期し、どこからも復活させない
+let _shared = { cols: [], master: { columns: [], unifiedOrder: [] }, deleted: [] };
+const _isDeleted = id => _shared.deleted.includes(id);
 const _masterView = { id: _MASTER_ID, label: 'マスター', isMaster: true, saveMode: 'dynamic',
   columns: [], rowData: {}, unifiedOrder: [] };
 
@@ -232,8 +234,9 @@ function _mkRef(src) {
   const ref = { id: src.id, shared: true };
   if (src.width) ref.width = src.width;
   if (src.hidden) ref.hidden = true;
-  // 定義が無い（他端末の古い保存で消えた等）なら、写しから定義を復元する（足すだけ）
-  if (!_shDef(src.id) && src.def && src.def.type) {
+  // 定義が無い（他端末の古い保存で消えた等）なら、写しから定義を復元する（足すだけ）。
+  // 完全に削除した列は復元しない
+  if (!_shDef(src.id) && !_isDeleted(src.id) && src.def && src.def.type) {
     const d = _cleanDef({ id: src.id, ...src.def });
     if (d) _shared.cols.push(d);
   }
@@ -249,29 +252,32 @@ function _mkRef(src) {
 }
 function _hydrateView(view) {
   if (!view || !Array.isArray(view.columns)) return;
-  view.columns = view.columns.map(c => (c && c.shared) ? _mkRef(c) : c);
+  view.columns = view.columns.filter(c => !(c && c.shared && _isDeleted(c.id))).map(c => (c && c.shared) ? _mkRef(c) : c);
+  if (Array.isArray(view.unifiedOrder)) view.unifiedOrder = view.unifiedOrder.filter(id => !_isDeleted(id));
 }
 // 描画できる列（共有列で定義がまだ届いていないもの・非表示にした列は描かない。参照は消さない）
 function _liveCols(view) { return (view && view.columns || []).filter(c => c && c.type && !c.off); }
 // どの表の一覧にも並べるカスタム列（非表示にしたものも位置は保つので全部）
 function _libIds() { return _shared.cols.map(d => d.id); }
 
-function _hasShared() { return _shared.cols.length > 0 || _masterView.columns.length > 0; }
+function _hasShared() { return _shared.cols.length > 0 || _masterView.columns.length > 0 || _shared.deleted.length > 0; }
 function _loadShared() {
   try {
     const raw = localStorage.getItem(_SH_KEY);
     if (!raw) return;
     const o = JSON.parse(raw);
-    _shared.cols = (Array.isArray(o.cols) ? o.cols : []).map(_cleanDef).filter(Boolean);
+    _shared.deleted = (Array.isArray(o.deleted) ? o.deleted : []).filter(_isSharedId);
+    _shared.cols = (Array.isArray(o.cols) ? o.cols : []).map(_cleanDef).filter(d => d && !_isDeleted(d.id));
     const m = o.master || {};
-    _masterView.columns = (Array.isArray(m.columns) ? m.columns : []).filter(c => c && _isSharedId(c.id)).map(_mkRef);
-    _masterView.unifiedOrder = Array.isArray(m.unifiedOrder) ? m.unifiedOrder : [];
+    _masterView.columns = (Array.isArray(m.columns) ? m.columns : []).filter(c => c && _isSharedId(c.id) && !_isDeleted(c.id)).map(_mkRef);
+    _masterView.unifiedOrder = (Array.isArray(m.unifiedOrder) ? m.unifiedOrder : []).filter(id => !_isDeleted(id));
   } catch (e) { console.warn('[cvShared] load failed', e); }
 }
 function _sharedRaw() {
   if (!_hasShared()) return null; // 一度も使っていない端末は null（クラウドを空で上書きしない）
   return {
     cols: _shared.cols.map(d => ({ id: d.id, ..._defSnap(d) })),
+    deleted: [..._shared.deleted],
     master: { columns: JSON.parse(JSON.stringify(_masterView.columns)), unifiedOrder: [...(_masterView.unifiedOrder || [])] }
   };
 }
@@ -291,7 +297,9 @@ window._cvSharedRaw = _sharedRaw;
 // マスターの列は、クラウドに1つ以上あるときだけ採用（空で手元を上書きしない）。
 window._cvApplySharedRemote = function(obj) {
   if (!obj || !Array.isArray(obj.cols)) return false;
-  obj.cols.map(_cleanDef).filter(Boolean).forEach(d => {
+  // 削除した印は足し合わせ（どの端末で削除しても全端末で消えたままにする）
+  (Array.isArray(obj.deleted) ? obj.deleted : []).forEach(id => { if (_isSharedId(id) && !_isDeleted(id)) _shared.deleted.push(id); });
+  obj.cols.map(_cleanDef).filter(d => d && !_isDeleted(d.id)).forEach(d => {
     const i = _shared.cols.findIndex(c => c.id === d.id);
     if (i >= 0) _shared.cols[i] = d; else _shared.cols.push(d);
   });
@@ -300,10 +308,37 @@ window._cvApplySharedRemote = function(obj) {
     _masterView.columns = m.columns.filter(c => c && _isSharedId(c.id)).map(_mkRef);
     if (Array.isArray(m.unifiedOrder)) _masterView.unifiedOrder = m.unifiedOrder;
   }
+  _purgeDeletedRefs();
   _saveShared();
   if (!_curId && window._libViewMode === 'org') window.renderOrg?.();
   return true;
 };
+
+// 削除した印のある列を、定義・マスター・各リストの参照から外す（値は _purgeDeletedValues）
+function _purgeDeletedRefs() {
+  if (!_shared.deleted.length) return false;
+  let changed = false;
+  _shared.cols = _shared.cols.filter(d => { if (_isDeleted(d.id)) { changed = true; return false; } return true; });
+  [..._views, _masterView].forEach(v => {
+    const n = (v.columns || []).length;
+    v.columns = (v.columns || []).filter(c => !(c && c.shared && _isDeleted(c.id)));
+    if (v.columns.length !== n) changed = true;
+    if (Array.isArray(v.unifiedOrder)) v.unifiedOrder = v.unifiedOrder.filter(id => !_isDeleted(id));
+  });
+  return changed;
+}
+// 削除した列の値を動画から消す（完全に削除した列だけ。ほかの値には触らない）
+function _purgeDeletedValues(onlyId) {
+  const ids = onlyId ? [onlyId] : _shared.deleted;
+  if (!ids.length) return 0;
+  let n = 0;
+  (window.videos || []).forEach(v => {
+    if (!v.cf || typeof v.cf !== 'object') return;
+    ids.forEach(id => { if (id in v.cf) { delete v.cf[id]; n++; } });
+  });
+  if (n) window.debounceSave?.();
+  return n;
+}
 
 // ── セルの値の読み書き（共有列は動画、それ以外はリストの rowData）──
 function _videoOf(vid) { return _cvVideoById(window.videos || []).get(vid) || null; }
@@ -2155,7 +2190,9 @@ window._cvOpenColEdit = function(viewId, colId) {
     ${col.type === 'number' ? `<div class="cv-modal-section"><div class="cv-modal-label">単位</div><input type="text" class="cv-modal-input" id="cv-ce-unit" placeholder="例: 回、分、kg"></div>` : ''}
     <div class="cv-modal-actions"><button class="cv-btn-cancel" id="cv-ce-cancel">キャンセル</button><button class="cv-btn-primary" id="cv-ce-save">保存</button></div>
     ${col.shared ? `<div class="cv-col-danger"><button class="cv-col-off-btn" id="cv-ce-off">🚫 この列を非表示にする</button>
-      <div class="cv-col-note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。列設定の一番下の「非表示の列」からいつでも表示に戻せます。</div></div>` : ''}
+      <div class="cv-col-note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。列設定の一番下の「非表示の列」からいつでも表示に戻せます。</div>
+      <button class="cv-col-del-btn" id="cv-ce-del">🗑 この列を完全に削除する</button>
+      <div class="cv-col-note">全部のリストとマスターから消え、入力した値（${used} 本）も消えます。直後なら「↩ 取り消し」で戻せます。</div></div>` : ''}
   </div>`;
   document.body.appendChild(ov);
   const $e = id => ov.querySelector('#' + id);
@@ -2181,6 +2218,7 @@ window._cvOpenColEdit = function(viewId, colId) {
   $e('cv-ce-addopt')?.addEventListener('click', () => { st.opts.push({ orig: null, val: '' }); drawOpts(); const ins = $e('cv-ce-opts').querySelectorAll('input'); ins[ins.length - 1]?.focus(); });
   $e('cv-ce-cancel').addEventListener('click', () => ov.remove());
   $e('cv-ce-off')?.addEventListener('click', () => { ov.remove(); window._cvSetColOff(col.id, true); });
+  $e('cv-ce-del')?.addEventListener('click', () => { if (window._cvDeleteCol(col.id)) ov.remove(); });
   $e('cv-ce-save').addEventListener('click', () => {
     const label = st.label.trim();
     if (label) col.label = label;
@@ -2381,6 +2419,7 @@ function _unifyPlan() {
   groups.forEach(g => {
     const existing = _shared.cols.find(d => d.type === g.type && String(d.label || '').trim() === g.label);
     const id = existing ? existing.id : ('gc_m' + _hashKey(g.key));
+    if (_isDeleted(id)) return;   // 完全に削除した列は作り直さない（古い端末の列はそのまま残す）
     const vals = new Map(); // vid -> value
     let conflicts = 0, missing = 0;
     const merge = (vid, val) => {
@@ -2417,6 +2456,9 @@ window._cvUnifyPlan = () => _unifyPlan().map(p => ({ label: p.label, type: p.typ
 // 元の値・元の列は各リストに残す。id は種類と名前から決まるので、2台で走っても同じ列になる。
 window._cvAutoUnify = function() {
   try {
+    // 前の端末で「完全に削除」したあと、値を消す前に閉じられていた分をここで消す
+    const pv = _purgeDeletedValues();
+    if (pv) console.log('[cvDelete] 削除した列の値を動画から消しました:', pv);
     const n = window._cvUnifyAllCols(true, true);
     if (n) console.log('[cvUnify] リストだけの列をカスタム列にまとめました:', n);
     return n;
@@ -3281,10 +3323,12 @@ window.cvConfirm = function() {
   const cols = [];
   tpl.columns.forEach((c, i) => {
     let sid = (c.shared && c.sharedId) ? c.sharedId : null;
+    if (sid && !_shDef(sid)) return;   // 完全に削除した列はテンプレートから作らない
     if (!sid) {
       const label = String(c.label || '').trim() || (TYPE_DEFS.find(d => d.type === c.type) || {}).label || '列';
       const found = _shared.cols.find(d => d.type === c.type && String(d.label || '').trim() === label);
       sid = found ? found.id : ('gc_m' + _hashKey(c.type + '\u0001' + label));
+      if (_isDeleted(sid)) sid = _newSharedId();   // 同じ名前の列を完全に削除していたら、別の新しい列にする
       if (!_shDef(sid)) _shared.cols.push({ id: sid, ..._defSnap(c), label });
     }
     colIdMap['cus:' + i] = sid;
@@ -3526,6 +3570,51 @@ window._cvUnifiedSetVis = function(id, visible) {
   }
   _cvRedrawColMenu();
 };
+
+// 「この列を完全に削除する」: 全部のリスト・マスターから外し、入っている値も消す（オーナー決定 v52.888: 値ごと）。
+//   定義と参照はその場で外す。値は取り消しの時間（トースト）が過ぎてから消す。
+//   削除した印（_shared.deleted）を設定に残して全端末で同じにする（古い情報から復活させない）。
+const _CV_DEL_DELAY = 8000;
+window._cvDeleteCol = function(id, skipConfirm) {
+  const d = _shDef(id);
+  if (!d) return false;
+  const used = (window.videos || []).filter(v => v.cf && !_isBlankVal(v.cf[id], d.type)).length;
+  if (!skipConfirm && !confirm(`カスタム列「${d.label}」を完全に削除しますか？\n\n全部のリストとマスターから消え、${used}本の動画に入っている値も消えます。\n直後なら「↩ 取り消し」で戻せます。`)) return false;
+  const snap = { def: { ...d }, defIdx: _shared.cols.indexOf(d), refs: [], orders: [] };
+  [..._views, _masterView].forEach(v => {
+    const i = (v.columns || []).findIndex(c => c.id === id);
+    if (i >= 0) { const r = v.columns[i]; snap.refs.push({ v, i, width: r.width, hidden: r.hidden }); v.columns.splice(i, 1); }
+    if (Array.isArray(v.unifiedOrder) && v.unifiedOrder.includes(id)) { snap.orders.push({ v, order: [...v.unifiedOrder] }); v.unifiedOrder = v.unifiedOrder.filter(x => x !== id); }
+    if (filterState[v.id]) delete filterState[v.id][id];
+  });
+  _shared.cols = _shared.cols.filter(c => c.id !== id);
+  if (!_isDeleted(id)) _shared.deleted.push(id);
+  if (_cvSortColId === id) _cvSortColId = null;
+  _save();
+  const cur = _activeTableView(); if (cur) _renderTable(cur);
+  _cvRedrawColMenu();
+  const timer = setTimeout(() => { if (_isDeleted(id)) _purgeDeletedValues(id); }, _CV_DEL_DELAY);
+  const undo = () => {
+    clearTimeout(timer);
+    _shared.deleted = _shared.deleted.filter(x => x !== id);
+    if (!_shDef(id)) _shared.cols.splice(Math.min(Math.max(snap.defIdx, 0), _shared.cols.length), 0, snap.def);
+    snap.refs.forEach(r => {
+      if (r.v !== _masterView && !_views.includes(r.v)) return;
+      if ((r.v.columns || []).some(c => c.id === id)) return;
+      r.v.columns.splice(Math.min(r.i, r.v.columns.length), 0, _mkRef({ id, width: r.width, hidden: r.hidden }));
+    });
+    snap.orders.forEach(o => { if (o.v === _masterView || _views.includes(o.v)) o.v.unifiedOrder = o.order; });
+    _save();
+    const c2 = _activeTableView(); if (c2) _renderTable(c2);
+    _cvRedrawColMenu();
+  };
+  const msg = `「${d.label}」を削除しました`;
+  if (typeof window.toastUndo === 'function') window.toastUndo(msg, undo);
+  else if (typeof window.toast === 'function') window.toast(msg);
+  window.__cvLastDeleteUndo = undo;   // 検査用
+  return true;
+};
+window._cvFlushDeletes = () => _purgeDeletedValues();   // 検査用: 取り消しの時間を待たずに値を消す
 
 // 「この列を非表示にする」／「表示する」: 全部のリスト・マスターで見えなくする／戻す。値・各表のチェックには触らない
 window._cvSetColOff = function(id, off, quiet) {
