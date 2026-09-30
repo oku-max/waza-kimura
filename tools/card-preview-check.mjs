@@ -11,7 +11,8 @@
 //  ⑧ サムネが狭い（スマホ）ときはプレビュー中だけカード幅に広げ、閉じると戻る。広い（PC）ときは広げない
 //  ⑨ Drive はログインしていれば動画パネルと同じ /api/drive の <video>（帯なし・音なしで自動再生）。していなければ埋め込みを、上の黒い帯を隠さず、枠を帯のぶん（64px）高くして帯も映像も全部見せる（PC・スマホとも）
 //  ⑩ ボタンは見た目より広く押せる（ボタンの少し外を押してもプレビューになり、動画パネルは開かない）
-//  ⑪ ボタンはサムネの中ではなく真下・サムネと同じ幅の低い帯・プレビュー中は「停止」（v52.904 オーナー決定 G②）
+//  ⑪ ボタンはサムネの中ではなく真下・サムネと同じ幅の低い帯（v52.904 オーナー決定 G②）。プレビュー中は［閉じる｜開く］左右均等（v52.905 H3）
+//  ⑫ 「開く」は見ていた位置（今の埋め込みが知らせてきたものだけ）から動画パネルを開く
 //
 // 使い方: node tools/card-preview-check.mjs   終了コード: 0 = 期待どおり / 1 = ずれあり
 import http from 'http';
@@ -216,14 +217,43 @@ const place = await page.$eval(`#card-${yt[1].id}`, c => {
 ok(!place.inThumb && place.below, 'ボタンはサムネの中ではなく、すぐ下');
 ok(place.sameW && place.h <= 22, `サムネとほぼ同じ幅・低い帯（高さ ${Math.round(place.h)}px）`);
 await page.click(`#card-${yt[1].id} .card-pv-btn`);
-ok((await page.textContent(`#card-${yt[1].id} .card-pv-btn`)).trim() === '停止', 'プレビュー中はボタンが「停止」');
-await page.click(`#card-${yt[1].id} .card-pv-btn`);
-ok(!(await page.$(`#thumb-${yt[1].id} .card-pv-layer`)) && (await page.textContent(`#card-${yt[1].id} .card-pv-btn`)).trim() === 'プレビュー', 'もう一度押すと止まり「プレビュー」に戻る');
+const pair = await page.$eval(`#card-${yt[1].id}`, c => {
+  const p = c.querySelector('.card-pv-pair'); if (!p) return null;
+  const [x, g] = p.querySelectorAll('button');
+  return { btnHidden: c.querySelector('.card-pv-btn').hidden, close: x.textContent.trim(), go: g.textContent.trim(), wx: Math.round(x.getBoundingClientRect().width), wg: Math.round(g.getBoundingClientRect().width) };
+});
+ok(pair && pair.btnHidden && pair.close === '閉じる' && /^開く/.test(pair.go), `プレビュー中は［閉じる｜開く］に変わる（${pair && pair.close}｜${pair && pair.go}）`);
+ok(pair && Math.abs(pair.wx - pair.wg) <= 1, `左右均等（${pair && pair.wx}px ｜ ${pair && pair.wg}px）`);
+await page.click(`#card-${yt[1].id} .card-pv-close2`);
+ok(!(await page.$(`#thumb-${yt[1].id} .card-pv-layer`)) && !(await page.$(`#card-${yt[1].id} .card-pv-pair`)) && !(await page.$eval(`#card-${yt[1].id} .card-pv-btn`, b => b.hidden)), '「閉じる」で止まり「プレビュー」に戻る');
 await page.click(`#card-${yt[0].id} .card-pv-btn`);
 await page.click(`#card-${yt[1].id} .card-pv-btn`);
-ok((await page.textContent(`#card-${yt[0].id} .card-pv-btn`)).trim() === 'プレビュー', '別のカードで押すと、前のボタンは「プレビュー」に戻る');
+ok(!(await page.$(`#card-${yt[0].id} .card-pv-pair`)) && !(await page.$eval(`#card-${yt[0].id} .card-pv-btn`, b => b.hidden)), '別のカードで押すと、前のカードは「プレビュー」に戻る');
 await page.evaluate(() => window.wkCardPreviewStop());
 ok((await page.evaluate(() => window.opened.length)) === 0, 'ボタンでは一度も動画パネルを開かない');
+
+console.log('⑫ 「開く」で、見ていた位置から動画パネル（v52.905・H3）');
+await page.evaluate(() => { window.openedAt = []; window.vpOpenAt = (id, t) => window.openedAt.push([id, t]); window.opened = []; });
+await page.click(`#card-${yt[0].id} .card-pv-btn`);
+// YouTube の埋め込みが知らせてくる位置の代わりに、同じ形の知らせをその埋め込みから送ったことにする
+await page.evaluate(id => {
+  const f = document.querySelector(`#thumb-${id} .card-pv-layer iframe`);
+  window.dispatchEvent(new MessageEvent('message', { origin: 'https://www.youtube.com', source: f.contentWindow, data: JSON.stringify({ event: 'infoDelivery', info: { currentTime: 42.6 } }) }));
+}, yt[0].id);
+await page.waitForTimeout(700);
+ok((await page.textContent(`#card-${yt[0].id} .card-pv-go`)).trim() === '開く（0:42 から）', `ボタンに見ていた位置が出る（${(await page.textContent(`#card-${yt[0].id} .card-pv-go`)).trim()}）`);
+// ほかから来た知らせ（今の埋め込み以外）は受け取らない
+await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { origin: 'https://www.youtube.com', source: window, data: JSON.stringify({ event: 'infoDelivery', info: { currentTime: 999 } }) })));
+await page.waitForTimeout(600);
+ok((await page.textContent(`#card-${yt[0].id} .card-pv-go`)).trim() === '開く（0:42 から）', 'ほかの窓から来た位置の知らせは受け取らない');
+await page.click(`#card-${yt[0].id} .card-pv-go`);
+const oa = await page.evaluate(() => window.openedAt);
+ok(oa.length === 1 && oa[0][0] === yt[0].id && Math.floor(oa[0][1]) === 42 && !(await page.$('.card-pv-layer')), `「開く」でプレビューを閉じ、42秒から動画パネル（vpOpenAt(${oa[0] && oa[0].join(', ')})）`);
+// 位置が分からない（始めたばかり）ときは「開く」だけ
+await page.click(`#card-${yt[1].id} .card-pv-btn`);
+ok((await page.textContent(`#card-${yt[1].id} .card-pv-go`)).trim() === '開く', '位置が分からないうちは「開く」だけ');
+await page.evaluate(() => window.wkCardPreviewStop());
+ok(await page.evaluate(() => JSON.stringify(window.videos) === window.__before), '動画のデータは変わらない（開く・閉じるの後も）');
 
 ok(errs.length === 0, 'ページのエラーなし ' + (errs.join(' / ')));
 await browser.close(); srv.close();

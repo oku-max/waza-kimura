@@ -75,6 +75,12 @@ body.bulk-mode .card-sel-ov{display:block;}
 .card-pv-btn:active,.card-pv-btn.on{background:var(--accent);color:var(--on-accent,#111);}
 @media (hover:hover){ .card-pv-btn:hover{background:rgba(127,127,127,.22);color:var(--text);} .card-pv-btn.on:hover{background:var(--accent);color:var(--on-accent,#111);} }
 body.bulk-mode .card-pv-btn{display:none;}
+/* プレビュー中は［閉じる｜開く（0:42 から）］を左右均等で（v52.905・オーナー決定 H3） */
+.card-pv-pair{display:flex;gap:6px;}
+.card-pv-pair button{flex:1 1 0;min-width:0;border:0;border-radius:6px;padding:4px;font-size:12px;font-weight:700;line-height:1.35;cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
+.card-pv-close2{background:rgba(127,127,127,.14);color:var(--text2);}
+.card-pv-go{background:var(--accent);color:var(--on-accent,#111);}
+body.bulk-mode .card-pv-pair{display:none;}
 .card-pv-layer{position:absolute;inset:0;z-index:4;background:#000;cursor:default;overflow:hidden;}
 .card-pv-layer iframe,.card-pv-layer video{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .card-pv-layer video{object-fit:contain;background:#000;}
@@ -746,6 +752,7 @@ body.bulk-mode .card-pv-btn{display:none;}
   }
   .card-main{ flex-direction:column; gap:0; padding:0; }
   .card-tcol .card-pv-btn{ width:auto; margin:6px 8px 0; }
+  .card-tcol .card-pv-pair{ margin:6px 8px 0; }
   .card-thumb{
     width:100% !important;
     min-width:unset !important;
@@ -771,6 +778,7 @@ body.bulk-mode .card-pv-btn{display:none;}
   }
   .card-main{ flex-direction:column; gap:0; padding:0; }
   .card-tcol .card-pv-btn{ width:auto; margin:6px 8px 0; }
+  .card-tcol .card-pv-pair{ margin:6px 8px 0; }
   .card-thumb{
     width:100% !important;
     min-width:unset !important;

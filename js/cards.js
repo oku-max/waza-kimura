@@ -161,8 +161,9 @@ function _pvUrl(card) {
   const emb = card.dataset.emb || '';
   const plat = card.dataset.plat;
   if (!emb || plat === 'x') return '';
-  if (plat === 'yt') return emb + '&mute=1&playsinline=1';
-  if (plat === 'vm') return emb + '&muted=1&playsinline=1';
+  // enablejsapi / api=1: 見ていた位置を受け取るため（「開く（0:42 から）」）
+  if (plat === 'yt') return emb + '&mute=1&playsinline=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin);
+  if (plat === 'vm') return emb + '&muted=1&playsinline=1&api=1';
   return emb;   // Drive は自動再生・音なしを指定できない（▶ を押せば再生）
 }
 // サムネがこれより狭いときは、プレビュー中だけカードの幅いっぱいに広げる（スマホでは操作できないため）
@@ -178,8 +179,67 @@ window.addEventListener('resize', () => {
   const card = document.getElementById('card-' + _pvId), thumb = document.getElementById('thumb-' + _pvId);
   if (card && thumb && card.classList.contains('pv-gd')) _pvFitGd(card, thumb);
 });
+// ── プレビュー中の［閉じる｜開く（0:42 から）］（v52.905・オーナー決定 H3 左右均等）──
+// 見ていた位置: YouTube・Vimeo は埋め込みが知らせてくる位置、Drive の <video> は currentTime。
+// 分からない（Drive の埋め込み等）ときは「開く」だけ（位置を出さない・頭からでなく前回の続きのまま）。
+let _pvTime = null, _pvTick = null;
+function _pvFmt(sec) {
+  sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;
+}
+function _pvNow() {
+  const v = _pvId && document.querySelector(`#pv-${CSS.escape(_pvId)} video`);
+  if (v && isFinite(v.currentTime) && v.currentTime > 0) return v.currentTime;
+  return _pvTime;
+}
+function _pvGoLabel() { const t = _pvNow(); return t >= 1 ? `開く（${_pvFmt(t)} から）` : '開く'; }
+window.addEventListener('message', e => {
+  if (!_pvId) return;
+  const o = String(e.origin || '');
+  if (!/^https:\/\/(www\.)?(youtube\.com|youtube-nocookie\.com|player\.vimeo\.com)$/.test(o)) return;
+  const f = document.querySelector(`#pv-${CSS.escape(_pvId)} iframe`);
+  if (!f || e.source !== f.contentWindow) return;   // 今プレビューしている埋め込みからだけ受け取る
+  let d = e.data; try { if (typeof d === 'string') d = JSON.parse(d); } catch (err) { return; }
+  if (d?.info && typeof d.info.currentTime === 'number') _pvTime = d.info.currentTime;           // YouTube
+  if (d?.event === 'timeupdate' && typeof d.data?.seconds === 'number') _pvTime = d.data.seconds; // Vimeo
+  if (d?.event === 'ready' && o.includes('vimeo')) { try { f.contentWindow.postMessage(JSON.stringify({ method: 'addEventListener', value: 'timeupdate' }), o); } catch (err) {} }
+});
+function _pvListen(f) {
+  if (!f) return;
+  f.addEventListener('load', () => {
+    try { f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'wkpv' }), 'https://www.youtube.com'); } catch (e) {}
+    try { f.contentWindow.postMessage(JSON.stringify({ method: 'addEventListener', value: 'timeupdate' }), 'https://player.vimeo.com'); } catch (e) {}
+  });
+}
+function _pvShowPair(vid) {
+  const b = document.getElementById('pvb-' + vid);
+  if (!b || document.getElementById('pvp-' + vid)) return;
+  b.hidden = true;
+  const pair = document.createElement('div');
+  pair.className = 'card-pv-pair';
+  pair.id = 'pvp-' + vid;
+  pair.innerHTML = `<button class="card-pv-close2">閉じる</button><button class="card-pv-go">${_pvGoLabel()}</button>`;
+  pair.onclick = e => e.stopPropagation();
+  pair.querySelector('.card-pv-close2').onclick = e => { e.stopPropagation(); wkCardPreviewStop(); };
+  pair.querySelector('.card-pv-go').onclick = e => {
+    e.stopPropagation();
+    const t = _pvNow();
+    wkCardPreviewStop();
+    if (window.vpOpenAt) window.vpOpenAt(vid, t || 0); else window.openVPanel?.(vid);
+  };
+  b.after(pair);
+  clearInterval(_pvTick);
+  _pvTick = setInterval(() => {
+    const g = document.querySelector(`#pvp-${CSS.escape(vid)} .card-pv-go`);
+    if (!g || _pvId !== vid) { clearInterval(_pvTick); return; }
+    const l = _pvGoLabel(); if (g.textContent !== l) g.textContent = l;
+  }, 500);
+}
 export function wkCardPreviewStop() {
+  clearInterval(_pvTick); _pvTime = null;
   if (_pvId) {
+    document.getElementById('pvp-' + _pvId)?.remove();
+    const b0 = document.getElementById('pvb-' + _pvId); if (b0) b0.hidden = false;
     const layer = document.getElementById('pv-' + _pvId);
     const vEl = layer?.querySelector('video');
     if (vEl) { vEl.pause(); vEl.removeAttribute('src'); vEl.load(); }   // 読み込みも止める
@@ -220,7 +280,8 @@ export function wkCardPreview(vid) {
   layer.querySelector('.card-pv-close').onclick = e => { e.stopPropagation(); wkCardPreviewStop(); };
   thumb.appendChild(layer);
   _pvId = vid;
-  const pvb = document.getElementById('pvb-' + vid); if (pvb) { pvb.classList.add('on'); pvb.textContent = '停止'; }
+  _pvListen(layer.querySelector('iframe'));
+  _pvShowPair(vid);
   const authBox = layer.querySelector('.card-pv-auth');
   if (authBox && window._showGDriveAuthUI) {
     window._showGDriveAuthUI(authBox, gdFile, tk => {

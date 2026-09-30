@@ -1434,7 +1434,26 @@ export function vpNav(dir) {
   if (next) openVPanel(next.id);
 }
 
+// カードのプレビューで見ていた位置から開く（v52.905・オーナー決定 H3）。1回だけ効く。
+// 続きから再生（phGetResume）と同じ道で始めるので、YouTube の start・Drive の #t=・Vimeo の setCurrentTime がそのまま効く。
+// 再生位置の記録（playhead）には書かない（開いた後はふだんどおり記録される）。
+let _vpStartOnce = null;   // { id, t }
+function _vpTakeStartOnce(id) {
+  const o = _vpStartOnce;
+  return (o && o.id === id) ? o.t : 0;
+}
+let _vpStartFresh = false;
+window.vpOpenAt = function(id, t) {
+  _vpStartOnce = (t >= 1) ? { id, t: Math.floor(t) } : null;
+  _vpStartFresh = true;
+  openVPanel(id);
+  // Drive は認証の後で再生を作るので、そのとき（_createGDriveVideoEl）に使って消す。ほかはここで消す
+  if (!(window.videos || []).find(v => v.id === id && v.pt === 'gdrive')) _vpStartOnce = null;
+};
 export function openVPanel(id) {
+  // ふだんの開き方（サムネを押す等）では、前のプレビューの位置を持ち越さない
+  if (!_vpStartFresh) _vpStartOnce = null;
+  _vpStartFresh = false;
   // 直前まで見ていた動画の再生位置を確定させてから切り替える（プレイヤーを壊す前に）
   _recordPlayhead(true);
   _phCurrentId = null;   // 片付け中のpause等でIDを取り違えないよう、いったん外す
@@ -1482,7 +1501,8 @@ export function openVPanel(id) {
   // 続きから再生する位置（0 なら最初から）。設定OFF・冒頭すぎ・見終わりでは 0 になる。
   // 記録後に動画が差し替わって短くなっている場合に備え、既知の長さでクランプする
   // （長さを超えた位置を YouTube の start に渡すと再生が始まらないため）。
-  const _phRaw = window.phGetResume?.(id) || 0;
+  const _pvAt  = _vpTakeStartOnce(id);   // プレビューで見ていた位置（あればこちらが先）
+  const _phRaw = _pvAt || window.phGetResume?.(id) || 0;
   const _phDur = Number(v.duration) || 0;
   const resumeAt = (_phRaw > 0 && (!_phDur || _phRaw <= _phDur - 10)) ? _phRaw : 0;
   console.log('[playhead] 開く:', id, '記録=' + _phRaw + '秒', '長さ=' + _phDur + '秒', '→',
@@ -1636,7 +1656,7 @@ export function openVPanel(id) {
   }
 
   if (resumeAt > 0 && plat !== 'x') {
-    window.toastUndo?.('▶ 前回の続き ' + _formatTime(resumeAt) + ' から', () => _seekTo(0), '⏮ 最初から');
+    window.toastUndo?.((_pvAt ? '▶ プレビューの続き ' : '▶ 前回の続き ') + _formatTime(resumeAt) + ' から', () => _seekTo(0), '⏮ 最初から');
   }
 
   // UI 全て同期レンダリング（panel hidden のまま — 1回の reflow に集約）
@@ -2107,7 +2127,8 @@ function _createGDriveVideoEl(container, fileId, token) {
   // loadedmetadata後に currentTime を代入するだけだと、初期ダウンロードが走っている最中の
   // seek になり /api/drive 経由では無視されることがある（_seekTo が pause してから seek
   // しているのと同じ事情）。#t= ならブラウザが最初からその位置を要求するので確実。
-  const resumeAt = window.phGetResume?.(_phCurrentId) || 0;
+  const resumeAt = _vpTakeStartOnce(_phCurrentId) || window.phGetResume?.(_phCurrentId) || 0;
+  _vpStartOnce = null;
   const src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`
             + (resumeAt > 0 ? `#t=${resumeAt}` : '');
   const video = document.createElement('video');

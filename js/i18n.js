@@ -902,6 +902,7 @@
     '▶ プレビュー':'▶ Preview',
     'プレビュー':'Preview',
     '停止':'Stop',
+    '開く':'Open',
     'プレビューを閉じる':'Close preview',
     '▼ 既存':'▼ Existing',
     '◎ Community タブ':'◎ Community tab',
@@ -1948,6 +1949,10 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '開く（#:# から）':'Open (from #:#)',
+    '開く（#:#:# から）':'Open (from #:#:#)',
+    '▶ プレビューの続き #:# から':'▶ Continuing preview from #:#',
+    '▶ プレビューの続き #:#:# から':'▶ Continuing preview from #:#:#',
     // タグ設定の画面（段階3b）
     "未使用のタググループ（#）": "Unused tag groups (#)",
     "重複している可能性のあるタグを整理する（#）": "Tidy up possible duplicate tags (#)",
