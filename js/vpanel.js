@@ -1442,6 +1442,7 @@ export function openVPanel(id) {
   if (menu) menu.remove();
   // Notesタブで再生中のインライン動画があれば一時停止
   window._notesPauseAllInlineVideos?.();
+  window.wkCardPreviewStop?.();   // カードのプレビューは閉じる（2本同時に流さない）
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return;
   // カード要素がなければ（Organizeタブ等）ビデオオブジェクトから算出
