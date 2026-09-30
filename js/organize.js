@@ -738,10 +738,11 @@ export function renderOrg() {
     const main = document.createElement('span');
     main.textContent = totalCount + ' 本' + _orgTotalDurLabel(list);
     oc.appendChild(main);
-    if (hidden > 0) {
+    // 「／非表示 N本」は出さない（v52.894・オーナー「いらない」）。内訳はオーナーの ⓘ から
+    if (_own) {
       const sub = document.createElement('span');
       sub.style.cssText = 'margin-left:6px;color:var(--text3);opacity:.85';
-      sub.textContent = `／非表示 ${hidden}本` + (_own ? ' ⓘ' : '');
+      sub.textContent = 'ⓘ';
       oc.appendChild(sub);
     }
     oc.onclick = _own ? () => window.wkVideoAuditOpen?.() : null;

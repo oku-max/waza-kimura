@@ -420,10 +420,11 @@ export function AF() {
     const main = document.createElement('span');
     main.textContent = f.length + ' 本 表示中';
     rc.appendChild(main);
-    if (hidden > 0) {
+    // 「／非表示 N本」は出さない（v52.894・オーナー「いらない」）。内訳はオーナーの ⓘ から
+    if (_own) {
       const sub = document.createElement('span');
       sub.style.cssText = 'margin-left:6px;color:var(--text3);opacity:.85';
-      sub.textContent = `／非表示 ${hidden}本` + (_own ? ' ⓘ' : '');
+      sub.textContent = 'ⓘ';
       rc.appendChild(sub);
     }
     rc.onclick = _own ? () => window.wkVideoAuditOpen?.() : null;

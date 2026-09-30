@@ -109,7 +109,7 @@ check('全体の本数', stats.s.total === 100, JSON.stringify(stats.s));
 check('アーカイブ本数', stats.s.archived === 7, JSON.stringify(stats.s));
 check('画面に出ている本数', stats.s.shown === 20, JSON.stringify(stats.s));
 check('絞り込みで隠れている本数', stats.s.filtered === 73, JSON.stringify(stats.s));
-check('カウンタに非表示の件数が出る', /非表示\s*80本/.test(stats.ocText.replace(/\s+/g,' ')), stats.ocText);
+check('★ 件数の横に「／非表示 N本」を出さない（v52.894）', !/非表示/.test(stats.ocText), stats.ocText);
 
 // カード表示の件数（#rc）もタップで内訳が開けるか
 const card = await page.evaluate(() => {
@@ -137,6 +137,7 @@ const card = await page.evaluate(() => {
   return { text, opened: !before && !!ov, shown, guestText, guestOpened };
 });
 check('カード表示の件数が出る', /93\s*本\s*表示中/.test(card.text || ''), JSON.stringify(card).slice(0, 200));
+check('★ カード表示にも「／非表示 N本」を出さない（v52.894）', !/非表示/.test(card.text + card.guestText), JSON.stringify(card).slice(0, 200));
 check('★ オーナーでないときは ⓘ が出ず、件数を押しても内訳は開かない（v52.893）', !/ⓘ/.test(card.guestText) && card.guestOpened === false, JSON.stringify(card).slice(0, 200));
 check('オーナーのときは ⓘ が出て、件数タップで内訳が開く', /ⓘ/.test(card.text) && card.opened === true, JSON.stringify(card).slice(0, 200));
 check('カード表示でも表示中の本数を数えられる', card.shown === 93, JSON.stringify(card).slice(0, 200));
