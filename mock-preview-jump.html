@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — プレビューから一発で動画パネルへ（5案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--on-accent:#1c1c1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:1100px;margin:0 auto;padding-bottom:60px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.bar{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{flex:1 1 150px;min-width:0;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab.on{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 1px var(--accent)}
+.row2{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text3);flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--surface);border:0;padding:5px 10px;font-size:12px;color:var(--text2)}
+.seg button.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.desc{margin:10px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)}
+.desc .pro{color:#8fd19e}.desc .con{color:#f0a0a0}
+.desc .taps{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;background:rgba(229,196,122,.15);color:var(--accent);font-weight:700}
+
+/* カード（v52.904 の本物に寄せた見本: サムネ＝動画パネル・真下に薄い「プレビュー」の帯） */
+.list{padding:4px 12px;display:grid;gap:10px}
+.list.grid{grid-template-columns:repeat(3,1fr);align-items:start}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;transition:box-shadow .2s}
+.main{display:flex;gap:12px;padding:12px}
+.list.grid .main{flex-direction:column;gap:0;padding:0}
+.tcol{display:flex;flex-direction:column;gap:4px;flex-shrink:0;width:150px;max-width:100%}
+.list.grid .tcol{width:100%}
+.card.pv-wide .main{flex-direction:column;gap:8px}
+.card.pv-wide .tcol{width:100%}
+.thumb{width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;position:relative;background:var(--surface3);cursor:pointer}
+.list.grid .thumb{border-radius:0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.pb{position:absolute;top:4px;right:4px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;color:#fff;background:rgba(192,57,43,.9)}
+.dur{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.82);color:#fff;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px}
+.play-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .15s}
+.thumb:hover .play-ov{opacity:1}
+.playc{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.92);color:#111;display:flex;align-items:center;justify-content:center;font-size:13px;padding-left:2px}
+.x{position:absolute;top:4px;left:4px;z-index:5;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.8);color:#fff;border:1px solid rgba(255,255,255,.4);font-size:12px}
+.pvbtn{display:block;width:100%;border:0;border-radius:6px;background:rgba(127,127,127,.12);color:var(--text2);font-size:11px;font-weight:600;padding:2px 4px;line-height:1.4}
+.list.grid .pvbtn{width:auto;margin:6px 8px 0}
+.pvbtn.on{background:var(--accent);color:var(--on-accent)}
+.body{flex:1;min-width:0}
+.list.grid .body{padding:8px 10px 4px}
+.title{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:4px}
+.ch{font-size:12px;color:var(--accent);font-weight:600}
+.tags{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);font-size:12px;flex-wrap:wrap}
+.tags span{padding:3px 10px;border-radius:12px;background:rgba(140,80,255,.16)}
+.acts{display:flex;border-top:1px solid var(--border)}
+.acts button{flex:1;background:none;border:0;padding:10px 4px;font-size:13px;color:var(--text2)}
+.acts button+button{border-left:1px solid var(--border)}
+.t{font-variant-numeric:tabular-nums}
+
+/* H1: プレイヤーの右上に「開く」 */
+.h1open{position:absolute;top:4px;right:4px;z-index:5;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:700;padding:4px 10px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+/* H2: 真下の帯が「開く」に */
+.pvbtn.open{background:var(--accent);color:var(--on-accent);font-weight:700;padding:4px}
+/* H3: プレイヤーの下に2つ */
+.pair{display:flex;gap:6px}
+.list.grid .pair{margin:6px 8px 0}
+.pair button{flex:1;border:0;border-radius:6px;padding:4px;font-size:12px;font-weight:700}
+.pair .close{background:rgba(127,127,127,.14);color:var(--text2);flex:0 0 36%}
+.pair .go{background:var(--accent);color:var(--on-accent)}
+/* H4: カードのどこでも */
+.card.anyopen{box-shadow:0 0 0 2px var(--accent);cursor:pointer}
+.anyhint{font-size:11px;color:var(--accent);font-weight:700;margin-top:4px}
+/* H5: 映像を押すと開く（映像の上に透明な覆い） */
+.tapcover{position:absolute;inset:0;z-index:4;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px}
+.tapcover span{background:rgba(0,0,0,.72);color:#fff;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700;opacity:.95}
+
+.panel{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.panel.on{display:flex}
+.panel .box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;max-width:420px;width:100%;font-size:13px;line-height:1.8}
+.panel .box b{color:var(--accent)}
+.panel .box button{margin-top:12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);padding:8px 16px;font-weight:700}
+@media(max-width:700px){.list.grid{grid-template-columns:1fr 1fr}.tcol{width:120px}.title{font-size:13px}}
+</style>
+</head>
+<body>
+<div class="banner">
+  見本の画面です（本物のデータには触りません）。今の本番（v52.904）と同じく、サムネ＝動画パネル、真下の帯＝プレビュー。<br>
+  ここに <b>「プレビューを見ながら、一発で動画パネルへ」</b> の入口を5通り足しました。プレビューを始めてから試してください。<br>
+  動画パネルは見本の枠で代わりに出します（本物では、プレビューで見ていた位置から続きを再生する想定）。
+</div>
+<div class="bar">
+  <div class="tabs" id="tabs"></div>
+  <div class="row2">
+    <span>並び</span>
+    <div class="seg" id="lay"><button data-v="list" class="on">スマホ（1列）</button><button data-v="grid">タブレット・PC（列）</button></div>
+  </div>
+</div>
+<div class="desc" id="desc"></div>
+<div class="list" id="list"></div>
+<div class="panel" id="panel"><div class="box" id="panelBox"></div></div>
+
+<script>
+const VIDEOS = [
+  { id:'taiqQJGJXCY', title:'DEEP HALF CLUBがオススメする様々なディープハーフスイープを紹介した', ch:'『ブラジリアン柔術』DEEP HALF CLUB', tags:['ボトム'], dur:'13:15' },
+  { id:'o_DG3s1_ztY', title:'歴代最強のハーフガーダーから学ぶ王者達のDEEP HALFについて解説した', ch:'『ブラジリアン柔術』DEEP HALF CLUB', tags:['ボトム'], dur:'17:21' },
+  { id:'XtBGHmC5t8s', title:'【岩崎正寛/DEEP HALF CLUB】アマゾン返し伝授！！', ch:'『ブラジリアン柔術』DEEP HALF CLUB', tags:['トップ'], dur:'9:02' },
+];
+const PLANS = {
+  H1: { name:'H1 映像の右上に「開く」', desc:`プレビュー中、映像の <b>右上</b> に金色の <b>開く</b>。左上は今までどおり ✕。<br><span class="pro">○ 見ている映像のすぐ上にあるので、目を動かさずに押せる。</span><br><span class="con">× 映像の一部を隠す。YouTube の右上のボタン（共有など）と重なる。</span><br><span class="taps">プレビュー → 開く：1タップ</span>` },
+  H2: { name:'H2 真下の帯が「開く」に変わる', desc:`プレビューを押すと、<b>同じ帯が「開く（0:42 から）」</b> に変わる。止めるのは映像の左上の ✕。<br><span class="pro">○ 指を動かさずにもう一度押すだけ。見ていた位置も帯に出る。</span><br><span class="con">× 帯を押して止める、ができなくなる（✕ で止める）。</span><br><span class="taps">プレビュー → 開く：同じ場所をもう1タップ</span>` },
+  H3: { name:'H3 映像の下に［閉じる｜開く］', desc:`プレビュー中は、映像の下に <b>閉じる</b> と <b>開く（0:42 から）</b> を並べる。<br><span class="pro">○ 止める・開くの両方が文字で並ぶので迷わない。</span><br><span class="con">× ボタンが2つになる分、少し場所を取る。</span><br><span class="taps">プレビュー → 開く：1タップ</span>` },
+  H4: { name:'H4 カードのどこを押しても開く', desc:`プレビュー中は、<b>タイトル・カードのどこを押しても</b> 動画パネルが開く（カードの縁が光る）。<br><span class="pro">○ 押す場所を探さなくていい。</span><br><span class="con">× メモ・アーカイブ・タグのボタンも「開く」になる（プレビュー中だけ）。どこが開くのか見た目では分かりにくい。</span><br><span class="taps">プレビュー → 開く：どこでも1タップ</span>` },
+  H5: { name:'H5 映像そのものを押すと開く', desc:`プレビューの <b>映像を押すと、そのまま動画パネル</b>（下に「押すと開く」の小さな文字）。止めるのは ✕。<br><span class="pro">○ いちばん直感的。「気になった映像を押す」＝「くわしく見る」。</span><br><span class="con">× プレビューの映像の上では、YouTube の一時停止・早送り・音のボタンが押せなくなる（プレビューは見るだけ）。</span><br><span class="taps">プレビュー → 開く：映像を1タップ</span>` },
+};
+let plan = 'H5', layout = 'list', playing = null, startAt = 0, ytTime = null, tick = null;
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+// 見ていた位置: YouTube が教えてくれればそれ、だめなら始めてからの秒数
+const pos = () => ytTime != null ? ytTime : (playing == null ? 0 : (Date.now() - startAt) / 1000);
+
+function thumbInner(v, i) {
+  if (playing !== i) {
+    return `<img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt=""><div class="pb">YT</div><div class="dur">▶ ${v.dur}</div><div class="play-ov"><div class="playc">▶</div></div>`;
+  }
+  let extra = '';
+  if (plan === 'H1') extra = `<button class="h1open" onclick="event.stopPropagation();openPanel(${i})">開く</button>`;
+  if (plan === 'H5') extra = `<div class="tapcover" onclick="event.stopPropagation();openPanel(${i})"><span>押すと開く</span></div>`;
+  return `<iframe id="yt-${i}" src="https://www.youtube.com/embed/${v.id}?autoplay=1&mute=1&playsinline=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(location.origin)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <button class="x" onclick="event.stopPropagation();stop()" aria-label="閉じる">✕</button>${extra}`;
+}
+function under(i) {
+  const on = playing === i;
+  if (!on) return `<button class="pvbtn" onclick="event.stopPropagation();start(${i})">プレビュー</button>`;
+  if (plan === 'H2') return `<button class="pvbtn open" onclick="event.stopPropagation();openPanel(${i})">開く（<span class="t" data-t>${fmt(pos())}</span> から）</button>`;
+  if (plan === 'H3') return `<div class="pair"><button class="close" onclick="event.stopPropagation();stop()">閉じる</button><button class="go" onclick="event.stopPropagation();openPanel(${i})">開く（<span class="t" data-t>${fmt(pos())}</span> から）</button></div>`;
+  return `<button class="pvbtn on" onclick="event.stopPropagation();stop()">停止</button>`;
+}
+function card(v, i) {
+  const on = playing === i;
+  const any = on && plan === 'H4';
+  const wide = on && layout === 'list';
+  return `<div class="card ${wide ? 'pv-wide' : ''} ${any ? 'anyopen' : ''}" ${any ? `onclick="openPanel(${i})"` : ''}>
+    <div class="main">
+      <div class="tcol"><div class="thumb" onclick="${on ? '' : `event.stopPropagation();openPanel(${i})`}">${thumbInner(v, i)}</div>${under(i)}</div>
+      <div class="body"><div class="title">${esc(v.title)}</div><div class="ch">${esc(v.ch)}</div>${any ? '<div class="anyhint">カードのどこを押しても開きます</div>' : ''}</div>
+    </div>
+    <div class="tags">${v.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>
+    <div class="acts"><button onclick="${any ? '' : 'event.stopPropagation()'}">💬 メモ</button><button onclick="${any ? '' : 'event.stopPropagation()'}">📦 アーカイブ</button></div>
+  </div>`;
+}
+function render() {
+  document.getElementById('tabs').innerHTML = Object.keys(PLANS).map(k => `<button class="tab ${k===plan?'on':''}" onclick="setPlan('${k}')">${PLANS[k].name}</button>`).join('');
+  document.getElementById('desc').innerHTML = PLANS[plan].desc;
+  const l = document.getElementById('list');
+  l.className = 'list' + (layout === 'grid' ? ' grid' : '');
+  l.innerHTML = VIDEOS.map(card).join('');
+  const f = playing != null && document.getElementById('yt-' + playing);
+  if (f) f.addEventListener('load', () => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'yt-' + playing }), '*'); } catch (e) {} });
+}
+function setPlan(k) { plan = k; stop(); }
+function start(i) { playing = i; startAt = Date.now(); ytTime = null; render(); clearInterval(tick); tick = setInterval(() => document.querySelectorAll('[data-t]').forEach(e => e.textContent = fmt(pos())), 500); }
+function stop() { playing = null; ytTime = null; clearInterval(tick); render(); }
+function openPanel(i) {
+  const at = playing === i ? fmt(pos()) : null;
+  stop();
+  document.getElementById('panelBox').innerHTML = `<div>本物ではここで <b>動画パネル</b> が開きます。</div><div>${esc(VIDEOS[i].title)}</div>${at ? `<div>プレビューで見ていた <b>${at}</b> から続きを再生（想定）</div>` : '<div>（頭から／前回の続きから）</div>'}<button onclick="document.getElementById('panel').classList.remove('on')">閉じる</button>`;
+  document.getElementById('panel').classList.add('on');
+}
+// YouTube が再生位置を教えてくれる（enablejsapi）。取れなければ始めてからの秒数で代わりにする
+window.addEventListener('message', e => {
+  if (!String(e.origin).includes('youtube.com')) return;
+  try { const d = JSON.parse(e.data); if (d.info && typeof d.info.currentTime === 'number') ytTime = d.info.currentTime; } catch (err) {}
+});
+document.getElementById('lay').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  layout = b.dataset.v; document.querySelectorAll('#lay button').forEach(x => x.classList.toggle('on', x === b)); stop();
+});
+render();
+</script>
+</body>
+</html>
