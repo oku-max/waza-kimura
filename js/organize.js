@@ -731,18 +731,20 @@ export function renderOrg() {
     // 画面の数字だけ見て「動画が減った」と誤解しないための表示で、データには触れない。
     const hidden = Math.max(0, (videos.length || 0) - totalCount);
     oc.textContent = '';
-    oc.style.cursor = 'pointer';
-    oc.title = '本数の内訳を見る';
+    // 本数の内訳（ⓘ）はオーナー（管理者）のときだけ開ける（v52.893）。ほかの人には本数だけ出す
+    const _own = !!window.wkIsOwner?.();
+    oc.style.cursor = _own ? 'pointer' : '';
+    oc.title = _own ? '本数の内訳を見る' : '';
     const main = document.createElement('span');
     main.textContent = totalCount + ' 本' + _orgTotalDurLabel(list);
     oc.appendChild(main);
     if (hidden > 0) {
       const sub = document.createElement('span');
       sub.style.cssText = 'margin-left:6px;color:var(--text3);opacity:.85';
-      sub.textContent = `／非表示 ${hidden}本 ⓘ`;
+      sub.textContent = `／非表示 ${hidden}本` + (_own ? ' ⓘ' : '');
       oc.appendChild(sub);
     }
-    oc.onclick = () => window.wkVideoAuditOpen?.();
+    oc.onclick = _own ? () => window.wkVideoAuditOpen?.() : null;
   }
 
   // ソート

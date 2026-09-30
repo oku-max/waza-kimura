@@ -118,15 +118,27 @@ const card = await page.evaluate(() => {
   window._libViewMode = 'card';
   try { window.AF(); } catch (e) { return { throw: String(e) }; }
   const rc = document.getElementById('rc');
+  // オーナーでないとき: ⓘ も出ず、押しても開かない（v52.893）
+  const _own = window.wkIsOwner;
+  window.wkIsOwner = () => false; window.AF();
+  const guestText = rc ? rc.textContent : '';
+  rc?.click();
+  const guestOpened = !!document.getElementById('wk-va-ov');
+  document.getElementById('wk-va-ov')?.remove();
+  // オーナーのとき: ⓘ が出て、押すと開く
+  window.wkIsOwner = () => true; window.AF();
   const before = !!document.getElementById('wk-va-ov');
   rc?.click();
   const ov = document.getElementById('wk-va-ov');
   const shown = window.wkVideoStats().shown;
   if (ov) ov.remove();
-  return { text: rc ? rc.textContent : '', opened: !before && !!ov, shown };
+  const text = rc ? rc.textContent : '';
+  window.wkIsOwner = _own;
+  return { text, opened: !before && !!ov, shown, guestText, guestOpened };
 });
 check('カード表示の件数が出る', /93\s*本\s*表示中/.test(card.text || ''), JSON.stringify(card).slice(0, 200));
-check('カード表示の件数タップで内訳が開く', card.opened === true, JSON.stringify(card).slice(0, 200));
+check('★ オーナーでないときは ⓘ が出ず、件数を押しても内訳は開かない（v52.893）', !/ⓘ/.test(card.guestText) && card.guestOpened === false, JSON.stringify(card).slice(0, 200));
+check('オーナーのときは ⓘ が出て、件数タップで内訳が開く', /ⓘ/.test(card.text) && card.opened === true, JSON.stringify(card).slice(0, 200));
 check('カード表示でも表示中の本数を数えられる', card.shown === 93, JSON.stringify(card).slice(0, 200));
 
 // 内訳ダイアログが開いて、数字が入っているか

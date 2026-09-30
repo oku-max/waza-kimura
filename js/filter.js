@@ -413,18 +413,20 @@ export function AF() {
   if (rc) {
     const hidden = Math.max(0, (window.videos || []).length - f.length);
     rc.textContent = '';
-    rc.style.cursor = 'pointer';
-    rc.title = '本数の内訳を見る';
+    // 本数の内訳（ⓘ）はオーナー（管理者）のときだけ開ける（v52.893）。ほかの人には本数だけ出す
+    const _own = !!window.wkIsOwner?.();
+    rc.style.cursor = _own ? 'pointer' : '';
+    rc.title = _own ? '本数の内訳を見る' : '';
     const main = document.createElement('span');
     main.textContent = f.length + ' 本 表示中';
     rc.appendChild(main);
     if (hidden > 0) {
       const sub = document.createElement('span');
       sub.style.cssText = 'margin-left:6px;color:var(--text3);opacity:.85';
-      sub.textContent = `／非表示 ${hidden}本 ⓘ`;
+      sub.textContent = `／非表示 ${hidden}本` + (_own ? ' ⓘ' : '');
       rc.appendChild(sub);
     }
-    rc.onclick = () => window.wkVideoAuditOpen?.();
+    rc.onclick = _own ? () => window.wkVideoAuditOpen?.() : null;
   }
   const rct = document.getElementById('rc-topbar');
   if (rct) {
