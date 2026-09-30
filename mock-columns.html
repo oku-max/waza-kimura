@@ -94,6 +94,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
 .danger{margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
 .dbtn{background:none;border:none;color:var(--sub);font-size:13px;padding:4px 0}
 .dbtn:hover{color:var(--text)}
+.dbtn.red{color:var(--red);margin-top:14px}
 .stored{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
 .stored summary{font-size:12px;color:var(--sub);cursor:pointer;padding:6px 4px;list-style:none}
 .stored summary::-webkit-details-marker{display:none}
@@ -122,7 +123,7 @@ th .ti{width:18px;height:18px;font-size:10px;margin-right:6px;vertical-align:mid
     <li><b>Ⅲ 列</b> を押す → 最初からある列と自分で作った列が1つの一覧に並ぶ。チェックで出し入れ、左の ⠿ をつかんで上下に動かすと並べ替え</li>
     <li>一番下の <b>＋ カスタム列を作る</b> → 今見ている表にチェック済みで出る</li>
     <li>上の <b>マスター / リスト</b> を切り替える → 出す列は表ごと、値はどこでも同じ</li>
-    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す／<b>この列を非表示にする</b>（値は残る・Ⅲ 列の一番下から表示に戻せる）。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
+    <li>カスタム列（自分で作った列）の <b>✎</b> → 名前・選択肢を直す／<b>この列を非表示にする</b>（値は残る・Ⅲ 列の一番下から表示に戻せる）／<b>🗑 完全に削除する</b>（値も消える・直後なら取り消せる）。選択肢の名前を変えると入力済みの値も変わる（取り消せる）</li>
     <li>列の見出しを押す → 並べ替え・絞り込み・直す（この表で隠すのは Ⅲ 列 のチェックを外す）</li>
     <li>列名の左のアイコンが種類（★ 評価・▾ セレクト・☐ チェック・T テキスト など）。<b>Ⅲ 列</b> では自分で作った列に種類名も出る</li>
   </ul>
@@ -397,7 +398,9 @@ function openEdit(cid) {
     ${c.type === 'number' ? `<div class="lbl">単位</div><input class="inp" value="${esc(edit.unit)}" oninput="edit.unit=this.value">` : ''}
     <div class="acts"><button class="b2" onclick="closeModal()">キャンセル</button><button class="b1" onclick="saveEdit()">保存</button></div>
     <div class="danger"><button class="dbtn" onclick="storeCol('${cid}')">🚫 この列を非表示にする</button>
-      <div class="note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。Ⅲ 列 の一番下の「非表示の列」からいつでも表示に戻せます。</div></div>`);
+      <div class="note">全部のリストとマスターの一覧から見えなくなります。入力した値は消えません（いま ${used} 本の動画に値あり）。Ⅲ 列 の一番下の「非表示の列」からいつでも表示に戻せます。</div>
+      <button class="dbtn red" onclick="delCol('${cid}',${used})">🗑 この列を完全に削除する</button>
+      <div class="note">全部のリストとマスターから消え、入力した値（${used} 本）も消えます。直後なら「↩ 取り消し」で戻せます。</div></div>`);
   drawEditOpts();
 }
 function drawEditOpts() {
@@ -433,6 +436,16 @@ function storeCol(cid) {
   c.stored = true;
   closeModal(); render(); drawColSheet();
   toast(`「${c.name}」を非表示にしました（値は残っています）`, () => unstoreCol(cid, true));
+}
+// 完全に削除: 列と、その列に入っている値を消す。確かめてから。直後なら取り消せる
+function delCol(cid, used) {
+  const c = col(cid);
+  if (!confirm(`カスタム列「${c.name}」を完全に削除しますか？\n\n全部のリストとマスターから消え、${used}本の動画に入っている値も消えます。\n直後なら「↩ 取り消し」で戻せます。`)) return;
+  const snap = { cols: [...COLS], vals: JSON.parse(JSON.stringify(VALS)) };
+  COLS = COLS.filter(x => x.id !== cid);
+  Object.values(VALS).forEach(r => delete r[cid]);
+  closeModal(); render(); drawColSheet();
+  toast(`「${c.name}」を削除しました`, () => { COLS = snap.cols; Object.keys(VALS).forEach(k => delete VALS[k]); Object.assign(VALS, snap.vals); render(); drawColSheet(); });
 }
 function unstoreCol(cid, quiet) {
   const c = col(cid); c.stored = false;
