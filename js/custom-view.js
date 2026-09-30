@@ -3638,6 +3638,7 @@ window._cvDeleteCol = function(id, skipConfirm) {
   });
   _shared.cols = _shared.cols.filter(c => c.id !== id);
   if (!_isDeleted(id)) _shared.deleted.push(id);
+  window._cvSyncDeleted?.([id]);   // 印は別の doc に足す（古い端末の保存で消されない。firebase.js）
   if (_cvSortColId === id) _cvSortColId = null;
   _save();
   const cur = _activeTableView(); if (cur) _renderTable(cur);
@@ -3646,6 +3647,7 @@ window._cvDeleteCol = function(id, skipConfirm) {
   const undo = () => {
     clearTimeout(timer);
     _shared.deleted = _shared.deleted.filter(x => x !== id);
+    window._cvSyncDeleted?.(null, [id]);
     if (!_shDef(id)) _shared.cols.splice(Math.min(Math.max(snap.defIdx, 0), _shared.cols.length), 0, snap.def);
     snap.refs.forEach(r => {
       if (r.v !== _masterView && !_views.includes(r.v)) return;

@@ -913,8 +913,38 @@ export async function loadCvStartup(uid) {
   } catch (e) { console.warn('loadCvStartup:', e); }
 }
 
+// ═══ 完全に削除したカスタム列の印（v52.896）══════════════════════
+// 印を settings doc（cvShared.deleted）にだけ置いていたら、消した列が戻ってきた。
+// settings は、削除より前から開いたままの端末（別のタブ・アプリ・PC）も丸ごと .set で書くので、
+// その端末が何か保存した瞬間に、印の無い古い中身でクラウドが上書きされる（同じ端末の別タブなら
+// localStorage の印も上書きされる）。印は別の doc に arrayUnion で足すだけにする
+// （cv_index と同じ形。古い端末が何を書いても印は減らない）。減らすのは「取り消し」だけ。
+const _cvDelRef = (uid) => _dataDoc(uid, 'cvDeleted');
+window._cvSyncDeleted = async function(add, remove) {
+  if (!currentUser) return;
+  const uid = currentUser.uid;
+  const FV = firebase.firestore.FieldValue;
+  try {
+    if (Array.isArray(add) && add.length)
+      await _cvDelRef(uid).set({ ids: FV.arrayUnion(...add), updatedAt: new Date().toISOString(), savedBy: _sessionId }, { merge: true });
+    if (Array.isArray(remove) && remove.length)
+      await _cvDelRef(uid).set({ ids: FV.arrayRemove(...remove), updatedAt: new Date().toISOString(), savedBy: _sessionId }, { merge: true });
+  } catch (e) { console.error('[cvDeleted] 削除の印の保存に失敗', e); }
+};
+// 読めなければ null（何も適用しない。印を足すだけなので、読めないときに困るのは「戻って見える」だけ）
+async function _cvLoadDeleted(uid) {
+  try {
+    const s = await _cvDelRef(uid).get();
+    const ids = s.exists ? s.data()?.ids : null;
+    return Array.isArray(ids) ? ids : [];
+  } catch (e) { console.error('[cvDeleted] 読込失敗', e); return null; }
+}
+
 export async function loadUserSettings(uid) {
   try {
+    // 削除の印を最初に読む（共有列の定義・リストの列より先に効かせる）
+    const _delIds = await _cvLoadDeleted(uid);
+    if (_delIds && _delIds.length) window._cvApplySharedRemote?.({ cols: [], deleted: _delIds });
     const snap = await db.collection('users').doc(uid).collection('data').doc('settings').get();
     if (snap.exists) {
       const data = snap.data();
@@ -979,6 +1009,11 @@ export async function loadUserSettings(uid) {
     // ここまで来た = 読み込みが成功した（設定docが無い新規ユーザーでも例外は出ない）。
     // これ以降の saveUserSettings を許可する。読込が throw した場合は false のまま＝保存ロック。
     _settingsReady = true;
+    // この端末だけが持っている削除の印を、印の doc へ足す（前の版で消した分の移し替えも兼ねる。足すだけ）
+    if (_delIds) {
+      const mine = (window._cvSharedRaw?.()?.deleted || []).filter(id => !_delIds.includes(id));
+      if (mine.length) window._cvSyncDeleted(mine);
+    }
     // 前の版で作った「リストだけの列」をカスタム列にまとめる（v52.887・1回きり・値は消さない）。
     // 動画を読めているときだけ（値を動画へ写すため）。保存が解禁された後に走らせる。
     if (_videosReady) window._cvAutoUnify?.();
