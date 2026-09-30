@@ -700,17 +700,18 @@ function _updateOrgResetBtn() {
 // 0本のときや全部不明のときは何も出さない（「0分」は嘘になる）。
 // カスタムビューのピッカーからも同じ書式で使う（custom-view.js は module ではないので window 経由）
 function _orgTotalDurLabel(list) {
-  let sec = 0, unknown = 0;
+  // 長さが分からない動画の本数（「+◯本 長さ不明」）は出さない（v52.892 オーナー「いらない」）
+  let sec = 0;
   for (const v of (list || [])) {
     const d = Number(v && v.duration);
-    if (Number.isFinite(d) && d > 0) sec += d; else unknown++;
+    if (Number.isFinite(d) && d > 0) sec += d;
   }
   if (sec <= 0) return '';
   const min = Math.round(sec / 60);
   const body = min < 60
     ? `${min}分`
     : (min % 60 === 0 ? `${min / 60}時間` : `${Math.floor(min / 60)}時間${min % 60}分`);
-  return ` · ${body}${unknown ? `（+${unknown}本 長さ不明）` : ''}`;
+  return ` · ${body}`;
 }
 window._wkTotalDurLabel = _orgTotalDurLabel;
 
