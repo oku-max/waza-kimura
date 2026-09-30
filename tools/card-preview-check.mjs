@@ -9,7 +9,7 @@
 //  ⑥ 動画のデータ（window.videos）を1文字も変えない
 //  ⑦ まとめて選ぶモードでは開かない
 //  ⑧ サムネが狭い（スマホ）ときはプレビュー中だけカード幅に広げ、閉じると戻る。広い（PC）ときは広げない
-//  ⑨ Drive は上の黒い帯を隠さず、枠を帯のぶん（64px）高くして帯も映像も全部見せる（PC・スマホとも）
+//  ⑨ Drive はログインしていれば動画パネルと同じ /api/drive の <video>（帯なし・音なしで自動再生）。していなければ埋め込みを、上の黒い帯を隠さず、枠を帯のぶん（64px）高くして帯も映像も全部見せる（PC・スマホとも）
 //  ⑩ ボタンは見た目より広く押せる（ボタンの少し外を押してもプレビューになり、動画パネルは開かない）
 //
 // 使い方: node tools/card-preview-check.mjs   終了コード: 0 = 期待どおり / 1 = ずれあり
@@ -129,7 +129,7 @@ ok(!(await page.$eval(`#card-${yt[0].id}`, e => e.classList.contains('pv-wide'))
 await page.evaluate(() => window.wkCardPreviewStop());
 await page.setViewportSize({ width: 390, height: 900 });
 
-console.log('⑨ Drive: ずらさず、枠を帯のぶん高くする（PC・スマホとも）');
+console.log('⑨ Drive: ログインしていなければ埋め込みを、ずらさず枠を帯のぶん高くして出す（PC・スマホとも）');
 const gd = by('gd');
 async function gdCheck(pg, label) {
   const w0 = await pg.$eval(`#thumb-${gd.id}`, e => [e.clientWidth, e.clientHeight]);
@@ -153,6 +153,25 @@ await page.setViewportSize({ width: 390, height: 900 });
   await mp.waitForFunction(() => window.__ready);
   await gdCheck(mp, 'スマホ');
   await mctx.close();
+}
+// Drive にログインしているとき: 動画パネルと同じ /api/drive の <video>（帯が無い・音なしで自動再生）
+{
+  await page.evaluate(() => { window.getDriveTokenIfAvailable = () => 'TKN'; });
+  const hang = () => {};   // 読み込み中のままにする（<video> の形だけを見る）
+  await page.route('**/api/drive**', hang);
+  await page.evaluate(id => window.wkCardPreview(id), gd.id);
+  const r = await page.$eval(`#thumb-${gd.id}`, t => { const v = t.querySelector('.card-pv-layer video'); return v && { src: v.getAttribute('src'), muted: v.muted, auto: v.autoplay, pi: v.hasAttribute('playsinline'), iframe: !!t.querySelector('iframe'), w: t.clientWidth, h: t.clientHeight }; });
+  ok(r && r.src === '/api/drive?fileId=FILE1&token=TKN' && r.muted && r.auto && r.pi && !r.iframe, `ログイン中の Drive は <video>（${r && r.src}・音なし・自動再生）`);
+  ok(r && Math.abs(r.h - r.w * 9 / 16) <= 2, `<video> のときは 16:9 のまま（${r && r.w}×${r && r.h}）`);
+  await page.evaluate(() => window.wkCardPreviewStop());
+  ok(!(await page.$(`#thumb-${gd.id} video`)), '閉じると <video> も消える');
+  await page.unroute('**/api/drive**', hang);
+  // 期限切れ等で読めなければ埋め込みに切り替わる（テストでは外への読み込みを止めているので /api/drive は 404 → error）
+  await page.evaluate(id => window.wkCardPreview(id), gd.id);
+  await page.waitForFunction(id => document.querySelector(`#thumb-${id} .card-pv-layer iframe`), gd.id, { timeout: 5000 }).catch(() => {});
+  ok(!!(await page.$(`#thumb-${gd.id} .card-pv-layer iframe`)) && !(await page.$(`#thumb-${gd.id} .card-pv-layer video`)), '<video> が読めなければ埋め込みに切り替わる');
+  await page.evaluate(() => window.wkCardPreviewStop());
+  await page.evaluate(() => { delete window.getDriveTokenIfAvailable; });
 }
 // YouTube は高くしない（帯が無い）
 await page.click(`#card-${yt[0].id} .card-pv-btn`);

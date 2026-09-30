@@ -178,7 +178,10 @@ window.addEventListener('resize', () => {
 });
 export function wkCardPreviewStop() {
   if (_pvId) {
-    document.getElementById('pv-' + _pvId)?.remove();
+    const layer = document.getElementById('pv-' + _pvId);
+    const vEl = layer?.querySelector('video');
+    if (vEl) { vEl.pause(); vEl.removeAttribute('src'); vEl.load(); }   // 読み込みも止める
+    layer?.remove();
     document.getElementById('card-' + _pvId)?.classList.remove('pv-wide', 'pv-gd');
     document.getElementById('thumb-' + _pvId)?.style.removeProperty('height');
   }
@@ -196,13 +199,28 @@ export function wkCardPreview(vid) {
   const layer = document.createElement('div');
   if (thumb.clientWidth < PV_WIDE_BELOW) card.classList.add('pv-wide');
   layer.className = 'card-pv-layer';
-  if (card.dataset.plat === 'gd') { card.classList.add('pv-gd'); _pvFitGd(card, thumb); }
+  // Drive は、動画パネルと同じ経路（/api/drive 経由の <video>）で再生できるならそれを使う。
+  // Drive の埋め込み（iframe）は上の黒い帯・再生前の拡大表示・自動再生なしを外から変えられない
+  // （v52.898〜900 で3回外した）。<video> なら帯が無く、音なしで自動再生できる。
+  const gdToken = card.dataset.plat === 'gd' ? window.getDriveTokenIfAvailable?.() : null;
+  if (card.dataset.plat === 'gd' && !gdToken) { card.classList.add('pv-gd'); _pvFitGd(card, thumb); }
   layer.id = 'pv-' + vid;
   layer.onclick = e => e.stopPropagation();   // 重ねた上の操作で動画パネルを開かない
-  layer.innerHTML = `<iframe src="${url.replace(/"/g, '&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe><button class="card-pv-close" title="プレビューを閉じる">✕</button>`;
+  const player = gdToken
+    ? `<video src="/api/drive?fileId=${encodeURIComponent(vid.replace(/^gd-/, ''))}&token=${encodeURIComponent(gdToken)}" muted autoplay playsinline webkit-playsinline controls></video>`
+    : `<iframe src="${url.replace(/"/g, '&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+  layer.innerHTML = `${player}<button class="card-pv-close" title="プレビューを閉じる">✕</button>`;
   layer.querySelector('.card-pv-close').onclick = e => { e.stopPropagation(); wkCardPreviewStop(); };
   thumb.appendChild(layer);
   _pvId = vid;
+  // ログインの期限切れ等で <video> が読めなければ、埋め込みに切り替える（黙って黒いままにしない）
+  layer.querySelector('video')?.addEventListener('error', () => {
+    if (_pvId !== vid || !layer.isConnected) return;
+    card.classList.add('pv-gd'); _pvFitGd(card, thumb);
+    layer.querySelector('video').replaceWith(Object.assign(document.createElement('iframe'), {
+      src: url, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowFullscreen: true,
+    }));
+  });
   if (card.classList.contains('pv-wide')) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 window.wkCardPreview = wkCardPreview;
