@@ -144,10 +144,11 @@ export function cardHTML(v) {
   const vDot = v.verified ? '<div class="verify-dot verified"></div>'
              : v.ai       ? '<div class="verify-dot ai-unverified"></div>' : '';
   // プレビュー（v52.896）: サムネの中で音なし再生。X は埋め込みで再生できないので出さない。
-  // ボタンは文字だけ（▶ を付けない。長さのバッジの ▶ と2つ並んで分かりにくい。v52.903 オーナー）
-  const pvBtn = isX ? '' : `<button class="card-pv-btn" onclick="event.stopPropagation();wkCardPreview('${vid}')" title="プレビュー">プレビュー</button>`;
+  // ボタンは文字だけ（▶ を付けない。長さのバッジの ▶ と2つ並んで分かりにくい。v52.903 オーナー）。
+  // 置き場所はサムネの中ではなく真下（v52.904・オーナー決定 G②）。サムネを押すのは今までどおり動画パネル
+  const pvBtn = isX ? '' : `<button class="card-pv-btn" id="pvb-${vid}" onclick="event.stopPropagation();wkCardPreview('${vid}')" title="プレビュー">プレビュー</button>`;
   const btnMemo = `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>`;
-  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div>${pvBtn}</div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
+  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-tcol"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div></div>${pvBtn}</div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}${aiDescLine}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();if(confirm('アーカイブしますか？'))archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
 }
 
 
@@ -183,6 +184,7 @@ export function wkCardPreviewStop() {
     const vEl = layer?.querySelector('video');
     if (vEl) { vEl.pause(); vEl.removeAttribute('src'); vEl.load(); }   // 読み込みも止める
     layer?.remove();
+    const b = document.getElementById('pvb-' + _pvId); if (b) { b.classList.remove('on'); b.textContent = 'プレビュー'; }
     document.getElementById('card-' + _pvId)?.classList.remove('pv-wide', 'pv-gd');
     document.getElementById('thumb-' + _pvId)?.style.removeProperty('height');
   }
@@ -218,6 +220,7 @@ export function wkCardPreview(vid) {
   layer.querySelector('.card-pv-close').onclick = e => { e.stopPropagation(); wkCardPreviewStop(); };
   thumb.appendChild(layer);
   _pvId = vid;
+  const pvb = document.getElementById('pvb-' + vid); if (pvb) { pvb.classList.add('on'); pvb.textContent = '停止'; }
   const authBox = layer.querySelector('.card-pv-auth');
   if (authBox && window._showGDriveAuthUI) {
     window._showGDriveAuthUI(authBox, gdFile, tk => {

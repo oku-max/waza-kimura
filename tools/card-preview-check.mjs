@@ -11,6 +11,7 @@
 //  ⑧ サムネが狭い（スマホ）ときはプレビュー中だけカード幅に広げ、閉じると戻る。広い（PC）ときは広げない
 //  ⑨ Drive はログインしていれば動画パネルと同じ /api/drive の <video>（帯なし・音なしで自動再生）。していなければ埋め込みを、上の黒い帯を隠さず、枠を帯のぶん（64px）高くして帯も映像も全部見せる（PC・スマホとも）
 //  ⑩ ボタンは見た目より広く押せる（ボタンの少し外を押してもプレビューになり、動画パネルは開かない）
+//  ⑪ ボタンはサムネの中ではなく真下・サムネと同じ幅の低い帯・プレビュー中は「停止」（v52.904 オーナー決定 G②）
 //
 // 使い方: node tools/card-preview-check.mjs   終了コード: 0 = 期待どおり / 1 = ずれあり
 import http from 'http';
@@ -201,10 +202,28 @@ ok(Math.abs(yh[1] - yh[0] * 9 / 16) <= 2, `YouTube は 16:9 のまま（${yh.joi
 await page.evaluate(() => window.wkCardPreviewStop());
 
 console.log('⑩ ボタンの少し外を押してもプレビュー');
-const bb = await page.$eval(`#card-${yt[1].id} .card-pv-btn`, b => { const r = b.getBoundingClientRect(); return { x: r.left, y: r.top, h: r.height }; });
-await page.mouse.click(bb.x - 6, bb.y - 5);
-ok(!!(await page.$(`#thumb-${yt[1].id} .card-pv-layer`)) && (await page.evaluate(() => window.opened.length)) === 0, 'ボタンの左上 6px 外を押してもプレビューになり、動画パネルは開かない');
+const bb = await page.$eval(`#card-${yt[1].id} .card-pv-btn`, b => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.bottom }; });
+await page.mouse.click(bb.x, bb.y + 4);
+ok(!!(await page.$(`#thumb-${yt[1].id} .card-pv-layer`)) && (await page.evaluate(() => window.opened.length)) === 0, 'ボタンの 4px 下を押してもプレビューになり、動画パネルは開かない');
 await page.evaluate(() => window.wkCardPreviewStop());
+
+console.log('⑪ 置き場所はサムネの真下（v52.904・G②）');
+const place = await page.$eval(`#card-${yt[1].id}`, c => {
+  const b = c.querySelector('.card-pv-btn'), t = c.querySelector('.card-thumb');
+  const rb = b.getBoundingClientRect(), rt = t.getBoundingClientRect();
+  return { inThumb: t.contains(b), below: rb.top >= rt.bottom - 1 && rb.top - rt.bottom < 12, sameW: Math.abs(rb.width - rt.width) <= 20, h: rb.height };
+});
+ok(!place.inThumb && place.below, 'ボタンはサムネの中ではなく、すぐ下');
+ok(place.sameW && place.h <= 22, `サムネとほぼ同じ幅・低い帯（高さ ${Math.round(place.h)}px）`);
+await page.click(`#card-${yt[1].id} .card-pv-btn`);
+ok((await page.textContent(`#card-${yt[1].id} .card-pv-btn`)).trim() === '停止', 'プレビュー中はボタンが「停止」');
+await page.click(`#card-${yt[1].id} .card-pv-btn`);
+ok(!(await page.$(`#thumb-${yt[1].id} .card-pv-layer`)) && (await page.textContent(`#card-${yt[1].id} .card-pv-btn`)).trim() === 'プレビュー', 'もう一度押すと止まり「プレビュー」に戻る');
+await page.click(`#card-${yt[0].id} .card-pv-btn`);
+await page.click(`#card-${yt[1].id} .card-pv-btn`);
+ok((await page.textContent(`#card-${yt[0].id} .card-pv-btn`)).trim() === 'プレビュー', '別のカードで押すと、前のボタンは「プレビュー」に戻る');
+await page.evaluate(() => window.wkCardPreviewStop());
+ok((await page.evaluate(() => window.opened.length)) === 0, 'ボタンでは一度も動画パネルを開かない');
 
 ok(errs.length === 0, 'ページのエラーなし ' + (errs.join(' / ')));
 await browser.close(); srv.close();

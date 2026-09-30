@@ -901,6 +901,7 @@
     '▶ この場面から再生':'▶ Play from here',
     '▶ プレビュー':'▶ Preview',
     'プレビュー':'Preview',
+    '停止':'Stop',
     'プレビューを閉じる':'Close preview',
     '▼ 既存':'▼ Existing',
     '◎ Community タブ':'◎ Community tab',
