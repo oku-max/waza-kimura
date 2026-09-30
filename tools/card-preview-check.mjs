@@ -9,7 +9,7 @@
 //  ⑥ 動画のデータ（window.videos）を1文字も変えない
 //  ⑦ まとめて選ぶモードでは開かない
 //  ⑧ サムネが狭い（スマホ）ときはプレビュー中だけカード幅に広げ、閉じると戻る。広い（PC）ときは広げない
-//  ⑨ Drive は PC では上の黒い帯を隠す形（.gd）で重ね、スマホではずらさない
+//  ⑨ Drive は上の黒い帯を隠さず、枠を帯のぶん（64px）高くして帯も映像も全部見せる（PC・スマホとも）
 //  ⑩ ボタンは見た目より広く押せる（ボタンの少し外を押してもプレビューになり、動画パネルは開かない）
 //
 // 使い方: node tools/card-preview-check.mjs   終了コード: 0 = 期待どおり / 1 = ずれあり
@@ -129,13 +129,21 @@ ok(!(await page.$eval(`#card-${yt[0].id}`, e => e.classList.contains('pv-wide'))
 await page.evaluate(() => window.wkCardPreviewStop());
 await page.setViewportSize({ width: 390, height: 900 });
 
-console.log('⑨ Drive');
+console.log('⑨ Drive: ずらさず、枠を帯のぶん高くする（PC・スマホとも）');
 const gd = by('gd');
-await page.click(`#card-${gd.id} .card-pv-btn`);
-const gdTop = await page.$eval(`#thumb-${gd.id} .card-pv-layer`, l => l.classList.contains('gd') ? getComputedStyle(l.querySelector('iframe')).top : null);
-ok(gdTop && parseFloat(gdTop) < 0, `Drive は上へずらして帯を隠す（top ${gdTop}）`);
-await page.evaluate(() => window.wkCardPreviewStop());
-// スマホ（指で操作する画面）では Drive は帯の無い再生画面なので、ずらさない（下の操作部が枠の外に落ちる）
+async function gdCheck(pg, label) {
+  const w0 = await pg.$eval(`#thumb-${gd.id}`, e => [e.clientWidth, e.clientHeight]);
+  await pg.evaluate(id => window.wkCardPreview(id), gd.id);
+  const r = await pg.$eval(`#thumb-${gd.id}`, t => { const f = t.querySelector('.card-pv-layer iframe'); return { w: t.clientWidth, h: t.clientHeight, top: getComputedStyle(f).top, fh: f.clientHeight }; });
+  ok(parseFloat(r.top) === 0 && r.fh === r.h, `${label}: 埋め込みはずらさず枠いっぱい（top ${r.top}・枠 ${r.h}px／埋め込み ${r.fh}px）`);
+  ok(Math.abs(r.h - (r.w * 9 / 16 + 64)) <= 2, `${label}: 枠の高さ ＝ 幅×9/16＋64（幅 ${r.w}px → 高さ ${r.h}px）`);
+  await pg.evaluate(() => window.wkCardPreviewStop());
+  const w1 = await pg.$eval(`#thumb-${gd.id}`, e => [e.clientWidth, e.clientHeight]);
+  ok(w1[0] === w0[0] && w1[1] === w0[1], `${label}: 閉じると元の大きさ（${w1.join('×')}）`);
+}
+await page.setViewportSize({ width: 1400, height: 900 });
+await gdCheck(page, 'PC');
+await page.setViewportSize({ width: 390, height: 900 });
 {
   const mctx = await browser.newContext({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true });
   const mp = await mctx.newPage();
@@ -143,12 +151,14 @@ await page.evaluate(() => window.wkCardPreviewStop());
   await mp.route(`http://localhost:${PORT}/__bare`, r => r.fulfill({ status: 200, contentType: 'text/html', body: BARE }));
   await mp.goto(`http://localhost:${PORT}/__bare`);
   await mp.waitForFunction(() => window.__ready);
-  await mp.evaluate(id => window.wkCardPreview(id), gd.id);
-  const mTop = await mp.$eval(`#thumb-${gd.id} .card-pv-layer iframe`, f => getComputedStyle(f).top);
-  const mH = await mp.$eval(`#thumb-${gd.id} .card-pv-layer`, l => [l.clientHeight, l.querySelector('iframe').clientHeight]);
-  ok(parseFloat(mTop) === 0 && mH[0] === mH[1], `スマホでは Drive をずらさない（top ${mTop}・枠 ${mH[0]}px／埋め込み ${mH[1]}px）`);
+  await gdCheck(mp, 'スマホ');
   await mctx.close();
 }
+// YouTube は高くしない（帯が無い）
+await page.click(`#card-${yt[0].id} .card-pv-btn`);
+const yh = await page.$eval(`#thumb-${yt[0].id}`, t => [t.clientWidth, t.clientHeight]);
+ok(Math.abs(yh[1] - yh[0] * 9 / 16) <= 2, `YouTube は 16:9 のまま（${yh.join('×')}）`);
+await page.evaluate(() => window.wkCardPreviewStop());
 
 console.log('⑩ ボタンの少し外を押してもプレビュー');
 const bb = await page.$eval(`#card-${yt[1].id} .card-pv-btn`, b => { const r = b.getBoundingClientRect(); return { x: r.left, y: r.top, h: r.height }; });

@@ -85,13 +85,11 @@ body.bulk-mode .card-sel-ov{display:block;}
 body.bulk-mode .card-pv-btn{display:none;}
 .card-pv-layer{position:absolute;inset:0;z-index:4;background:#000;cursor:default;overflow:hidden;}
 .card-pv-layer iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-/* Drive の埋め込みは、PC では上に黒い帯（ファイル名・別窓ボタン）を持ち、映像をその下に置くので、
-   枠に入れると映像の下が切れる。帯のぶんだけ上へずらして隠す（帯の高さは PC の実画面の計測から。約52px）。
-   スマホでは Drive が帯の無い別の再生画面を出すので、ずらすと下の再生ボタン・シークバーが枠の外に落ちる
-   （v52.898 でそうなっていた。オーナーのスマホの画面から）。ずらすのはマウスで操作する画面だけ。 */
-@media (hover:hover) and (pointer:fine){
-  .card-pv-layer.gd iframe{top:calc(-1 * var(--gd-pv-head,52px));height:calc(100% + var(--gd-pv-head,52px));}
-}
+/* Drive の埋め込みは、上に黒い帯（再生バー・別窓ボタン）を持ち、映像をその下に置く。
+   帯の高さは端末で違う（オーナーの画面の実測: PC 約51px・スマホ 約60px）。ずらして隠すと、スマホでは帯にある
+   再生の操作ごと消える（v52.898）。ずらさないと映像の下が切れる（v52.899）。どちらも帯を消せないので、
+   枠のほうを帯のぶんだけ高くして、帯も映像も全部見せる（高さは JS が 幅×9/16＋GD_HEAD で入れる）。 */
+.card.pv-gd .card-thumb{padding-bottom:0!important;aspect-ratio:auto!important;}
 .card-pv-close{position:absolute;top:4px;left:4px;z-index:1;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.8);color:#fff;border:1px solid rgba(255,255,255,.4);font-size:12px;line-height:1;cursor:pointer;padding:0;}
 /* サムネが小さい画面（スマホ等）では、プレビュー中だけカードの幅いっぱいに広げる */
 .card.pv-wide .card-main{flex-direction:column;}

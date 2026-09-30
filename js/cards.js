@@ -165,10 +165,22 @@ function _pvUrl(card) {
 }
 // サムネがこれより狭いときは、プレビュー中だけカードの幅いっぱいに広げる（スマホでは操作できないため）
 const PV_WIDE_BELOW = 320;
+// Drive の埋め込みの上の黒い帯のぶん、枠を高くする（実測 PC 約51px・スマホ 約60px。足りないと映像が切れ、
+// 多いぶんは黒い余白になるだけなので、多めにとる）
+const GD_HEAD = 64;
+function _pvFitGd(card, thumb) {
+  thumb.style.setProperty('height', Math.round(thumb.clientWidth * 9 / 16 + GD_HEAD) + 'px', 'important');
+}
+window.addEventListener('resize', () => {
+  if (!_pvId) return;
+  const card = document.getElementById('card-' + _pvId), thumb = document.getElementById('thumb-' + _pvId);
+  if (card && thumb && card.classList.contains('pv-gd')) _pvFitGd(card, thumb);
+});
 export function wkCardPreviewStop() {
   if (_pvId) {
     document.getElementById('pv-' + _pvId)?.remove();
-    document.getElementById('card-' + _pvId)?.classList.remove('pv-wide');
+    document.getElementById('card-' + _pvId)?.classList.remove('pv-wide', 'pv-gd');
+    document.getElementById('thumb-' + _pvId)?.style.removeProperty('height');
   }
   _pvId = null;
 }
@@ -183,7 +195,8 @@ export function wkCardPreview(vid) {
   if (!thumb || !url) return;
   const layer = document.createElement('div');
   if (thumb.clientWidth < PV_WIDE_BELOW) card.classList.add('pv-wide');
-  layer.className = 'card-pv-layer' + (card.dataset.plat === 'gd' ? ' gd' : '');
+  layer.className = 'card-pv-layer';
+  if (card.dataset.plat === 'gd') { card.classList.add('pv-gd'); _pvFitGd(card, thumb); }
   layer.id = 'pv-' + vid;
   layer.onclick = e => e.stopPropagation();   // 重ねた上の操作で動画パネルを開かない
   layer.innerHTML = `<iframe src="${url.replace(/"/g, '&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe><button class="card-pv-close" title="プレビューを閉じる">✕</button>`;
