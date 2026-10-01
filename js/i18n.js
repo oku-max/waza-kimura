@@ -1015,7 +1015,7 @@
     '新しいプレイリスト名':'New playlist name',
     '方眼':'Grid',
     '既存のプレイリスト':'Existing playlists',
-    '昇降順切替':'Toggle sort order',
+    '昇降順切替':'Toggle sort order','昇順・降順を切り替え':'Toggle ascending / descending',
     '最近再生した':'Recently played',
     '未取込のみ':'New only',
     '条件名を入力...':'Enter a name...',
