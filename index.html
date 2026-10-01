@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.908</title>
+<title>WAZA KIMURA v52.909</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -955,6 +955,11 @@
   flex-shrink: 0;
   transition: background .15s, color .15s, border-color .15s;
 }
+/* 本数の横のカード／テーブル切り替え（v52.909。サイドバーの「ビュー」と同じ処理を呼ぶ） */
+.hdr-lvt { display:flex; gap:3px; flex-shrink:0; }
+.hdr-lvt-btn { padding:3px 9px; border-radius:20px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; line-height:1.5; }
+.hdr-lvt-btn:hover { color:var(--text); border-color:var(--text2); }
+.hdr-lvt-btn.lvt-active { background:var(--text); color:var(--surface); border-color:var(--text); cursor:default; }
 .lvt-btn.lvt-active {
   background: var(--accent);
   color: var(--on-accent);
@@ -1538,6 +1543,7 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
           <span class="results-count" id="rc"></span>
+          <div class="hdr-lvt"><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('card')" data-i18n="sb.card">📋 カード</button><button class="hdr-lvt-btn" onclick="window._cvSetView('table')" data-i18n="sb.table">📊 テーブル</button></div>
           <button id="card-bar-bulk-btn" class="bulk-btn" onclick="enterBulk()" style="flex-shrink:0">☑ 一括編集</button>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
@@ -1574,7 +1580,8 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
       <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
         <button class="lib-sb-toggle" onclick="libSbToggle()" style="flex-shrink:0">≡</button>
         <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
-        <button id="org-bar-bulk-btn" class="bulk-btn" onclick="enterBulk('organize')" style="flex-shrink:0;margin-left:6px">☑ 一括編集</button>
+        <div class="hdr-lvt" style="margin-left:6px"><button class="hdr-lvt-btn" onclick="window._cvSetView('card')" data-i18n="sb.card">📋 カード</button><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('table')" data-i18n="sb.table">📊 テーブル</button></div>
+        <button id="org-bar-bulk-btn" class="bulk-btn" onclick="enterBulk('organize')" style="flex-shrink:0">☑ 一括編集</button>
         <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
           <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列・カスタム列">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列設定
