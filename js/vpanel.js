@@ -5564,16 +5564,6 @@ window.wkSubOptsReset = function() {
   window.toast?.('字幕設定を既定値に戻しました');
 };
 
-// 動画ごとのタイミング補正
-window.wkSubOffsetNudge = function(delta) {
-  const key = _subCurKey();
-  if (!key) return;
-  const next = Math.round((_subOffsetGet(key) + delta) * 10) / 10;
-  _subOffsetSet(key, next);
-  _subReapplyAll();
-  window.wkSubOptsRender();
-};
-
 const _escAttr = v => String(v).replace(/"/g, '&quot;');
 
 function _subSeg(key, cur, choices) {
@@ -5726,89 +5716,41 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
-    // YouTubeの生成字幕は時刻がAIの推測。そのことを必ず画面に出す。
-    // Drive動画は音声認識で時刻を音から実測しているので、この断り書きは出さない。
-    const gen = _ytSubCur()?.kind === 'gen' ? _ytSubCur().track : null;
-    // YouTube側の字幕から作ったものは時刻が正確。断り書きの対象はAIが時刻を書いたものだけ。
-    const fromYt = !!gen && String(gen.via || '').startsWith('yt:');
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
                font-size:11px;font-weight:600;cursor:pointer">${label}</button>`;
-    const sug = _gdSubSuggestOffset();
 
-    // ズレ補正の中身。時刻が正確な字幕（YouTubeの字幕から作ったもの）では出番が無いので、
-    // 見出しだけ残して畳む。消さないのは、AIが時刻を書いた字幕（赤い枠）では今も要るから。
-    // 補正が掛かっている時は畳まない（掛かっていることは必ず見えていないといけない）。
-    const offBody = ''
-      // 補正が残っていると、正しい時刻の字幕にもそれが足され続ける。
-      // 黙って適用せず、掛かっていることを必ず見せる。
-      + (off
-          ? `<div style="background:rgba(239,68,68,.12);border:1.5px solid var(--red,#ef4444);
-                         border-radius:8px;padding:8px 10px;display:flex;align-items:center;
-                         justify-content:space-between;gap:8px;flex-wrap:wrap">
-               <span style="font-size:11.5px;font-weight:700;line-height:1.5">
-                 ⚠ この動画には ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 のタイミング補正が掛かっています</span>
-               ${btn('補正を消す', 'wkSubOffsetReset()', 'var(--red,#ef4444)')}
-             </div>` : '')
-      + (sug != null
-          ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;display:flex;
-                         align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-               <span style="font-size:11px;line-height:1.5">字幕の時刻が動画の長さと合っていません</span>
-               ${btn('⏱ 自動で合わせる', 'wkSubAutoFix()', 'var(--accent,#6c8cff)')}
-             </div>` : '')
-      + `<div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${btn('⏱ いまのセリフに合わせる', 'wkSubSyncNow()', 'var(--accent,#6c8cff)')}
-        </div>
-        <div style="font-size:10.5px;color:var(--text3)">
-          字幕が出ている状態で、その声が始まった瞬間に押すと合います
-        </div>
-        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-          ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
-          <span style="min-width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;
-                       font-weight:700;color:${off ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${off > 0 ? '+' : ''}${off.toFixed(1)}s</span>
-          ${[0.1, 1, 10, 60].map(d => btn(`+${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
-        </div>
-        <div style="font-size:10.5px;color:var(--text3)">字幕が音より早いならマイナス、遅いならプラス</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${btn('リセット', 'wkSubOffsetReset()')}
-          ${_gdSubTracks.length && off ? btn('💾 この補正をDriveに保存', 'wkSubBakeOffset()') : ''}
-          ${_gdSubTracks.length ? btn('🔄 読み直す', 'wkSubReload()') : ''}
-        </div>`
-      // ここから下はDriveのファイルを直接いじる操作なので、Drive動画のときだけ出す
-      + (_gdSubTracks.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">
+    // 字幕ファイルそのものを触る操作。Drive動画のときだけ出す。
+    // （以前は「ズレを直す」の欄の中に置いていたが、ズレ補正とは別のものなので残す）
+    if (_gdSubTracks.length) {
+      html += `<div style="display:flex;gap:6px;flex-wrap:wrap">
           <button id="vp-sub-retr" onclick="wkSubRetranslate()"
             style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);
                    background:transparent;color:var(--text2);cursor:pointer">🌐 翻訳だけやり直す</button>
           ${btn('🔍 字幕の点検', 'wkSubAudit()')}
+          ${btn('🔄 読み直す', 'wkSubReload()')}
         </div>
         <div style="font-size:10.5px;color:var(--text3)">
           いまの字幕を元に訳し直します。書き起こしはやり直さないので音声認識の料金はかかりません
-        </div>
-        <div style="font-size:10.5px;color:var(--text3)">
-          補正はこの端末だけに残ります。他の端末にも反映するにはDriveに保存してください
-        </div>` : `<div style="font-size:10.5px;color:var(--text3)">補正はこの端末だけに残ります</div>`);
+        </div>`;
+    }
 
-    // 時刻が正確な字幕（YouTubeの字幕から作ったもの）では、この欄は丸ごと出さない。
-    // 畳んで見出しだけ残す案もやったが、それでも視界に入ると
-    // 「何か直さないといけないのか」と思わせる。出番が無いなら出さない。
+    // ズレ補正の欄は廃止（v52.662・オーナー「いらない。削除して」）。
+    // ずらす・伸ばすで直らないことは実測で分かっている（sub-timing-check の先頭を参照）。
+    // 直し方は「最初から正しい時刻を得る」＝ YouTube側の字幕／音声認識で作り直すこと。
     //
-    // 例外は1つだけ: すでに補正が掛かっているとき。
-    // 掛かっているのに隠すと、正しい時刻の字幕にズレが足され続けているのに気づけない。
-    // その時は消すためのボタンだけ出す（±やリセットの一式は出さない）。
-    if (fromYt) {
-      if (off) {
-        html += sec('ズレを直す（この動画のみ）')
-          + `<div style="background:rgba(239,68,68,.12);border:1.5px solid var(--red,#ef4444);
-                         border-radius:8px;padding:8px 10px;display:flex;align-items:center;
-                         justify-content:space-between;gap:8px;flex-wrap:wrap">
-               <span style="font-size:11.5px;font-weight:700;line-height:1.5">
-                 ⚠ この動画には ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 のタイミング補正が掛かっています</span>
-               ${btn('補正を消す', 'wkSubOffsetReset()', 'var(--red,#ef4444)')}
-             </div>`;
-      }
-    } else {
-      html += sec('ズレを直す（この動画のみ）') + offBody;
+    // ただし、前の版でこの端末に付けた補正が localStorage に残っていると、
+    // 表示のたびに足され続ける。消す手段ごと隠すと直せなくなるので、
+    // 掛かっているときだけ消すためのボタンを出す（±や「合わせる」は出さない）。
+    if (off) {
+      html += `<div style="background:rgba(239,68,68,.12);border:1.5px solid var(--red,#ef4444);
+                     border-radius:8px;padding:8px 10px;display:flex;align-items:center;
+                     justify-content:space-between;gap:8px;flex-wrap:wrap">
+           <span style="font-size:11.5px;font-weight:700;line-height:1.5">
+             ⚠ この動画には ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 のタイミング補正が掛かっています</span>
+           ${btn('補正を消す', 'wkSubOffsetReset()', 'var(--red,#ef4444)')}
+         </div>`;
     }
   }
 
@@ -5838,73 +5780,10 @@ function _subOptsHTML(scope) {
 // 完全削除（files.delete）ではなく trashed:true にする。
 // ユーザーの実データなので、取り返しがつく方向に倒す（Driveのゴミ箱から復元できる）。
 // 対象は _gdSubTracks に載っている字幕ファイルだけで、動画本体には触れない。
-// ── 字幕のズレを直す ──────────────────────────────────────
-// 補正はすべて表示時に適用するだけなので、Drive上の元ファイルは変わらない。
-// 何度でもやり直せるし、消して作り直す必要もない。
-
-// 現在の字幕（整形前）の時刻の範囲を返す
-function _gdSubRange() {
-  const t = _gdSubTracks[_gdSubIndex] || _gdSubTracks[0];
-  if (!t || !t.rawVtt) return null;
-  const cues = _parseVtt(t.rawVtt);
-  if (!cues.length) return null;
-  return { first: cues[0].start, last: cues[cues.length - 1].end, count: cues.length };
-}
-
-// 動画の尺から見て明らかに外れている場合に、ずらす量を提案する。
-// 実際にあった「全体が1時間ずれている」ようなケースを1操作で直すためのもの。
-// 「全部が尺に収まるか」で判定すると、字幕の長さが動画より長い壊れ方（これも実在した）で
-// 一切提案できなくなるため、動画と重なっている長さで評価する。
-function _gdSubSuggestOffset() {
-  const r = _gdSubRange();
-  const dur = Number(_gdVideoEl?.duration) || 0;
-  if (!r || !dur) return null;
-
-  const overlap = (sh) => {
-    if (r.first + sh < -2) return -1;              // 動画の開始より前に出るのは不可
-    return Math.max(0, Math.min(dur, r.last + sh) - Math.max(0, r.first + sh));
-  };
-  const cur = _subOffsetGet(_gdFileId);
-  const curOv = overlap(cur);
-
-  // 時間・分単位のきれいなズレを優先（ファイルの構造を壊さない）。最後に先頭を0へ寄せる案。
-  const cands = [];
-  for (let h = 1; h <= 5; h++) cands.push(-3600 * h);
-  for (let m = 1; m <= 59; m++) cands.push(-60 * m);
-  cands.push(-r.first);
-
-  let bestOv = 0;
-  for (const sh of cands) bestOv = Math.max(bestOv, overlap(sh));
-  if (bestOv < 5) return null;                           // 直しようがない
-  if (curOv >= bestOv * 0.6) return null;                // いまでも十分重なっている
-  // cands は「時間単位 → 分単位 → 先頭を0へ」の順。ほぼ同じ結果になるなら
-  // きれいな単位の方を選ぶ（ファイル本来の構造を壊さないため）。
-  for (const sh of cands) if (overlap(sh) >= bestOv * 0.95) return Math.round(sh * 10) / 10;
-  return null;
-}
-
-window.wkSubAutoFix = function() {
-  const sh = _gdSubSuggestOffset();
-  if (sh == null) { window.toast?.('自動で直せるズレは見つかりませんでした'); return; }
-  _subOffsetSet(_gdFileId, sh);
-  _subReapplyAll();
-  window.wkSubOptsRender();
-  window.toast?.(`⏱ ${sh}秒ずらしました`);
-};
-
-// いま画面に出ている字幕を、いまの再生位置に合わせる。
-// 一定量ズレている場合はこれ1回で合う。
-window.wkSubSyncNow = function() {
-  const p = _subHere();
-  if (p.err) { window.toast?.(p.err); return; }
-  // 表示中のキューの開始が、いまの再生位置に来るようにずらす
-  const key   = _subCurKey();
-  const next  = Math.round((_subOffsetGet(key) + (p.now - p.start)) * 10) / 10;
-  _subOffsetSet(key, next);
-  _subReapplyAll();
-  window.wkSubOptsRender();
-  window.toast?.(`⏱ 現在位置に合わせました（${next > 0 ? '+' : ''}${next.toFixed(1)}秒）`);
-};
+// ── 字幕のズレ ──────────────────────────────────────────
+// ずらす・伸ばすで直す仕組みは持たない（v52.662 で撤去）。
+// 直らないことは実測で分かっている（tools/sub-timing-check.mjs の先頭）。
+// 残っているのは、前の版で付けた補正を「消す」ことだけ。
 
 // いま動いている版。PWAのキャッシュで古いままの端末があるため、
 // 「直したのに変わらない」がキャッシュなのか不具合なのかを画面で切り分けられるようにする。
@@ -5913,66 +5792,12 @@ function _wkVer() {
   return m ? m[0] : '';
 }
 
-// いま出ているキューの開始時刻と、いまの再生位置を取る。DriveとYouTubeで取り方が違う。
-function _subHere() {
-  let start = null, now = NaN, text = '';
-  const t  = _gdSubTracks[_gdSubIndex];
-  const tt = t && t.track && t.track.track;
-  if (tt) {
-    now = Number(_gdVideoEl?.currentTime);
-    const cues = tt.activeCues;
-    if (cues && cues.length) start = cues[0].startTime;
-  } else if (_ytSubCur()?.kind === 'gen') {
-    try { now = Number(_ytPlayer?.getCurrentTime?.()); } catch (e) {}
-    const cue = Number.isFinite(now) ? _ytSubCueAt(_ytSubCur().track.cues, now) : null;
-    if (cue) { start = cue.start; text = cue.text || ''; }
-  }
-  if (_ytSubCur()?.kind === 'yt') return { err: 'YouTubeの字幕はこちらでは調整できません（生成字幕に切り替えてください）' };
-  if (!Number.isFinite(now)) return { err: '動画を再生してから押してください' };
-  if (start == null)         return { err: 'いま表示されている字幕がありません' };
-  return { start, now, text };
-}
-
-// 再生位置だけを取る（②では字幕が出ている必要がない）
-function _subNowSec() {
-  if (_gdVideoEl && _gdSubTracks.length) return Number(_gdVideoEl.currentTime);
-  try { return Number(_ytPlayer?.getCurrentTime?.()); } catch (e) { return NaN; }
-}
-
+// 前の版でこの端末に付いた補正を消す。付ける手段はもう無い。
 window.wkSubOffsetReset = function() {
   _subOffsetSet(_subCurKey(), 0);
   _subReapplyAll();
   window.wkSubOptsRender();
   window.toast?.('タイミング補正をリセットしました');
-};
-
-// 補正結果をDriveのファイルに書き戻す。
-// これをしないと補正はこの端末にしか残らない。元ファイルを上書きするので必ず確認する。
-window.wkSubBakeOffset = async function() {
-  const t   = _gdSubTracks[_gdSubIndex];
-  const off = _subOffsetGet(_gdFileId);
-  if (!t || !t.id) { window.toast?.('対象の字幕ファイルが特定できませんでした'); return; }
-  if (!off) { window.toast?.('補正がかかっていません'); return; }
-  const token = window.getDriveTokenIfAvailable?.();
-  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
-  if (!confirm(`「${t.name}」の時刻を ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 ずらして保存しますか？\n\nDrive上のファイルを書き換えます。`)) return;
-
-  const cues = _parseVtt(t.rawVtt).map(c => ({ ...c, start: Math.max(0, c.start + off), end: Math.max(0.2, c.end + off) }));
-  if (!cues.length) { window.toast?.('字幕を読み取れませんでした'); return; }
-  const srt = cues.map((c, i) =>
-    `${i + 1}\n${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}\n${c.text}`).join('\n\n') + '\n';
-  try {
-    await _driveUploadText(token, { name: t.name, text: srt, existingId: t.id });
-  } catch (e) {
-    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
-    return;
-  }
-  // 焼き込んだので端末側の補正は不要になる
-  t.rawVtt = _srtToVtt(srt);
-  _subOffsetSet(_gdFileId, 0);
-  _gdSubReapply();
-  window.wkSubOptsRender();
-  window.toast?.('💾 補正をDriveのファイルに保存しました');
 };
 
 // Driveから読み直す（他の端末で直した場合など）

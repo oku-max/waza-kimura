@@ -102,14 +102,25 @@ const ytBody = src.slice(src.indexOf('async function _ytGenSubtitle'),
   ? ok('YouTube動画をDriveに置くよう勧めていない')
   : fail('YouTube動画をDriveに置くよう勧めている（落とすしかなく、規約違反を促す）');
 
-// 5. 時刻が正確な字幕では、ズレ補正の欄を出さないこと。
-//    出番の無い操作を並べると「何か直さないといけないのか」と思わせる。
-/const fromYt = !!gen && String\(gen\.via \|\| ''\)\.startsWith\('yt:'\);/.test(src)
-  ? ok('時刻の出所で出し分けている')
-  : fail('出所に関係なく同じものを出している');
-/if \(fromYt\) \{/.test(src) && /html \+= sec\('ズレを直す（この動画のみ）'\) \+ offBody;/.test(src)
-  ? ok('時刻が正確な字幕ではズレ補正の欄を出さない')
-  : fail('時刻が正確な字幕にもズレ補正の欄を出している');
+// 5. ズレ補正の欄そのものを出さないこと（v52.662・オーナー「いらない。削除して」）。
+//    以前は「時刻が正確な字幕のときだけ畳む」という出し分けだったが、
+//    ずらして直らないのはどの字幕でも同じなので、欄ごと無くした。
+//    直し方は「最初から正しい時刻を得る」＝ YouTube側の字幕／音声認識で作り直すこと。
+const offUi = ['ズレを直す（この動画のみ）', 'wkSubOffsetNudge', 'wkSubSyncNow',
+               'wkSubAutoFix', 'wkSubBakeOffset', 'いまのセリフに合わせる', '自動で合わせる'];
+const offAlive = offUi.filter(n => src.includes(n));
+offAlive.length === 0
+  ? ok('ズレをずらして直す操作は画面にもコードにも無い')
+  : fail(`ズレ補正の操作が戻っている: ${offAlive.join(', ')}`);
+
+// 5.5 ただし、前の版でこの端末に付いた補正は表示に足され続ける。
+//     消す手段ごと隠すと直せなくなるので、掛かっているときだけ消すボタンを出す。
+/⚠ この動画には \$\{off > 0 \? '\+' : ''\}\$\{off\.toFixed\(1\)\}秒 のタイミング補正が掛かっています/.test(src)
+  ? ok('残っている補正は、掛かっていることを見せて消せる')
+  : fail('残っている補正を黙って適用している（消す手段が無い）');
+/window\.wkSubOffsetReset = function\(\)/.test(src)
+  ? ok('補正を消す経路は残っている')
+  : fail('補正を消す経路が無い');
 
 console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 直せないものを直せるふりをしていない');
 process.exit(ng ? 1 : 0);
