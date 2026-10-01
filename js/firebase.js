@@ -344,6 +344,15 @@ export async function loadUserData(uid) {
       const json = await resp.json();
       window.__pmark?.('v_body');
       if (window.__perf) { window.__perf.v_kb = Math.round((+resp.headers.get('content-length') || 0) / 1024); window.__perf.v_n = json.videos?.length || 0; }
+      // ?perf=1 のときだけ: ファイルのどの項目が重いかを数える（読むだけ。何も書き換えない）
+      if (window.__perfRender && Array.isArray(json.videos)) {
+        try {
+          const by = {};
+          json.videos.forEach(v => { for (const k in v) by[k] = (by[k] || 0) + JSON.stringify(v[k] ?? null).length; });
+          window.__perf.v_fields = Object.entries(by).sort((x, y) => y[1] - x[1]).slice(0, 8)
+            .map(([k, n]) => [k, Math.round(n / 1024)]);
+        } catch (e) {}
+      }
       storageKnown = true;
       if (json.videos?.length) {
         needsSave = await _applyVideosData(json.videos);
