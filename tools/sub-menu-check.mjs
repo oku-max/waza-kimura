@@ -90,6 +90,34 @@ noCss.length === 0
   ? ok('行のCSSが index.html にある')
   : fail(`CSSが無いクラス: ${noCss.join(', ')}`);
 
+
+// ── ⑧ YouTube自身の字幕（v52.918・オーナー報告）──────────────
+// 「字幕なし」と出ているのに、実際には YouTube の字幕が出ていた。
+// 原因は、生成字幕が1つも無い動画で字幕の処理ごと降りていたこと。
+// この経路はブラウザで YouTube のプレイヤーを動かさないと再現できないので、
+// 戻りやすい4か所を名指しで見張る。
+!/^\s*if \(!list\.length\) return;$/m.test(src)
+  ? ok('生成字幕が無くても降りない（YouTube側の字幕を探す）')
+  : fail('生成字幕が無いと降りてしまう（YouTube側の字幕が候補に出ない）');
+/if \(!host && list\.length\) return;/.test(src)
+  ? ok('自前の字幕を描く場所が要るのは、生成字幕があるときだけ')
+  : fail('描く場所が無いだけで YouTube側の字幕まで諦めている');
+/if \(!list\.length && _ytCcTries < 10\) return false;/.test(src)
+  ? ok('空の一覧をすぐ「字幕なし」と確定しない')
+  : fail('モジュールが用意される前の空配列で「字幕なし」と確定している');
+/if \(_ytSubPicked && _ytCcCurCode\(\)\) _ytCcSet\(null\);/.test(src)
+  ? ok('自分で選んでいない間は、YouTube側で出ている字幕を消さない')
+  : fail('YouTube側のCCを勝手に消している');
+/function _ytSubAdoptCc\(\)/.test(src) && /_ytSubAdoptCc\(\);\s+\/\//.test(src)
+  ? ok('YouTube側で出ている字幕を⚙の表示に映す')
+  : fail('画面に出ている字幕と⚙の●がずれる');
+/（自動生成）/.test(src) && /YouTubeが自動で作った字幕/.test(src) && /動画に元から付いている字幕/.test(src)
+  ? ok('自動生成か、元から付いている字幕かを区別して出す')
+  : fail('自動生成かどうかが分からない');
+/function _subSearchingYt\(\)/.test(src) && /YouTube側の字幕を探しています/.test(src)
+  ? ok('探している間は「字幕がありません」と言い切らない')
+  : fail('見つける前に「字幕がありません」と言っている');
+
 // ── 実際に本物の index.html を開いて確かめる ──────────────
 const g = execSync('npm root -g', { encoding: 'utf8' }).trim();
 const { chromium } = await import(path.join(g, 'playwright', 'index.mjs'));
