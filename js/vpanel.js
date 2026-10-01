@@ -8379,33 +8379,34 @@ function _subMenuBlock(box, closeMenu) {
   } else {
     for (const c of list) {
       if (c.key === 'off') continue;   // 「字幕なし」の行は置かない（もう一度押せば消える）
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'vp-sub-pick' + (c.on ? ' on' : '');
-      b.innerHTML = `<span class="mk">${c.on ? '●' : '○'}</span>
+      const row = document.createElement('div');
+      row.className = 'vp-sub-pick' + (c.on ? ' on' : '');
+      // 選ぶところ（行の大部分）
+      const hit = document.createElement('button');
+      hit.type = 'button';
+      hit.className = 'hit';
+      hit.innerHTML = `<span class="mk">${c.on ? '●' : '○'}</span>
         <span class="tx"><span class="nm">${_escHtml(_subChoiceLabel(c))}</span>
         ${c.note ? `<span class="nt">${_escHtml(c.note)}</span>` : ''}</span>`;
-      b.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };
-      mine.appendChild(b);
+      hit.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };
+      row.appendChild(hit);
+      // 右端の ⚙ ＝ この字幕の見た目を調整（オーナー指示）。
+      // YouTube本体の行には付かないので、調整できる／できないが見た目で分かる。
+      const cog = document.createElement('button');
+      cog.type = 'button';
+      cog.className = 'cog';
+      cog.title = '字幕の見た目を調整';
+      cog.innerHTML = gearSvg;
+      cog.onclick = (ev) => {
+        ev.stopPropagation();
+        const anchor = document.getElementById('vp-more-btn') || document.body;
+        closeMenu();
+        _gdSubOpenPanel(anchor);
+      };
+      row.appendChild(cog);
+      mine.appendChild(row);
     }
   }
-
-  // 「字幕の見た目を調整」は、アプリの字幕と YouTube本体の“間”に置く
-  // （オーナー: 「アプリの字幕とYouTubeの字幕の間に字幕の大きさ設定を置いて」）。
-  // この行自体が2つの区切りになるので、文言の見出しは要らない。
-  const cfg = document.createElement('button');
-  cfg.type = 'button';
-  cfg.className = 'vp-sub-cfg';
-  cfg.innerHTML = `<span class="ic">${gearSvg}</span>
-    <span class="tx">字幕の見た目を調整<span class="nt">文字サイズ・位置・一度に出す量</span></span>
-    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`;
-  cfg.onclick = (ev) => {
-    ev.stopPropagation();
-    const anchor = document.getElementById('vp-more-btn') || document.body;
-    closeMenu();
-    _gdSubOpenPanel(anchor);
-  };
-  grp.appendChild(cfg);   // アプリの字幕とYouTube本体の「間」に置く（区切りを兼ねる）
 
   // YouTube本体の字幕は、アプリの字幕のカードの外に置く。
   // 見た目（枠の外・地の色・CCの印）だけで別物と分かるようにする。

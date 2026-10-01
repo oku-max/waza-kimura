@@ -60,18 +60,22 @@ alive.length === 0
 // YouTubeの字幕だと明らかに分かるように線を引け」）
 // アプリの字幕（選択肢＋見た目の調整）は1枚のカードの中、YouTube本体はその外。
 // 文言では区切らない（オーナー「こんな文言いらん。見た目だけで分かるように」）。
-// オーナー指示: 「アプリの字幕と YouTube の字幕の間に字幕の大きさ設定を置いて」。
-// 見た目の調整は、アプリの字幕のカードの外、YouTube本体の行の上（＝間）に置く。
-// この行自体が区切りになるので、文言の見出しは置かない。
-/mine\.className = 'vp-sub-mine';/.test(src)
-  && src.indexOf("mine.appendChild(b);") < src.indexOf("grp.appendChild(cfg);")
-  && src.indexOf("grp.appendChild(cfg);") < src.indexOf("grp.appendChild(cc);")
-  ? ok('並びは アプリの字幕 → 見た目の調整 → YouTube本体')
-  : fail('見た目の調整が「間」に無い');
-/\.vp-sub-cfg \{[^}]*border-top: 1px solid[^}]*border-bottom: 1px solid/s
-  .test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'))
-  ? ok('見た目の調整の行は上下に線を引いて区切りを兼ねる')
-  : fail('区切りの線が無い');
+// オーナー指示（v52.940）: 「字幕設定のボタンを生成字幕の右端におけ。
+// そしたら設定行不要になるだろうが」。
+// ⚙ は字幕の行の右端。独立した設定の行は置かない。
+// YouTube本体の行には ⚙ が付かないので、調整できる／できないが見た目で分かる。
+/cog\.className = 'cog';/.test(src) && /row\.appendChild\(cog\);/.test(src)
+  ? ok('⚙ は字幕の行の右端にある')
+  : fail('⚙ が行の右端に無い');
+/cog\.onclick = \(ev\) => \{[\s\S]{0,200}_gdSubOpenPanel\(anchor\);/.test(src)
+  ? ok('行の ⚙ で見た目の設定が開く')
+  : fail('⚙ を押しても設定が開かない');
+!/vp-sub-cfg/.test(src) && !/vp-sub-cfg/.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'))
+  ? ok('独立した「字幕の見た目を調整」の行は無い')
+  : fail('設定の行が戻っている');
+!/vp-sub-ytcc[\s\S]{0,400}className = 'cog'/.test(src)
+  ? ok('YouTube本体の行には ⚙ を付けない')
+  : fail('YouTube本体の行にも ⚙ が付いている');
 /grp\.appendChild\(cc\);/.test(src)
   ? ok('YouTube本体の行はカードの外（枠と地の色で別物と分かる）')
   : fail('YouTube本体の行がアプリの字幕と同じカードに入っている');
@@ -85,13 +89,9 @@ alive.length === 0
 /const how = ai \? 'このアプリが作った字幕（時刻はAIの推測）' : 'このアプリが作った字幕';/.test(src)
   ? ok('アプリの字幕は「このアプリが作った字幕」と書く（YouTubeの語を混ぜない）')
   : fail('アプリの字幕の説明に材料の出どころが戻っている');
-/vp-sub-cfg/.test(src) && /_gdSubOpenPanel\(anchor\)/.test(src)
+/_gdSubOpenPanel\(anchor\)/.test(src)
   ? ok('設定は別のポップアップで開く（メニューに展開しない）')
   : fail('設定をメニューの中に展開している');
-// 選ぶ行と設定を開く行は別物。同じ部品（_menuItem）で並べない
-!/_menuItem\([^)]*'字幕の設定'/.test(src)
-  ? ok('「選ぶ」行と「設定を開く」行を同じ形で並べていない')
-  : fail('設定の行が選択肢と並列に見える形に戻っている');
 /vp-sub-group/.test(src)
   ? ok('字幕のかたまりを枠で囲っている（どこからどこまでか分かる）')
   : fail('字幕の欄がメニューの他の項目と地続きになっている');
@@ -213,6 +213,8 @@ const r1 = await pg.evaluate(() => {
     labels: [...(menu?.querySelectorAll('.vp-smenu-label') || [])].map(e => e.textContent),
     none:   menu?.querySelector('.vp-sub-none')?.textContent || '',
     cfg:    !!menu?.querySelector('.vp-sub-cfg'),
+    cogs:   (menu?.querySelectorAll('.vp-sub-pick .cog') || []).length,
+    rows:   (menu?.querySelectorAll('.vp-sub-pick') || []).length,
     head:   menu?.querySelector('.vp-sub-head .t')?.textContent || '',
     group:  !!menu?.querySelector('.vp-sub-group'),
     sync:   typeof window.wkSubMenuSync,
@@ -221,7 +223,7 @@ const r1 = await pg.evaluate(() => {
 });
 r1.opened ? ok('⚙メニューが開く') : fail('⚙メニューが開かない');
 r1.head === '字幕' ? ok('字幕の枠に「字幕」の見出しがある') : fail('見出しが無い: ' + JSON.stringify(r1.head));
-r1.cfg ? ok('メニューに「字幕の見た目を調整」の行がある') : fail('設定を開く行が無い');
+!r1.cfg ? ok('独立した設定の行は描かれない') : fail('設定の行が描かれている');
 r1.group ? ok('字幕のかたまりが1つの枠になっている') : fail('字幕の枠が描かれていない');
 r1.none.includes('字幕はありません') || r1.none.includes('探しています')
   ? ok('字幕が無い動画では状態を書く（空欄にしない）')
@@ -289,8 +291,9 @@ r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
 
 const r2 = await pg.evaluate(() => {
-  const it = document.querySelector('#vp-more-menu .vp-sub-cfg');
-  if (!it) return { err: '行が無い' };
+  // 字幕が1本も無い動画では ⚙ の行自体が無い（その場合は押せることを見ない）
+  const it = document.querySelector('#vp-more-menu .vp-sub-pick .cog');
+  if (!it) return { skip: true };
   const btn = document.getElementById('vp-more-btn').getBoundingClientRect();
   it.click();
   const pop = document.getElementById('vp-sub-opts');
@@ -300,10 +303,14 @@ const r2 = await pg.evaluate(() => {
            nearBtn: r ? Math.abs(r.right - btn.right) < 24 : false,
            dup: (pop?.textContent || '').includes('字幕（この動画）') };
 });
-r2.pop  ? ok('「字幕の設定」で別のポップアップが開く') : fail('ポップアップが開かない: ' + JSON.stringify(r2));
-!r2.menu ? ok('ポップアップを開くときメニューは閉じる')  : fail('メニューが開いたまま重なっている');
-r2.nearBtn ? ok('ポップアップは ⚙ の位置に出る') : fail('ポップアップが押した場所から離れて出る');
-!r2.dup ? ok('ポップアップに字幕の選択肢は出ない') : fail('ポップアップにも字幕の選択肢が出ている');
+if (r2.skip) {
+  ok('字幕が無い動画では ⚙ の行も出ない（押すところが無い）');
+} else {
+  r2.pop  ? ok('行の ⚙ で別のポップアップが開く') : fail('ポップアップが開かない: ' + JSON.stringify(r2));
+  !r2.menu ? ok('ポップアップを開くときメニューは閉じる')  : fail('メニューが開いたまま重なっている');
+  r2.nearBtn ? ok('ポップアップは ⚙ の位置に出る') : fail('ポップアップが押した場所から離れて出る');
+  !r2.dup ? ok('ポップアップに字幕の選択肢は出ない') : fail('ポップアップにも字幕の選択肢が出ている');
+}
 
 errs.length === 0 ? ok('JSエラーなし') : fail('JSエラー: ' + errs.join(' / '));
 
