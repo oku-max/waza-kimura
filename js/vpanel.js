@@ -345,8 +345,7 @@ function _vpHandleEnded() {
     return;
   }
   if (_vpRepeat === 'list' || _vpShuffle) {
-    const raw = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
-    const list = window._noteVidList ? raw : _vplSort(raw);
+    const list = _vpOrderList();
     if (list.length <= 1) return;
     if (_vpShuffle) {
       const cur = window.openVPanelId;
@@ -1426,8 +1425,7 @@ export function vpBmReset(id, idx) {
 export function vpNav(dir) {
   const cur = window.openVPanelId;
   if (!cur) return;
-  const raw = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
-  const list = window._noteVidList ? raw : _vplSort(raw);
+  const list = _vpOrderList();
   const idx = list.findIndex(v => v.id === cur);
   if (idx < 0) return;
   const next = list[(idx + dir + list.length) % list.length];
@@ -1718,69 +1716,18 @@ export function openVPanel(id) {
   setTimeout(() => _renderBlurArea(id), 200);
 }
 
-// ── プレイリスト並べ替え状態 ──
-let _vplSortKey = localStorage.getItem('wk_vplSortKey') || 'addedAt';
-if (_vplSortKey === 'status') _vplSortKey = 'addedAt';   // 習得度の並べ替えは v52.876 で廃止（保存値は消さない）
-let _vplSortAsc = (() => { const v = localStorage.getItem('wk_vplSortAsc'); return v === null ? false : v === 'true'; })();
-
-function _vplSort(list) {
-  const key = _vplSortKey;
-  const asc = _vplSortAsc;
-  const sorted = [...list];
-  sorted.sort((a, b) => {
-    let va, vb;
-    if (key === 'addedAt') {
-      const ea = !a.addedAt, eb = !b.addedAt;
-      if (ea && eb) return 0; if (ea) return 1; if (eb) return -1;
-      va = a.addedAt; vb = b.addedAt;
-    } else if (key === 'title') {
-      va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
-    } else if (key === 'lastPlayed') {
-      va = a.lastPlayed || 0; vb = b.lastPlayed || 0;
-    } else if (key === 'duration') {
-      va = a.duration || 0; vb = b.duration || 0;
-    }
-    if (va < vb) return asc ? -1 : 1;
-    if (va > vb) return asc ? 1 : -1;
-    return 0;
-  });
-  return sorted;
-}
-
-window.vplSetSort = function(key) {
-  _vplSortKey = key;
-  localStorage.setItem('wk_vplSortKey', key);
-  document.querySelectorAll('.vpl-sort-sel').forEach(s => { s.value = key; });
-  _rerenderVpl();
-};
-window.vplToggleDir = function() {
-  _vplSortAsc = !_vplSortAsc;
-  localStorage.setItem('wk_vplSortAsc', _vplSortAsc);
-  document.querySelectorAll('.vpl-sort-dir').forEach(b => { b.textContent = _vplSortAsc ? '↑' : '↓'; });
-  _rerenderVpl();
-};
-
-function _rerenderVpl() {
-  const id = window.openVPanelId;
-  if (!id) return;
-  _renderBlurArea(id);
-  // ボトムシートが開いていれば再描画
-  if (document.getElementById('vp-bs-sheet')?.classList.contains('open')) {
-    window.vpOpenNextList();
-  }
-}
-
-function _vplSortRow() {
-  const dir = _vplSortAsc ? '↑' : '↓';
-  return `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:4px 10px">
-    <select class="vpl-sort-sel" onchange="vplSetSort(this.value)" style="width:110px;font-size:10px;padding:3px 5px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-      <option value="addedAt"${_vplSortKey==='addedAt'?' selected':''}>追加日</option>
-      <option value="title"${_vplSortKey==='title'?' selected':''}>タイトル</option>
-      <option value="lastPlayed"${_vplSortKey==='lastPlayed'?' selected':''}>最近再生した</option>
-      <option value="duration"${_vplSortKey==='duration'?' selected':''}>再生時間</option>
-    </select>
-    <button class="vpl-sort-dir" onclick="vplToggleDir()" style="font-size:11px;padding:3px 7px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">${dir}</button>
-  </div>`;
+// ── 前後・リストの順番（v52.915）──
+// リスト独自の並べ替え（追加日・タイトル…）は廃止した。上から50本を切ってから並べ替えていたので
+// 51本目以降は出ず、動画の下の「次の動画」（並べ替えてから20本）とも順番が食い違っていた。
+// オーナー「ライブラリと同じ順でいい」。保存済みの wk_vplSortKey / wk_vplSortAsc は消さない（読まないだけ）。
+// 順番を読む場所はここ1か所: ⏮⏭・自動で次へ・j/k・☰ のリスト・動画の下の「次の動画」が全部これを使う。
+//   ノートから開いた … ノートの並び
+//   テーブル表示      … 表に出ている順（renderOrg が filteredVideos に入れる）
+//   カード表示        … カードに出ている順（AF が _vpFilteredList に入れる）
+function _vpOrderList() {
+  if (window._noteVidList) return window._noteVidList;
+  if (window._libViewMode === 'org' && Array.isArray(window.filteredVideos) && window.filteredVideos.length) return window.filteredVideos;
+  return window._vpFilteredList || window.filteredVideos || window.videos || [];
 }
 
 // リストの行に出す 再生時間 と チャンネル・プレイリスト（v52.913・オーナー「再生時間」「プレイリスト名も」）
@@ -1800,19 +1747,18 @@ function _renderBlurArea(id) {
   if (!area) return;
 
   // フィルター済み配列を優先、なければ全件
-  const all = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
+  const all = _vpOrderList();
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
   // _noteVidList は手動順を保持、それ以外はソート（最大20件）
   const _filtered = all.filter((_, i) => i !== idx);
-  const candidates = (window._noteVidList ? _filtered : _vplSort(_filtered)).slice(0, 20);
+  const candidates = _filtered.slice(0, 20);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
 
   area.innerHTML = `
     <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
-    ${window._noteVidList ? '' : _vplSortRow()}
     ${candidates.map((rv) => {
       const ytId = _extractYtId(rv.emb || '');
       const gdId = (rv.id||'').replace(/^gd-/,'');
@@ -1876,13 +1822,13 @@ function _ensureBottomSheet() {
 window.vpOpenNextList = function () {
   _ensureBottomSheet();
   const id = window.openVPanelId;
-  const all = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
+  const all = _vpOrderList();
   const list = document.getElementById('vp-bs-list');
   if (!list) return;
   const hdr = document.getElementById('vp-bs-hdr');
-  if (hdr) hdr.innerHTML = `次の動画${_vplSortRow()}`;
+  if (hdr) hdr.textContent = '次の動画';
   // 上限 50本（v52.913・オーナー「一つの教則は30本くらいまで、何千本あるときは絞り込んで使う」）。上から順に切る
-  const sorted = _vplSort(window._noteVidList ? all : all.slice(0, 50));
+  const sorted = window._noteVidList ? all : all.slice(0, 50);
   const displayAll = sorted;
   list.innerHTML = displayAll.map(rv => {
     const isCur = rv.id === id;
@@ -8157,7 +8103,7 @@ document.addEventListener('keydown', (e) => {
 
   if (key === 'j' || key === 'k') {
     e.preventDefault();
-    const list = window._vpFilteredList;
+    const list = _vpOrderList();
     if (!list || !list.length) return;
     const curId = window.openVPanelId;
     const idx = list.findIndex(v => v.id === curId);
