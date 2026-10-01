@@ -35,13 +35,16 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .hint{font-size:11.5px;color:var(--text3);margin:0 12px 10px;line-height:1.7}
 
 /* ── 画面 ── */
-/* メニューが下にはみ出ても切らない（本物は画面全体に出る） */
-.stage{margin:0 auto 420px;position:relative;border:1px solid var(--border);border-radius:12px;background:var(--surface);display:flex;flex-direction:column}
-.stage.pc{width:min(720px,calc(100% - 24px))}
-.stage.sp{width:390px}
+/* 本物の #vpanelInner と同じ作り: 左カラム（動画→タイトル行→スキップ行）＋右カラム */
+.stage{margin:0 auto 24px;position:relative;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;display:flex}
+.stage.pc{width:min(1100px,calc(100% - 24px));min-height:560px}
+.stage.sp{width:390px;flex-direction:column;min-height:620px}
+.col-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.col-right{flex:0 0 340px;border-left:1px solid var(--border);background:var(--surface);padding:10px 12px;overflow-y:auto;max-height:620px}
+.stage.sp .col-right{flex:none;border-left:0;border-top:1px solid var(--border);max-height:200px}
 
-/* 動画パネルの上のバー（本物と同じ並び） */
-.vhead{display:flex;align-items:flex-start;gap:5px;padding:7px 10px 6px;border-bottom:1px solid var(--border)}
+/* タイトル行は動画の「下」。本物の #vpanel-title-area と同じ位置 */
+.vhead{display:flex;align-items:flex-start;gap:5px;padding:7px 10px 6px;border-top:1px solid var(--border)}
 .vback{flex-shrink:0;height:26px;padding:0 9px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700}
 .vtitle{flex:1;min-width:0;font-size:11px;font-weight:700;line-height:1.35}
 .vtitle span{display:block;font-size:9px;font-weight:600;color:var(--text3);margin-top:2px}
@@ -70,7 +73,12 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .ctrl{display:flex;align-items:center;gap:4px;padding:6px 8px;border-top:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
 .ctrl::-webkit-scrollbar{display:none}
 .skip{flex-shrink:0;padding:4px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700}
-.body{padding:14px 12px 18px;font-size:11.5px;color:var(--text3);line-height:1.8}
+.body{flex:1;padding:12px;font-size:11.5px;color:var(--text3);line-height:1.8;border-top:1px solid var(--border)}
+/* 右カラム（ブックマーク・MEMO）。位置関係が分かる程度の見本 */
+.rhdr{font-size:11px;font-weight:800;color:var(--text2);margin-bottom:8px}
+.bmrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:11.5px}
+.bmrow b{flex-shrink:0;padding:2px 7px;border-radius:6px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:10.5px;color:var(--text2);font-weight:600}
+.memo{margin-top:10px;border:1px solid var(--border);border-radius:8px;height:70px;background:var(--surface2)}
 
 /* ── ⚙ メニュー（本物の .vp-search-menu と同じ作り） ── */
 .vp-search-menu{position:absolute;z-index:60;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:5px;min-width:232px;max-width:280px;box-shadow:0 8px 28px rgba(0,0,0,.5);padding-top:34px}
@@ -153,35 +161,51 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 </div>
 
 <div class="stage pc" id="stage">
-  <div class="vhead">
-    <button class="vback">←Back</button>
-    <div class="vtitle">パスのやり方 ― スパイダーガード<span>WAZA KIMURA / 見本</span></div>
-    <div class="vtime">5:25</div>
-    <button class="navbtn hot" id="gearBtn" title="その他のアクション">⚙</button>
-    <button class="navbtn" title="リスト表示">☰</button>
-    <button class="navbtn" title="Journal に書く">✎</button>
-    <button class="navbtn" title="使い方">?</button>
+  <!-- 左カラム: 動画 → タイトル行（⚙はここ） → スキップ行。本物と同じ並び -->
+  <div class="col-left">
+    <div class="video" id="video">
+      <div class="ytchrome"><span>🔊</span><span>CC</span><span>⚙</span></div>
+      <div class="ytnote">← YouTube本体の操作（ここは触らない）</div>
+      <div class="oldui gone" id="oldui"><b>CC 日本語</b><b>⚙</b></div>
+      <div class="oldx"><svg viewBox="0 0 110 34"><line x1="6" y1="5" x2="104" y2="29" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="104" y1="5" x2="6" y2="29" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/></svg></div>
+      <div class="oldcap">いままでの CC / ⚙ ＝ 廃止</div>
+      <div class="cue" id="cue"></div>
+      <div class="ytbar"><i></i></div>
+    </div>
+
+    <div class="vhead">
+      <button class="vback">←Back</button>
+      <div class="vtitle">オシャレにパスできるようになるロングステップパスのやり方<span>新・柔術日記Channel</span></div>
+      <div class="vtime">5:25 / 10:04</div>
+      <button class="navbtn hot" id="gearBtn" title="その他のアクション">⚙</button>
+      <button class="navbtn" title="リスト表示">☰</button>
+      <button class="navbtn" title="Journal に書く">✎</button>
+      <button class="navbtn" title="使い方">?</button>
+    </div>
+
+    <div class="ctrl">
+      <button class="skip">⏮</button><button class="skip">◀1m</button><button class="skip">◀30s</button>
+      <button class="skip">◀10s</button><button class="skip">◀3s</button><button class="skip">3s▶</button>
+      <button class="skip">10s▶</button><button class="skip">30s▶</button><button class="skip">⏭</button>
+    </div>
+
+    <div class="body">
+      次の動画（見本なので省略）<br>
+      映像の右上には何も重ねません。字幕の切替も設定も、動画の下の <b>⚙</b> から入ります。
+    </div>
   </div>
 
-  <div class="video" id="video">
-    <div class="ytchrome"><span>🔊</span><span>CC</span><span>⚙</span></div>
-    <div class="ytnote">← YouTube本体の操作（ここは触らない）</div>
-    <div class="oldui gone" id="oldui"><b>CC 日本語</b><b>⚙</b></div>
-    <div class="oldx"><svg viewBox="0 0 110 34"><line x1="6" y1="5" x2="104" y2="29" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="104" y1="5" x2="6" y2="29" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/></svg></div>
-    <div class="oldcap">いままでの CC / ⚙ ＝ 廃止</div>
-    <div class="cue" id="cue"></div>
-    <div class="ytbar"><i></i></div>
-  </div>
-
-  <div class="ctrl">
-    <button class="skip">⏮</button><button class="skip">◀1m</button><button class="skip">◀30s</button>
-    <button class="skip">◀10s</button><button class="skip">◀3s</button><button class="skip">3s▶</button>
-    <button class="skip">10s▶</button><button class="skip">30s▶</button><button class="skip">⏭</button>
-  </div>
-
-  <div class="body">
-    ここから下はブックマーク・メモ・タグ（見本なので省略）。<br>
-    映像の右上には何も重ねません。字幕の切替も設定も <b>⚙</b> から入ります。
+  <!-- 右カラム: ブックマーク・MEMO（位置関係が分かる程度の見本） -->
+  <div class="col-right">
+    <div class="rhdr">🔖 ブックマーク</div>
+    <div class="bmrow"><b>0:00</b> ロングステップパスの基本</div>
+    <div class="bmrow"><b>0:59</b> 裾グリップの重要性</div>
+    <div class="bmrow"><b>1:32</b> 首を抱くロングステップパス</div>
+    <div class="bmrow"><b>3:41</b> フレーム対策の襟グリップ</div>
+    <div class="bmrow"><b>4:50</b> 相手のエスケープ対策</div>
+    <div class="bmrow"><b>5:42</b> クランプ時のサイド切り替え</div>
+    <div class="rhdr" style="margin-top:12px">MEMO</div>
+    <div class="memo"></div>
   </div>
 </div>
 
@@ -294,11 +318,20 @@ function openMenu(page) {
   if (page === 'subs') buildSubPage(m);
   else                 buildRoot(m);
 
-  // ⚙ ボタンの真下（右寄せ）
+  // 本物の _positionMenu と同じ: 右寄せ・まず上方向、入らなければ下方向。
+  // ⚙ は動画の下にあるので、メニューは映像の上に伸びる。
   const st = $('#stage').getBoundingClientRect(), bt = $('#gearBtn').getBoundingClientRect();
-  m.style.top  = (bt.bottom - st.top + 6) + 'px';
+  m.style.visibility = 'hidden';
+  m.style.maxHeight  = Math.floor(st.height * 0.82) + 'px';
+  m.style.overflowY  = 'auto';
   m.style.right = Math.max(8, st.right - bt.right) + 'px';
   $('#stage').appendChild(m);
+  const mh = m.offsetHeight;
+  let top = (bt.top - st.top) - mh - 6;
+  if (top < 8) top = (bt.bottom - st.top) + 6;
+  if (top + mh > st.height - 8) top = Math.max(8, st.height - mh - 8);
+  m.style.top = top + 'px';
+  m.style.visibility = '';
   menuEl = m;
 }
 
