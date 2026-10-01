@@ -1022,9 +1022,14 @@ function _bookmarkSectionHTML(id) {
   // 自動チャプターは Drive動画 と YouTube動画（字幕／動画をAIに読ませられるもの）
   const _cv = (window.videos||[]).find(v => v.id === id);
   const isGd = _cv?.pt === 'gdrive' || !!_vYtId(_cv);
+  // YouTube動画は、パネルを開いた時点でYouTubeのチャプターの有無を調べ、あればボタンに数を出す（v52.930。
+  // オーナー「開いた瞬間に判断するべき」）。押す前に分かる・押したときのメニューは待たずに出る
+  const _ytid = _vYtId(_cv);
+  const _peek = _ytid ? _ytChapCache.get(_ytid) : undefined;
+  if (_ytid && _peek === undefined) setTimeout(() => _ytChapPrecheck(id), 0);
   const chapBtn = isGd
     ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
-         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">📑 自動チャプター</button>`
+         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">📑 自動チャプター${_ytChapBadgeHTML(_peek)}</button>`
     : '';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">
@@ -5275,9 +5280,37 @@ async function _ytFetchEmbeddedChapters(ytId, retried) {
   return window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
 }
 
-// メニューを出す前に、この動画にYouTubeのチャプターがあるかを調べる（v52.929・オーナー「押してみないと分からないのは嫌」）。
+// メニューを出す前に、この動画にYouTubeのチャプターがあるかを調べる（v52.929・オーナー「押してみないと分からないのは嫌」。v52.930 で開いた時点に前倒し）。
 // 自前のサーバー（/api/yt-videos・APIキー）で説明文を読むので、Googleのログイン画面は出ない。
 // 返り値: チャプターの配列（0個なら空）／分からなかったら null（非公開・通信失敗など。そのときは今までどおり押せる）
+// 調べた結果を動画IDごとに覚える（このページを開いている間だけ。動画のデータには書かない）
+//   配列 … 調べた結果（0個なら空）／ null … 調べられなかった
+const _ytChapCache = new Map();
+const _ytChapInflight = new Map();
+function _ytChapBadgeHTML(peek) {
+  return (Array.isArray(peek) && peek.length)
+    ? `<span class="vp-ytchap-badge" title="この動画にはYouTubeのチャプターがあります" style="margin-left:6px;padding:0 6px;border-radius:9px;background:#c4302b;color:#fff;font-size:10px;font-weight:700;line-height:16px;display:inline-block">YouTube ${peek.length}</span>`
+    : '';
+}
+function _ytChapLookup(ytId) {
+  if (_ytChapCache.has(ytId)) return Promise.resolve(_ytChapCache.get(ytId));
+  if (_ytChapInflight.has(ytId)) return _ytChapInflight.get(ytId);
+  const pr = _ytPeekChapters(ytId).then(r => { _ytChapInflight.delete(ytId); if (r) _ytChapCache.set(ytId, r); return r; });
+  _ytChapInflight.set(ytId, pr);
+  return pr;
+}
+async function _ytChapPrecheck(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  const ytId = _vYtId(v);
+  if (!ytId) return;
+  const r = await _ytChapLookup(ytId);
+  const btn = document.getElementById('vp-chapgen-' + id);
+  if (!btn || btn.disabled) return;   // 押されて処理中なら触らない（終わったら元の中身に戻る）
+  btn.querySelector('.vp-ytchap-badge')?.remove();
+  btn.insertAdjacentHTML('beforeend', _ytChapBadgeHTML(r));
+}
+window._vpYtChapPrecheck = _ytChapPrecheck;
+
 async function _ytPeekChapters(ytId) {
   try {
     const r = await fetch('/api/yt-videos?ids=' + encodeURIComponent(ytId));
@@ -5306,9 +5339,9 @@ window.vpGenChapters = async function(id, preset) {
 
   const fileId = isGd ? (v.id || '').replace(/^gd-/, '') : '';
   const btn  = preset ? null : document.getElementById('vp-chapgen-' + id);
-  const orig = btn ? btn.textContent : '';
+  const orig = btn ? btn.innerHTML : '';   // バッジ（YouTube N）ごと戻す
   const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
-  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
+  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = orig; } };
 
   try {
     // 1. 字幕があるか先に調べて、入り口を選ばせる
@@ -5318,7 +5351,7 @@ window.vpGenChapters = async function(id, preset) {
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
       : _ytSubList(await _ytSubFetch(_vYtId(v), true));
     // YouTubeのチャプターの有無も同時に調べる（メニューで「無い」なら押せないようにする）
-    const [subsFound, ytPeek] = await Promise.all([findSubs(), (isYt && !preset) ? _ytPeekChapters(_vYtId(v)) : Promise.resolve(null)]);
+    const [subsFound, ytPeek] = await Promise.all([findSubs(), (isYt && !preset) ? _ytChapLookup(_vYtId(v)) : Promise.resolve(null)]);
     let subs = subsFound;
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。

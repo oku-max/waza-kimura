@@ -1,8 +1,12 @@
 // ═══ 自動チャプターの「YouTubeのチャプターを取得」が、押す前に有無を知らせること（v52.929） ═══
 // 使い方: node tools/yt-chap-peek-check.mjs
 //
-// オーナー「押してみないとあるかないか分からないのは嫌。無いなら押せない／出てこないように」。
-// 本物の index.html で 📑 自動チャプター を押し、出てくるメニューを見る:
+// オーナー「押してみないとあるかないか分からないのは嫌。無いなら押せない／出てこないように」
+// 「自動チャプターを押さないと分からないのは違う。開いた瞬間に判断するべき」（v52.930）。
+// 本物の index.html で:
+//   ⓪ 動画パネルを開いただけで（何も押さずに）、ある動画は 📑 自動チャプター のボタンに「YouTube N」が出る。
+//      無い動画・調べられなかった動画には出ない。メニューを開くときにもう一度調べに行かない
+// 📑 自動チャプター を押して出てくるメニュー:
 //   ① チャプターがある動画 → 「YouTubeのチャプターを取得（N個）」で押せる
 //   ② 無い動画 → 灰色で押せない・「この動画にはYouTubeのチャプターがありません」
 //   ③ 調べられなかった（サーバーの失敗・非公開で項目が返らない）→ 今までどおり押せる（数は出さない）
@@ -62,6 +66,26 @@ await pg.evaluate(() => {
   window.__tokAsked = 0;
   window.google = { accounts: { oauth2: { initTokenClient: () => ({ requestAccessToken: () => { window.__tokAsked++; } }) } } };
 });
+console.log('── 開いただけで分かる ──');
+const openPanel = async (id) => {
+  await pg.evaluate(id => window.openVPanel(id), id);
+  let r = null;
+  for (let i = 0; i < 25; i++) { await pg.waitForTimeout(200);
+    r = await pg.evaluate(id => { const b = document.getElementById('vp-chapgen-' + id); return b ? { btn: true, badge: b.querySelector('.vp-ytchap-badge')?.textContent || '' } : null; }, id);
+    if (r && r.badge) break; }
+  return r;
+};
+const pa = await openPanel('AAAAAAAAAAA');
+ck('⓪ ある動画: 開いただけでボタンに「YouTube 3」', pa?.btn && pa.badge === 'YouTube 3', pa);
+const pb = await openPanel('BBBBBBBBBBB');
+ck('⓪ 無い動画: 開いてもバッジは出ない', pb?.btn && !pb.badge, pb);
+const pc = await openPanel('CCCCCCCCCCC');
+ck('⓪ 調べられなかった動画: バッジは出ない', pc?.btn && !pc.badge, pc);
+const callsAfterOpen = apiCalls.filter(x => x === 'AAAAAAAAAAA' || x === 'BBBBBBBBBBB').length;
+await pg.evaluate(() => window.closeVPanel?.());
+const panelDiff = await pg.evaluate(() => { const a = JSON.parse(window.__vsnap); return window.videos.some((v, i) => JSON.stringify(v.ytChapters) !== JSON.stringify(a[i].ytChapters) || JSON.stringify(v.bookmarks) !== JSON.stringify(a[i].bookmarks)); });
+ck('⓪ 開いて調べるだけでは、動画のチャプター・ブックマークを書かない', !panelDiff);
+await pg.evaluate(() => { window.__vsnap = JSON.stringify(window.videos); });   // ここからはメニューだけの差分を見る（パネルを開いた記録＝最後に再生・再生回数は別）
 const openMenu = async (id) => {
   await pg.evaluate(id => { document.getElementById('vp-chapgen-menu')?.remove(); window.vpGenChapters(id); }, id);
   await pg.waitForSelector('#vp-chapgen-menu', { timeout: 8000 });
@@ -82,8 +106,10 @@ await closeMenu();
 const d = await openMenu('DDDDDDDDDDD');
 ck('③ 項目が返らない（非公開など）: 今までどおり押せる', d.has && !d.disabled && !/個）/.test(d.text), d);
 await closeMenu();
+ck('⓪ 開いた時点で調べた動画は、メニューを開くときにもう一度調べない（ある・無い）',
+   apiCalls.filter(x => x === 'AAAAAAAAAAA' || x === 'BBBBBBBBBBB').length === callsAfterOpen && callsAfterOpen === 2, { apiCalls, callsAfterOpen });
 ck('④ 調べるのは /api/yt-videos だけ（Googleのログインを求めない・YouTube API を直接呼ばない）',
-   apiCalls.length >= 4 && googleCalls === 0 && await pg.evaluate(() => window.__tokAsked) === 0, { apiCalls, googleCalls });
+   apiCalls.length >= 3 && googleCalls === 0 && await pg.evaluate(() => window.__tokAsked) === 0, { apiCalls, googleCalls });
 const keep = await pg.evaluate(() => JSON.stringify(window.videos) === window.__vsnap);
 ck('⑥ メニューを開いて閉じるだけでは動画のデータを変えない', keep);
 
