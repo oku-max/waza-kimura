@@ -120,6 +120,19 @@ function _orgTagColShown(col) {
 }
 export const ORG_COL_LABELS = {counter:'カウント', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', duration:'長さ'};
 // 列見出しの取り出しは必ずこの関数を通す
+// 並べ替えられる列（orgSortFn が知っている列だけ）。見出しの ⇅ はこの列にだけ出し、押すとその場で昇順・降順が切り替わる（v52.922）
+function _orgColSortable(col) {
+  return ['title','channel','playlist','addedAt','duration','lastPlayed','playCount','views'].includes(col) || _isOrgTagCol(col);
+}
+// 見出しの ⇅ を押せるボタンにする。見出しの他の場所を押したときのメニューは開かない
+function _orgSortIndClick(el, col) {
+  el.style.cursor = 'pointer';
+  el.style.padding = '2px 4px';
+  el.style.margin = '-2px -1px -2px 1px';
+  el.style.borderRadius = '4px';
+  el.title = '昇順・降順を切り替え';
+  el.addEventListener('click', e => { e.stopPropagation(); _closeTitleMenu(); closeOrgColFilter(); orgSetSort(col); });
+}
 export function orgColLabel(col) {
   if (_isOrgTagCol(col)) { const g = _orgSlotGroup(col); return g ? g.name : 'タグ' + (_ORG_SLOT_COL[col] + 1); }
   return ORG_COL_LABELS[col] || col;
@@ -182,6 +195,7 @@ export function initOrgFixedHeaders() {
       sortInd.style.cssText = 'margin-left:3px;font-size:9px;opacity:.4;';
       sortInd.textContent = orgSortCol === def.sortKey ? (orgSortAsc ? '▲' : '▼') : '⇅';
       if (orgSortCol === def.sortKey) sortInd.style.opacity = '1';
+      _orgSortIndClick(sortInd, def.sortKey);
       th.appendChild(sortInd);
     } else {
       th.textContent = def.label;
@@ -942,7 +956,7 @@ export function syncOrgColHeaders() {
     const _ic = window._cvColIconHTML?.(col);
     if (_ic) th.insertAdjacentHTML('beforeend', _ic);
     th.appendChild(labelSpan);
-    th.appendChild(sortIndicator);
+    if (_orgColSortable(col)) { _orgSortIndClick(sortIndicator, col); th.appendChild(sortIndicator); }
     // フィルターアクティブインジケーター
     const filtCfg = _colFilterCfg(col);
     if (filtCfg) {
@@ -1788,7 +1802,7 @@ export function openOrgColFilter(col, thEl) {
   });
 
   const filterSet = cfg ? (orgFilters[cfg.filterKey] || (orgFilters[cfg.filterKey] = new Set())) : new Set();
-  const sortableCols = ['channel','playlist','addedAt','duration','tb','action','position','technique','memo'];
+  const sortableCols = ['channel','playlist','addedAt','duration','tb','action','position','technique'];   // memo は並べ替えの処理が無い（押しても何も起きなかった）ので出さない
 
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');
