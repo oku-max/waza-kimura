@@ -193,6 +193,7 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    '一括':'Bulk',
     // 管理画面「検索辞書」（v52.828）
     '🔍 検索辞書': '🔍 Search dictionary',
     '🔍 検索辞書（オーナーのみ）': '🔍 Search dictionary (owner only)',

@@ -959,6 +959,16 @@
 .hdr-lvt { display:flex; gap:3px; flex-shrink:0; }
 .hdr-lvt-btn { padding:3px 9px; border-radius:20px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; line-height:1.5; }
 .hdr-lvt-btn:hover { color:var(--text); border-color:var(--text2); }
+.hdr-lvt-btn .hdr-lbl { margin-left:4px; }
+.hdr-short { display:none; }
+#org-count-bar .org-col-vis-btn { white-space:nowrap; flex-shrink:0; }
+@media (max-width:600px) {
+  .hdr-lvt-btn { padding:3px 7px; }
+  #org-tbl-sort-key { max-width:80px !important; }
+  #org-count-bar .toolbar-normal { gap:4px !important; }
+  .hdr-lvt-btn .hdr-lbl, .hdr-full { display:none; }
+  .hdr-short { display:inline; }
+}
 .hdr-lvt-btn.lvt-active { background:var(--text); color:var(--surface); border-color:var(--text); cursor:default; }
 .lvt-btn.lvt-active {
   background: var(--accent);
@@ -1467,8 +1477,8 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
         </div>
         <span class="lib-sb-sec-title" data-i18n="sb.view">ビュー</span>
         <div class="lib-sb-master-box">
-          <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._cvSetView('card')" data-i18n="sb.card">📋 カード</button>
-          <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._cvSetView('table')" data-i18n="sb.table">📊 テーブル</button>
+          <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._cvSetView('card')" title="カード">📋<span class="hdr-lbl">カード</span></button>
+          <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._cvSetView('table')" title="テーブル">📊<span class="hdr-lbl">テーブル</span></button>
         </div>
       </div>
       <!-- フィルター + 検索 + 保存 + 最近 + リセット -->
@@ -1542,9 +1552,9 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
       <div class="toolbar-normal">
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
-          <span class="results-count" id="rc"></span>
-          <div class="hdr-lvt"><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('card')" data-i18n="sb.card">📋 カード</button><button class="hdr-lvt-btn" onclick="window._cvSetView('table')" data-i18n="sb.table">📊 テーブル</button></div>
-          <button id="card-bar-bulk-btn" class="bulk-btn" onclick="enterBulk()" style="flex-shrink:0">☑ 一括編集</button>
+          <span class="results-count" id="rc" style="white-space:nowrap"></span>
+          <div class="hdr-lvt"><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('card')" title="カード">📋<span class="hdr-lbl">カード</span></button><button class="hdr-lvt-btn" onclick="window._cvSetView('table')" title="テーブル">📊<span class="hdr-lbl">テーブル</span></button></div>
+          <button id="card-bar-bulk-btn" class="bulk-btn" onclick="enterBulk()" style="flex-shrink:0">☑ <span class="hdr-full">一括編集</span><span class="hdr-short">一括</span></button>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
           <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px" data-i18n="common.reset">リセット</button>
@@ -1580,8 +1590,8 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
       <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
         <button class="lib-sb-toggle" onclick="libSbToggle()" style="flex-shrink:0">≡</button>
         <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
-        <div class="hdr-lvt" style="margin-left:6px"><button class="hdr-lvt-btn" onclick="window._cvSetView('card')" data-i18n="sb.card">📋 カード</button><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('table')" data-i18n="sb.table">📊 テーブル</button></div>
-        <button id="org-bar-bulk-btn" class="bulk-btn" onclick="enterBulk('organize')" style="flex-shrink:0">☑ 一括編集</button>
+        <div class="hdr-lvt" style="margin-left:6px"><button class="hdr-lvt-btn" onclick="window._cvSetView('card')" title="カード">📋<span class="hdr-lbl">カード</span></button><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('table')" title="テーブル">📊<span class="hdr-lbl">テーブル</span></button></div>
+        <button id="org-bar-bulk-btn" class="bulk-btn" onclick="enterBulk('organize')" style="flex-shrink:0">☑ <span class="hdr-full">一括編集</span><span class="hdr-short">一括</span></button>
         <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
           <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列・カスタム列">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列設定
