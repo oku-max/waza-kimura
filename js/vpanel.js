@@ -1994,12 +1994,7 @@ window.vpToggleMirror = function () {
   if (_ytPlayer && _ytPlayerReady) {
     const videoId = _ytPlayer.getVideoData?.()?.video_id;
     const savedTime = _ytPlayer.getCurrentTime?.() || 0;
-    if (videoId) {
-      _initYTPlayer('vpanel-yt-player', videoId, true,
-        () => { try { _ytPlayer.seekTo(savedTime, true); } catch(e) {} },
-        on ? { controls: 0 } : {}
-      );
-    }
+    if (videoId) _ytReinit(videoId, savedTime, on ? { controls: 0 } : {});
   }
 
 };
@@ -3722,20 +3717,31 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
 //     「リバース」が controls:0 で同じことをしている（v52.?? から動いている作り）。
 let _ytCcWanted = false;   // YouTube自身の字幕を出す指定
 
+// いまの再生位置のまま、プレイヤーを作り直す。
+// destroy() は iframe そのものを消す（公式リファレンス）。先に置き場所の div を
+// 入れ直さないと、new YT.Player が置き場所を見つけられず、映像ごと消える。
+// これを忘れていたため「YouTubeの字幕を出す」が何も起きないように見えた（v52.932）。
+function _ytReinit(videoId, sec, extraVars) {
+  const cur  = _vpPlayerEl();
+  const isPc = !!cur && cur.id === 'vp-panel-yt-player';
+  const host = isPc ? cur.parentElement : document.getElementById('vpanel-iframe-container');
+  const divId = isPc ? 'vp-panel-yt-player' : 'vpanel-yt-player';
+  if (_ytPlayer) { try { _ytPlayer.destroy(); } catch (e) {} }
+  _ytPlayer = null; _ytPlayerReady = false;
+  if (host) host.innerHTML = `<div id="${divId}"></div>`;
+  _ytSubHostEl = null;   // 器が変わったので、字幕を重ねる先を取り直させる
+  _initYTPlayer(divId, videoId, true,
+    () => { try { _ytPlayer.seekTo(sec, true); } catch (e) {} },
+    { start: sec, ...(extraVars || {}) });
+}
+
 window.wkYtCcToggle = function() {
   if (!_ytPlayer || !_ytPlayerReady) { window.toast?.('動画を再生してから押してください'); return; }
   const videoId = _ytPlayer.getVideoData?.()?.video_id;
   if (!videoId) { window.toast?.('YouTubeの動画ではありません'); return; }
   const sec = Math.floor(_ytPlayer.getCurrentTime?.() || 0);
   _ytCcWanted = !_ytCcWanted;
-  // destroy で中身ごと入れ替わるので、置き場所が無ければ作り直す
-  const host = document.getElementById('vpanel-iframe-container');
-  if (host && !document.getElementById('vpanel-yt-player')) {
-    host.innerHTML = '<div id="vpanel-yt-player"></div>';
-  }
-  _initYTPlayer('vpanel-yt-player', videoId, true,
-    () => { try { _ytPlayer.seekTo(sec, true); } catch (e) {} },
-    { start: sec, cc_load_policy: _ytCcWanted ? 1 : 0 });
+  _ytReinit(videoId, sec, { cc_load_policy: _ytCcWanted ? 1 : 0 });
   window.wkSubMenuSync?.();
   window.toast?.(_ytCcWanted ? 'YouTubeの字幕を出しました' : 'YouTubeの字幕を消しました');
 };
@@ -8332,7 +8338,7 @@ function _subMenuBlock(box, closeMenu) {
     cc.className = 'vp-sub-pick vp-sub-ytcc' + (_ytCcWanted ? ' on' : '');
     cc.innerHTML = `<span class="mk">CC</span>
       <span class="tx"><span class="nm">${_ytCcWanted ? 'YouTubeの字幕を消す' : 'YouTubeの字幕を出す'}</span>
-      <span class="nt">自動生成の字幕もそのまま出ます</span></span>`;
+      <span class="nt">YouTube側で表示・見た目は変えられません</span></span>`;
     cc.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkYtCcToggle(); };
     grp.appendChild(cc);
   }

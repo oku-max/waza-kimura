@@ -208,6 +208,14 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
 /\{ try \{ _ytPlayer\.seekTo\(sec, true\); \} catch \(e\) \{\} \}/.test(src)
   ? ok('作り直したあと、見ていた位置に戻す')
   : fail('位置が頭に戻ってしまう');
+// destroy() は iframe ごと消す（公式リファレンス）。置き場所の div を入れ直さないと
+// new YT.Player が置き場所を見つけられず、映像ごと消える（v52.932 で踏んだ）。
+/if \(host\) host\.innerHTML = `<div id="\$\{divId\}"><\/div>`;/.test(src)
+  ? ok('作り直す前に、置き場所の div を入れ直す')
+  : fail('div を入れ直していない（押すと映像ごと消える）');
+(src.match(/_ytReinit\(/g) || []).length >= 3
+  ? ok('プレイヤーの作り直しは1か所（リバースも同じ道を通る）')
+  : fail('作り直しが別々に書かれている（片方だけ壊れる）');
 /if \(_ytCcWanted\) return;/.test(src)
   ? ok('出した字幕を、こちらの処理が勝手に消さない')
   : fail('出してもすぐ消される');
