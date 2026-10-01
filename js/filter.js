@@ -418,7 +418,9 @@ export function AF() {
     rc.style.cursor = _own ? 'pointer' : '';
     rc.title = _own ? '本数の内訳を見る' : '';
     const main = document.createElement('span');
-    main.textContent = f.length + ' 本 表示中';
+    // 合計時間はテーブル表示と同じ書式（v52.910・オーナー「カード表示にも合計時間を」）。長さが分からなければ従来どおり
+    const _dur = window._wkTotalDurLabel?.(f) || '';
+    main.textContent = _dur ? f.length + ' 本' + _dur : f.length + ' 本 表示中';
     rc.appendChild(main);
     // 「／非表示 N本」は出さない（v52.894・オーナー「いらない」）。内訳はオーナーの ⓘ から
     if (_own) {

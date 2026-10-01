@@ -1570,6 +1570,7 @@ export function openVPanel(id) {
         </div>
         <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;align-self:center"></span>
         <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="その他のアクション" style="${navBtn};font-size:14px;letter-spacing:-1px">•••</button>
+        <button id="vp-list-btn" onclick="(window._srVpListAction || window.vpOpenNextList)?.()" title="リスト表示" style="${navBtn}"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
         <button id="vp-journal-btn" onclick="window.openMurmurComposer?.()" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
         <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
       </div>
@@ -8503,7 +8504,6 @@ window.vpTogMoreMenu = function(e, id) {
   const repeatSvg  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
   const shuffleSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 3 21 6 17 9"/><path d="M2 19H5C9 19 15 6 21 6"/><polyline points="17 15 21 18 17 21"/><path d="M2 5H5C9 5 15 18 21 18"/></svg>`;
   const mirrorSvg  = `<span style="font-size:11px;font-weight:800;font-family:Georgia,serif;letter-spacing:-1px">R|Я</span>`;
-  const listSvg    = mkSvg('<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>');
   const searchSvg  = mkSvg('<path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>');
   const editSvg    = mkSvg('<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>');
   const driveSvg   = mkSvg('<path d="M7.71 3.5L1.15 15l3.43 5.5h15.84l3.43-5.5L18.29 3.5H7.71zm.71 9.5l3.58-6h4l3.58 6H8.42z"/>');
@@ -8616,9 +8616,7 @@ window.vpTogMoreMenu = function(e, id) {
   // 練習回数のカウンターは v52.890 で廃止（古いカウンター。数えるのはカスタム列の「± カウンター」）
 
 
-  const li = _menuItem(listSvg, 'リスト表示', 'プレイリストを確認');
-  li.onclick = () => { closeMenu(); (window._srVpListAction || window.vpOpenNextList)?.(); };
-  menu.appendChild(li);
+  // 「リスト表示」は v52.910 で ••• の外（Journal ボタンの隣 #vp-list-btn）へ出した（オーナー「使う頻度が高い」）
 
   const sci = _menuItem(searchSvg, 'YouTube検索', '関連動画を探す');
   sci.onclick = (ev) => { closeMenu(); window.vpTogSearchMenu?.(ev, id); };
