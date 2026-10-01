@@ -8390,10 +8390,9 @@ function _subMenuBlock(box, closeMenu) {
     }
   }
 
-  // 「どれを出すか」を選ぶ行と、「どう見せるか」を開く行は別物。
-  // 同じ形で並べると区別がつかない（オーナー指摘）ので、選択肢とは違う見た目
-  // （地の色・歯車・›）で、アプリの字幕のすぐ下に置く。
-  // 見た目を変えられるのはアプリの字幕だけなので、YouTube本体の行より上に置く。
+  // 「字幕の見た目を調整」は、アプリの字幕と YouTube本体の“間”に置く
+  // （オーナー: 「アプリの字幕とYouTubeの字幕の間に字幕の大きさ設定を置いて」）。
+  // この行自体が2つの区切りになるので、文言の見出しは要らない。
   const cfg = document.createElement('button');
   cfg.type = 'button';
   cfg.className = 'vp-sub-cfg';
@@ -8406,7 +8405,7 @@ function _subMenuBlock(box, closeMenu) {
     closeMenu();
     _gdSubOpenPanel(anchor);
   };
-  mine.appendChild(cfg);
+  grp.appendChild(cfg);   // アプリの字幕とYouTube本体の「間」に置く（区切りを兼ねる）
 
   // YouTube本体の字幕は、アプリの字幕のカードの外に置く。
   // 見た目（枠の外・地の色・CCの印）だけで別物と分かるようにする。

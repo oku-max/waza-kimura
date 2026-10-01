@@ -60,9 +60,18 @@ alive.length === 0
 // YouTubeの字幕だと明らかに分かるように線を引け」）
 // アプリの字幕（選択肢＋見た目の調整）は1枚のカードの中、YouTube本体はその外。
 // 文言では区切らない（オーナー「こんな文言いらん。見た目だけで分かるように」）。
-/mine\.className = 'vp-sub-mine';/.test(src) && /mine\.appendChild\(cfg\);/.test(src)
-  ? ok('見た目の調整は、アプリの字幕と同じカードの中にある')
-  : fail('見た目の調整がアプリの字幕のカードの外にある');
+// オーナー指示: 「アプリの字幕と YouTube の字幕の間に字幕の大きさ設定を置いて」。
+// 見た目の調整は、アプリの字幕のカードの外、YouTube本体の行の上（＝間）に置く。
+// この行自体が区切りになるので、文言の見出しは置かない。
+/mine\.className = 'vp-sub-mine';/.test(src)
+  && src.indexOf("mine.appendChild(b);") < src.indexOf("grp.appendChild(cfg);")
+  && src.indexOf("grp.appendChild(cfg);") < src.indexOf("grp.appendChild(cc);")
+  ? ok('並びは アプリの字幕 → 見た目の調整 → YouTube本体')
+  : fail('見た目の調整が「間」に無い');
+/\.vp-sub-cfg \{[^}]*border-top: 1px solid[^}]*border-bottom: 1px solid/s
+  .test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'))
+  ? ok('見た目の調整の行は上下に線を引いて区切りを兼ねる')
+  : fail('区切りの線が無い');
 /grp\.appendChild\(cc\);/.test(src)
   ? ok('YouTube本体の行はカードの外（枠と地の色で別物と分かる）')
   : fail('YouTube本体の行がアプリの字幕と同じカードに入っている');
