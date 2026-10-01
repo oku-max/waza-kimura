@@ -3149,6 +3149,7 @@ let _ytSubLastHtml = null;   // null =「まだ描いていない／次は必ず
 let _ytSubToken    = 0;      // 非同期の取得が古くなったかの判定用
 let _ytSubHostEl   = null;   // オーバーレイを置いている器（毎フレーム探し直さない）
 let _ytCcMod       = '';     // 純正字幕で実際に反応したモジュール名（'captions' | 'cc'）
+let _ytCcPlayed    = false;  // この動画で一度でも再生が始まったか（字幕モジュールは再生後に用意される）
 let _ytCcFound     = false;  // 純正トラックの一覧を取れたか（空＝字幕無しも「取れた」）
 let _ytCcTries     = 0;      // 純正トラックを探した回数
 
@@ -3195,7 +3196,9 @@ function _ytCcRead() {
     // 空で返ってきた直後に「この動画に字幕は無い」と決めない。
     // モジュールが用意されきる前は空の配列が返ることがあり、そこで確定すると
     // 実際には字幕がある動画で「字幕なし」と言い続けることになる（オーナー報告）。
-    if (!list.length && _ytCcTries < 10) return false;
+    // 再生が始まる前の空配列は「まだ分からない」。再生前に確定させると、
+    // 止めたまま置いておいた動画で「字幕なし」と覚えてしまう。
+    if (!list.length && (!_ytCcPlayed || _ytCcTries < 10)) return false;
     _ytCcTracks = list
       .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: _ytCcName(t),
                    auto: _ytCcAuto(t), raw: t }))
@@ -3343,6 +3346,14 @@ function _subSearchingYt() {
   return !_gdSubTracks.length && !!_ytSubId && !_ytCcFound && _ytCcTries < YT_CC_MAX_TRIES;
 }
 
+// YouTube自身の字幕を取り込める状態か。
+// すでに純正トラックが候補にある／YouTubeの字幕から作った字幕が入っている動画では出さない。
+function _subCanImportYt() {
+  if (_gdSubTracks.length || _vpCurrentPlat !== 'yt') return false;
+  if (_ytCcTracks.length) return false;
+  return !_ytSubTracks.some(t => String(t.via || '').startsWith('yt:'));
+}
+
 function _subChoices() {
   const out = [{ key: 'off', name: '字幕なし', src: '', note: '', on: false }];
   if (_gdSubTracks.length) {
@@ -3408,7 +3419,7 @@ function _ytSubDetach() {
   }
   _ytSubId = null; _ytSubTracks = []; _ytCcTracks = [];
   _ytSubSel = 'off'; _ytSubPicked = false;
-  _ytCcMod = ''; _ytCcFound = false; _ytCcTries = 0;
+  _ytCcMod = ''; _ytCcFound = false; _ytCcTries = 0; _ytCcPlayed = false;
   _ytSubLastHtml = null; _ytSubHostEl = null;
 }
 
@@ -3544,6 +3555,13 @@ function _ytSubTick() {
   // ときどき見張って選択どおりに戻す。読むだけなら安いので2秒に1回。
   if (now - _ytSubLastCc > 2000) {
     _ytSubLastCc = now;
+    // 再生が始まったら、そこから探し直す（モジュールは再生後に用意される）
+    let st = -1;
+    try { st = Number(_ytPlayer?.getPlayerState?.()); } catch (e) {}
+    if (!_ytCcPlayed && st === 1) {
+      _ytCcPlayed = true;
+      if (!_ytCcTracks.length) { _ytCcFound = false; _ytCcTries = 0; }
+    }
     _ytCcSeek();          // 純正トラックが見つかるまで探し続ける
     _ytSubAdoptCc();      // YouTube側で出ている字幕を⚙の表示に映す
     _ytSubEnforceCc();
@@ -3648,6 +3666,44 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
                                   diag: Array.isArray(d.diag) ? d.diag.join(' / ') : '' };
   return d;
 }
+
+// ── YouTube自身の字幕を、このパネルで扱える字幕として取り込む ────────
+// なぜ要るか: プレイヤーの字幕モジュール（公式ドキュメントに無いAPI）は返事が
+// 無いことがある。それだけに頼ると「YouTubeには字幕が出ているのに、こちらの
+// 一覧には出ない」になる（実際なった）。サーバー経由（/api/yt-transcript）なら
+// YouTubeが持っている字幕を時刻ごと取れるので、こちらの字幕として保存して、
+// 生成字幕と同じように選べる・見た目を変えられるようにする。
+// 時刻は音に対して正確（AIに書かせた時刻と違い、進んでもズレない）。
+// 【相乗りしない】_ytGenSubtitle（言語を聞く・翻訳する・既存を作り直す）には
+// 渡さない。ここは「YouTubeの字幕をそのまま取り込む」だけの薄い入口にする。
+window.wkSubImportYt = async function() {
+  const v = (window.videos || []).find(x => x.id === window.openVPanelId);
+  const ytId = _ytSubId || (v ? _vYtId(v) : '');
+  if (!ytId) { window.toast?.('YouTubeの動画を開いてから押してください'); return; }
+  if (!confirm('YouTubeが持っているこの動画の字幕を取り込みます。\n\n'
+             + '・翻訳はしません（話している言語のまま）\n'
+             + '・時刻はYouTubeのものをそのまま使います（音に合っています）\n'
+             + '・取り込むと、文字サイズや位置をこちらで変えられます')) return;
+
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { window.toast?.('ログインが必要です'); return; }
+  window.toast?.('⏳ YouTubeの字幕を取得中…');
+  try {
+    const idToken = await user.getIdToken();
+    const yt = await _ytFetchTranscript(idToken, ytId, 'orig');
+    if (!yt || !yt.srt) throw new Error(yt?.error || 'YouTubeの字幕を取得できませんでした');
+    await _ytSubStore(ytId, 'orig', yt.srt, { via: 'yt:' + (yt.lang || ''), srcLang: '' });
+    _subOffsetSet(ytId, 0);          // 新しい字幕に古いズレ補正を持ち越さない
+    await _ytSubRefreshNow(ytId, 'orig');
+    window.wkSubMenuSync?.();
+    window.wkSubOptsRender?.();
+    window.toast?.(`✅ YouTubeの字幕を取り込みました（${yt.lang || '原語'} · ${yt.cues || 0}枚）`);
+  } catch (e) {
+    // 理由は決め打ちで書かない。サーバーが返したものをそのまま出す。
+    window.toast?.('⚠️ ' + (e?.message || e));
+    console.warn('[ytsub] 取り込みに失敗:', e);
+  }
+};
 
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const ytId   = _vYtId(v);
@@ -8192,7 +8248,7 @@ function _subMenuBlock(box, closeMenu) {
     none.className = 'vp-sub-none';
     none.textContent = _subSearchingYt()
       ? 'YouTube側の字幕を探しています（再生を始めると出てきます）'
-      : 'この動画には字幕がありません';
+      : 'まだこの動画の字幕はありません';
     grp.appendChild(none);
   } else {
     for (const c of list) {
@@ -8205,6 +8261,20 @@ function _subMenuBlock(box, closeMenu) {
       b.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };
       grp.appendChild(b);
     }
+  }
+
+  // YouTube自身の字幕を取り込む行。
+  // プレイヤーのAPIが返事をしない動画でも、ここから取り込めば一覧に並び、
+  // 見た目もこちらで変えられる（オーナー「YouTubeの字幕もこのパネルで扱いたい」）。
+  if (_subCanImportYt()) {
+    const imp = document.createElement('button');
+    imp.type = 'button';
+    imp.className = 'vp-sub-pick vp-sub-import';
+    imp.innerHTML = `<span class="mk">⤓</span>
+      <span class="tx"><span class="nm">YouTubeの字幕を取り込む</span>
+      <span class="nt">話している言語のまま・時刻は音に合っています</span></span>`;
+    imp.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkSubImportYt(); };
+    grp.appendChild(imp);
   }
 
   // 「どれを出すか」を選ぶ行と、「どう見せるか」を開く行は別物。

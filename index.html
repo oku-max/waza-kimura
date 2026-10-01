@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.918</title>
+<title>WAZA KIMURA v52.919</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -850,6 +850,9 @@
 .vp-sub-pick .tx { flex: 1; min-width: 0; }
 .vp-sub-pick .nm { display: block; font-size: 11.5px; font-weight: 700; }
 .vp-sub-pick .nt { display: block; font-size: 10px; font-weight: 500; color: var(--text3, #888); margin-top: 1px; }
+/* 取り込みの行。選択肢ではなく「取りに行く」操作なので、印と色で分ける */
+.vp-sub-import { border-style: dashed; }
+.vp-sub-import .mk { color: var(--accent, #4a90d9); font-weight: 800; }
 .vp-sub-none { font-size: 10.5px; color: var(--text3, #888); padding: 2px 4px 4px; line-height: 1.6; }
 /* 設定を開く行。選択肢とは別物なので、線で区切って見た目も変える（枠なし・歯車・›） */
 .vp-sub-cfg {
