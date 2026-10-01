@@ -1,0 +1,169 @@
+#!/usr/bin/env node
+// ═══ 字幕の入口の検査（v52.915〜）═══
+// 使い方: node tools/sub-menu-check.mjs
+//
+// なぜ要るか:
+//   映像の右上に CC / ⚙ を重ねていたが、YouTube本体の CC / 設定が同じ場所に出るので
+//   上下に2つ並び、どちらが何なのか分からない画面になっていた（オーナー指摘）。
+//   入口は「動画の下のバーの ⚙ メニュー」1つに統一した。この検査は
+//   ・映像の上にボタンを置く経路が戻っていないこと
+//   ・⚙メニューから字幕を選べて、設定がポップアップで開くこと
+//   ・字幕の名前が「日本語：WAZA KIMURA生成」の形で、略語（YT・アプリ）を使っていないこと
+//   を見張る。
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const src  = fs.readFileSync(path.join(ROOT, 'js/vpanel.js'), 'utf8');
+let ng = 0;
+const ok   = (m) => console.log('  ✓', m);
+const fail = (m) => { ng++; console.log('  ✗', m); };
+
+// ── ① 映像の上にボタンを置かない ──────────────────────────
+const banned = ['_gdSubMountButton', '_ytSubMountButton', '_gdSubPaintButton',
+                '_ytSubPaintButton', '_gdSubUiPoke', "wrap.id = 'vp-sub-ui'"];
+const alive = banned.filter(n => src.includes(n));
+alive.length === 0
+  ? ok('映像の上に CC / ⚙ を置く経路は無い')
+  : fail(`映像の上のボタンが戻っている: ${alive.join(', ')}`);
+
+// ② 下のバーのボタンは ⚙（••• は何のことか分からない）
+/id="vp-more-btn"[^>]*>\s*<svg/.test(src)
+  ? ok('下のバーのボタンは ⚙ のアイコン')
+  : fail('下のバーのボタンが ••• に戻っている');
+
+// ③ 選択肢は1か所（_subChoices）から作る。Drive と YouTube で画面を分けない
+/function _subChoices\(\)/.test(src)
+  ? ok('字幕の選択肢は _subChoices() の1か所')
+  : fail('_subChoices() が無い（画面ごとに一覧を組み立てている）');
+(src.match(/_subChoices\(\)/g) || []).length >= 3
+  ? ok('⚙メニューと設定パネルの両方が _subChoices() を使っている')
+  : fail('片方が自前で一覧を組み立てている');
+
+// ④ 名前は「日本語：WAZA KIMURA生成」の形。略語は使わない
+/SUB_SRC_LABEL = \{ wk: 'WAZA KIMURA生成', yt: 'YouTube' \}/.test(src)
+  ? ok('出所の名前は「WAZA KIMURA生成」「YouTube」')
+  : fail('出所の名前が変わっている（略語に戻っていないか）');
+/return c\.src \? `\$\{c\.name\}：\$\{SUB_SRC_LABEL\[c\.src\]\}` : c\.name;/.test(src)
+  ? ok('「言語：出所」の形で名前を作る')
+  : fail('名前の作り方が変わっている');
+!/['"`]YT['"`]|＝アプリ|「アプリ」/.test(src.replace(/\/\/.*$/gm, ''))
+  ? ok('「YT」「アプリ」という略語を画面に出していない')
+  : fail('略語（YT・アプリ）が画面に戻っている');
+
+// ⑤ 設定はメニューに展開せず、別のポップアップで開く
+/_menuItem\(gearSvg, '字幕の設定'/.test(src) && /_gdSubOpenPanel\(anchor\)/.test(src)
+  ? ok('設定は別のポップアップで開く（メニューに展開しない）')
+  : fail('設定をメニューの中に展開している');
+
+// ⑥ 選択肢は縦に1行ずつ（横に流すと「字幕なし」と言語が並んで見分けがつかない）
+const css = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+/\.vp-sub-pick \{[^}]*width: 100%/.test(css)
+  ? ok('選択肢は1行に1つ（幅いっぱい）')
+  : fail('選択肢が横に並んでいる');
+
+// ⑦ 行の作りと CSS の名前が合っていること。
+//    字幕が1つも無い状態では行そのものが出ないので、ここだけは静的に見る
+//    （クラス名がずれると、見た目が崩れるのに画面は出てしまう）。
+const rowCls = ['vp-sub-pick', 'mk', 'tx', 'nm', 'nt'];
+const missing = rowCls.filter(c => !new RegExp(`['"\`][^'"\`]*\\b${c}\\b`).test(src));
+const noCss   = rowCls.filter(c => !new RegExp(`\\.vp-sub-pick[^{]*\\.${c}\\b|\\.${c}\\b[^{]*\\{`).test(css) && c !== 'vp-sub-pick');
+missing.length === 0
+  ? ok('行の中身（印・名前・補足）がそろっている')
+  : fail(`行の中身が欠けている: ${missing.join(', ')}`);
+noCss.length === 0
+  ? ok('行のCSSが index.html にある')
+  : fail(`CSSが無いクラス: ${noCss.join(', ')}`);
+
+// ── 実際に本物の index.html を開いて確かめる ──────────────
+const g = execSync('npm root -g', { encoding: 'utf8' }).trim();
+const { chromium } = await import(path.join(g, 'playwright', 'index.mjs'));
+const PORT = 8233;
+const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
+               '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon' };
+const srv = http.createServer((q, r) => {
+  let u = decodeURIComponent(q.url.split('?')[0]);
+  if (u === '/') u = '/index.html';
+  const f = path.join(ROOT, u);
+  if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); return r.end(''); }
+  r.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' });
+  r.end(fs.readFileSync(f));
+});
+await new Promise(r => srv.listen(PORT, r));
+
+const exe = process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const b = await chromium.launch(fs.existsSync(exe) ? { executablePath: exe } : {});
+// 日本語表示で見る（英語表示だと自動翻訳が走り、行の名前が後から変わる）
+const ctx = await b.newContext({ viewport: { width: 900, height: 900 }, locale: 'ja-JP' });
+await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), r => r.abort());
+// Firebase が読めないと index.html の本体（module）ごと止まるので、何もしない偽物を返す
+const FB_STUB = `(function(){ if (window.firebase) return;
+  const noop=()=>{}; const p=(v)=>Promise.resolve(v);
+  const doc=()=>({ get:()=>p({exists:false,data:()=>({})}), set:()=>p(), update:()=>p(),
+                   delete:()=>p(), collection, onSnapshot:()=>noop });
+  function collection(){ return { doc, get:()=>p({empty:true,docs:[],forEach:noop}),
+                                  where(){return this}, orderBy(){return this}, limit(){return this},
+                                  onSnapshot:()=>noop }; }
+  const auth=()=>({ onAuthStateChanged:(cb)=>{ setTimeout(()=>cb(null),0); return noop; },
+                    signInWithPopup:()=>p({user:null}), signOut:()=>p(), currentUser:null });
+  auth.GoogleAuthProvider=function(){ this.addScope=noop; this.setCustomParameters=noop; };
+  const firestore=()=>({ collection, doc, settings:noop, batch:()=>({set:noop,update:noop,delete:noop,commit:()=>p()}),
+                         enablePersistence:()=>p(), runTransaction:()=>p() });
+  firestore.FieldValue={ arrayUnion:(...a)=>a, arrayRemove:(...a)=>a, serverTimestamp:()=>new Date(), delete:()=>null };
+  window.firebase={ initializeApp:()=>({}), apps:[], auth, firestore,
+                    storage:()=>({ ref:()=>({ put:()=>p(), getDownloadURL:()=>p('') }) }) };
+ })();`;
+await ctx.route(/gstatic\.com\/firebasejs/i, r => r.fulfill({ status:200, contentType:'text/javascript', body: FB_STUB }));
+await ctx.addInitScript(() => { try { localStorage.setItem('wk_lang', 'ja'); } catch (e) {} });
+const pg = await ctx.newPage();
+const errs = [];
+pg.on('pageerror', e => { const s = String(e); if (!/firebase|gstatic/i.test(s)) errs.push(s.split('\n')[0]); });
+pg.on('console', m => { const t = m.text(); if (m.type() === 'error' && !/firebase|gstatic|net::ERR|Failed to load resource/i.test(t)) errs.push(t.split('\n')[0]); });
+await pg.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+await pg.waitForTimeout(2500);
+
+const r1 = await pg.evaluate(() => {
+  const btn = document.createElement('button');
+  btn.id = 'vp-more-btn';
+  btn.style.cssText = 'position:fixed;top:500px;right:40px;width:30px;height:26px';
+  document.body.appendChild(btn);
+  btn.onclick = (e) => window.vpTogMoreMenu(e, 'test-video-id');
+  btn.click();
+  const menu = document.getElementById('vp-more-menu');
+  return {
+    opened: !!menu,
+    labels: [...(menu?.querySelectorAll('.vp-smenu-label') || [])].map(e => e.textContent),
+    none:   menu?.querySelector('.vp-sub-none')?.textContent || '',
+    sync:   typeof window.wkSubMenuSync,
+    pick:   typeof window.wkSubPick,
+  };
+});
+r1.opened ? ok('⚙メニューが開く') : fail('⚙メニューが開かない');
+r1.labels.includes('字幕')       ? ok('メニューに「字幕」の行がある')       : fail('「字幕」の行が無い');
+r1.labels.includes('字幕の設定') ? ok('メニューに「字幕の設定」の行がある') : fail('「字幕の設定」の行が無い');
+r1.none.includes('字幕がありません')
+  ? ok('字幕が無い動画では「字幕がありません」と出す（空欄にしない）')
+  : fail('字幕が無いときの案内が出ない: ' + JSON.stringify(r1.none));
+r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる（wkSubMenuSync）') : fail('wkSubMenuSync が生えていない');
+r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
+
+const r2 = await pg.evaluate(() => {
+  const it = [...document.querySelectorAll('#vp-more-menu .vp-smenu-item')]
+    .find(e => e.querySelector('.vp-smenu-label')?.textContent === '字幕の設定');
+  if (!it) return { err: '行が無い' };
+  it.click();
+  const pop = document.getElementById('vp-sub-opts');
+  return { pop: !!pop, menu: !!document.getElementById('vp-more-menu'),
+           text: (pop?.textContent || '').slice(0, 60) };
+});
+r2.pop  ? ok('「字幕の設定」で別のポップアップが開く') : fail('ポップアップが開かない: ' + JSON.stringify(r2));
+!r2.menu ? ok('ポップアップを開くときメニューは閉じる')  : fail('メニューが開いたまま重なっている');
+
+errs.length === 0 ? ok('JSエラーなし') : fail('JSエラー: ' + errs.join(' / '));
+
+await b.close(); srv.close();
+console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 字幕の入口は ⚙ メニュー1つ');
+process.exit(ng ? 1 : 0);
