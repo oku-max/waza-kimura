@@ -3360,10 +3360,23 @@ function _subSearchingYt() {
 
 // YouTube自身の字幕を取り込める状態か。
 // すでに純正トラックが候補にある／YouTubeの字幕から作った字幕が入っている動画では出さない。
-function _subCanImportYt() {
+function _subCanImportYt(list) {
   if (_gdSubTracks.length || _vpCurrentPlat !== 'yt') return false;
-  if (_ytCcTracks.length) return false;
-  return !_ytSubTracks.some(t => String(t.via || '').startsWith('yt:'));
+  // 判断は「いま一覧に YouTube の字幕が出ているか」だけ。
+  // via の書き方で出し分けると、書き方を1つ見落とすたびに
+  // 「YouTubeの字幕が選べない」が戻る（実際に戻した）。
+  return !(list || _subChoices()).some(c => c.src === 'yt');
+}
+
+// いま何が起きているかを、オーナーにだけ1行で見せる。
+// 「なんで出ないんだ」を推測で直すのをやめるため、画面に答えを出させる。
+function _subStateLine() {
+  const parts = [];
+  parts.push('プレイヤー: ' + (_ytCcMod || 'モジュール未特定')
+    + ' / 一覧 ' + _ytCcTracks.length + '件 / 探した ' + _ytCcTries + '回'
+    + (_ytCcPlayed ? ' / 再生あり' : ' / 再生まだ'));
+  for (const t of _ytSubTracks) parts.push(`保存: ${t.lang}=${t.via || '?'}`);
+  return parts.join(' ／ ');
 }
 
 function _subChoices() {
@@ -3376,15 +3389,33 @@ function _subChoices() {
     return out;
   }
   for (const s of _ytSubSources()) {
-    const auto = s.kind === 'yt' && !!s.track.auto;
+    // プレイヤーが持っている純正トラック（YouTubeの中で描かれる）
+    if (s.kind === 'yt') {
+      const auto = !!s.track.auto;
+      out.push({
+        key: s.key,
+        // 自動生成か、動画に元から付いている字幕かが名前だけで分かるようにする
+        name: s.label + (auto ? '（自動生成）' : ''),
+        src: 'yt',
+        note: (auto ? 'YouTubeが自動で作った字幕' : '動画に元から付いている字幕')
+              + '・YouTubeの中で表示',
+        on: _ytSubSel === s.key,
+      });
+      continue;
+    }
+    // 保存してある字幕。中身がYouTubeの字幕そのものなら「YouTubeの字幕」として出す。
+    // ここを「WAZA KIMURA生成」と呼んでいたため、YouTubeの字幕が一覧に出ている
+    // のに「YouTubeの字幕が選べない」と見えていた（オーナー指摘・何度も）。
+    // 作り直したのでも訳したのでもなく、YouTubeの字幕をそのまま取り込んだもの。
+    const via    = String(s.track.via || '');
+    const fromYt = via.startsWith('yt:') && !via.includes('+translate');
+    const day    = s.track.updatedAt ? ' · ' + String(s.track.updatedAt).slice(0, 10) : '';
     out.push({
       key: s.key,
-      // 自動生成か、動画に元から付いている字幕かが名前だけで分かるようにする
-      name: s.kind === 'yt' ? s.label + (auto ? '（自動生成）' : '') : s.label,
-      src: s.kind === 'yt' ? 'yt' : 'wk',
-      note: s.kind === 'yt'
-              ? (auto ? 'YouTubeが自動で作った字幕' : '動画に元から付いている字幕')
-              : _subGenNote(s.track),
+      name: s.label,
+      src: fromYt ? 'yt' : 'wk',
+      note: fromYt ? 'YouTubeの字幕をそのまま表示・見た目を変えられます' + day
+                   : _subGenNote(s.track),
       on: _ytSubSel === s.key,
     });
   }
@@ -3704,6 +3735,11 @@ window.wkSubImportYt = async function() {
     const idToken = await user.getIdToken();
     const yt = await _ytFetchTranscript(idToken, ytId, 'orig');
     if (!yt || !yt.srt) throw new Error(yt?.error || 'YouTubeの字幕を取得できませんでした');
+    // 同じ置き場所（原語）に既に字幕があるなら、黙って上書きしない。
+    // そこにあるのは作るのに費用がかかったものかもしれない。
+    const had = _ytSubList(await _ytSubFetch(ytId)).find(t => t.lang === 'orig');
+    if (had && !confirm(`すでに「${had.label}」の字幕があります。\n`
+        + `YouTubeの字幕で置き換えますか？（元には戻せません）`)) return;
     await _ytSubStore(ytId, 'orig', yt.srt, { via: 'yt:' + (yt.lang || ''), srcLang: '' });
     _subOffsetSet(ytId, 0);          // 新しい字幕に古いズレ補正を持ち越さない
     await _ytSubRefreshNow(ytId, 'orig');
@@ -3771,7 +3807,12 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     setBtn('⏳ YouTubeの字幕を確認中…');
     const yt = await _ytFetchTranscript(idToken, ytId, subLang).catch(e => ({ error: e?.message || String(e) }));
     if (yt && yt.srt) {
-      const same = subLang !== 'orig' && yt.lang && yt.lang.slice(0, 2) === subLang;
+      // 「原語のまま」は、話している言語で書き起こすという意味。
+      // YouTube自身の字幕がまさにそれなので、AIに通さずそのまま使う。
+      // 通していたため、原語の字幕が毎回ひと手間ぶん課金され、しかも
+      // via が 'yt:xx+translate' になって「WAZA KIMURAが作った字幕」に見えていた。
+      const same = (subLang === 'orig')
+                || (yt.lang && yt.lang.slice(0, 2) === subLang);
       if (same) {
         srt = yt.srt; via = 'yt:' + yt.lang;
       } else {
@@ -8278,7 +8319,7 @@ function _subMenuBlock(box, closeMenu) {
   // YouTube自身の字幕を取り込む行。
   // プレイヤーのAPIが返事をしない動画でも、ここから取り込めば一覧に並び、
   // 見た目もこちらで変えられる（オーナー「YouTubeの字幕もこのパネルで扱いたい」）。
-  if (_subCanImportYt()) {
+  if (_subCanImportYt(list)) {
     const imp = document.createElement('button');
     imp.type = 'button';
     imp.className = 'vp-sub-pick vp-sub-import';
@@ -8306,6 +8347,14 @@ function _subMenuBlock(box, closeMenu) {
     _gdSubOpenPanel(anchor);
   };
   grp.appendChild(cfg);
+
+  // 状態（オーナーのときだけ）。推測せずに原因を見るための行。
+  if (window.wkIsOwner?.() && _vpCurrentPlat === 'yt') {
+    const d = document.createElement('div');
+    d.className = 'vp-sub-state';
+    d.textContent = _subStateLine();
+    grp.appendChild(d);
+  }
 }
 
 function _escHtml(v) {

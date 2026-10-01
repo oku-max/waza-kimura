@@ -206,9 +206,29 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
 !/wkSubImportYt[\s\S]{0,600}_ytGenSubtitle\(/.test(src)
   ? ok('取り込みは字幕生成（言語を聞く・翻訳する）に相乗りしていない')
   : fail('取り込みが _ytGenSubtitle に相乗りしている');
-/function _subCanImportYt\(\)/.test(src) && /vp-sub-import/.test(src)
+/function _subCanImportYt\(list\)/.test(src) && /vp-sub-import/.test(src)
   ? ok('YouTube由来の字幕がまだ無いときだけ取り込みの行を出す')
   : fail('取り込みの行の出し分けが無い');
+// 出し分けは「一覧に出ているか」だけで決める（via の書き方で判断しない）
+/return !\(list \|\| _subChoices\(\)\)\.some\(c => c\.src === 'yt'\);/.test(src)
+  ? ok('取り込みの行は「一覧にYouTubeの字幕が無いとき」に出す')
+  : fail('via の書き方で出し分けている（書き方が増えるたびに戻る）');
+// 「原語のまま」はYouTubeの字幕をそのまま使う（AIに通さない＝課金しない・名前も正しくなる）
+/const same = \(subLang === 'orig'\)/.test(src)
+  ? ok('原語のままなら YouTube の字幕をそのまま使う')
+  : fail('原語なのにAIに通している（課金され、YouTubeの字幕に見えなくなる）');
+/const had = _ytSubList\(await _ytSubFetch\(ytId\)\)\.find\(t => t\.lang === 'orig'\);/.test(src)
+  ? ok('取り込みで既存の字幕を黙って上書きしない')
+  : fail('既存の字幕を確認なしに上書きしている');
+
+// ⑩ YouTubeの字幕そのものを「WAZA KIMURA生成」と呼ばないこと（v52.922・オーナー指摘）。
+//    取り込んだ字幕は中身も時刻もYouTubeのもの。名前が違うと「選べない」に見える。
+/const fromYt = via\.startsWith\('yt:'\) && !via\.includes\('\+translate'\);/.test(src)
+  ? ok('YouTubeの字幕から作ったものは YouTube の字幕として出す')
+  : fail('YouTubeの字幕を「WAZA KIMURA生成」と呼んでいる（選べないように見える）');
+/YouTubeの字幕をそのまま表示/.test(src)
+  ? ok('取り込み済みの字幕は「そのまま表示」と説明する')
+  : fail('取り込み済みかどうかが説明されていない');
 r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる（wkSubMenuSync）') : fail('wkSubMenuSync が生えていない');
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
 
