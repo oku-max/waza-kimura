@@ -8381,6 +8381,10 @@ function _subMenuBlock(box, closeMenu) {
   mine.className = 'vp-sub-mine';
   grp.appendChild(mine);
 
+  // 字幕の通し番号（オーナー「字幕には全部番号を付けろよ」）。
+  // 【ここで宣言する】下の YouTube の行でも使う。else の中で宣言していたため、
+  // YouTube動画では「no は未定義」で例外になり、⚙メニューが丸ごと開かなくなった（v52.943）。
+  let no = 0;
   if (list.length <= 1) {
     const none = document.createElement('div');
     none.className = 'vp-sub-none';
@@ -8389,9 +8393,7 @@ function _subMenuBlock(box, closeMenu) {
       : 'まだこの動画の字幕はありません';
     mine.appendChild(none);
   } else {
-    // 字幕には番号を振る（オーナー「わかりやすいように字幕に番号つけて」）。
     // 出ているものは番号の丸が塗られる＝選択の印も兼ねる。
-    let no = 0;
     for (const c of list) {
       if (c.key === 'off') continue;   // 「字幕なし」の行は置かない（もう一度押せば消える）
       if (c.src === 'yt') continue;    // YouTube本体の字幕は下の欄に出す

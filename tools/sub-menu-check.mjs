@@ -177,6 +177,16 @@ noCss.length === 0
   ? ok('探している間は「字幕がありません」と言い切らない')
   : fail('見つける前に「字幕がありません」と言っている');
 
+
+// ⑪ YouTube動画でメニューを開く経路を実際に踏む（v52.943）。
+//    番号のカウンタ(no)を else の中で宣言していたため、YouTube動画では
+//    「no は未定義」で例外になり、⚙メニューが丸ごと開かなくなった。
+//    静的な見張り: no は関数の先頭で宣言する（if/else の中ではない）。
+const mb = src.slice(src.indexOf('function _subMenuBlock'), src.indexOf('function _escHtml'));
+(mb.indexOf('let no = 0;') > 0 && mb.indexOf('let no = 0;') < mb.indexOf('if (list.length'))
+  ? ok('番号のカウンタは関数の先頭で宣言（YouTubeの行からも読める）')
+  : fail('カウンタが if/else の中で宣言されている（YouTube動画で例外になる）');
+
 // ── 実際に本物の index.html を開いて確かめる ──────────────
 const g = execSync('npm root -g', { encoding: 'utf8' }).trim();
 const { chromium } = await import(path.join(g, 'playwright', 'index.mjs'));
@@ -313,6 +323,23 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
   : fail('保存した字幕の呼び方が変わっている');
 r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる（wkSubMenuSync）') : fail('wkSubMenuSync が生えていない');
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
+
+// YouTube動画を開いた状態でも ⚙ メニューが開くか（この経路で v52.942 が壊れた）
+const r3 = await pg.evaluate(() => {
+  try {
+    window.videos = [{ id: 'dQw4w9WgXcQ', title: 'テスト', emb: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }];
+    window.openVPanel?.('dQw4w9WgXcQ');
+  } catch (e) { /* プレイヤーは読めないが、plat の判定までは走る */ }
+  const btn = document.getElementById('vp-more-btn');
+  let err = '';
+  try { btn?.click(); } catch (e) { err = String(e); }
+  const menu = document.getElementById('vp-more-menu');
+  return { err, opened: !!menu, rows: (menu?.querySelectorAll('.vp-sub-pick') || []).length,
+           labels: [...(menu?.querySelectorAll('.vp-smenu-label') || [])].map(e => e.textContent).slice(0, 3) };
+});
+(!r3.err && r3.opened)
+  ? ok('YouTube動画の状態でも ⚙ メニューが開く')
+  : fail('YouTube動画でメニューが開かない: ' + JSON.stringify(r3));
 
 const r2 = await pg.evaluate(() => {
   // 字幕が1本も無い動画では ⚙ の行自体が無い（その場合は押せることを見ない）
