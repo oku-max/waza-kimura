@@ -84,5 +84,23 @@ for (const fn of ['vpGenSubtitle', '_ytGenSubtitle', '_asrGenerateAndSave', '_tr
     : ok(`${fn} はチャプターを知らない`);
 }
 
+
+// ── 既存のブックマークをどうするか（v52.944・オーナー
+//    「すでにブックマークが入ってる時は、上書きか追加を選べるように」）──
+// ここは消す操作なので、既定は必ず「追加」（消さない方）であること、
+// 消すときは何件消えるか（手で作った分を含めて）を画面に出すことを見張る。
+/let _chapMode = 'add';/.test(src)
+  ? ok('既定は「追加する」（既存のブックマークを消さない）')
+  : fail('既定が消す方になっている');
+/if \(sel\.replaceAll\)\s+v\.bookmarks = \[\];\n\s*else if \(sel\.replaceAuto\)/.test(src)
+  ? ok('消すのは選ばれたときだけ（追加では1件も消さない）')
+  : fail('ブックマークを勝手に消している');
+/all:\s+`いまの\$\{bmCount\}件を全部消してから入れます（手で作った\$\{handCount\}件も消えます）`/.test(src)
+  ? ok('全部入れ替えは、消える件数を手で作った分まで出す')
+  : fail('何件消えるか画面に出していない');
+/replaceAll: !!preset\.replaceAll/.test(src)
+  ? ok('一括処理では preset が明示したときだけ入れ替える')
+  : fail('一括処理が勝手に入れ替える');
+
 console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 自動チャプターは字幕生成を「押したのと同じ」に呼んでいる');
 process.exit(ng ? 1 : 0);

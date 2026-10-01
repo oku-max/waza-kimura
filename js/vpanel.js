@@ -5091,11 +5091,13 @@ function _askChapterSource(anchorEl, hasYt, ytPeek) {
 }
 
 // 検出結果の確認ダイアログ。ここを通さずにブックマークへ書き込まない。
-// resolve は { chaps, withEnd, replaceAuto } / キャンセルは null
+// resolve は { chaps, withEnd, replaceAuto, replaceAll } / キャンセルは null
 function _chapReviewDialog(chaps, info) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-rv-bg')?.remove();
     const autoCount = Number(info?.autoCount) || 0;
+    const handCount = Number(info?.handCount) || 0;
+    const bmCount   = autoCount + handCount;
     const bg = document.createElement('div');
     bg.id = 'vp-chap-rv-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
@@ -5162,11 +5164,20 @@ function _chapReviewDialog(chaps, info) {
             <input type="checkbox" id="vp-chap-end" style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
             <span>終了時間を入れる（次の開始まで）<div style="font-size:10px;color:var(--text3,#999)">1チャプターが区間になり、そのままループ再生できます</div></span>
           </label>
-          ${autoCount ? `
-          <label style="display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text2,#bbb);cursor:pointer">
-            <input type="checkbox" id="vp-chap-rep" style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
-            <span>前に自動で作ったチャプターを消して入れ替える<div style="font-size:10px;color:var(--text3,#999)">${autoCount}件を削除します。手で作ったブックマークは消えません</div></span>
-          </label>` : ''}
+          ${bmCount ? `
+          <div style="font-size:11px;color:var(--text2,#bbb)">
+            <div style="font-weight:700;margin-bottom:5px">いまあるブックマーク ${bmCount}件をどうするか</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="vp-chap-mode" data-mode="add"
+                style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 11px;font-size:11.5px">追加する</button>
+              ${autoCount ? `<button type="button" class="vp-chap-mode" data-mode="auto"
+                style="${_adjBtnStyle()};padding:6px 11px;font-size:11.5px">自動の${autoCount}件だけ入れ替える</button>` : ''}
+              <button type="button" class="vp-chap-mode" data-mode="all"
+                style="${_adjBtnStyle()};padding:6px 11px;font-size:11.5px">全部入れ替える</button>
+            </div>
+            <div id="vp-chap-mode-note" style="font-size:10px;color:var(--text3,#999);margin-top:5px">
+              いまの${bmCount}件はそのまま残します</div>
+          </div>` : ''}
         </div>
         <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end">
           <button id="vp-chap-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
@@ -5184,13 +5195,34 @@ function _chapReviewDialog(chaps, info) {
     });
 
     const cks = () => Array.from(bg.querySelectorAll('.vp-chap-ck'));
+    // 既存のブックマークをどうするか。既定は「追加する」（消さない方）。
+    let _chapMode = 'add';
+    const MODE_NOTE = {
+      add:  `いまの${bmCount}件はそのまま残します`,
+      auto: `自動で作った${autoCount}件を消してから入れます。手で作った${handCount}件は残ります`,
+      all:  `いまの${bmCount}件を全部消してから入れます（手で作った${handCount}件も消えます）`,
+    };
     const paintOk = () => {
       const n = cks().filter(c => c.checked).length;
       const ok = bg.querySelector('#vp-chap-ok');
-      ok.textContent = `✔ ブックマークに追加（${n}件）`;
+      ok.textContent = (_chapMode === 'add' ? `✔ ブックマークに追加（${n}件）`
+                                            : `✔ 入れ替える（${n}件）`);
       ok.disabled = !n;
       ok.style.opacity = n ? '1' : '.45';
     };
+    const paintMode = () => {
+      bg.querySelectorAll('.vp-chap-mode').forEach(b => {
+        const on = b.dataset.mode === _chapMode;
+        b.style.background = on ? 'var(--accent)' : 'var(--surface2,#2a2a2a)';
+        b.style.color      = on ? 'var(--on-accent,#fff)' : 'var(--text2,#bbb)';
+      });
+      const note = bg.querySelector('#vp-chap-mode-note');
+      if (note) note.textContent = MODE_NOTE[_chapMode] || '';
+      paintOk();
+    };
+    bg.querySelectorAll('.vp-chap-mode').forEach(b => b.addEventListener('click', () => {
+      _chapMode = b.dataset.mode; paintMode();
+    }));
     const done = val => {
       bg.remove();
       document.removeEventListener('keydown', onKey, true);
@@ -5221,10 +5253,11 @@ function _chapReviewDialog(chaps, info) {
       done({
         chaps: picked,
         withEnd:     !!bg.querySelector('#vp-chap-end')?.checked,
-        replaceAuto: !!bg.querySelector('#vp-chap-rep')?.checked,
+        replaceAuto: _chapMode === 'auto',
+        replaceAll:  _chapMode === 'all',
       });
     });
-    paintOk();
+    if (bmCount) paintMode(); else paintOk();
     document.addEventListener('keydown', onKey, true);
   });
 }
@@ -5235,9 +5268,10 @@ function _applyChapters(id, sel, duration) {
   if (!v || !sel?.chaps?.length) return 0;
   if (!Array.isArray(v.bookmarks)) v.bookmarks = [];
 
-  // 明示的に指定された時だけ、この機能が作ったもの（auto:'chapter'）を消す。
-  // 手で作ったブックマークには一切触らない。
-  if (sel.replaceAuto) v.bookmarks = v.bookmarks.filter(b => b.auto !== 'chapter');
+  // 明示的に選ばれた時だけ消す。既定（追加）では1件も消さない。
+  // replaceAll は手で作ったものも消える＝確認画面でその旨と件数を出している。
+  if (sel.replaceAll)       v.bookmarks = [];
+  else if (sel.replaceAuto) v.bookmarks = v.bookmarks.filter(b => b.auto !== 'chapter');
 
   // 再実行で同じ位置が二重にならないよう、近接する既存の自動チャプターは飛ばす
   const dup = t => v.bookmarks.some(b => b.auto === 'chapter' && Math.abs((b.time || 0) - t) <= CHAP_DUP_SEC);
@@ -5559,12 +5593,15 @@ window.vpGenChapters = async function(id, preset) {
       endBtn();
 
       // 3. 確認してから書き込む（粒度を変えられたら検出からやり直す）
-      const autoCount = (v.bookmarks || []).filter(b => b.auto === 'chapter').length;
+      const bmAll    = (v.bookmarks || []);
+      const autoCount = bmAll.filter(b => b.auto === 'chapter').length;
+      const handCount = bmAll.length - autoCount;
       const note = noteSrc + (totalCost ? ` · $${totalCost.toFixed(3)}` : '');
       const sel = preset
-        ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto }
+        ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto,
+            replaceAll: !!preset.replaceAll }
         : await _chapReviewDialog(chaps, {
-            note, autoCount, warn,
+            note, autoCount, handCount, warn,
             grain: grainKey, canRedo: via !== 'list' && via !== 'yt',
           });
       if (!sel) return { ok: false, skipped: true };
@@ -8427,16 +8464,16 @@ function _subMenuBlock(box, closeMenu) {
     }
   }
 
-  // YouTube本体の字幕は、アプリの字幕のカードの外に置く。
-  // 見た目（枠の外・地の色・CCの印）だけで別物と分かるようにする。
-  // 番号は通しで振る（オーナー「字幕には全部番号を付けろ」）。
+  // YouTube本体の字幕も、アプリの字幕と同じ見た目・同じ入れ物に並べる
+  // （v52.944・オーナー「表示デザインが違うのが気になる。統一するべき」）。
+  // 違いは「⚙ が付かない（見た目を変えられない）」ことだけ。
   if (_vpCurrentPlat === 'yt') {
     // 一覧が取れているときは、その言語ぶんだけ行を出す。取れていなければ1行。
     const ytList = list.filter(c => c.src === 'yt');
     const mkYt = (label, note, on, onClick) => {
       no++;
       const row = document.createElement('div');
-      row.className = 'vp-sub-pick vp-sub-ytcc' + (on ? ' on' : '');
+      row.className = 'vp-sub-pick vp-sub-ytcc' + (on ? ' on' : '');   // 見た目は同じ・印だけ
       const hit = document.createElement('button');
       hit.type = 'button';
       hit.className = 'hit';
@@ -8445,7 +8482,7 @@ function _subMenuBlock(box, closeMenu) {
         ${note ? `<span class="nt">${_escHtml(note)}</span>` : ''}</span>`;
       hit.onclick = (ev) => { ev.stopPropagation(); closeMenu(); onClick(); };
       row.appendChild(hit);
-      grp.appendChild(row);
+      mine.appendChild(row);
     };
     if (ytList.length) {
       for (const c of ytList) {
@@ -8525,12 +8562,8 @@ window.vpTogMoreMenu = function(e, id) {
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
 
-  // ── 現在位置でブックマーク（最上部）──
-  const bmSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
-  const bmi = _menuItem(bmSvg, '現在位置でブックマーク', '再生中の時間を記録');
-  bmi.onclick = () => { closeMenu(); vpAddBm(id); };
-  menu.appendChild(bmi);
-  addDivider();
+  // 「現在位置でブックマーク」はこのメニューには置かない（v52.944・オーナー
+  // 「このパネル内には必要ない」）。右のブックマーク欄に同じボタンがある。
 
   // ── 字幕（v52.915・オーナー決定「案B」）────────────────────
   // 映像の上の CC/⚙ をやめた代わりに、切替はここで1タップでできるようにする。

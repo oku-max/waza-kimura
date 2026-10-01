@@ -84,9 +84,12 @@ alive.length === 0
 !/vp-sub-ytcc[\s\S]{0,400}className = 'cog'/.test(src)
   ? ok('YouTube本体の行には ⚙ を付けない')
   : fail('YouTube本体の行にも ⚙ が付いている');
-/grp\.appendChild\(row\);\s*\n\s*\};/.test(src) && /if \(c\.src === 'yt'\) continue;/.test(src)
-  ? ok('YouTube本体の行はカードの外（アプリの字幕のカードには入れない）')
-  : fail('YouTube本体の行がアプリの字幕と同じカードに入っている');
+// v52.944 で方針変更（オーナー「表示デザインが違うのが気になる。統一するべき」）:
+// YouTube字幕の行も、アプリの字幕と同じ見た目・同じ入れ物に並べる。
+// 違いは「⚙ が付かない（見た目を変えられない）」ことだけ。
+/mine\.appendChild\(row\);\s*\n\s*\};/.test(src) && /if \(c\.src === 'yt'\) continue;/.test(src)
+  ? ok('YouTube字幕の行も同じ入れ物・同じ見た目で並べる')
+  : fail('YouTube字幕の行だけ別の見た目になっている');
 // 字幕は全部に番号（オーナー「字幕には全部番号を付けろよ」）
 /const mkYt = \(label, note, on, onClick\) => \{\s*\n\s*no\+\+;/.test(src)
   ? ok('YouTube本体の行にも通し番号を振る')
