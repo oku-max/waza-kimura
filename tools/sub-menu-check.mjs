@@ -39,9 +39,10 @@ alive.length === 0
 /function _subChoices\(\)/.test(src)
   ? ok('字幕の選択肢は _subChoices() の1か所')
   : fail('_subChoices() が無い（画面ごとに一覧を組み立てている）');
-(src.match(/_subChoices\(\)/g) || []).length >= 3
-  ? ok('⚙メニューと設定パネルの両方が _subChoices() を使っている')
-  : fail('片方が自前で一覧を組み立てている');
+// 設定パネルでは字幕を選ばせない（⚙メニューと二重になる・オーナー指摘 v52.916）
+!/sec\('字幕（この動画）'\)/.test(src)
+  ? ok('設定パネルに字幕の選択肢を出さない（二重に聞かない）')
+  : fail('設定パネルにも字幕の選択肢が出ている（⚙メニューと二重）');
 
 // ④ 名前は「日本語：WAZA KIMURA生成」の形。略語は使わない
 /SUB_SRC_LABEL = \{ wk: 'WAZA KIMURA生成', yt: 'YouTube' \}/.test(src)
@@ -55,9 +56,20 @@ alive.length === 0
   : fail('略語（YT・アプリ）が画面に戻っている');
 
 // ⑤ 設定はメニューに展開せず、別のポップアップで開く
-/_menuItem\(gearSvg, '字幕の設定'/.test(src) && /_gdSubOpenPanel\(anchor\)/.test(src)
+/vp-sub-cfg/.test(src) && /_gdSubOpenPanel\(anchor\)/.test(src)
   ? ok('設定は別のポップアップで開く（メニューに展開しない）')
   : fail('設定をメニューの中に展開している');
+// 選ぶ行と設定を開く行は別物。同じ部品（_menuItem）で並べない
+!/_menuItem\([^)]*'字幕の設定'/.test(src)
+  ? ok('「選ぶ」行と「設定を開く」行を同じ形で並べていない')
+  : fail('設定の行が選択肢と並列に見える形に戻っている');
+/vp-sub-group/.test(src)
+  ? ok('字幕のかたまりを枠で囲っている（どこからどこまでか分かる）')
+  : fail('字幕の欄がメニューの他の項目と地続きになっている');
+// 設定パネルは押した場所に出す（画面の右端に飛ばさない）
+/_fitPopup\(pop, anchorEl, \{ anchorRight: true \}\)/.test(src)
+  ? ok('設定パネルは ⚙ の位置に出る（画面の端に飛ばない）')
+  : fail('設定パネルが押した場所と関係ない所に出る');
 
 // ⑥ 選択肢は縦に1行ずつ（横に流すと「字幕なし」と言語が並んで見分けがつかない）
 const css = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
@@ -137,13 +149,17 @@ const r1 = await pg.evaluate(() => {
     opened: !!menu,
     labels: [...(menu?.querySelectorAll('.vp-smenu-label') || [])].map(e => e.textContent),
     none:   menu?.querySelector('.vp-sub-none')?.textContent || '',
+    cfg:    !!menu?.querySelector('.vp-sub-cfg'),
+    head:   menu?.querySelector('.vp-sub-head .t')?.textContent || '',
+    group:  !!menu?.querySelector('.vp-sub-group'),
     sync:   typeof window.wkSubMenuSync,
     pick:   typeof window.wkSubPick,
   };
 });
 r1.opened ? ok('⚙メニューが開く') : fail('⚙メニューが開かない');
-r1.labels.includes('字幕')       ? ok('メニューに「字幕」の行がある')       : fail('「字幕」の行が無い');
-r1.labels.includes('字幕の設定') ? ok('メニューに「字幕の設定」の行がある') : fail('「字幕の設定」の行が無い');
+r1.head === '字幕' ? ok('字幕の枠に「字幕」の見出しがある') : fail('見出しが無い: ' + JSON.stringify(r1.head));
+r1.cfg ? ok('メニューに「字幕の見た目を調整」の行がある') : fail('設定を開く行が無い');
+r1.group ? ok('字幕のかたまりが1つの枠になっている') : fail('字幕の枠が描かれていない');
 r1.none.includes('字幕がありません')
   ? ok('字幕が無い動画では「字幕がありません」と出す（空欄にしない）')
   : fail('字幕が無いときの案内が出ない: ' + JSON.stringify(r1.none));
@@ -151,16 +167,21 @@ r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
 
 const r2 = await pg.evaluate(() => {
-  const it = [...document.querySelectorAll('#vp-more-menu .vp-smenu-item')]
-    .find(e => e.querySelector('.vp-smenu-label')?.textContent === '字幕の設定');
+  const it = document.querySelector('#vp-more-menu .vp-sub-cfg');
   if (!it) return { err: '行が無い' };
+  const btn = document.getElementById('vp-more-btn').getBoundingClientRect();
   it.click();
   const pop = document.getElementById('vp-sub-opts');
+  const r = pop?.getBoundingClientRect();
   return { pop: !!pop, menu: !!document.getElementById('vp-more-menu'),
-           text: (pop?.textContent || '').slice(0, 60) };
+           // 押したボタンの右端に合っているか（画面の右端ではない）
+           nearBtn: r ? Math.abs(r.right - btn.right) < 24 : false,
+           dup: (pop?.textContent || '').includes('字幕（この動画）') };
 });
 r2.pop  ? ok('「字幕の設定」で別のポップアップが開く') : fail('ポップアップが開かない: ' + JSON.stringify(r2));
 !r2.menu ? ok('ポップアップを開くときメニューは閉じる')  : fail('メニューが開いたまま重なっている');
+r2.nearBtn ? ok('ポップアップは ⚙ の位置に出る') : fail('ポップアップが押した場所から離れて出る');
+!r2.dup ? ok('ポップアップに字幕の選択肢は出ない') : fail('ポップアップにも字幕の選択肢が出ている');
 
 errs.length === 0 ? ok('JSエラーなし') : fail('JSエラー: ' + errs.join(' / '));
 

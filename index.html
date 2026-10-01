@@ -815,10 +815,31 @@
 .vp-smenu-item.vp-smenu-on-list .vp-smenu-sub { color: #e09000; font-weight: 600; }
 @keyframes vp-smenu-bump { 0%{transform:scale(1)} 35%{transform:scale(1.25)} 65%{transform:scale(.88)} 100%{transform:scale(1)} }
 @keyframes vp-smenu-sweep { from{left:-100%} to{left:150%} }
-/* ── ⚙メニュー: 字幕の選択肢（1行＝1つ。横に流さない） ── */
+/* ── ⚙メニュー: 字幕のかたまり ──
+   メニューの他の項目と地続きに見えないよう、字幕だけ枠で囲って1つの塊にする。
+   中は「どれを出すか」（選択肢・1行に1つ）と「どう見せるか」（設定を開く行）。
+   この2つは別物なので、同じ見た目で並べない。 */
+.vp-sub-group {
+  border: 1px solid var(--border, #3a3a3a); border-radius: 10px;
+  background: var(--surface, #222); padding: 0 6px 7px; margin: 3px 0;
+  overflow: hidden;
+}
+/* 見出しは帯にする。メニューの中で「ここからここまでが字幕」と一目で分かるように */
+.vp-sub-head {
+  display: flex; align-items: center; gap: 7px; padding: 6px 8px; margin: 0 -6px 2px;
+  background: var(--surface3, #333); border-bottom: 1px solid var(--border, #3a3a3a);
+}
+.vp-sub-head .ic {
+  flex-shrink: 0; display: flex; align-items: center; color: var(--text2, #bbb);
+}
+.vp-sub-head .t { font-size: 12px; font-weight: 800; color: var(--text, #fff); }
+.vp-sub-head .now {
+  flex: 1; min-width: 0; text-align: right; font-size: 10px; font-weight: 600;
+  color: var(--text3, #888); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .vp-sub-pick {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-  padding: 7px 10px; margin: 2px 0 0; border-radius: 8px; font-family: inherit;
+  padding: 7px 9px; margin: 4px 0 0; border-radius: 8px; font-family: inherit;
   border: 1.5px solid var(--border, #3a3a3a); background: transparent;
   color: var(--text, #fff); cursor: pointer; transition: background .12s;
 }
@@ -829,7 +850,18 @@
 .vp-sub-pick .tx { flex: 1; min-width: 0; }
 .vp-sub-pick .nm { display: block; font-size: 11.5px; font-weight: 700; }
 .vp-sub-pick .nt { display: block; font-size: 10px; font-weight: 500; color: var(--text3, #888); margin-top: 1px; }
-.vp-sub-none { font-size: 10.5px; color: var(--text3, #888); padding: 2px 10px 6px; line-height: 1.6; }
+.vp-sub-none { font-size: 10.5px; color: var(--text3, #888); padding: 2px 4px 4px; line-height: 1.6; }
+/* 設定を開く行。選択肢とは別物なので、線で区切って見た目も変える（枠なし・歯車・›） */
+.vp-sub-cfg {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  margin-top: 7px; padding: 7px 6px 2px; border: 0; border-top: 1px solid var(--border, #3a3a3a);
+  border-radius: 0; background: transparent; color: var(--text2, #bbb);
+  font-family: inherit; cursor: pointer;
+}
+.vp-sub-cfg:hover { color: var(--text, #fff); }
+.vp-sub-cfg .ic { flex-shrink: 0; display: flex; align-items: center; color: var(--text3, #888); }
+.vp-sub-cfg .tx { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; }
+.vp-sub-cfg .nt { display: block; font-size: 10px; font-weight: 500; color: var(--text3, #888); margin-top: 1px; }
 
 /* ── ••• メニュー: 再生速度チップ ── */
 .vp-rate-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
