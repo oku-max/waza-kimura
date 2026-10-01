@@ -1838,12 +1838,23 @@ function _ensureBottomSheet() {
 #vp-bs-list .bs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 #vp-bs-list .bs-info{flex:1;min-width:0}
 #vp-bs-list .bs-title{font-size:11px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-#vp-bs-list .bs-ch{font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}`;
+#vp-bs-list .bs-ch{font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#vp-bs-close{position:absolute;top:8px;right:10px;width:30px;height:30px;border:0;border-radius:8px;background:none;color:var(--text3);font-size:16px;cursor:pointer;line-height:1}
+#vp-bs-close:hover{background:var(--surface2);color:var(--text)}
+#vp-bs-sheet:not(.open) #vp-bs-close{pointer-events:none}
+/* PC・タブレット: 下から全幅ではなく、画面の真ん中に幅を絞ったポップアップで出す（v52.911・オーナー「横幅いっぱいに間延びしているのが嫌」） */
+@media (min-width:768px){
+#vp-bs-sheet{left:50%;right:auto;top:50%;bottom:auto;width:min(560px,calc(100vw - 48px));max-height:min(72vh,720px);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);transform:translate(-50%,-47%) scale(.98);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+#vp-bs-sheet.open{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
+#vp-bs-handle{display:none}
+#vp-bs-hdr{padding-top:14px}
+}`;
   document.head.appendChild(css);
   document.body.insertAdjacentHTML('beforeend',
     `<div id="vp-bs-overlay" onclick="vpCloseNextList()"></div>
      <div id="vp-bs-sheet">
        <div id="vp-bs-handle"></div>
+       <button id="vp-bs-close" onclick="vpCloseNextList()" title="閉じる">✕</button>
        <div id="vp-bs-hdr">次の動画</div>
        <div id="vp-bs-list"></div>
      </div>`);
