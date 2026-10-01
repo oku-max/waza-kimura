@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.916</title>
+<title>WAZA KIMURA v52.917</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -833,6 +833,12 @@
 
 /* ── ••• メニュー: 再生速度チップ ── */
 .vp-rate-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.vpl-meta { display:flex; gap:4px; align-items:center; margin-top:3px; min-width:0; overflow:hidden; font-size:10px; color:var(--text3); }
+.vpl-meta > span:not(.vpl-chip) { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vpl-chip { display:inline-block; max-width:50%; flex-shrink:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:10px; line-height:1.5; color:var(--text2); border:1px solid var(--border); background:var(--surface); border-radius:12px; padding:0 7px; cursor:pointer; }
+.vpl-chip:hover { border-color:var(--text2); color:var(--text); }
+.vpl-chip i { font-style:normal; opacity:.65; margin-right:3px; }
 .vp-rate-chip {
   padding: 3px 8px; border-radius: 20px; border: 1px solid var(--border, #3a3a3a);
   background: var(--surface3, #333); color: var(--text2, #bbb);

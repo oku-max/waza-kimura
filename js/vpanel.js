@@ -1734,8 +1734,18 @@ function _vplDur(rv) {
   const d = Number(rv && rv.duration);
   return Number.isFinite(d) && d > 0 ? _formatTime(d) : '';
 }
+// チャンネル・プレイリストは押せるチップ（v52.917・オーナー決定 B）。押した後は動画パネルの右側と同じ
+// vpJumpToChannel / vpJumpToPlaylist をそのまま呼ぶ（確かめる → 閉じる → ライブラリを絞る）。行の再生には進ませない。
+// 右側と同じく、チャンネルは v.channel、プレイリストは v.pl があるときだけ押せる。
 function _vplMeta(rv) {
-  return [rv.channel || rv.ch, rv.pl].filter(Boolean).map(_vplEsc).join(' · ');
+  const id = String(rv.id).replace(/['"\\<>&]/g, '');
+  const chip = (fn, icon, name, ttl) =>
+    `<span class="vpl-chip" title="${ttl}" onclick="event.stopPropagation();window.vpCloseNextList?.();window.${fn}?.('${id}')"><i>${icon}</i>${_vplEsc(name)}</span>`;
+  const out = [];
+  if (rv.channel) out.push(chip('vpJumpToChannel', '👤', rv.channel, 'このチャンネルだけを表示'));
+  else if (rv.ch) out.push(`<span>${_vplEsc(rv.ch)}</span>`);
+  if (rv.pl) out.push(chip('vpJumpToPlaylist', '📁', rv.pl, 'このプレイリストだけを表示'));
+  return out.join('');
 }
 
 // ── blur-area: 次の動画リスト ──
@@ -1766,7 +1776,7 @@ function _renderBlurArea(id) {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${rv.title || '(タイトルなし)'}</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${_vplMeta(rv)}</div>
+          <div class="vpl-meta">${_vplMeta(rv)}</div>
         </div>
         ${_vplDur(rv) ? `<div style="flex-shrink:0;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${_vplDur(rv)}</div>` : ''}
       </div>`;
@@ -1834,7 +1844,7 @@ window.vpOpenNextList = function () {
     const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : rv.pt === 'gdrive' ? `https://drive.google.com/thumbnail?id=${_gdId2}&sz=w320` : '');
     return `<div class="bs-item${isCur ? ' now' : ''}" onclick="${isCur ? '' : `openVPanel('${rv.id}');vpCloseNextList()`}">
       <div class="bs-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
-      <div class="bs-info"><div class="bs-title">${rv.title || '(タイトルなし)'}</div><div class="bs-ch">${_vplMeta(rv)}</div></div>
+      <div class="bs-info"><div class="bs-title">${rv.title || '(タイトルなし)'}</div><div class="vpl-meta">${_vplMeta(rv)}</div></div>
       ${_vplDur(rv) ? `<div class="bs-dur">${_vplDur(rv)}</div>` : ''}
     </div>`;
   }).join('');
