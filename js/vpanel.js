@@ -7256,9 +7256,6 @@ function _shotRowHtml(snapId, sec, thumbDataUrl) {
   return `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', thumbDataUrl, 'inline')}&nbsp;`
     + `<span class="snap-cap" data-snap-id="${snapId}">${_CAP_ZW}</span></div>`;
 }
-function _capText(cap) {
-  return (cap?.innerText ?? cap?.textContent ?? '').replace(/\u200B/g, '').replace(/\n+$/, '');
-}
 // 入れた行のメモ欄にカーソルを置く（そのまま説明を打てる）
 function _focusShotCap(memoEl, snapId) {
   const cap = memoEl.querySelector(`.snap-cap[data-snap-id="${snapId}"]`);
@@ -7268,21 +7265,61 @@ function _focusShotCap(memoEl, snapId) {
   r.selectNodeContents(cap); r.collapse(false);
   const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
 }
+// 画像の行の「その画像のメモ」= サムネの後ろから、改行（または次の画像・次の段落）までに書いた文字全部（v52.946）。
+// 点線の欄（.snap-cap）の中だけを見ていたので、サムネと欄のすき間をクリックして打つと文字が欄の外に入り、
+// 拡大表示へ写らなかった（オーナーの画面で再現）。欄の外に入った文字も同じ画像のメモとして扱う。
+// 改行より後ろは別のメモなので触らない（拡大表示で直したときに消さないため）。
+function _shotSeg(img) {
+  const seg = [];
+  for (let n = img.nextSibling; n; n = n.nextSibling) {
+    if (n.nodeType === 1) {
+      const t = n.tagName;
+      if (t === 'BR' || t === 'DIV' || t === 'P' || n.matches?.('img.snap-ref, a.ts-link')) break;
+    }
+    seg.push(n);
+  }
+  return seg;
+}
+function _segText(seg) {
+  return seg.map(n => n.nodeType === 1 ? (n.innerText ?? n.textContent ?? '') : n.textContent).join('')
+    .replace(/\u200B/g, '').replace(/\u00A0/g, ' ').replace(/\s+$/, '').replace(/^\s+/, '');
+}
+function _shotImg(el, snapId) {
+  return el && el.querySelector(`img.snap-ref[data-snap-id="${snapId}"]`);
+}
 // メモ欄の入力 → いま書いている行のメモだけをスナップショットへ写す
 function _mirrorCapFromMemo(el) {
   const sel = window.getSelection();
   const node = sel && sel.anchorNode;
-  const cap = (node && (node.nodeType === 1 ? node : node.parentElement))?.closest?.('.snap-cap[data-snap-id]');
-  if (!cap || !el.contains(cap)) return;
-  window.snapSetMemo?.(cap.dataset.snapId, _capText(cap));
+  if (!node || !el.contains(node)) return;
+  for (const img of el.querySelectorAll('img.snap-ref[data-snap-id]')) {
+    const seg = _shotSeg(img);
+    if (seg.some(n => n === node || (n.nodeType === 1 && n.contains(node)))) {
+      window.snapSetMemo?.(img.dataset.snapId, _segText(seg));
+      return;
+    }
+  }
 }
-// 拡大表示でスナップショットのメモを直した → 開いているメモの同じ画像の欄へ写す
+// 拡大表示を開いたとき用: その画像の行に書いてある文字（行が無ければ ''）
+window._snapRowText = function(videoId, snapId) {
+  const img = _shotImg(document.getElementById('vp-memo-' + videoId), snapId);
+  return img ? _segText(_shotSeg(img)) : '';
+};
+// 拡大表示でスナップショットのメモを直した → 開いているメモの同じ画像の行へ写す
+// 書き換えるのはその行のサムネの後ろ〜改行まで（欄の外に入っていた文字もまとめて点線の欄に入れ直す）
 window._onSnapMemoEdit = function(videoId, snapId, text) {
   const el = document.getElementById('vp-memo-' + videoId);
   if (!el || !el.isContentEditable) return;
-  const cap = el.querySelector(`.snap-cap[data-snap-id="${snapId}"]`);
-  if (!cap || _capText(cap) === text) return;       // この画像の欄が無ければ何もしない（勝手に足さない）
+  const img = _shotImg(el, snapId);
+  if (!img) return;                                  // この画像の行が無ければ何もしない（勝手に足さない）
+  const seg = _shotSeg(img);
+  if (_segText(seg) === (text || '').trim()) return;
+  // 点線の欄があればそれを使い回す（無ければ作る）。欄の外に入っていた文字は外して、欄の中に入れ直す
+  let cap = seg.find(n => n.nodeType === 1 && n.matches?.('.snap-cap'));
+  if (!cap) { cap = document.createElement('span'); cap.className = 'snap-cap'; cap.dataset.snapId = snapId; }
   cap.textContent = text || _CAP_ZW;
+  seg.forEach(n => { if (n !== cap) n.remove(); });
+  img.after(document.createTextNode('\u00A0'), cap);
   vpSaveMemo(videoId);
 };
 

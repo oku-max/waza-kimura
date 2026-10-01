@@ -478,6 +478,12 @@ function updateLightbox() {
   const lbMemo = getLbMemo();
   if (lbImg) lbImg.src = snapshots[lbIdx].url;
   if (lbCounter) lbCounter.textContent = (lbIdx + 1) + ' / ' + snapshots.length;
+  // 拡大表示のメモが空で、メモ欄のその画像の行に文字があれば取り込む（v52.946）。
+  // 以前の版で行の点線の欄の外に入った文字は写っていなかった。空 → 中身 の向きだけ（中身を空で上書きしない）
+  if (!snapshots[lbIdx].memo) {
+    const rowText = window._snapRowText?.(currentVideoId, snapshots[lbIdx].id) || '';
+    if (rowText) { snapshots[lbIdx].memo = rowText; syncVideoRefs(); }
+  }
   if (lbMemo) lbMemo.value = snapshots[lbIdx].memo || '';
   // 撮影時刻があれば「この場面から再生」ボタンを表示
   const seekBtn = document.getElementById('snap-lb-seek');
