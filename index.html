@@ -1033,10 +1033,16 @@ body.dark .wk-seg-btn.lvt-active { background:var(--surface3); box-shadow:0 1px 
 .wk-bulk-btn:hover { background:var(--surface2); color:var(--text); }
 .hdr-short { display:none; }
 #org-count-bar .org-col-vis-btn { white-space:nowrap; flex-shrink:0; }
+/* 収まらないときは2段（v52.923・オーナー決定「スマホでは2段」）。1行に収まらず、カードは並べ替えが一括編集に
+   重なり、テーブルは並べ替えが画面の右にはみ出していた（スマホ・601〜670px）。幅で切り替えず、入らないときだけ
+   右の固まり（列設定・並べ替え）が2段目の右に回る。広い画面は今までどおり1段 */
+#lib-results-header .toolbar-normal, #org-count-bar .toolbar-normal { flex-wrap:wrap; row-gap:6px; }
+#lib-results-header .toolbar-normal > div:first-child { min-width:auto !important; }
+#lib-results-header .toolbar-normal > div:last-child,
+#org-count-bar .toolbar-normal > div:last-child { margin-left:auto !important; justify-content:flex-end; }
 @media (max-width:600px) {
   .hdr-lvt .wk-seg-btn, .toolbar-normal .wk-bulk-btn { padding:0 7px; gap:3px; }
   .toolbar-normal .wk-vsep { margin:0 2px; }
-  #org-tbl-sort-key { max-width:80px !important; }
   #org-count-bar .toolbar-normal { gap:4px !important; }
   #lib-results-header .toolbar-normal > div:first-child { gap:4px !important; }
   .hdr-lvt .hdr-lbl, .hdr-full { display:none; }
