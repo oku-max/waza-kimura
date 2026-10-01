@@ -195,37 +195,28 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
   ? ok('字幕が無い動画では状態を書く（空欄にしない）')
   : fail('字幕が無いときの案内が出ない: ' + JSON.stringify(r1.none));
 
-// ⑨ YouTube自身の字幕を、このパネルで扱える字幕として取り込めること（v52.919）。
-//    プレイヤーの字幕モジュールは返事が無いことがあるので、それだけに頼らない。
-/window\.wkSubShowYt = async function/.test(src)
-  ? ok('YouTubeの字幕を表示する入口がある')
-  : fail('YouTubeの字幕を出せない（プレイヤーのAPI頼み）');
-// 押したら出すだけ。確認ダイアログを出さない（オーナー「こんなの全く求めてない」）
-!/wkSubShowYt[\s\S]{0,900}confirm\(/.test(src)
+// ⑨ YouTube自身の字幕は、本家のCCボタンと同じことを1行でできること（v52.928）。
+//    埋め込みの中のCCボタンは別ドメインで押せない。字幕モジュール（getOption/setOption）は
+//    公開されていない機能で、オーナーの画面では一度も返事をしなかった。
+//    公式にあるのは読み込み時の cc_load_policy だけなので、そこを使う。
+/window\.wkYtCcToggle = function/.test(src)
+  ? ok('YouTubeの字幕を出す／消す入口がある')
+  : fail('YouTubeの字幕を出せない');
+/cc_load_policy: _ytCcWanted \? 1 : 0/.test(src)
+  ? ok('公式のパラメータ（cc_load_policy）で出す')
+  : fail('公開されていないAPI頼みに戻っている');
+/\{ try \{ _ytPlayer\.seekTo\(sec, true\); \} catch \(e\) \{\} \}/.test(src)
+  ? ok('作り直したあと、見ていた位置に戻す')
+  : fail('位置が頭に戻ってしまう');
+/if \(_ytCcWanted\) return;/.test(src)
+  ? ok('出した字幕を、こちらの処理が勝手に消さない')
+  : fail('出してもすぐ消される');
+!/wkYtCcToggle[\s\S]{0,500}confirm\(/.test(src)
   ? ok('押したら出すだけ（確認ダイアログを出さない）')
   : fail('確認ダイアログが戻っている');
-// 専用の置き場所に入れるので、既にある字幕を1文字も触らない
-/_ytSubStore\(ytId, 'ytcc', yt\.srt/.test(src)
-  ? ok('YouTubeの字幕は専用の置き場所に入れる（既存の字幕を触らない）')
-  : fail('既存の字幕の置き場所を上書きしている');
-/_ytFetchTranscript\(idToken, ytId, 'orig'\)/.test(src)
-  ? ok('YouTubeの字幕はサーバー経由で取る（プレイヤーのAPIに頼らない）')
-  : fail('取得の経路が変わっている');
-!/wkSubShowYt[\s\S]{0,600}_ytGenSubtitle\(/.test(src)
-  ? ok('表示は字幕生成（言語を聞く・翻訳する）に相乗りしていない')
-  : fail('表示が _ytGenSubtitle に相乗りしている');
-/function _subCanImportYt\(list\)/.test(src) && /vp-sub-import/.test(src)
-  ? ok('YouTube由来の字幕がまだ無いときだけ取り込みの行を出す')
-  : fail('取り込みの行の出し分けが無い');
-// 出し分けは「一覧に出ているか」だけで決める（via の書き方で判断しない）
-/return !\(list \|\| _subChoices\(\)\)\.some\(c => c\.src === 'yt'\);/.test(src)
-  ? ok('取り込みの行は「一覧にYouTubeの字幕が無いとき」に出す')
-  : fail('via の書き方で出し分けている（書き方が増えるたびに戻る）');
-// 「原語のまま」はYouTubeの字幕をそのまま使う（AIに通さない＝課金しない・名前も正しくなる）
-/const same = \(subLang === 'orig'\)/.test(src)
-  ? ok('原語のままなら YouTube の字幕をそのまま使う')
-  : fail('原語なのにAIに通している（課金され、YouTubeの字幕に見えなくなる）');
-
+!/wkSubShowYt|_subCanImportYt/.test(src)
+  ? ok('サーバー経由の「取り込む」は無い（オーナー: ややこしい）')
+  : fail('取り込みが戻っている');
 
 // ⑩ YouTubeの字幕そのものを「WAZA KIMURA生成」と呼ばないこと（v52.922・オーナー指摘）。
 //    取り込んだ字幕は中身も時刻もYouTubeのもの。名前が違うと「選べない」に見える。

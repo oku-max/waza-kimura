@@ -3242,6 +3242,7 @@ function _ytCcSet(track) {
 // 選択どおりに純正字幕を合わせる。生成字幕を出している間は純正を必ず切る
 // （両方出ると画面で重なって読めない。これが「表示が混ざる」の正体）。
 function _ytSubEnforceCc() {
+  if (_ytCcWanted) return;        // 自分で「出す」を押したものは触らない
   const cur = _ytSubCur();
   if (cur && cur.kind === 'yt') {
     if (_ytCcCurCode() !== cur.track.code) _ytCcSet(cur.track.raw);
@@ -3363,14 +3364,6 @@ function _subSearchingYt() {
 
 // YouTube自身の字幕を取り込める状態か。
 // すでに純正トラックが候補にある／YouTubeの字幕から作った字幕が入っている動画では出さない。
-function _subCanImportYt(list) {
-  if (_gdSubTracks.length || _vpCurrentPlat !== 'yt') return false;
-  // 判断は「いま一覧に YouTube の字幕が出ているか」だけ。
-  // via の書き方で出し分けると、書き方を1つ見落とすたびに
-  // 「YouTubeの字幕が選べない」が戻る（実際に戻した）。
-  return !(list || _subChoices()).some(c => c.src === 'yt');
-}
-
 // いま何が起きているかを、オーナーにだけ1行で見せる。
 // 「なんで出ないんだ」を推測で直すのをやめるため、画面に答えを出させる。
 function _subStateLine() {
@@ -3465,7 +3458,7 @@ function _ytSubDetach() {
   }
   _ytSubId = null; _ytSubTracks = []; _ytCcTracks = [];
   _ytSubSel = 'off'; _ytSubPicked = false;
-  _ytCcMod = ''; _ytCcFound = false; _ytCcTries = 0; _ytCcPlayed = false;
+  _ytCcMod = ''; _ytCcFound = false; _ytCcTries = 0; _ytCcPlayed = false; _ytCcWanted = false;
   _ytSubLastHtml = null; _ytSubHostEl = null;
 }
 
@@ -3722,28 +3715,32 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
 // 時刻は音に対して正確（AIに書かせた時刻と違い、進んでもズレない）。
 // 【相乗りしない】_ytGenSubtitle（言語を聞く・翻訳する・既存を作り直す）には
 // 渡さない。ここは「YouTubeの字幕をそのまま取り込む」だけの薄い入口にする。
-window.wkSubShowYt = async function() {
-  const v = (window.videos || []).find(x => x.id === window.openVPanelId);
-  const ytId = _ytSubId || (v ? _vYtId(v) : '');
-  if (!ytId) { window.toast?.('YouTubeの動画を開いてから押してください'); return; }
-  const user = window._firebaseCurrentUser?.();
-  if (!user) { window.toast?.('ログインが必要です'); return; }
-  window.toast?.('⏳ YouTubeの字幕を読み込み中…');
-  try {
-    const idToken = await user.getIdToken();
-    const yt = await _ytFetchTranscript(idToken, ytId, 'orig');
-    if (!yt || !yt.srt) throw new Error(yt?.error || 'YouTubeの字幕を取得できませんでした');
-    // 置き場所は 'ytcc' 専用。既にある字幕（原語・日本語…）には触らない。
-    await _ytSubStore(ytId, 'ytcc', yt.srt, { via: 'yt:' + (yt.lang || ''), srcLang: yt.lang || '' });
-    await _ytSubRefreshNow(ytId, 'ytcc');
-    window.wkSubMenuSync?.();
-    window.wkSubOptsRender?.();
-    window.toast?.('✅ YouTubeの字幕を表示しました');
-  } catch (e) {
-    // 理由は決め打ちで書かない。サーバーが返したものをそのまま出す。
-    window.toast?.('⚠️ ' + (e?.message || e));
-    console.warn('[ytsub] YouTubeの字幕を出せませんでした:', e);
+// ── YouTube自身の字幕を出す／消す（本家の CC ボタンと同じこと）──────
+// なぜこの作りか:
+//   ・プレイヤーの中のCCボタンは別ドメインなので、こちらからは押せない。
+//   ・字幕モジュール（getOption/setOption の 'captions'）は公開されていない機能で、
+//     オーナーの画面では一度も返事をしなかった（一覧0件・モジュール未特定）。
+//   ・公式に用意されているのは、プレイヤーを読み込むときの cc_load_policy だけ。
+//     だから、いまの再生位置のままプレイヤーを作り直して字幕ありで読み込む。
+//     「リバース」が controls:0 で同じことをしている（v52.?? から動いている作り）。
+let _ytCcWanted = false;   // YouTube自身の字幕を出す指定
+
+window.wkYtCcToggle = function() {
+  if (!_ytPlayer || !_ytPlayerReady) { window.toast?.('動画を再生してから押してください'); return; }
+  const videoId = _ytPlayer.getVideoData?.()?.video_id;
+  if (!videoId) { window.toast?.('YouTubeの動画ではありません'); return; }
+  const sec = Math.floor(_ytPlayer.getCurrentTime?.() || 0);
+  _ytCcWanted = !_ytCcWanted;
+  // destroy で中身ごと入れ替わるので、置き場所が無ければ作り直す
+  const host = document.getElementById('vpanel-iframe-container');
+  if (host && !document.getElementById('vpanel-yt-player')) {
+    host.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
+  _initYTPlayer('vpanel-yt-player', videoId, true,
+    () => { try { _ytPlayer.seekTo(sec, true); } catch (e) {} },
+    { start: sec, cc_load_policy: _ytCcWanted ? 1 : 0 });
+  window.wkSubMenuSync?.();
+  window.toast?.(_ytCcWanted ? 'YouTubeの字幕を出しました' : 'YouTubeの字幕を消しました');
 };
 
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
@@ -8312,15 +8309,15 @@ function _subMenuBlock(box, closeMenu) {
   // YouTube自身の字幕を取り込む行。
   // プレイヤーのAPIが返事をしない動画でも、ここから取り込めば一覧に並び、
   // 見た目もこちらで変えられる（オーナー「YouTubeの字幕もこのパネルで扱いたい」）。
-  if (_subCanImportYt(list)) {
-    const imp = document.createElement('button');
-    imp.type = 'button';
-    imp.className = 'vp-sub-pick vp-sub-import';
-    imp.innerHTML = `<span class="mk">⤓</span>
-      <span class="tx"><span class="nm">YouTubeの字幕を表示</span>
-      <span class="nt">自動生成でも、元から付いているものでも</span></span>`;
-    imp.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkSubShowYt(); };
-    grp.appendChild(imp);
+  if (_vpCurrentPlat === 'yt') {
+    const cc = document.createElement('button');
+    cc.type = 'button';
+    cc.className = 'vp-sub-pick vp-sub-ytcc' + (_ytCcWanted ? ' on' : '');
+    cc.innerHTML = `<span class="mk">CC</span>
+      <span class="tx"><span class="nm">${_ytCcWanted ? 'YouTubeの字幕を消す' : 'YouTubeの字幕を出す'}</span>
+      <span class="nt">自動生成の字幕もそのまま出ます</span></span>`;
+    cc.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkYtCcToggle(); };
+    grp.appendChild(cc);
   }
 
   // 「どれを出すか」を選ぶ行と、「どう見せるか」を開く行は別物。
