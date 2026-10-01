@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.915</title>
+<title>WAZA KIMURA v52.916</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -982,6 +982,7 @@
   .hdr-lvt-btn { padding:3px 7px; }
   #org-tbl-sort-key { max-width:80px !important; }
   #org-count-bar .toolbar-normal { gap:4px !important; }
+  #lib-results-header .toolbar-normal > div:first-child { gap:4px !important; }
   .hdr-lvt-btn .hdr-lbl, .hdr-full { display:none; }
   .hdr-short { display:inline; }
 }
@@ -1028,7 +1029,9 @@
   flex-shrink: 0;
   position: sticky;
   top: 0;
+  padding: 7px 12px;   /* テーブル表示の .org-count-bar と同じ（v52.916・切り替えても本数・ボタンの位置が動かない） */
 }
+#lib-card-host .results-count { font-size:12px; font-family:inherit; }
 /* テーブルホスト: organizeTab と同構造 */
 #lib-org-host {
   flex: 1;
@@ -1566,10 +1569,10 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
   <div id="lib-card-host">
     <div class="results-header" id="lib-results-header">
       <div class="toolbar-normal">
-        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
           <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
           <span class="results-count" id="rc" style="white-space:nowrap"></span>
-          <div class="hdr-lvt"><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('card')" title="カード">📋<span class="hdr-lbl">カード</span></button><button class="hdr-lvt-btn" onclick="window._cvSetView('table')" title="テーブル">📊<span class="hdr-lbl">テーブル</span></button></div>
+          <div class="hdr-lvt" style="margin-left:6px"><button class="hdr-lvt-btn lvt-active" onclick="window._cvSetView('card')" title="カード">📋<span class="hdr-lbl">カード</span></button><button class="hdr-lvt-btn" onclick="window._cvSetView('table')" title="テーブル">📊<span class="hdr-lbl">テーブル</span></button></div>
           <button id="card-bar-bulk-btn" class="bulk-btn" onclick="enterBulk()" style="flex-shrink:0">☑ <span class="hdr-full">一括編集</span><span class="hdr-short">一括</span></button>
         </div>
         <div style="display:flex;align-items:center;gap:4px">

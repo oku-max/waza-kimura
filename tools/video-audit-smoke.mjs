@@ -136,7 +136,7 @@ const card = await page.evaluate(() => {
   window.wkIsOwner = _own;
   return { text, opened: !before && !!ov, shown, guestText, guestOpened };
 });
-check('カード表示の件数が出る（長さが分かれば合計時間も。v52.910）', /93\s*本(\s*表示中|\s*·\s*\d+(時間|分))/.test(card.text || ''), JSON.stringify(card).slice(0, 200));
+check('カード表示の件数が出る（長さが分かれば合計時間も。v52.910）／テーブルと同じ書式で「表示中」を付けない（v52.916）', /93\s*本(\s*·\s*\d+(時間|分)|ⓘ|$)/.test(card.text || '') && !/表示中/.test(card.text || ''), JSON.stringify(card).slice(0, 200));
 check('★ カード表示にも「／非表示 N本」を出さない（v52.894）', !/非表示/.test(card.text + card.guestText), JSON.stringify(card).slice(0, 200));
 check('★ オーナーでないときは ⓘ が出ず、件数を押しても内訳は開かない（v52.893）', !/ⓘ/.test(card.guestText) && card.guestOpened === false, JSON.stringify(card).slice(0, 200));
 check('オーナーのときは ⓘ が出て、件数タップで内訳が開く', /ⓘ/.test(card.text) && card.opened === true, JSON.stringify(card).slice(0, 200));

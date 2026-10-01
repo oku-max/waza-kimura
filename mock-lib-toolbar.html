@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — カード／テーブル切替と一括編集（5案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  ボタンは押せる（このページの中で切り替わるだけ）。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--on-accent:#fff;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--on-accent:#1a1a1a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:1100px;margin:0 auto;padding:0 0 60px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+svg{display:block;flex-shrink:0}
+.top{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.top h1{font-size:15px;font-weight:800;margin-right:auto}
+.top button{font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.intro{margin:14px 16px;font-size:13px;line-height:1.8;color:var(--text2)}
+.intro b{color:var(--text)}
+.cand{margin:18px 16px 28px}
+.cand h2{font-size:15px;font-weight:800;margin-bottom:4px}
+.cand .lead{font-size:12.5px;color:var(--text2);line-height:1.7;margin-bottom:10px}
+.cand .pc{font-size:12px;line-height:1.7;margin-top:8px;color:var(--text2)}
+.cand .pc .pro{color:#2d6a4f}.cand .pc .con{color:#c0392b}
+body.dark .cand .pc .pro{color:#6bc490}body.dark .cand .pc .con{color:#ff8080}
+.lbl{font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin:10px 0 4px}
+.frame{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.frame.ph{width:390px;max-width:100%}
+/* 本物と同じ帯（v52.916 で揃えた寸法: 余白 7px 12px・間隔 6px） */
+.hbar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);min-height:45px}
+.ph .hbar{gap:4px}
+.sbt{padding:5px 9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:15px;font-weight:700;line-height:1.2}
+.cnt{font-size:12px;color:var(--text3);white-space:nowrap}
+.cnt i{font-style:normal;margin-left:6px;opacity:.85}
+.right{margin-left:auto;display:flex;align-items:center;gap:4px}
+.sel{font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text)}
+.dir{font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text)}
+.body{padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.body .c{height:54px;border-radius:6px;background:var(--surface2)}
+.body.tbl{display:block}
+.body.tbl .r{height:16px;border-bottom:1px solid var(--border);margin:0 0 6px}
+.bulkbar{display:none;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface2);font-size:12px;min-height:45px}
+.bulkbar b{margin-right:4px}
+.bulkbar button{font-size:11.5px;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.bulkbar .go{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.bulkbar .x{margin-left:auto}
+.frame.bulk .hbar{display:none}.frame.bulk .bulkbar{display:flex}
+.ph .wide{display:none}
+.ph .sel{max-width:62px}.ph .cnt{font-size:11px}.ph .cnt i{margin-left:3px}.ph .sep{margin:0 2px}.ph .sbt{padding:4px 7px}
+.hbar{overflow:hidden}
+.ph .b28{gap:3px}.ph .A-bulk,.ph .B-bulk,.ph .C-bulk,.ph .E-btn{padding:0 7px}.ph .A-seg button,.ph .D-seg button{padding:0 7px}.ph .B-seg button{width:28px}.ph .sel{max-width:54px}.ph .dir{padding:4px 5px}.right{flex-shrink:0}
+.sep{width:1px;height:18px;background:var(--border);margin:0 4px;flex-shrink:0}
+
+/* ── 共通: 3つとも同じ高さ28px・同じ角・単色の線アイコン（絵文字をやめる） ── */
+.b28{height:28px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0}
+
+/* A: セグメント＋区切り線＋枠だけのボタン */
+.A-seg{display:inline-flex;padding:2px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);height:28px;flex-shrink:0}
+.A-seg button{border:0;background:none;border-radius:6px;padding:0 10px;color:var(--text3);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.A-seg button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.A-bulk{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:8px;padding:0 10px}
+
+/* B: 切替はアイコンだけで右端（並べ替えの隣）、一括編集は本数の隣に文字で */
+.B-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;height:28px;flex-shrink:0}
+.B-seg button{border:0;background:var(--surface);color:var(--text3);width:32px;display:inline-flex;align-items:center;justify-content:center}
+.B-seg button+button{border-left:1px solid var(--border)}
+.B-seg button.on{background:var(--text);color:var(--surface)}
+.B-bulk{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:8px;padding:0 10px}
+
+/* C: タブ（下線） */
+.C-tabs{display:inline-flex;gap:2px;height:45px;align-self:stretch;margin:-7px 0;flex-shrink:0}
+.ph .C-tabs button{padding:0 8px}
+.C-tabs button{border:0;background:none;color:var(--text3);font-size:12.5px;font-weight:600;padding:0 10px;border-bottom:2px solid transparent;display:inline-flex;align-items:center;gap:5px}
+.C-tabs button.on{color:var(--text);border-bottom-color:var(--text)}
+.C-bulk{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:8px;padding:0 10px}
+
+/* D: 切替はセグメント、一括編集は「選択」という文字ボタンで右端 */
+.D-seg{display:inline-flex;padding:2px;border-radius:999px;background:var(--surface2);height:28px;flex-shrink:0}
+.D-seg button{border:0;background:none;border-radius:999px;padding:0 11px;color:var(--text3);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.D-seg button.on{background:var(--text);color:var(--surface)}
+.D-sel{border:0;background:none;color:var(--text);font-weight:700;padding:0 6px;font-size:12.5px}
+
+/* E: 切替を1つのボタン（今の表示名＋▾）にまとめ、一括編集と同じ形で並べる */
+.E-btn{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:8px;padding:0 10px;position:relative}
+.E-btn .cv{opacity:.6;margin-left:1px}
+.E-menu{position:absolute;top:32px;left:0;z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px;min-width:130px;display:none}
+.E-menu.open{display:block}
+.E-menu div{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;font-size:12px;color:var(--text2)}
+.E-menu div:hover{background:var(--surface2)}
+.E-menu div.on{color:var(--text);font-weight:700}
+.E-menu div.on::after{content:'✓';margin-left:auto}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>カード／テーブル切替と一括編集（5案）</h1>
+  <button onclick="document.body.classList.toggle('dark')">ライト／ダーク</button>
+</div>
+<p class="intro">
+  <b>5案とも共通で直すこと:</b> ① 3つのボタンを同じ高さ（28px）・同じ角の丸みにそろえる　② 📋📊☑ の絵文字をやめて、同じ太さの線アイコンにする（絵文字は端末ごとに色も大きさも違うのが、ばらつきのいちばんの元）　③ 「切り替え（2つから1つ）」と「モードに入るボタン（一括編集）」は<b>形を変えて</b>、別のものだと見て分かるようにする。<br>
+  各案のボタンは押せます（カード／テーブルが切り替わり、一括編集を押すと選択中の帯に変わる）。上がPC、下がスマホ幅（390px）。
+</p>
+<div id="list"></div>
+
+<script>
+const I = {
+  card: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="8" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="1.5" y="8" width="4.5" height="4.5" rx="1"/><rect x="8" y="8" width="4.5" height="4.5" rx="1"/></svg>',
+  table:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="11" height="11" rx="1.5"/><path d="M1.5 5.2h11M1.5 8.8h11M5.2 5.2v7.3"/></svg>',
+  check:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="11" height="11" rx="2.5"/><path d="M4.3 7.2l1.9 1.9 3.6-3.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  chev:'<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4l2.5 2.5L7.5 4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+const CANDS = [
+  { k:'A', t:'A. ひとつの枠に入れた切替 ＋ 区切り線 ＋ 一括編集',
+    lead:'カード／テーブルを灰色の1つの枠（セグメント）に入れ、選んでいる方だけ白く浮かせる。縦の区切り線を挟んで、一括編集は枠線だけのふつうのボタン。iPhoneの設定画面などでよく見る形。',
+    pro:'切替が「2つから1つ」なのが一目で分かる。位置は今とほぼ同じなので慣れが要らない。',
+    con:'選んでいる方の色が控えめなので、黒く塗りつぶす今より目立たない。',
+    seg:(v,ph)=>`<div class="A-seg">${['card','table'].map(m=>`<button class="${v===m?'on':''}" data-v="${m}">${I[m]}<span class="wide">${m==='card'?'カード':'テーブル'}</span></button>`).join('')}</div><span class="sep"></span><button class="b28 A-bulk" data-bulk>${I.check}<span>${ph?'一括':'一括編集'}</span></button>` },
+  { k:'B', t:'B. 切替はアイコンだけで右端へ ／ 一括編集は本数の隣',
+    lead:'切替は「見え方」の設定なので、並べ替えと同じ右端のグループへ移し、アイコン2つだけにする（Gmail・Finder の表示切替と同じ置き方）。左には「本数」と「一括編集」だけが残る。',
+    pro:'役割で場所が分かれる（左＝動画に対する操作／右＝見え方）。いちばんスッキリする。スマホでも幅をとらない。',
+    con:'文字が無いので、初めての人はアイコンの意味を覚える必要がある（押すと切り替わるので迷いは小さい）。今と位置が変わる。',
+    left:(v,ph)=>`<button class="b28 B-bulk" data-bulk>${I.check}<span>${ph?'一括':'一括編集'}</span></button>`,
+    seg:(v,ph)=>`<div class="B-seg">${['card','table'].map(m=>`<button class="${v===m?'on':''}" data-v="${m}" title="${m==='card'?'カード':'テーブル'}">${I[m]}</button>`).join('')}</div>`, segRight:true },
+  { k:'C', t:'C. カード／テーブルを「タブ」にする',
+    lead:'切替をボタンではなく下線のタブにする（帯の下端に線が付く）。一括編集だけが枠のあるボタンとして残るので、「タブ＝見る場所」「ボタン＝操作」とはっきり分かれる。',
+    pro:'形がまったく違うので、切替と一括編集を取り違えない。上の Library / Search のタブとも作法がそろう。',
+    con:'帯の中にタブがあるのは少し珍しい。タブが本数より右にあるので、左端に置いた方が自然かもしれない（その形も作れます）。',
+    seg:(v,ph)=>`<div class="C-tabs">${['card','table'].map(m=>`<button class="${v===m?'on':''}" data-v="${m}">${I[m]}<span class="wide">${m==='card'?'カード':'テーブル'}</span></button>`).join('')}</div><button class="b28 C-bulk" data-bulk style="margin-left:6px">${I.check}<span>${ph?'一括':'一括編集'}</span></button>` },
+  { k:'D', t:'D. 一括編集を「選択」という文字だけのボタンにして右端へ',
+    lead:'切替は丸い枠のセグメント。一括編集は枠も色も無い太字の「選択」にして右端に置く（iPhoneの写真アプリの「選択」と同じ作法）。押すと選択中の帯に変わる。',
+    pro:'ボタンが1つ減ったように見えて、いちばん静か。「選んでから何かする」ことが言葉で分かる。',
+    con:'「一括編集」という名前が消える（選んだ後の帯に「一括編集する」が出る）。右端は並べ替えと並ぶので少し詰まる。',
+    seg:(v,ph)=>`<div class="D-seg">${['card','table'].map(m=>`<button class="${v===m?'on':''}" data-v="${m}">${I[m]}<span class="wide">${m==='card'?'カード':'テーブル'}</span></button>`).join('')}</div>`,
+    rightExtra:(v,ph)=>`<button class="b28 D-sel" data-bulk>選択</button>` },
+  { k:'E', t:'E. 切替を1つのボタン（今の表示＋▾）にまとめる',
+    lead:'「カード ▾」のように今の表示名だけを出し、押すとメニューでテーブルを選ぶ。一括編集と同じ形・同じ大きさのボタンが2つ並ぶだけになる。',
+    pro:'ボタンの数が3→2になり、形も完全にそろう。表示の種類が今後増えても場所をとらない。',
+    con:'切り替えが1回押す→選ぶの2手になる（今は1手）。頻繁に行き来するなら手間が増える。',
+    seg:(v,ph)=>`<span style="position:relative;display:inline-flex"><button class="b28 E-btn" data-emenu>${I[v]}<span>${v==='card'?'カード':'テーブル'}</span><span class="cv">${I.chev}</span></button><div class="E-menu">${['card','table'].map(m=>`<div class="${v===m?'on':''}" data-v="${m}">${I[m]}${m==='card'?'カード':'テーブル'}</div>`).join('')}</div></span><button class="b28 E-btn" data-bulk>${I.check}<span>${ph?'一括':'一括編集'}</span></button>` },
+];
+const state = {}; CANDS.forEach(c => state[c.k] = { v:'card', bulk:false });
+
+function bar(c, ph){
+  const s = state[c.k], v = s.v;
+  const sort = v==='card'
+    ? `<select class="sel"><option>追加日</option></select><button class="dir">↓</button>`
+    : `${ph?'':'<button class="dir" style="font-size:11px">▥ 列設定</button>'}<select class="sel" style="max-width:${ph?80:160}px"><option>追加日</option></select><button class="dir">↓</button>`;
+  const left = c.left ? c.left(v, ph) : '';
+  const seg = c.seg(v, ph);
+  return `<div class="frame ${ph?'ph':''} ${s.bulk?'bulk':''}" data-k="${c.k}">
+    <div class="hbar"><button class="sbt">≡</button><span class="cnt">27 本 · 1時間22分<i>ⓘ</i></span>
+      ${c.segRight ? left : seg}
+      <div class="right">${c.rightExtra?c.rightExtra(v,ph)+'<span class="sep"></span>':''}${sort}${c.segRight?'<span class="sep"></span>'+seg:''}</div>
+    </div>
+    <div class="bulkbar"><b>3本選択</b><button>全選択</button><button>解除</button><button class="go">✎ 一括編集する</button><button>↩</button><button class="x" data-bulk>✕</button></div>
+    <div class="body ${v==='table'?'tbl':''}">${v==='card'?'<div class="c"></div>'.repeat(ph?4:6):'<div class="r"></div>'.repeat(4)}</div>
+  </div>`;
+}
+function render(){
+  document.getElementById('list').innerHTML = CANDS.map(c => `<section class="cand">
+    <h2>${c.t}</h2><p class="lead">${c.lead}</p>
+    <div class="lbl">PC</div>${bar(c,false)}
+    <div class="lbl">スマホ</div>${bar(c,true)}
+    <p class="pc"><span class="pro">◯ ${c.pro}</span><br><span class="con">△ ${c.con}</span></p>
+  </section>`).join('');
+}
+document.addEventListener('click', e => {
+  const f = e.target.closest('.frame'); if (!f) { document.querySelectorAll('.E-menu.open').forEach(m=>m.classList.remove('open')); return; }
+  const s = state[f.dataset.k];
+  const em = e.target.closest('[data-emenu]');
+  if (em) { em.nextElementSibling.classList.toggle('open'); return; }
+  const vb = e.target.closest('[data-v]'); if (vb) { s.v = vb.dataset.v; render(); return; }
+  if (e.target.closest('[data-bulk]')) { s.bulk = !s.bulk; render(); }
+});
+render();
+</script>
+</body>
+</html>
