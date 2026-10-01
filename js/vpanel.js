@@ -17,8 +17,6 @@ let _gdContainerClick = null;       // container click handler（蓄積防止用
 let _gdIntendedTime = null;         // 連続seek時の目標時刻（debounce用）
 let _gdSeekTimer = null;            // seekデバウンスタイマー
 let _gdStallTimer = null;           // waiting状態スタック回復タイマー
-let _gdSubUiHideTimer = null;       // 右上CC/⚙の自動非表示タイマー
-let _gdSubUiUnbind = null;          // 右上CC/⚙の表示トリガー解除（蓄積防止用）
 // 再生位置の記録対象（いまプレイヤーに載っている動画のID）。
 // window.openVPanelId は切替時に新しいIDへ先に差し替わるため、それを使うと
 // 「前の動画の位置を次の動画のIDで記録する」取り違えが起きる。
@@ -1531,7 +1529,6 @@ export function openVPanel(id) {
   const _gdResetContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
-  _gdSubUiUnbind?.();
   _ytSubDetach();          // YouTube字幕のオーバーレイと描画ループも止める
   _gdResetContainer?.querySelector('#vp-sub-ui')?.remove();
   _gdResetContainer?.querySelector('#vp-sub-overlay')?.remove();
@@ -1567,7 +1564,7 @@ export function openVPanel(id) {
           ${chName ? `<div style="font-size:9px;font-weight:600;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chName}</div>` : ''}
         </div>
         <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;align-self:center"></span>
-        <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="その他のアクション" style="${navBtn};font-size:14px;letter-spacing:-1px">•••</button>
+        <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="字幕・再生・その他" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
         <button id="vp-list-btn" onclick="(window._srVpListAction || window.vpOpenNextList)?.()" title="リスト表示" style="${navBtn}"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
         <button id="vp-journal-btn" onclick="window.openMurmurComposer?.()" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
         <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
@@ -2003,7 +2000,6 @@ export function closeVPanel() {
     const _gdCloseContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
-    _gdSubUiUnbind?.();
     _ytSubDetach();          // YouTube字幕のオーバーレイと描画ループも止める
     _gdCloseContainer?.querySelector('#vp-sub-ui')?.remove();
     _gdCloseContainer?.querySelector('#vp-sub-overlay')?.remove();
@@ -2116,17 +2112,12 @@ function _createGDriveVideoEl(container, fileId, token) {
   // 停止後1秒でコントロール非表示（スクショ用）、タップで再生復帰
   video.addEventListener('pause', () => {
     clearTimeout(_gdPauseTimer);
-    _gdPauseTimer = setTimeout(() => {
-      video.controls = false;
-      // CC/⚙もコントロールと一緒に消す（調整パネルを開いている間は残す）
-      if (!document.getElementById('vp-sub-opts')) _gdSubUiShow(false);
-    }, 1000);
+    _gdPauseTimer = setTimeout(() => { video.controls = false; }, 1000);
   });
   video.addEventListener('play', () => {
     clearTimeout(_gdPauseTimer);
     _gdPauseTimer = null;
     video.controls = true;
-    _gdSubUiPoke();
   });
   _gdContainerClick = () => {
     if (video.paused && !video.controls) {
@@ -2947,7 +2938,6 @@ async function _gdAttachSubtitle(video, fileId, token, want) {
   }
   // track追加直後は textTracks が未反映のことがあるため次tickでモードを確定させる
   setTimeout(() => _gdSubSelect(idx), 0);
-  _gdSubMountButton(video.parentElement);
 }
 
 // 再生中の動画に字幕を載せ直す（生成直後など）。
@@ -2981,129 +2971,12 @@ function _gdSubSelect(idx, persist) {
   _gdSubBindCueRender();
   _gdSubLastHtml = null;      // 切替時は必ず描き直す（OFFで消すためにも null にする）
   _gdSubRenderCues();
-  _gdSubPaintButton();
+  window.wkSubMenuSync?.();   // ⚙メニュー・設定パネルを開いていれば印を合わせる
 }
 
-function _gdSubPaintButton() {
-  const btn = document.getElementById('vp-sub-btn');
-  if (!btn) return;
-  const on  = _gdSubIndex >= 0;
-  const cur = _gdSubTracks[_gdSubIndex];
-  // 字幕が1つだけなら言語名は出さず CC のみ（切替先が無いので情報にならない）
-  btn.textContent = (on && _gdSubTracks.length > 1) ? `CC ${cur?.label || ''}` : 'CC';
-  // 映像の上に重なるためテーマ変数を使わない。
-  // ライトモードの --accent は #111（ほぼ黒）で、半透明の黒背景に乗せると読めなくなる。
-  btn.style.background  = on ? 'rgba(255,255,255,.92)' : 'rgba(0,0,0,.6)';
-  btn.style.color       = on ? '#111'                  : 'rgba(255,255,255,.85)';
-  btn.style.borderColor = on ? '#fff'                  : 'rgba(255,255,255,.5)';
-  btn.title = (_gdSubTracks.length > 1
-    ? `字幕を切替（${_gdSubTracks.map(t => t.label).join(' / ')}）`
-    : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`);
-}
-
-// ── 右上のCC/⚙は映像に重なるので出しっぱなしにしない ──
-// 触っている間だけ出して、無操作が続いたら消す（動画のコントロールと同じ感覚）。
-// 停止中はコントロールと一緒に消えるので、スクショにも写り込まない。
-const _GD_SUB_UI_HIDE_MS = 2200;
-
-function _gdSubUiShow(on) {
-  const wrap = document.getElementById('vp-sub-ui');
-  if (!wrap) return;
-  wrap.style.opacity       = on ? '1' : '0';
-  // 消えている間はクリックを奪わない（映像側のタップで復帰させる）
-  wrap.style.pointerEvents = on ? 'auto' : 'none';
-}
-
-// 表示して、無操作が続いたら消す。
-// 調整パネルを開いている間・ボタンにポインタが乗っている間は消さない。
-function _gdSubUiPoke() {
-  const wrap = document.getElementById('vp-sub-ui');
-  if (!wrap) return;
-  _gdSubUiShow(true);
-  clearTimeout(_gdSubUiHideTimer);
-  _gdSubUiHideTimer = setTimeout(() => {
-    if (document.getElementById('vp-sub-opts')) return _gdSubUiPoke();   // 調整パネルを開いている
-    if (wrap.matches(':hover'))                 return _gdSubUiPoke();   // 押そうとしている
-    _gdSubUiShow(false);
-  }, _GD_SUB_UI_HIDE_MS);
-}
-
-// 映像の上でポインタが動いたら出す。タップ（pointerdown）は停止中でも受ける。
-function _gdSubUiBind(container) {
-  _gdSubUiUnbind?.();
-  if (!container) return;
-  const onMove = () => {
-    // 停止＋コントロール非表示は「静止画として見せている」状態なので邪魔しない
-    if (_gdVideoEl && _gdVideoEl.paused && !_gdVideoEl.controls) return;
-    _gdSubUiPoke();
-  };
-  const onDown = () => _gdSubUiPoke();
-  container.addEventListener('pointermove', onMove);
-  container.addEventListener('pointerdown', onDown);
-  _gdSubUiUnbind = () => {
-    container.removeEventListener('pointermove', onMove);
-    container.removeEventListener('pointerdown', onDown);
-    clearTimeout(_gdSubUiHideTimer); _gdSubUiHideTimer = null;
-    _gdSubUiUnbind = null;
-  };
-}
-
-function _gdSubMountButton(container) {
-  if (!container) return;
-  container.querySelector('#vp-sub-ui')?.remove();
-
-  // div でラップすると `#vpanel-iframe-container > div` の !important 指定で
-  // 全画面に広がりクリックを奪ってしまうため span を使う
-  const wrap = document.createElement('span');
-  wrap.id = 'vp-sub-ui';
-  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
-    + 'opacity:1;transition:opacity .25s ease';
-  const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
-    + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
-
-  const btn = document.createElement('button');
-  btn.id    = 'vp-sub-btn';
-  btn.type  = 'button';
-  btn.style.cssText = baseBtn;
-  // タップ＝ON/OFF・言語切替、長押し／右クリック＝調整パネル
-  let lp = null, lpFired = false;
-  const startLp = () => {
-    clearTimeout(lp);
-    lpFired = false;
-    lp = setTimeout(() => { lpFired = true; _gdSubOpenPanel(btn); }, 500);
-  };
-  const cancelLp = () => { clearTimeout(lp); lp = null; };
-  // ボタン上の pointerdown は container まで上がらないので、ここでも表示を延命する
-  btn.addEventListener('pointerdown', e => { e.stopPropagation(); _gdSubUiPoke(); startLp(); });
-  btn.addEventListener('pointerup',    cancelLp);
-  btn.addEventListener('pointerleave', cancelLp);
-  btn.addEventListener('pointercancel',cancelLp);
-  btn.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); cancelLp(); _gdSubOpenPanel(btn); });
-  btn.addEventListener('click', e => {
-    e.stopPropagation();   // container の click（停止中タップで再生復帰）を発火させない
-    if (lpFired) { lpFired = false; return; }   // 長押しでパネルを開いた直後は切替しない
-    // OFF → 1つ目 → 2つ目 → … → OFF と巡回
-    const next = _gdSubIndex + 1 >= _gdSubTracks.length ? -1 : _gdSubIndex + 1;
-    _gdSubSelect(next, true);   // 押した時だけ覚える
-  });
-  // 右クリック/長押しは環境差が出るので、常に見える ⚙ を主導線にする
-  const gear = document.createElement('button');
-  gear.id    = 'vp-sub-gear';
-  gear.type  = 'button';
-  gear.textContent = '⚙';
-  gear.title = '字幕の調整';
-  gear.style.cssText = baseBtn + ';background:rgba(0,0,0,.6);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.5)';
-  gear.addEventListener('pointerdown', e => { e.stopPropagation(); _gdSubUiPoke(); });
-  gear.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); _gdSubOpenPanel(gear); });
-
-  wrap.appendChild(btn);
-  wrap.appendChild(gear);
-  container.appendChild(wrap);
-  _gdSubPaintButton();
-  // 最初は「字幕があること」を知らせるために一度出し、そのまま自動で消す
-  _gdSubUiBind(container);
-  _gdSubUiPoke();
-}
+// 映像の上に CC / ⚙ は置かない（v52.915・オーナー決定）。
+// YouTube本体の CC / 設定と上下2つ並んでしまい、どちらが何か分からなくなる。
+// 字幕の切替と設定は、動画の下のバーの ⚙ メニューから入る（vpTogMoreMenu）。
 
 // ═══ YouTube動画の字幕 ═══════════════════════════════════════════
 // Drive動画と違い、YouTubeには「動画と同じフォルダに置いたSRT」も、音声だけを
@@ -3355,7 +3228,7 @@ function _ytCcSeek() {
   if (!_ytSubPicked && pref.startsWith('yt:') && _ytSubSources().some(s => s.key === pref)) {
     _ytSubSel = pref;
   }
-  _ytSubPaintButton();
+  window.wkSubMenuSync?.();
   window.wkSubOptsRender?.();
   console.log('[ytsub] YouTube側の字幕:', _ytCcTracks.length + '件',
               _ytCcTracks.map(t => t.code).join(',') || '(なし)', '/ モジュール:', _ytCcMod);
@@ -3397,19 +3270,67 @@ function _ytSubSetSel(key, byUser) {
   _ytSubLastHtml = null;
   _ytSubPaint('');         // 生成字幕ならこのあとtickがすぐ描き直す
   _ytSubEnforceCc();
-  _ytSubPaintButton();
+  window.wkSubMenuSync?.();
   window.wkSubOptsRender?.();   // ⚙を開いていれば一覧のチェックも更新
 }
 
 // ⚙の一覧から直接選ぶ
 window.wkYtSubPick = function(key) { _ytSubSetSel(key, true); };
 
-// CCボタン: OFF → 候補を順に → OFF と巡回
-function _ytSubCycle() {
-  const keys = ['off', ..._ytSubSources().map(s => s.key)];
-  const i = keys.indexOf(_ytSubSel);
-  _ytSubSetSel(keys[((i < 0 ? 0 : i) + 1) % keys.length], true);
+// ── 字幕の選択肢を1つにまとめる ────────────────────────────
+// Drive動画（_gdSubTracks）と YouTube動画（生成字幕 + YouTube自身の字幕）で
+// 持ち方が違うが、画面に出すときは同じ1つの一覧にする。
+// 画面側（⚙メニュー・設定パネル）は _subChoices() だけを見て、
+// _gdSubTracks / _ytSubSources を直接読まない。
+// src: 'wk' = WAZA KIMURA が作った字幕 ／ 'yt' = YouTube自身の字幕
+const SUB_SRC_LABEL = { wk: 'WAZA KIMURA生成', yt: 'YouTube' };
+
+// どうやって作った字幕かの一言。オーナーが見て意味の分かる言葉にする。
+function _subGenNote(t) {
+  if (!t) return '';
+  const via = String(t.via || '');
+  const how = via.startsWith('yt:')       ? 'YouTubeの字幕から作成'
+            : via === 'gemini'            ? 'AIが動画から作成（時刻はAIの推測）'
+            : via.startsWith('translate') ? '既存の字幕から翻訳'
+            : '';
+  return how + (t.updatedAt ? (how ? ' · ' : '') + String(t.updatedAt).slice(0, 10) : '');
 }
+
+function _subChoices() {
+  const out = [{ key: 'off', name: '字幕なし', src: '', note: '', on: false }];
+  if (_gdSubTracks.length) {
+    _gdSubTracks.forEach((t, i) => out.push({
+      key: 'gd:' + i, name: t.label, src: 'wk', note: t.name || '', on: _gdSubIndex === i,
+    }));
+    out[0].on = _gdSubIndex < 0;
+    return out;
+  }
+  for (const s of _ytSubSources()) {
+    out.push({
+      key: s.key, name: s.label, src: s.kind === 'yt' ? 'yt' : 'wk',
+      note: s.kind === 'yt' ? '時刻は音に合っています' : _subGenNote(s.track),
+      on: _ytSubSel === s.key,
+    });
+  }
+  out[0].on = !_ytSubCur();
+  return out;
+}
+
+// 「日本語：WAZA KIMURA生成」の形。どこが作った字幕かを名前の中で言い切る。
+// 「YT」「アプリ」のような略語は使わない（オーナー: 意味が分からない）。
+function _subChoiceLabel(c) { return c.src ? `${c.name}：${SUB_SRC_LABEL[c.src]}` : c.name; }
+
+// 一覧から1つ選ぶ。Drive動画とYouTube動画で入れ物が違うのはここで吸収する。
+window.wkSubPick = function(key) {
+  if (_gdSubTracks.length) {
+    const i = key === 'off' ? -1 : Number(String(key).slice(3));
+    _gdSubSelect(Number.isFinite(i) ? i : -1, true);
+  } else {
+    _ytSubSetSel(key || 'off', true);
+  }
+  window.wkSubMenuSync?.();
+  window.wkSubOptsRender?.();
+};
 
 // オーバーレイを置く器。スマホとPCでプレイヤーの入れ物が違ううえ、
 // YT.Player は指定した div を iframe に置き換えるので、その親を使う。
@@ -3495,7 +3416,7 @@ async function _ytSubAttachInner(ytId, want) {
               : (srcs.some(s => s.key === pref) ? pref : (srcs[0]?.key || 'off'));
   }
 
-  _ytSubMountButton(host);
+  window.wkSubMenuSync?.();
   _ytSubEnforceCc();
   _ytSubStartLoop();   // 純正トラックの探索もこのループの中で続ける
 }
@@ -3587,55 +3508,9 @@ function _ytSubStartLoop() {
   _ytSubRaf = requestAnimationFrame(_ytSubTick);
 }
 
-function _ytSubPaintButton() {
-  const btn = document.getElementById('vp-sub-btn');
-  if (!btn) return;
-  const cur = _ytSubCur();
-  const all = _ytSubSources();
-  // 候補が1つしか無いなら言語名は出さない（切替先が無いので情報にならない）
-  btn.textContent = (cur && all.length > 1) ? `CC ${cur.label}` : 'CC';
-  // 映像の上に重なるためテーマ変数は使わない（ライトモードで読めなくなる）
-  btn.style.background  = cur ? 'rgba(255,255,255,.92)' : 'rgba(0,0,0,.6)';
-  btn.style.color       = cur ? '#111'                  : 'rgba(255,255,255,.85)';
-  btn.style.borderColor = cur ? '#fff'                  : 'rgba(255,255,255,.5)';
-  btn.title = (cur ? `字幕: ${cur.label}（${cur.from}）` : '字幕: オフ')
-    + `／押すたびに切替: オフ, ${all.map(s => s.label).join(', ')}`;
-}
-
-function _ytSubMountButton(host) {
-  if (!host) return;
-  host.querySelector('#vp-sub-ui')?.remove();
-  const wrap = document.createElement('span');
-  wrap.id = 'vp-sub-ui';
-  // 一時停止するとYouTube自身のボタン（ミュート/CC/設定/拡大）が右上に並ぶので、
-  // 同じ場所に置くと重なって押せない。1段下げてその列を避ける。
-  wrap.style.cssText = 'position:absolute;top:46px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
-    + 'opacity:1;transition:opacity .25s ease';
-  const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
-    + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
-
-  const btn = document.createElement('button');
-  btn.id = 'vp-sub-btn'; btn.type = 'button';
-  btn.style.cssText = baseBtn;
-  btn.addEventListener('pointerdown', e => { e.stopPropagation(); });
-  btn.addEventListener('click', e => { e.stopPropagation(); _ytSubCycle(); });
-
-  const gear = document.createElement('button');
-  gear.id = 'vp-sub-gear'; gear.type = 'button';
-  gear.textContent = '⚙';
-  gear.title = '字幕の調整';
-  gear.style.cssText = baseBtn + ';background:rgba(0,0,0,.6);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.5)';
-  gear.addEventListener('pointerdown', e => { e.stopPropagation(); });
-  gear.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); _gdSubOpenPanel(gear); });
-
-  wrap.appendChild(btn); wrap.appendChild(gear);
-  host.appendChild(wrap);
-  _ytSubPaintButton();
-  // Drive字幕のように「触っている間だけ出す」ことはできない。プレイヤーがiframeの
-  // 中なので、その上でのマウス移動やタップはこちらのページに届かず、一度隠すと
-  // 二度と出せなくなる。そこでYouTubeでは出しっぱなしにし、
-  // スクショの時だけ _captureScreenFrame が一時的に隠す。
-}
+// 映像の上に CC / ⚙ は置かない（v52.915・オーナー決定）。
+// YouTube自身の CC / 設定が右上に出るので、こちらのボタンと上下2つ並んでしまう。
+// 字幕の切替と設定は、動画の下のバーの ⚙ メニューから入る（vpTogMoreMenu）。
 
 // 設定・補正の変更を反映（Drive側の _gdSubReapply と対になるもの）
 function _ytSubReapply() {
@@ -5610,59 +5485,41 @@ function _subOptsHTML(scope) {
     + _subRow('短い字幕をまとめる', '細切れの字幕を隣とくっつけて読みやすくする', _subSeg('mergeShort', o.mergeShort, [[true,'まとめる'],[false,'そのまま']]));
 
   if (scope === 'player') {
-    if (_gdSubTracks.length) {
-      html += sec('この動画の字幕ファイル')
-        + _gdSubTracks.map((t, i) => `<div style="display:flex;align-items:center;gap:8px">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:11.5px;font-weight:600">${t.label}</div>
-              <div style="font-size:10px;color:var(--text3);word-break:break-all">${String(t.name || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>
-            </div>
-            <button type="button" onclick="wkSubDeleteFile(${i})" title="Driveのゴミ箱へ移動"
-              style="flex-shrink:0;padding:4px 9px;border-radius:7px;border:1.5px solid var(--red,#ef4444);
-                     background:transparent;color:var(--red,#ef4444);font-family:inherit;font-size:11px;
-                     font-weight:700;cursor:pointer">🗑 ゴミ箱へ</button>
-          </div>`).join('')
-        + `<div style="font-size:10.5px;color:var(--text3)">動画本体は削除されません。Driveのゴミ箱から元に戻せます。</div>`;
-    }
-    // YouTube動画の字幕。生成字幕とYouTube純正を1つの一覧にまとめ、
-    // いまどれを見ているかをここで必ず確認できるようにする（選択もここでできる）。
-    if (!_gdSubTracks.length && _ytSubTracks.length) {
+    // ── 字幕（この動画）──────────────────────────────────
+    // Drive動画でも YouTube動画でも、選択肢は _subChoices() の1本に揃える。
+    // 名前は「日本語：WAZA KIMURA生成」「English：YouTube」の形で、
+    // どこが作った字幕かを言い切る（略語は使わない）。
+    const choices = _subChoices();
+    if (choices.length > 1) {
       const rowStyle = (on) => `display:flex;align-items:center;gap:9px;width:100%;text-align:left;`
         + `padding:7px 9px;border-radius:8px;font-family:inherit;cursor:pointer;`
         + `border:1.5px solid ${on ? 'var(--accent,#6c8cff)' : 'var(--border)'};`
         + `background:${on ? 'rgba(108,140,255,.10)' : 'transparent'};color:var(--text)`;
-      const row = (key, label, note) => {
-        const on = _ytSubSel === key;
-        return `<button type="button" onclick="wkYtSubPick('${key}')" style="${rowStyle(on)}">
-          <span style="flex-shrink:0;font-size:12px;color:${on ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${on ? '●' : '○'}</span>
+      const row = (c) => `<button type="button" onclick="wkSubPick('${_escAttr(c.key)}')" style="${rowStyle(c.on)}">
+          <span style="flex-shrink:0;font-size:12px;color:${c.on ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${c.on ? '●' : '○'}</span>
           <span style="flex:1;min-width:0">
-            <span style="display:block;font-size:11.5px;font-weight:600">${label}</span>
-            ${note ? `<span style="display:block;font-size:10px;color:var(--text3)">${note}</span>` : ''}
+            <span style="display:block;font-size:11.5px;font-weight:600">${_escHtml(_subChoiceLabel(c))}</span>
+            ${c.note ? `<span style="display:block;font-size:10px;color:var(--text3)">${_escHtml(c.note)}</span>` : ''}
           </span></button>`;
-      };
-      const genNote = (t) => (String(t.via || '').startsWith('yt:') ? 'YouTubeの字幕から作成'
-                            : t.via === 'gemini' ? 'AIが動画から作成（時刻はAIの推測）'
-                            : String(t.via || '').startsWith('translate') ? '既存の字幕から翻訳' : '生成字幕')
-                          + (t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : '');
       html += sec('字幕（この動画）')
-        + row('off', '字幕なし', '')
-        + _ytSubTracks.map(t => row('gen:' + t.lang, t.label, genNote(t))).join('')
-        + (_ytSubTracks.length
-            ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
+        + choices.map(row).join('')
+        + `<div style="font-size:10.5px;color:var(--text3)">出るのは常に1つだけです。動画の下の ⚙ からも切り替えられます</div>`;
+    }
+
+    // YouTube動画の生成字幕だけに出す操作（保存・削除）と、YouTube側の字幕の状況
+    if (!_gdSubTracks.length && _ytSubTracks.length) {
+      html += `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
                 `<button type="button" onclick="wkYtSubSave('${_escAttr(t.lang)}')"
                    style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);
                           background:transparent;color:var(--text2);font-family:inherit;
                           font-size:11px;font-weight:600;cursor:pointer">⬇ ${_escAttr(t.label)}を保存</button>`).join('')}</div>`
-              + `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
+        + `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
                 `<button type="button" onclick="wkYtSubDelete('${_escAttr(t.lang)}')"
                    style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--red,#ef4444);
                           background:transparent;color:var(--red,#ef4444);font-family:inherit;
                           font-size:11px;font-weight:600;cursor:pointer">🗑 ${_escAttr(t.label)}を削除</button>`).join('')}</div>`
-            : '')
-        + _ytCcTracks.map(t => row('yt:' + t.code, t.label, 'YouTubeの字幕')).join('')
-        + `<div style="font-size:10.5px;color:var(--text3)">CCボタンを押しても同じ順で切り替わります。出るのは常に1つだけです</div>`
         + (_ytCcTracks.length
-            ? `<div style="font-size:10.5px;color:var(--text3)">YouTubeの字幕はプレイヤー内部で表示されるため、下の見た目・ズレの設定は効きません</div>`
+            ? `<div style="font-size:10.5px;color:var(--text3)">YouTubeの字幕はプレイヤー内部で表示されるため、下の見た目の設定は効きません</div>`
             // プレイヤーが「無い」と言っても、実際にはYouTubeの字幕から字幕を作れている
             // ことがある（一覧を返すAPIはあてにならない）。作れている以上この案内は嘘なので出さない。
             : _ytCcFound
@@ -5675,6 +5532,22 @@ function _subOptsHTML(scope) {
             // 自前の字幕が出ている横で「探しています」と言い続けるだけで混乱のもとになる。
             : '')
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
+    }
+
+    // Drive動画: 字幕ファイルそのもの（ゴミ箱へ移せる）
+    if (_gdSubTracks.length) {
+      html += sec('この動画の字幕ファイル')
+        + _gdSubTracks.map((t, i) => `<div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11.5px;font-weight:600">${t.label}</div>
+              <div style="font-size:10px;color:var(--text3);word-break:break-all">${_escHtml(t.name || '')}</div>
+            </div>
+            <button type="button" onclick="wkSubDeleteFile(${i})" title="Driveのゴミ箱へ移動"
+              style="flex-shrink:0;padding:4px 9px;border-radius:7px;border:1.5px solid var(--red,#ef4444);
+                     background:transparent;color:var(--red,#ef4444);font-family:inherit;font-size:11px;
+                     font-weight:700;cursor:pointer">🗑 ゴミ箱へ</button>
+          </div>`).join('')
+        + `<div style="font-size:10.5px;color:var(--text3)">動画本体は削除されません。Driveのゴミ箱から元に戻せます。</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
@@ -8253,6 +8126,52 @@ window.vpTogSearchMenu = function(e, id) {
   }, 0);
 };
 
+// ⚙メニューの中の「字幕」のかたまりを描く（開いたままでも描き直せるように関数にする）
+function _subMenuBlock(box, closeMenu) {
+  box.innerHTML = '';
+  const list = _subChoices();
+  const cur  = list.find(c => c.on && c.key !== 'off');
+  const ccSvg = `<span style="font-size:10px;font-weight:800;letter-spacing:-.3px">CC</span>`;
+  const gearSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>`;
+
+  // 見出し。いま何が出ているかを「日本語：WAZA KIMURA生成」の形で言い切る。
+  const head = _menuItem(ccSvg, '字幕', cur ? _subChoiceLabel(cur) : 'オフ');
+  if (cur) head.classList.add('vp-smenu-on');
+  head.style.cursor = 'default';
+  box.appendChild(head);
+
+  if (list.length <= 1) {
+    const none = document.createElement('div');
+    none.className = 'vp-sub-none';
+    none.textContent = 'この動画には字幕がありません';
+    box.appendChild(none);
+  } else {
+    for (const c of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vp-sub-pick' + (c.on ? ' on' : '');
+      b.innerHTML = `<span class="mk">${c.on ? '●' : '○'}</span>
+        <span class="tx"><span class="nm">${_escHtml(_subChoiceLabel(c))}</span>
+        ${c.note ? `<span class="nt">${_escHtml(c.note)}</span>` : ''}</span>`;
+      b.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };
+      box.appendChild(b);
+    }
+  }
+
+  // 設定はここに展開しない（長い）。別のポップアップで開く。
+  const st = _menuItem(gearSvg, '字幕の設定', '見た目・量・生成の設定', true);
+  st.onclick = () => {
+    const anchor = document.getElementById('vp-more-btn') || document.body;
+    closeMenu();
+    _gdSubOpenPanel(anchor);
+  };
+  box.appendChild(st);
+}
+
+function _escHtml(v) {
+  return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
 function _menuItem(iconHtml, label, sub, hasArrow = false) {
   const el = document.createElement('div');
   el.className = 'vp-smenu-item';
@@ -8287,6 +8206,7 @@ window.vpTogMoreMenu = function(e, id) {
   let onOutside;
   const closeMenu = () => {
     menu.remove();
+    window.wkSubMenuSync = null;     // 閉じたメニューを描き直しにいかない
     document.removeEventListener('click', onOutside, true);
     document.removeEventListener('pointerdown', onOutside, true);
   };
@@ -8312,6 +8232,17 @@ window.vpTogMoreMenu = function(e, id) {
   const bmi = _menuItem(bmSvg, '現在位置でブックマーク', '再生中の時間を記録');
   bmi.onclick = () => { closeMenu(); vpAddBm(id); };
   menu.appendChild(bmi);
+  addDivider();
+
+  // ── 字幕（v52.915・オーナー決定「案B」）────────────────────
+  // 映像の上の CC/⚙ をやめた代わりに、切替はここで1タップでできるようにする。
+  // 選択肢は縦に1行ずつ（横に流すと「字幕なし」と言語が並んで見分けがつかない）。
+  // 細かい設定は長いので、ここには展開せず別のポップアップで開く。
+  const subBox = document.createElement('div');
+  menu.appendChild(subBox);
+  const drawSubs = () => _subMenuBlock(subBox, closeMenu);
+  window.wkSubMenuSync = drawSubs;   // 字幕が後から見つかったら描き直す
+  drawSubs();
   addDivider();
 
   const animItem = (el) => {

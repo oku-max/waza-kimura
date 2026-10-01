@@ -96,6 +96,15 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .vp-smenu-item.on .vp-smenu-sub{color:var(--accent);font-weight:600}
 .pill{flex-shrink:0;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:700;border:1px solid rgba(229,196,122,.4)}
 .pill.off{background:var(--surface3);color:var(--text3);border-color:var(--border)}
+.subpick{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 10px;margin:2px 0 0;
+  border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text)}
+.subpick:hover{background:var(--hover)}
+.subpick.on{border-color:var(--accent);background:var(--accent-soft)}
+.subpick .mk{flex-shrink:0;font-size:11px;color:var(--text3)}
+.subpick.on .mk{color:var(--accent)}
+.subpick .tx{flex:1;min-width:0}
+.subpick .nm{display:block;font-size:11.5px;font-weight:700}
+.subpick .nt{display:block;font-size:10px;font-weight:500;color:var(--text3);margin-top:1px}
 .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .chip{padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:var(--surface3);color:var(--text2);font-size:10.5px;font-weight:700;line-height:1.3}
 .chip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
@@ -214,12 +223,15 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 // 本物では _gdSubTracks（Driveの字幕）/ _ytSubTracks（生成字幕）/ _ytCcTracks（YouTube側）に
 // 分かれているものを、画面では1つの一覧にまとめて見せる。
 const TRACKS = [
-  { id:'gen-ja', src:'app', label:'日本語',            note:'このアプリが作った字幕 ・ 2,418枚', text:'ここで相手の足を流して、\n膝のラインを越えます' },
-  { id:'gen-en', src:'app', label:'English',           note:'このアプリが作った字幕 ・ 日本語から翻訳', text:'Slide their leg across and\npass the knee line' },
-  { id:'yt-ja',  src:'yt',  label:'日本語（自動生成）',  note:'YouTube の字幕 ・ 時刻は正確', text:'ここで相手の足を流して\n膝のラインを越えます' },
-  { id:'yt-en',  src:'yt',  label:'English (auto)',    note:'YouTube の字幕 ・ 時刻は正確', text:'slide their leg across and\npass the knee line' },
+  { id:'gen-ja', src:'wk', label:'日本語',            note:'YouTubeの字幕から作成 · 2026-09-28', text:'ここで相手の足を流して、\n膝のラインを越えます' },
+  { id:'gen-en', src:'wk', label:'English',           note:'既存の字幕から翻訳 · 2026-09-28', text:'Slide their leg across and\npass the knee line' },
+  { id:'yt-ja',  src:'yt', label:'日本語（自動生成）',  note:'時刻は音に合っています', text:'ここで相手の足を流して\n膝のラインを越えます' },
+  { id:'yt-en',  src:'yt', label:'English (auto)',    note:'時刻は音に合っています', text:'slide their leg across and\npass the knee line' },
 ];
 const T = id => TRACKS.find(t => t.id === id);
+// 「日本語：WAZA KIMURA生成」の形。略語（YT・アプリ）は使わない
+const SRC = { wk:'WAZA KIMURA生成', yt:'YouTube' };
+const full = t => `${t.label}：${SRC[t.src]}`;
 
 let CASE = 'A';
 let cur  = 'gen-ja';                       // 'off' か track の id
@@ -230,10 +242,11 @@ const CASES = {
        desc: '<b>⚙ メニューには「字幕」の1行だけ。</b>いまの字幕名をその行のサブに出し、押すとポップアップで「選ぶ」も「見た目」も行う。' +
              '<br><span class="pro">◎ メニューが伸びない。他の項目（リピート・速度）と同じ形なので迷わない。</span>' +
              '<br><span class="con">△ 字幕の入切だけでも ⚙ → 行 → ポップアップ → 選ぶ、と3タップかかる。</span>' },
-  B: { name: '案B 行＋その場で切替チップ',
-       desc: '<b>よく使う「入切・言語の切替」はメニューの中で完結。</b>チップを押せばその場で切り替わり、細かい設定だけ「⚙ 字幕の設定」でポップアップ。' +
-             '<br><span class="pro">◎ 実際に使うのはほぼ切替なので、1タップで済む。再生速度の行と同じ作りで既視感がある。</span>' +
-             '<br><span class="con">△ 字幕が多い動画ではチップが2〜3行になり、メニューが縦に伸びる。</span>' },
+  B: { name: '案B（採用）メニューの中で切替',
+       desc: '<b>オーナー決定・v52.915 で実装した形。</b>よく使う「入切・言語の切替」はメニューの中で完結し、' +
+             '選択肢は<b>縦に1行ずつ</b>並べる。細かい設定だけ「⚙ 字幕の設定」で別のポップアップ。' +
+             '<br><span class="pro">◎ 切替が1タップ。「字幕なし」と言語が横に並ばないので見分けがつく。</span>' +
+             '<br><span class="pro">◎ 名前は「日本語：WAZA KIMURA生成」「English (auto)：YouTube」。どこが作った字幕か名前の中で言い切る。</span>' },
   C: { name: '案C 2行に分ける',
        desc: '<b>「字幕を選ぶ」と「字幕の見た目」を別の行に分ける。</b>それぞれ別のポップアップが開く。' +
              '<br><span class="pro">◎ やりたいことの名前がそのまま行になっている。見た目の設定に用がない人は触らない。</span>' +
@@ -281,7 +294,7 @@ function paintCue() {
 }
 
 const curLabel = () => cur === 'off' ? 'オフ' : T(cur).label;
-const curSub   = () => cur === 'off' ? 'オフ' : (T(cur).src === 'yt' ? 'YouTube の字幕 ・ ' : 'このアプリ ・ ') + T(cur).label;
+const curSub   = () => cur === 'off' ? 'オフ' : full(T(cur));
 
 // ── ⚙ メニュー ───────────────────────────────────────────
 let menuEl = null, popEl = null, popBg = null;
@@ -352,30 +365,18 @@ function buildRoot(m) {
     const it = item('CC', '字幕', curSub());
     if (cur !== 'off') it.classList.add('on');
     it.style.cursor = 'default';
-    const sub = it.querySelector('.vp-smenu-sub');
-    const box = document.createElement('div');
-    box.className = 'chips';
-    const mk = (id, label, src) => {
-      const b = document.createElement('button');
-      b.className = 'chip' + (cur === id ? ' on' : '');
-      b.innerHTML = label + (src ? ` <span class="src">${src}</span>` : '');
-      b.onclick = ev => {
-        ev.stopPropagation(); cur = id; paintCue();
-        box.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
-        b.classList.add('on');
-        sub.textContent = curSub();
-        it.classList.toggle('on', cur !== 'off');
-      };
-      return b;
-    };
-    box.appendChild(mk('off', 'オフ'));
-    TRACKS.forEach(t => box.appendChild(mk(t.id, t.label, t.src === 'yt' ? 'YT' : 'アプリ')));
-    it.querySelector('.vp-smenu-texts').appendChild(box);
     m.appendChild(it);
-    const note = document.createElement('div');
-    note.className = 'subline';
-    note.textContent = 'YT＝YouTube の字幕 ／ アプリ＝このアプリが作った字幕';
-    m.appendChild(note);
+    // 選択肢は縦に1行ずつ。横に流すと「字幕なし」と言語が並んで見分けがつかない
+    const mk = (id, name, note) => {
+      const b = document.createElement('button');
+      b.className = 'subpick' + (cur === id ? ' on' : '');
+      b.innerHTML = `<span class="mk">${cur === id ? '●' : '○'}</span>
+        <span class="tx"><span class="nm">${name}</span>${note ? `<span class="nt">${note}</span>` : ''}</span>`;
+      b.onclick = ev => { ev.stopPropagation(); cur = id; paintCue(); openMenu('root'); };
+      m.appendChild(b);
+    };
+    mk('off', '字幕なし', '');
+    TRACKS.forEach(t => mk(t.id, full(t), t.note));
     const st = item('⚙', '字幕の設定', '見た目・量・生成の設定', true);
     st.onclick = () => { closeMenu(); openPop('look'); };
     m.appendChild(st);
@@ -425,9 +426,8 @@ function buildSubPage(m) {
     it.onclick = () => { cur = id; paintCue(); openMenu('subs'); };
     return it;
   };
-  m.appendChild(row('off', 'オフ', '字幕を出さない'));
-  TRACKS.filter(t => t.src === 'app').forEach(t => m.appendChild(row(t.id, t.label, 'このアプリが作った字幕', 'app')));
-  TRACKS.filter(t => t.src === 'yt').forEach(t  => m.appendChild(row(t.id, t.label, 'YouTube の字幕', 'yt')));
+  m.appendChild(row('off', '字幕なし', ''));
+  TRACKS.forEach(t => m.appendChild(row(t.id, full(t), t.note, t.src)));
   m.appendChild(divider());
   const st = item('⚙', '詳しい設定', '見た目・量・生成の設定', true);
   st.onclick = () => { closeMenu(); openPop('look'); };
@@ -465,15 +465,12 @@ function fillPop(mode) {
       el.className = 'trk' + (cur === id ? ' on' : '');
       el.innerHTML = `<span class="dot"></span>
         <span class="nm">${name}${note ? `<i>${note}</i>` : ''}</span>
-        ${src ? `<span class="badge ${src}">${src === 'yt' ? 'YouTube' : 'アプリ'}</span>` : ''}`;
+        ${src ? `<span class="badge ${src === 'yt' ? 'yt' : 'app'}">${src === 'yt' ? 'YouTube' : 'WAZA KIMURA'}</span>` : ''}`;
       el.onclick = () => { cur = id; paintCue(); fillPop(mode); refreshMenuIfOpen(); };
       return el;
     };
-    b.appendChild(mk('off', 'オフ', '字幕を出さない'));
-    b.insertAdjacentHTML('beforeend', `<div class="grp">このアプリが作った字幕</div>`);
-    TRACKS.filter(t => t.src === 'app').forEach(t => b.appendChild(mk(t.id, t.label, t.note, 'app')));
-    b.insertAdjacentHTML('beforeend', `<div class="grp">YouTube の字幕</div>`);
-    TRACKS.filter(t => t.src === 'yt').forEach(t => b.appendChild(mk(t.id, t.label, t.note, 'yt')));
+    b.appendChild(mk('off', '字幕なし', ''));
+    TRACKS.forEach(t => b.appendChild(mk(t.id, full(t), t.note, t.src)));
     b.insertAdjacentHTML('beforeend',
       `<div class="note">出るのは常に1つだけです。YouTube の字幕はプレイヤーの中で出るため、
        下の「見た目」の設定は効きません。</div>`);
