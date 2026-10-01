@@ -285,6 +285,7 @@ async function handleYtVideos(request, env) {
       channel:  v.snippet?.channelTitle || '',
       thumb:    th(v.snippet?.thumbnails),
       duration: v.contentDetails?.duration || '',
+      desc:     v.snippet?.description  || '',   // チャプター（説明文の時刻）の有無を先に知るため（v52.929）
     }));
     return jsonRes({ items }, 200, { 'Cache-Control': 's-maxage=300, stale-while-revalidate=600' });
   } catch (e) {

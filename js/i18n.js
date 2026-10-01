@@ -1950,6 +1950,7 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    'YouTubeのチャプターを取得（#個）':'Get the YouTube chapters (#)',
     '開く（#:# から）':'Open (from #:#)',
     '開く（#:#:# から）':'Open (from #:#:#)',
     '▶ プレビューの続き #:# から':'▶ Continuing preview from #:#',

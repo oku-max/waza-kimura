@@ -333,16 +333,21 @@ export async function loadUserData(uid) {
   // 1. Firebase Storage を優先
   try {
     const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
+    window.__pmark?.('v_url');   // 起動の待ち時間の内訳（?perf=1 で表示。v52.928）
     // ブラウザ/CDNキャッシュを避けて常に最新を取得（保存直後の別端末反映のため）
     const resp = await fetch(url, { cache: 'no-store' });
+    window.__pmark?.('v_head');
     if (resp.ok) {
       // 本文を最後まで読み切ってから「把握できた」とする。
       // ここを resp.ok の時点で true にしていたため、通信が途中で切れて JSON が壊れると
       // 「動画0本の状態で保存ロックだけ解除」になっていた。
       const json = await resp.json();
+      window.__pmark?.('v_body');
+      if (window.__perf) { window.__perf.v_kb = Math.round((+resp.headers.get('content-length') || 0) / 1024); window.__perf.v_n = json.videos?.length || 0; }
       storageKnown = true;
       if (json.videos?.length) {
         needsSave = await _applyVideosData(json.videos);
+        window.__pmark?.('v_apply');
         _videosLoadedAt = json.updatedAt || '';
         _videosSource = 'storage';
         loaded = true;

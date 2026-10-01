@@ -5000,7 +5000,7 @@ function _chapMergeAligned(titles, aligned) {
 //   list … 自分で一括入力（コピペ・スクショ）。
 // 「動画から検出」はメニューから外した（2026-09-20）。遅くて高いうえ、
 // 時刻がAIの推測になるため、上の3つで足りる。一括処理の経路だけは残してある。
-function _askChapterSource(anchorEl, hasYt) {
+function _askChapterSource(anchorEl, hasYt, ytPeek) {
   return new Promise(resolve => {
     document.getElementById('vp-chapgen-menu')?.remove();
     const menu = document.createElement('div');
@@ -5016,8 +5016,11 @@ function _askChapterSource(anchorEl, hasYt) {
     // ここは「どこから作るか」を選ぶだけ。細かさは検出を選んだ後に次の画面で聞く
     // （貼り付けには効かない設定を同じ画面に並べると分かりにくいため）。
     menu.innerHTML =
-      (hasYt ? item('yt', 'YouTubeのチャプターを取得',
-                    '動画に付いているチャプターをそのまま取り込む（無料・最も正確）', false) : '')
+      // ytPeek: 配列＝調べた結果（0個なら押せない）／null＝分からなかった（今までどおり押せる）
+      (hasYt ? (Array.isArray(ytPeek) && !ytPeek.length
+                ? item('yt', 'YouTubeのチャプターを取得', 'この動画にはYouTubeのチャプターがありません', true)
+                : item('yt', Array.isArray(ytPeek) ? `YouTubeのチャプターを取得（${ytPeek.length}個）` : 'YouTubeのチャプターを取得',
+                       '動画に付いているチャプターをそのまま取り込む（無料・最も正確）', false)) : '')
       + item('sub', '字幕から検出',
              'AI が字幕から内容を判断してチャプターを作成。字幕がない場合は先に「字幕生成」を実行。', false)
       + item('list', '自分で一括入力', 'チャプター名と時間をまとめて貼り付け・手入力する', false);
@@ -5269,6 +5272,20 @@ async function _ytFetchEmbeddedChapters(ytId, retried) {
   return window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
 }
 
+// メニューを出す前に、この動画にYouTubeのチャプターがあるかを調べる（v52.929・オーナー「押してみないと分からないのは嫌」）。
+// 自前のサーバー（/api/yt-videos・APIキー）で説明文を読むので、Googleのログイン画面は出ない。
+// 返り値: チャプターの配列（0個なら空）／分からなかったら null（非公開・通信失敗など。そのときは今までどおり押せる）
+async function _ytPeekChapters(ytId) {
+  try {
+    const r = await fetch('/api/yt-videos?ids=' + encodeURIComponent(ytId));
+    if (!r.ok) return null;
+    const d = await r.json();
+    const it = (d.items || []).find(x => x.id === ytId);
+    if (!it || typeof it.desc !== 'string') return null;
+    return window.parseYtTimestamps ? window.parseYtTimestamps(it.desc) : null;
+  } catch (e) { return null; }
+}
+
 window.vpGenChapters = async function(id, preset) {
   const silent = !!(preset && preset.silent);
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
@@ -5297,11 +5314,13 @@ window.vpGenChapters = async function(id, preset) {
     const findSubs = async () => isGd
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
       : _ytSubList(await _ytSubFetch(_vYtId(v), true));
-    let subs = await findSubs();
+    // YouTubeのチャプターの有無も同時に調べる（メニューで「無い」なら押せないようにする）
+    const [subsFound, ytPeek] = await Promise.all([findSubs(), (isYt && !preset) ? _ytPeekChapters(_vYtId(v)) : Promise.resolve(null)]);
+    let subs = subsFound;
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
     const via = preset ? (preset.via || (subs.length ? 'sub' : 'video'))
-                       : await _askChapterSource(btn, isYt);
+                       : await _askChapterSource(btn, isYt, ytPeek);
     if (!via) return { ok: false, skipped: true };
 
     // 2枚目。どこから作るかによって聞くことが違う。
@@ -5405,7 +5424,8 @@ window.vpGenChapters = async function(id, preset) {
       if (via === 'yt') {
         // 2a-0. YouTubeに埋め込まれたチャプターをそのまま取り込む。AIも課金も通らない。
         setBtn('⏳ 取得中…');
-        const fetched = await _ytFetchEmbeddedChapters(_vYtId(v));
+        // メニューの前に読めていればそれを使う（同じ説明文。もう一度読まない・Googleのログインも出さない）
+        const fetched = (ytPeek && ytPeek.length) ? ytPeek : await _ytFetchEmbeddedChapters(_vYtId(v));
         if (!fetched.length) return fail('この動画にはYouTubeのチャプターがありません');
         // 【データ】取れた時だけ書く。空で上書きすると、他の端末にある一覧まで消える
         v.ytChapters = fetched;
