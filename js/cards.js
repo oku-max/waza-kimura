@@ -136,9 +136,13 @@ export function cardHTML(v) {
     <div class="v4-badges" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 4px;font-size:10px;border-top:1px solid var(--border)">
       ${_badgeHtml}
     </div>` : '';
-  const chName = v.channel ? `<div class="card-ch">${v.channel}</div>` : '';
-  const plName = v.pl ? `<div class="card-pl">📋 ${v.pl}</div>` : '';
-  const cardMeta = (chName || plName) ? `<div class="card-meta">${chName}${plName}</div>` : '';
+  // チャンネル・プレイリストは動画パネルのリストと同じ押せるチップ（v52.920）。押すと右側と同じく
+  // そのチャンネル／プレイリストだけを表示する（vpJumpToChannel / vpJumpToPlaylist）。作り方は vpanel.js の1か所
+  const _chips = window.wkJumpChipsHTML ? window.wkJumpChipsHTML(v) : '';
+  const chName = !_chips && v.channel ? `<div class="card-ch">${v.channel}</div>` : '';
+  const plName = !_chips && v.pl ? `<div class="card-pl">📋 ${v.pl}</div>` : '';
+  const cardMeta = _chips ? `<div class="vpl-meta card-chips">${_chips}</div>`
+    : (chName || plName) ? `<div class="card-meta">${chName}${plName}</div>` : '';
   // 旧「💬 一言解説」の表示は廃止（2026-09-20）。AI要約をやめたので更新されない。
   // データ（v.aiDesc）は消していないので、出したくなれば1行で戻せる。
   const aiDescLine = '';

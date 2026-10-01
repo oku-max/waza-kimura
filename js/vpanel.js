@@ -1740,13 +1740,15 @@ function _vplDur(rv) {
 function _vplMeta(rv) {
   const id = String(rv.id).replace(/['"\\<>&]/g, '');
   const chip = (fn, icon, name, ttl) =>
-    `<span class="vpl-chip" title="${ttl}" onclick="event.stopPropagation();window.vpCloseNextList?.();window.${fn}?.('${id}')"><i>${icon}</i>${_vplEsc(name)}</span>`;
+    `<span class="vpl-chip" title="${ttl}" onclick="if(window.bulkMode)return;event.stopPropagation();window.vpCloseNextList?.();window.${fn}?.('${id}')"><i>${icon}</i>${_vplEsc(name)}</span>`;
   const out = [];
   if (rv.channel) out.push(chip('vpJumpToChannel', '👤', rv.channel, 'このチャンネルだけを表示'));
   else if (rv.ch) out.push(`<span>${_vplEsc(rv.ch)}</span>`);
   if (rv.pl) out.push(chip('vpJumpToPlaylist', '📁', rv.pl, 'このプレイリストだけを表示'));
   return out.join('');
 }
+// カード表示も同じチップ（v52.920・オーナー「リストと同じにしてください」）。作るのはここ1か所
+window.wkJumpChipsHTML = _vplMeta;
 
 // ── blur-area: 次の動画リスト ──
 function _renderBlurArea(id) {
