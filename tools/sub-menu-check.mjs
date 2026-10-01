@@ -209,6 +209,15 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
 /function _subCanImportYt\(\)/.test(src) && /vp-sub-import/.test(src)
   ? ok('YouTube由来の字幕がまだ無いときだけ取り込みの行を出す')
   : fail('取り込みの行の出し分けが無い');
+
+// ⑩ YouTubeの字幕そのものを「WAZA KIMURA生成」と呼ばないこと（v52.922・オーナー指摘）。
+//    取り込んだ字幕は中身も時刻もYouTubeのもの。名前が違うと「選べない」に見える。
+/const fromYt = via\.startsWith\('yt:'\) && !via\.includes\('\+translate'\);/.test(src)
+  ? ok('YouTubeの字幕から作ったものは YouTube の字幕として出す')
+  : fail('YouTubeの字幕を「WAZA KIMURA生成」と呼んでいる（選べないように見える）');
+/YouTubeの字幕をそのまま表示/.test(src)
+  ? ok('取り込み済みの字幕は「そのまま表示」と説明する')
+  : fail('取り込み済みかどうかが説明されていない');
 r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる（wkSubMenuSync）') : fail('wkSubMenuSync が生えていない');
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
 

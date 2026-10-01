@@ -3376,15 +3376,33 @@ function _subChoices() {
     return out;
   }
   for (const s of _ytSubSources()) {
-    const auto = s.kind === 'yt' && !!s.track.auto;
+    // プレイヤーが持っている純正トラック（YouTubeの中で描かれる）
+    if (s.kind === 'yt') {
+      const auto = !!s.track.auto;
+      out.push({
+        key: s.key,
+        // 自動生成か、動画に元から付いている字幕かが名前だけで分かるようにする
+        name: s.label + (auto ? '（自動生成）' : ''),
+        src: 'yt',
+        note: (auto ? 'YouTubeが自動で作った字幕' : '動画に元から付いている字幕')
+              + '・YouTubeの中で表示',
+        on: _ytSubSel === s.key,
+      });
+      continue;
+    }
+    // 保存してある字幕。中身がYouTubeの字幕そのものなら「YouTubeの字幕」として出す。
+    // ここを「WAZA KIMURA生成」と呼んでいたため、YouTubeの字幕が一覧に出ている
+    // のに「YouTubeの字幕が選べない」と見えていた（オーナー指摘・何度も）。
+    // 作り直したのでも訳したのでもなく、YouTubeの字幕をそのまま取り込んだもの。
+    const via    = String(s.track.via || '');
+    const fromYt = via.startsWith('yt:') && !via.includes('+translate');
+    const day    = s.track.updatedAt ? ' · ' + String(s.track.updatedAt).slice(0, 10) : '';
     out.push({
       key: s.key,
-      // 自動生成か、動画に元から付いている字幕かが名前だけで分かるようにする
-      name: s.kind === 'yt' ? s.label + (auto ? '（自動生成）' : '') : s.label,
-      src: s.kind === 'yt' ? 'yt' : 'wk',
-      note: s.kind === 'yt'
-              ? (auto ? 'YouTubeが自動で作った字幕' : '動画に元から付いている字幕')
-              : _subGenNote(s.track),
+      name: s.label,
+      src: fromYt ? 'yt' : 'wk',
+      note: fromYt ? 'YouTubeの字幕をそのまま表示・見た目を変えられます' + day
+                   : _subGenNote(s.track),
       on: _ytSubSel === s.key,
     });
   }
