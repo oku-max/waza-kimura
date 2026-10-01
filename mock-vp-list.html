@@ -36,6 +36,28 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .dim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
 .sheet{position:absolute;left:0;right:0;bottom:0;top:300px;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -6px 28px rgba(0,0,0,.4);display:flex;flex-direction:column}
 .stage.sp .sheet{top:190px}
+/* PC での出し方（スマホは常に下から全幅） */
+.vhdr{position:absolute;left:0;right:0;top:300px;height:0}
+.stage.pc .video{right:34%}
+.side{position:absolute;top:0;right:0;bottom:0;width:34%;background:#232325;border-left:1px solid var(--border2);padding:16px;color:var(--text3);font-size:12px}
+.side i{display:block;height:34px;margin-bottom:10px;border-radius:8px;background:#2e2e31}
+.stage.sp .side{display:none}
+.vbar{position:absolute;left:0;right:34%;top:340px;height:44px;background:#202022;border-top:1px solid var(--border2);display:flex;align-items:center;gap:6px;padding:0 10px;font-size:12px;color:var(--text2)}
+.vbar .sp1{flex:1}.vbar b{display:inline-flex;width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);align-items:center;justify-content:center;font-weight:700;color:var(--text2)}
+.vbar b.on{border-color:var(--accent);color:var(--accent)}
+.stage.sp .vbar{display:none}
+.stage.pc.pl-center .sheet{left:50%;right:auto;width:640px;transform:translateX(-50%);top:120px;bottom:24px;border-radius:16px}
+.stage.pc.pl-right .sheet{left:auto;right:0;width:34%;min-width:380px;top:0;bottom:0;border-radius:0;box-shadow:-8px 0 28px rgba(0,0,0,.45)}
+.stage.pc.pl-right .handle{display:none}
+.stage.pc.pl-pop .sheet{left:auto;right:calc(34% + 8px);width:440px;top:390px;bottom:16px;border-radius:14px;border:1px solid var(--border)}
+.stage.pc.pl-pop .handle{display:none}
+.stage.pc.pl-pop .dim{background:transparent}
+.stage.pc.pl-full .sheet{top:300px}
+.stage.pc.pl-center .A .th,.stage.pc.pl-right .A .th,.stage.pc.pl-pop .A .th,.stage.pc.pl-right .E .th,.stage.pc.pl-pop .E .th,.stage.pc.pl-center .E .th{width:112px;height:63px}
+.stage.pc.pl-right .D .next,.stage.pc.pl-pop .D .next{flex-direction:column;align-items:stretch}
+.stage.pc.pl-right .D .next .th,.stage.pc.pl-pop .D .next .th{width:100%;height:auto;aspect-ratio:16/9}
+.stage.pc.pl-pop .C .grid,.stage.pc.pl-right .C .grid{grid-template-columns:1fr 1fr}
+.stage.pc.pl-center .C .grid{grid-template-columns:repeat(3,1fr)}
 .handle{padding:10px 0 4px;text-align:center}.handle::after{content:'';display:inline-block;width:40px;height:4px;border-radius:2px;background:var(--surface3)}
 .hdr{display:flex;align-items:center;gap:8px;padding:6px 16px 10px;border-bottom:1px solid var(--border2)}
 .hdr .ttl{font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;flex-shrink:0}
@@ -117,14 +139,17 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 </style>
 </head>
 <body>
-<div class="banner">見本の画面です。本物のデータには何も書き込みません。動画パネルの ☰（リスト表示）を押したときに下から出るリストの見た目を5案並べています。上のタブで切り替え、「PC／スマホ」で幅を変えられます。</div>
+<div class="banner">見本の画面です。本物のデータには何も書き込みません。動画パネルの ☰（リスト表示）を押したときに下から出るリストの見た目を5案並べています。上のタブで切り替え、「PC／スマホ」で幅を変えられます。PCでは「出し方」で、画面いっぱいに広げない出し方を3通り比べられます（スマホは今どおり下から全幅）。</div>
 <div class="bar">
   <div class="tabs" id="tabs"></div>
-  <div class="row2">幅 <div class="seg" id="wseg"><button data-w="pc" class="on">PC</button><button data-w="sp">スマホ</button></div></div>
+  <div class="row2">幅 <div class="seg" id="wseg"><button data-w="pc" class="on">PC</button><button data-w="sp">スマホ</button></div>
+    <span id="plwrap">PCでの出し方 <span class="seg" id="plseg" style="display:inline-flex"><button data-p="center" class="on">① 中央に幅を絞る</button><button data-p="right">② 右に寄せる</button><button data-p="pop">③ ☰の下に浮かぶ</button><button data-p="full">今（全幅）</button></span></span></div>
 </div>
 <div class="desc" id="desc"></div>
 <div class="stage pc" id="stage">
   <div class="video">（動画）</div>
+  <div class="vbar">←Back　06.ガード無効化・トップキープ<span class="sp1"></span><b>•••</b><b class="on">☰</b><b>✎</b><b>?</b></div>
+  <div class="side">ブックマーク・メモ（右の列）<br><br><i></i><i></i><i></i><i></i><i></i></div>
   <div class="dim"></div>
   <div class="sheet"><div class="handle"></div><div class="hdr" id="hdr"></div><div class="body" id="body"></div></div>
 </div>
@@ -170,13 +195,13 @@ E:{name:'E 進み具合つき',
  hdr:()=>sortHdr('リスト',`${sumTxt} · 視聴済み ${V.filter(v=>v.w).length}/${V.length}`),
  body:()=>'<div class="E">'+V.map((v,i)=>`<div class="it ${v.now?'now':''} ${v.w?'done':''}">${th(v)}<div style="min-width:0;flex:1"><div class="t">${v.t}</div><div class="meta">${v.now?'<span class="nowtag">▶ 再生中</span>':''}${v.w?'<span class="chk">✓ 視聴済み</span>':v.r&&!v.now?`<span class="resume">続きから ${fmt(v.d*v.r)}</span>`:''}<span>${fmt(v.d)}</span><span>${CH}</span></div></div></div>`).join('')+'</div>'},
 };
-let cur='A',w='pc';
+let cur='A',w='pc',pl='center';
 const tabs=document.getElementById('tabs');
 tabs.innerHTML=Object.keys(P).map(k=>`<button class="tab" data-k="${k}">${P[k].name}</button>`).join('');
 function draw(){
   tabs.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===cur));
   document.querySelectorAll('#wseg button').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
-  document.getElementById('stage').className='stage '+w;
+  document.getElementById('stage').className='stage '+w+' pl-'+pl;document.querySelectorAll('#plseg button').forEach(b=>b.classList.toggle('on',b.dataset.p===pl));document.getElementById('plwrap').style.opacity=w==='pc'?1:.35;
   document.getElementById('desc').innerHTML=P[cur].desc;
   document.getElementById('hdr').innerHTML=P[cur].hdr();
   document.getElementById('body').innerHTML=P[cur].body();
@@ -184,6 +209,7 @@ function draw(){
 }
 tabs.onclick=e=>{const b=e.target.closest('.tab');if(b){cur=b.dataset.k;draw();}};
 document.getElementById('wseg').onclick=e=>{const b=e.target.closest('button');if(b){w=b.dataset.w;draw();}};
+document.getElementById('plseg').onclick=e=>{const b=e.target.closest('button');if(b){pl=b.dataset.p;draw();}};
 draw();
 </script>
 </body>
