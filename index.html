@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.907</title>
+<title>WAZA KIMURA v52.908</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1538,6 +1538,7 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
           <span class="results-count" id="rc"></span>
+          <button id="card-bar-bulk-btn" class="bulk-btn" onclick="enterBulk()" style="flex-shrink:0">☑ 一括編集</button>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
           <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px" data-i18n="common.reset">リセット</button>
