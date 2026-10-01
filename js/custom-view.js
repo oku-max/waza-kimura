@@ -1346,6 +1346,19 @@ function _addCvCols(view) {
         e.stopPropagation();
         openThDropdown(th, view, col);
       });
+      // ⇅ を押したらメニューを開かずに、その場で昇順・降順を切り替える（v52.924）
+      const _ind = th.querySelector('.cv-sort-ind');
+      if (_ind) {
+        _ind.style.cursor = 'pointer'; _ind.style.padding = '2px 4px'; _ind.style.margin = '-2px -1px -2px 0'; _ind.style.borderRadius = '4px';
+        _ind.title = '昇順・降順を切り替え';
+        _ind.addEventListener('click', e => {
+          e.stopPropagation();
+          closeThDropdown();
+          if (_cvSortColId === col.id) _cvSortAsc = !_cvSortAsc; else { _cvSortColId = col.id; _cvSortAsc = true; }
+          _cvSortStd = _stdSortSig();
+          _applyCvSort(_findView(view.id) || view);
+        });
+      }
       th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
         e.stopPropagation();
         openThDropdown(th, view, col);
