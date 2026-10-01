@@ -102,9 +102,12 @@ noCss.length === 0
 /if \(!host && list\.length\) return;/.test(src)
   ? ok('自前の字幕を描く場所が要るのは、生成字幕があるときだけ')
   : fail('描く場所が無いだけで YouTube側の字幕まで諦めている');
-/if \(!list\.length && _ytCcTries < 10\) return false;/.test(src)
-  ? ok('空の一覧をすぐ「字幕なし」と確定しない')
+/if \(!list\.length && \(!_ytCcPlayed \|\| _ytCcTries < 10\)\) return false;/.test(src)
+  ? ok('再生前・探し始めの空配列を「字幕なし」と確定しない')
   : fail('モジュールが用意される前の空配列で「字幕なし」と確定している');
+/if \(!_ytCcPlayed && st === 1\)/.test(src)
+  ? ok('再生が始まったら探し直す（字幕モジュールは再生後に用意される）')
+  : fail('再生開始で探し直していない');
 /if \(_ytSubPicked && _ytCcCurCode\(\)\) _ytCcSet\(null\);/.test(src)
   ? ok('自分で選んでいない間は、YouTube側で出ている字幕を消さない')
   : fail('YouTube側のCCを勝手に消している');
@@ -188,9 +191,24 @@ r1.opened ? ok('⚙メニューが開く') : fail('⚙メニューが開かな�
 r1.head === '字幕' ? ok('字幕の枠に「字幕」の見出しがある') : fail('見出しが無い: ' + JSON.stringify(r1.head));
 r1.cfg ? ok('メニューに「字幕の見た目を調整」の行がある') : fail('設定を開く行が無い');
 r1.group ? ok('字幕のかたまりが1つの枠になっている') : fail('字幕の枠が描かれていない');
-r1.none.includes('字幕がありません')
-  ? ok('字幕が無い動画では「字幕がありません」と出す（空欄にしない）')
+r1.none.includes('字幕はありません') || r1.none.includes('探しています')
+  ? ok('字幕が無い動画では状態を書く（空欄にしない）')
   : fail('字幕が無いときの案内が出ない: ' + JSON.stringify(r1.none));
+
+// ⑨ YouTube自身の字幕を、このパネルで扱える字幕として取り込めること（v52.919）。
+//    プレイヤーの字幕モジュールは返事が無いことがあるので、それだけに頼らない。
+/window\.wkSubImportYt = async function/.test(src)
+  ? ok('YouTubeの字幕を取り込む入口がある')
+  : fail('YouTubeの字幕を取り込めない（プレイヤーのAPI頼み）');
+/_ytFetchTranscript\(idToken, ytId, 'orig'\)/.test(src) && /_ytSubStore\(ytId, 'orig', yt\.srt/.test(src)
+  ? ok('取り込みはサーバー経由でYouTubeの字幕を取り、こちらの字幕として保存する')
+  : fail('取り込みの中身が変わっている');
+!/wkSubImportYt[\s\S]{0,600}_ytGenSubtitle\(/.test(src)
+  ? ok('取り込みは字幕生成（言語を聞く・翻訳する）に相乗りしていない')
+  : fail('取り込みが _ytGenSubtitle に相乗りしている');
+/function _subCanImportYt\(\)/.test(src) && /vp-sub-import/.test(src)
+  ? ok('YouTube由来の字幕がまだ無いときだけ取り込みの行を出す')
+  : fail('取り込みの行の出し分けが無い');
 r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる（wkSubMenuSync）') : fail('wkSubMenuSync が生えていない');
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
 
