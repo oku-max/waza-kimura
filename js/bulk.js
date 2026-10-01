@@ -412,7 +412,8 @@ export function exitBulk(){
   document.querySelectorAll('.sel-circle').forEach(el => { el.classList.remove('chk'); el.textContent = ''; });
   // Selectボタンをリセット
   const selBtn=document.getElementById('bulk-sel-btn');
-  if(selBtn){selBtn.textContent='☑ 一括編集';selBtn.classList.remove('active','bulk-active');}
+  // 中身（線のアイコン＋文字）は一括モードで変えないので書き戻さない（v52.917。書き戻すとアイコンが消える）
+  if(selBtn){selBtn.classList.remove('active','bulk-active');}
   const orgSelBtn=document.getElementById('org-bulk-sel-btn');
   if(orgSelBtn){orgSelBtn.textContent='☑ 一括編集';orgSelBtn.classList.remove('active','bulk-active');}
   // PCサイドバーの一括ボタンを元に戻す

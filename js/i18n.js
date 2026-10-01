@@ -91,7 +91,7 @@
     'sb.savedNone':      { ja: '保存した検索条件はありません', en: 'No saved searches' },
     'sb.saveCurrent':    { ja: '＋ 現在の検索条件を保存', en: '+ Save current search' },
     'sb.recent':         { ja: '最近みた動画', en: 'Recently watched' },
-    'sb.bulk':           { ja: '☑ 一括編集', en: '☑ Bulk edit' },
+    'sb.bulk':           { ja: '一括編集', en: 'Bulk edit' },
     'sb.resetFilters':   { ja: 'フィルターをリセット', en: 'Reset filters' },
     // リスト（カスタムビュー）ピッカー
     'cv.picker.title':   { ja: 'リスト', en: 'Lists' },
@@ -193,7 +193,7 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
-    '一括':'Bulk',
+    '一括':'Bulk','一括編集':'Bulk edit',
     // 管理画面「検索辞書」（v52.828）
     '🔍 検索辞書': '🔍 Search dictionary',
     '🔍 検索辞書（オーナーのみ）': '🔍 Search dictionary (owner only)',
