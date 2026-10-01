@@ -108,9 +108,12 @@ noCss.length === 0
 /if \(!_ytCcPlayed && st === 1\)/.test(src)
   ? ok('再生が始まったら探し直す（字幕モジュールは再生後に用意される）')
   : fail('再生開始で探し直していない');
-/if \(_ytSubPicked && _ytCcCurCode\(\)\) _ytCcSet\(null\);/.test(src)
-  ? ok('自分で選んでいない間は、YouTube側で出ている字幕を消さない')
-  : fail('YouTube側のCCを勝手に消している');
+// v52.936 で方針を変えた: 「出す」を押していないなら、YouTube側の字幕も消す。
+// 以前は「勝手に消さない」だったが、「字幕なし」なのに YouTube の字幕だけ残り、
+// いちばん分からない状態になっていた（オーナー「中途半端」）。
+/if \(_ytCcWanted\) return;/.test(src)
+  ? ok('「出す」を押したものは、こちらの処理で消さない')
+  : fail('出した字幕がすぐ消される');
 /function _ytSubAdoptCc\(\)/.test(src) && /_ytSubAdoptCc\(\);\s+\/\//.test(src)
   ? ok('YouTube側で出ている字幕を⚙の表示に映す')
   : fail('画面に出ている字幕と⚙の●がずれる');
@@ -219,6 +222,23 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
 /if \(_ytCcWanted\) return;/.test(src)
   ? ok('出した字幕を、こちらの処理が勝手に消さない')
   : fail('出してもすぐ消される');
+// 出るのは常に1つだけ・もう一度押したら消す（v52.936・オーナー
+// 「『字幕なし』を押してもYouTubeの字幕が出てる」「中途半端」）
+/if \(c\.key === 'off'\) continue;/.test(src)
+  ? ok('「字幕なし」の行は置かない（同じ行をもう一度押せば消える）')
+  : fail('「字幕なし」の行が戻っている');
+/const next = on \? 'off' : \(key \|\| 'off'\);/.test(src)
+  ? ok('出ている字幕をもう一度押すと消える')
+  : fail('もう一度押しても消えない');
+/if \(_ytCcWanted\) _ytCcSetWanted\(false\);/.test(src)
+  ? ok('こちらの字幕を出すとき、YouTube側の字幕は消す')
+  : fail('両方出る（重なる）');
+/if \(on\) \{\s*\n\s*if \(_gdSubTracks\.length\) _gdSubSelect\(-1, true\);/.test(src)
+  ? ok('YouTubeの字幕を出すとき、こちらの字幕は消す')
+  : fail('両方出る（重なる）');
+/  if \(_ytCcCurCode\(\)\) _ytCcSet\(null\);\n\}/.test(src)
+  ? ok('どれも出していないときは YouTube 側の字幕も消す')
+  : fail('「字幕なし」なのに YouTube の字幕が残る');
 !/wkYtCcToggle[\s\S]{0,500}confirm\(/.test(src)
   ? ok('押したら出すだけ（確認ダイアログを出さない）')
   : fail('確認ダイアログが戻っている');

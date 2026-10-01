@@ -3252,10 +3252,9 @@ function _ytSubEnforceCc() {
     if (_ytCcCurCode()) _ytCcSet(null);
     return;
   }
-  // 「字幕なし」のとき。この動画でユーザーが自分で「字幕なし」を選んだ時だけ切る。
-  // そうでなければ、YouTube側のCCボタンで出している字幕には触らない
-  // （こちらが勝手に消すと、出していたものが黙って消える）。
-  if (_ytSubPicked && _ytCcCurCode()) _ytCcSet(null);
+  // どれも出していないとき。YouTube側の字幕も消す。
+  // 「字幕なし」なのに YouTube の字幕だけ残るのが、いちばん分からない状態だった。
+  if (_ytCcCurCode()) _ytCcSet(null);
 }
 
 // YouTube側のCCボタンで出ている字幕を、こちらの選択に映す。
@@ -3421,12 +3420,19 @@ function _subChoices() {
 function _subChoiceLabel(c) { return c.src ? `${c.name}：${SUB_SRC_LABEL[c.src]}` : c.name; }
 
 // 一覧から1つ選ぶ。Drive動画とYouTube動画で入れ物が違うのはここで吸収する。
+// 字幕の行を押したとき。
+// ・いま出ているものをもう一度押したら消す（「字幕なし」の行は置かない）
+// ・出るのは常に1つだけ。アプリの字幕を出すときは、YouTube側の字幕を必ず消す
+//   （両方出ると画面で重なる。オーナー「中途半端」）
 window.wkSubPick = function(key) {
+  const on   = _subChoices().some(c => c.on && c.key === key);
+  const next = on ? 'off' : (key || 'off');
+  if (_ytCcWanted) _ytCcSetWanted(false);    // YouTube側は消す（出すのは下の1行だけ）
   if (_gdSubTracks.length) {
-    const i = key === 'off' ? -1 : Number(String(key).slice(3));
+    const i = next === 'off' ? -1 : Number(String(next).slice(3));
     _gdSubSelect(Number.isFinite(i) ? i : -1, true);
   } else {
-    _ytSubSetSel(key || 'off', true);
+    _ytSubSetSel(next, true);
   }
   window.wkSubMenuSync?.();
   window.wkSubOptsRender?.();
@@ -3740,15 +3746,29 @@ function _ytReinit(videoId, sec, extraVars) {
     { start: sec, ...(extraVars || {}) });
 }
 
+// YouTube自身の字幕を出す／消す。読み込みのパラメータなので、同じ位置で作り直す。
+function _ytCcSetWanted(on) {
+  _ytCcWanted = !!on;
+  if (!_ytPlayer || !_ytPlayerReady) return;
+  const videoId = _ytPlayer.getVideoData?.()?.video_id;
+  if (!videoId) return;
+  const sec = Math.floor(_ytPlayer.getCurrentTime?.() || 0);
+  _ytReinit(videoId, sec, { cc_load_policy: _ytCcWanted ? 1 : 0 });
+}
+
 window.wkYtCcToggle = function() {
   if (!_ytPlayer || !_ytPlayerReady) { window.toast?.('動画を再生してから押してください'); return; }
-  const videoId = _ytPlayer.getVideoData?.()?.video_id;
-  if (!videoId) { window.toast?.('YouTubeの動画ではありません'); return; }
-  const sec = Math.floor(_ytPlayer.getCurrentTime?.() || 0);
-  _ytCcWanted = !_ytCcWanted;
-  _ytReinit(videoId, sec, { cc_load_policy: _ytCcWanted ? 1 : 0 });
+  if (!_ytPlayer.getVideoData?.()?.video_id) { window.toast?.('YouTubeの動画ではありません'); return; }
+  const on = !_ytCcWanted;
+  // 出すなら、こちらの字幕は消す（出るのは常に1つだけ）
+  if (on) {
+    if (_gdSubTracks.length) _gdSubSelect(-1, true);
+    else                     _ytSubSetSel('off', true);
+  }
+  _ytCcSetWanted(on);
   window.wkSubMenuSync?.();
-  window.toast?.(_ytCcWanted ? 'YouTubeの字幕を出しました' : 'YouTubeの字幕を消しました');
+  window.wkSubOptsRender?.();
+  window.toast?.(on ? 'YouTubeの字幕を出しました' : 'YouTubeの字幕を消しました');
 };
 
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
@@ -8339,7 +8359,8 @@ function _subMenuBlock(box, closeMenu) {
   const head = document.createElement('div');
   head.className = 'vp-sub-head';
   head.innerHTML = `<span class="ic">${ccSvg}</span><span class="t">字幕</span>`
-    + `<span class="now">${_escHtml(cur ? _subChoiceLabel(cur) : 'オフ')}</span>`;
+    + `<span class="now">${_escHtml(cur ? _subChoiceLabel(cur)
+          : (_ytCcWanted ? 'YouTubeの字幕' : 'オフ'))}</span>`;
   grp.appendChild(head);
 
   if (list.length <= 1) {
@@ -8351,6 +8372,7 @@ function _subMenuBlock(box, closeMenu) {
     grp.appendChild(none);
   } else {
     for (const c of list) {
+      if (c.key === 'off') continue;   // 「字幕なし」の行は置かない（もう一度押せば消える）
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'vp-sub-pick' + (c.on ? ' on' : '');
