@@ -8,8 +8,11 @@ let _scrollObserver = null;
 
 export function renderCards(list, cid) {
   const c = document.getElementById(cid);
+  // 0本の表示はテーブル表示（#org-empty）と同じ中身・同じ置き場所（v52.921）。
+  // 一覧の余白と段組みを外して、帯のすぐ下・幅いっぱいの中央に出す
+  c.classList.toggle('is-empty', !list.length);
   if (!list.length) {
-    c.innerHTML = '<div class="empty"><div class="e">🔍</div><p>動画が見つかりませんでした</p></div>';
+    c.innerHTML = '<div class="org-empty"><div style="font-size:28px;margin-bottom:8px">🔍</div><div>動画が見つかりませんでした</div></div>';
     _cleanupObserver();
     return;
   }
