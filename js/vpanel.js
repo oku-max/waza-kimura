@@ -5495,30 +5495,13 @@ function _subOptsHTML(scope) {
     + _subRow('短い字幕をまとめる', '細切れの字幕を隣とくっつけて読みやすくする', _subSeg('mergeShort', o.mergeShort, [[true,'まとめる'],[false,'そのまま']]));
 
   if (scope === 'player') {
-    // ── 字幕（この動画）──────────────────────────────────
-    // Drive動画でも YouTube動画でも、選択肢は _subChoices() の1本に揃える。
-    // 名前は「日本語：WAZA KIMURA生成」「English：YouTube」の形で、
-    // どこが作った字幕かを言い切る（略語は使わない）。
-    const choices = _subChoices();
-    if (choices.length > 1) {
-      const rowStyle = (on) => `display:flex;align-items:center;gap:9px;width:100%;text-align:left;`
-        + `padding:7px 9px;border-radius:8px;font-family:inherit;cursor:pointer;`
-        + `border:1.5px solid ${on ? 'var(--accent,#6c8cff)' : 'var(--border)'};`
-        + `background:${on ? 'rgba(108,140,255,.10)' : 'transparent'};color:var(--text)`;
-      const row = (c) => `<button type="button" onclick="wkSubPick('${_escAttr(c.key)}')" style="${rowStyle(c.on)}">
-          <span style="flex-shrink:0;font-size:12px;color:${c.on ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${c.on ? '●' : '○'}</span>
-          <span style="flex:1;min-width:0">
-            <span style="display:block;font-size:11.5px;font-weight:600">${_escHtml(_subChoiceLabel(c))}</span>
-            ${c.note ? `<span style="display:block;font-size:10px;color:var(--text3)">${_escHtml(c.note)}</span>` : ''}
-          </span></button>`;
-      html += sec('字幕（この動画）')
-        + choices.map(row).join('')
-        + `<div style="font-size:10.5px;color:var(--text3)">出るのは常に1つだけです。動画の下の ⚙ からも切り替えられます</div>`;
-    }
-
+    // 字幕を「選ぶ」のは ⚙メニューの仕事。ここには出さない（v52.916・オーナー
+    // 「設定パネルで字幕選択がまた出てくるのはおかしい。二重に同じことを聞いている」）。
+    // このパネルは、選んだ字幕を“どう見せるか”だけを扱う。
     // YouTube動画の生成字幕だけに出す操作（保存・削除）と、YouTube側の字幕の状況
     if (!_gdSubTracks.length && _ytSubTracks.length) {
-      html += `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
+      html += sec('この動画の字幕ファイル')
+        + `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
                 `<button type="button" onclick="wkYtSubSave('${_escAttr(t.lang)}')"
                    style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);
                           background:transparent;color:var(--text2);font-family:inherit;
@@ -6183,7 +6166,9 @@ function _fitPopup(el, anchorEl, opts) {
 
   if (o.alignRight) return;   // 右寄せ指定のものは横位置を触らない
   const w = el.offsetWidth;
-  const left = r ? r.left : margin;
+  // anchorRight: 押したボタンの右端に合わせる（画面の右端ではない）。
+  // ⚙メニューと同じ場所に出したいときに使う。画面の端に飛ぶと別物が出たように見える。
+  const left = r ? (o.anchorRight ? r.right - w : r.left) : margin;
   el.style.left  = Math.max(margin, Math.min(left, vw - w - margin)) + 'px';
   el.style.right = 'auto';
 }
@@ -6214,10 +6199,10 @@ function _gdSubOpenPanel(anchorEl) {
     + 'border-radius:12px;box-shadow:0 14px 48px rgba(0,0,0,.75);'
     + 'width:min(340px,calc(100vw - 24px));'
     + 'max-height:min(76vh,560px);overflow-y:auto;padding:0 14px 12px;'
-    + 'top:0;right:12px;visibility:hidden';
+    + 'top:0;left:0;visibility:hidden';
   pop.innerHTML = `<div style="position:sticky;top:0;background:var(--surface,#222);padding:11px 0 9px;margin-bottom:2px;
         border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;z-index:1">
-      <div style="font-size:12px;font-weight:700">字幕の調整</div>
+      <div style="font-size:12px;font-weight:700">字幕の見た目</div>
       <button type="button" onclick="wkSubOptsClose()"
         style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
     </div>
@@ -6226,7 +6211,7 @@ function _gdSubOpenPanel(anchorEl) {
   pop.addEventListener('mousedown',   e => e.stopPropagation());
   pop.addEventListener('pointerdown', e => e.stopPropagation());   // パネル内のタップで閉じない
   document.body.appendChild(pop);
-  _fitPopup(pop, anchorEl, { alignRight: true });
+  _fitPopup(pop, anchorEl, { anchorRight: true });
   pop.style.visibility = '';
 
   const onKey = e => {
@@ -8144,17 +8129,23 @@ function _subMenuBlock(box, closeMenu) {
   const ccSvg = `<span style="font-size:10px;font-weight:800;letter-spacing:-.3px">CC</span>`;
   const gearSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>`;
 
-  // 見出し。いま何が出ているかを「日本語：WAZA KIMURA生成」の形で言い切る。
-  const head = _menuItem(ccSvg, '字幕', cur ? _subChoiceLabel(cur) : 'オフ');
-  if (cur) head.classList.add('vp-smenu-on');
-  head.style.cursor = 'default';
-  box.appendChild(head);
+  // 字幕のところだけ枠で囲う（v52.916・オーナー「どこが字幕の設定パートなのか
+  // パッと見で分かりづらい」）。メニューの他の項目と地続きに見えないようにする。
+  const grp = document.createElement('div');
+  grp.className = 'vp-sub-group';
+  box.appendChild(grp);
+
+  const head = document.createElement('div');
+  head.className = 'vp-sub-head';
+  head.innerHTML = `<span class="ic">${ccSvg}</span><span class="t">字幕</span>`
+    + `<span class="now">${_escHtml(cur ? _subChoiceLabel(cur) : 'オフ')}</span>`;
+  grp.appendChild(head);
 
   if (list.length <= 1) {
     const none = document.createElement('div');
     none.className = 'vp-sub-none';
     none.textContent = 'この動画には字幕がありません';
-    box.appendChild(none);
+    grp.appendChild(none);
   } else {
     for (const c of list) {
       const b = document.createElement('button');
@@ -8164,18 +8155,27 @@ function _subMenuBlock(box, closeMenu) {
         <span class="tx"><span class="nm">${_escHtml(_subChoiceLabel(c))}</span>
         ${c.note ? `<span class="nt">${_escHtml(c.note)}</span>` : ''}</span>`;
       b.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };
-      box.appendChild(b);
+      grp.appendChild(b);
     }
   }
 
-  // 設定はここに展開しない（長い）。別のポップアップで開く。
-  const st = _menuItem(gearSvg, '字幕の設定', '見た目・量・生成の設定', true);
-  st.onclick = () => {
+  // 「どれを出すか」を選ぶ行と、「どう見せるか」を開く行は別物。
+  // 同じ形で並べると区別がつかない（オーナー指摘）ので、枠の中の最後に、
+  // 選択肢とは違う見た目（地の色・歯車・›）で置く。設定の中身は長いので
+  // ここには展開せず、別のポップアップで開く。
+  const cfg = document.createElement('button');
+  cfg.type = 'button';
+  cfg.className = 'vp-sub-cfg';
+  cfg.innerHTML = `<span class="ic">${gearSvg}</span>
+    <span class="tx">字幕の見た目を調整<span class="nt">文字サイズ・位置・一度に出す量</span></span>
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`;
+  cfg.onclick = (ev) => {
+    ev.stopPropagation();
     const anchor = document.getElementById('vp-more-btn') || document.body;
     closeMenu();
     _gdSubOpenPanel(anchor);
   };
-  box.appendChild(st);
+  grp.appendChild(cfg);
 }
 
 function _escHtml(v) {
