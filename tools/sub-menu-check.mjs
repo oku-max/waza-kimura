@@ -176,9 +176,10 @@ noCss.length === 0
   && /function _ytCcCurInfo\(\)/.test(src)
   ? ok('YouTubeの字幕は 言語 と 自動生成か を出す')
   : fail('何語か・自動生成かが分からない');
-/function _subSearchingYt\(\)/.test(src) && /YouTube側の字幕を探しています/.test(src)
-  ? ok('探している間は「字幕がありません」と言い切らない')
-  : fail('見つける前に「字幕がありません」と言っている');
+// 「探しています」の説明は出さない（v52.945・オーナー「日本語がおかしいだろいらんよ」）
+!/探しています（再生/.test(src) && !/function _subSearchingYt\(\)/.test(src)
+  ? ok('「YouTube側の字幕を探しています」の文言が無い')
+  : fail('消したはずの「探しています」の文言が戻っている');
 
 
 // ⑪ YouTube動画でメニューを開く経路を実際に踏む（v52.943）。
@@ -212,15 +213,21 @@ const b = await chromium.launch(fs.existsSync(exe) ? { executablePath: exe } : {
 const ctx = await b.newContext({ viewport: { width: 900, height: 900 }, locale: 'ja-JP' });
 await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), r => r.abort());
 // Firebase が読めないと index.html の本体（module）ごと止まるので、何もしない偽物を返す
+// 字幕が1本も入っていない状態だけで試すと、行の ⚙ を押す道が一度も通らない。
+// v52.944 の「ボタンが全部効かない」はその道にあったので、字幕1本を持たせる。
+const SUB_SRT = '1\\n00:00:00,000 --> 00:00:03,000\\nこんにちは\\n\\n2\\n00:00:03,000 --> 00:00:06,000\\nテスト\\n';
 const FB_STUB = `(function(){ if (window.firebase) return;
   const noop=()=>{}; const p=(v)=>Promise.resolve(v);
-  const doc=()=>({ get:()=>p({exists:false,data:()=>({})}), set:()=>p(), update:()=>p(),
-                   delete:()=>p(), collection, onSnapshot:()=>noop });
+  const USER={uid:'u1',email:'okujournal@gmail.com',displayName:'o'};
+  const SUB={ tracks:{ ja:{ srt:'${SUB_SRT}', via:'supadata', updatedAt:'2026-09-30' } } };
+  const doc=(id)=>{ const _id=String(id||''); const hit=/^ytsub_/.test(_id); return {
+                   id:_id, get:()=>p({exists:hit,id:_id,data:()=>(hit?SUB:{})}), set:()=>p(), update:()=>p(),
+                   delete:()=>p(), collection, onSnapshot:()=>noop }; };
   function collection(){ return { doc, get:()=>p({empty:true,docs:[],forEach:noop}),
                                   where(){return this}, orderBy(){return this}, limit(){return this},
                                   onSnapshot:()=>noop }; }
-  const auth=()=>({ onAuthStateChanged:(cb)=>{ setTimeout(()=>cb(null),0); return noop; },
-                    signInWithPopup:()=>p({user:null}), signOut:()=>p(), currentUser:null });
+  const auth=()=>({ onAuthStateChanged:(cb)=>{ setTimeout(()=>cb(USER),0); return noop; },
+                    signInWithPopup:()=>p({user:USER}), signOut:()=>p(), currentUser:USER });
   auth.GoogleAuthProvider=function(){ this.addScope=noop; this.setCustomParameters=noop; };
   const firestore=()=>({ collection, doc, settings:noop, batch:()=>({set:noop,update:noop,delete:noop,commit:()=>p()}),
                          enablePersistence:()=>p(), runTransaction:()=>p() });
@@ -229,7 +236,30 @@ const FB_STUB = `(function(){ if (window.firebase) return;
                     storage:()=>({ ref:()=>({ put:()=>p(), getDownloadURL:()=>p('') }) }) };
  })();`;
 await ctx.route(/gstatic\.com\/firebasejs/i, r => r.fulfill({ status:200, contentType:'text/javascript', body: FB_STUB }));
-await ctx.addInitScript(() => { try { localStorage.setItem('wk_lang', 'ja'); } catch (e) {} });
+await ctx.addInitScript(() => {
+  try { localStorage.setItem('wk_lang', 'ja'); localStorage.setItem('wk_ob_done', '1'); } catch (e) {}
+  // YouTube の本物のプレイヤーは外に出られないので、同じ形だけ用意する。
+  // これが無いと _ytPlayerReady が立たず、スキップ等の経路を一度も踏めない。
+  window.__ytSeeks = [];
+  function FakePlayer(idOrEl, cfg) {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    this._t = 100;
+    if (el) { const f = document.createElement('iframe'); f.id = el.id;
+      f.style.cssText = 'width:100%;aspect-ratio:16/9;background:#123'; el.replaceWith(f); this._el = f; }
+    setTimeout(() => cfg.events?.onReady?.({ target: this }), 10);
+  }
+  const P = FakePlayer.prototype;
+  P.getCurrentTime = function(){ return this._t; };  P.getDuration = function(){ return 3600; };
+  P.seekTo = function(s){ this._t = s; window.__ytSeeks.push(s); };
+  P.playVideo = function(){};      P.pauseVideo = function(){};
+  P.getPlaybackRate = function(){ return 1; };  P.setPlaybackRate = function(){};
+  P.getPlayerState = function(){ return 1; };   P.getIframe = function(){ return this._el; };
+  P.destroy = function(){ try { this._el?.remove(); } catch (e) {} };
+  P.getOption = function(){};      P.setOption = function(){};
+  P.loadVideoById = function(i, s){ this._t = s || 0; };
+  P.getVideoData = function(){ return { video_id: 'dQw4w9WgXcQ' }; };
+  window.YT = { Player: FakePlayer, PlayerState: { PLAYING:1, PAUSED:2, ENDED:0 } };
+});
 const pg = await ctx.newPage();
 const errs = [];
 pg.on('pageerror', e => { const s = String(e); if (!/firebase|gstatic/i.test(s)) errs.push(s.split('\n')[0]); });
@@ -262,8 +292,8 @@ r1.opened ? ok('⚙メニューが開く') : fail('⚙メニューが開かな�
 r1.head === '字幕' ? ok('字幕の枠に「字幕」の見出しがある') : fail('見出しが無い: ' + JSON.stringify(r1.head));
 !r1.cfg ? ok('独立した設定の行は描かれない') : fail('設定の行が描かれている');
 r1.group ? ok('字幕のかたまりが1つの枠になっている') : fail('字幕の枠が描かれていない');
-r1.none.includes('字幕はありません') || r1.none.includes('探しています')
-  ? ok('字幕が無い動画では状態を書く（空欄にしない）')
+r1.none.includes('字幕はありません')
+  ? ok('字幕が無い動画では「まだこの動画の字幕はありません」と出す')
   : fail('字幕が無いときの案内が出ない: ' + JSON.stringify(r1.none));
 
 // ⑨ YouTube自身の字幕は、本家のCCボタンと同じことを1行でできること（v52.928）。
@@ -364,6 +394,79 @@ if (r2.skip) {
   !r2.menu ? ok('ポップアップを開くときメニューは閉じる')  : fail('メニューが開いたまま重なっている');
   r2.nearBtn ? ok('ポップアップは ⚙ の位置に出る') : fail('ポップアップが押した場所から離れて出る');
   !r2.dup ? ok('ポップアップに字幕の選択肢は出ない') : fail('ポップアップにも字幕の選択肢が出ている');
+}
+
+
+// ── ⑬ 画面を覆う見えない板を残さない（v52.945）──────────────────
+//    「字幕の見た目」のポップアップは、外を押したら閉じるために
+//    #vp-sub-opts-bg（position:fixed / inset:0 / background:transparent）を
+//    画面いっぱいに敷いていた。これが残ると、何も見えないまま全部のタップを食う。
+//    実際、開いたままAndroidの戻る（popstate）で動画パネルを閉じると板だけが残り、
+//    開き直したあと ◀30s などのスキップが1つも押せなくなっていた（JSエラーも出ない）。
+//    まず作りを見張り、そのうえで本当にその手順を踏む。
+!/id = 'vp-sub-opts-bg'/.test(src) && !/bg\.id = 'vp-sub-opts-bg'/.test(src)
+  ? ok('画面を覆う透明な板を作っていない')
+  : fail('見えない板（#vp-sub-opts-bg）が戻っている＝全部のボタンが効かなくなる');
+/_subOptsOutside/.test(src)
+  ? ok('外を押したら閉じる役は document のリスナー（⚙メニューと同じ作り）')
+  : fail('外を押して閉じる仕組みが無い');
+
+const _openPanelAndCog = async () => {
+  await pg.evaluate(() => {
+    window._firebaseCurrentUser = () => ({ uid: 'u1', email: 'okujournal@gmail.com' });
+    window.videos = [{ id: 'dQw4w9WgXcQ', ytId: 'dQw4w9WgXcQ', pt: 'youtube',
+                       title: 'テスト', channel: 'ch', duration: 3600, bookmarks: [] }];
+    window.openVPanel('dQw4w9WgXcQ');
+  });
+  await pg.waitForTimeout(1200);
+  await pg.evaluate(() => document.getElementById('vp-more-btn')?.click());
+  await pg.waitForTimeout(300);
+  return pg.evaluate(() => {
+    const cog = document.querySelector('#vp-more-menu .vp-sub-pick .cog');
+    if (!cog) return false;
+    cog.click();
+    return !!document.getElementById('vp-sub-opts');
+  });
+};
+// 本物の #vp-more-btn（パネルのもの）で踏み直す
+await pg.evaluate(() => { document.getElementById('vp-more-menu')?.remove();
+                          window.wkSubOptsClose?.(); });
+const cogOpened = await _openPanelAndCog();
+cogOpened
+  ? ok('生成字幕の行の ⚙ で見た目のポップアップが開く（この道を実際に踏んだ）')
+  : fail('生成字幕の行の ⚙ を踏めない（字幕のスタブが効いていない）');
+
+if (cogOpened) {
+  // 指で何も押さずにパネルを閉じる＝Androidの戻る
+  await pg.goBack();
+  await pg.waitForTimeout(400);
+  const leftover = await pg.evaluate(() => {
+    const big = [...document.body.children].filter(e => {
+      const cs = getComputedStyle(e); const r = e.getBoundingClientRect();
+      return cs.position === 'fixed' && r.width > innerWidth * 0.9 && r.height > innerHeight * 0.9
+             && cs.pointerEvents !== 'none' && cs.display !== 'none'
+             && (cs.backgroundColor === 'rgba(0, 0, 0, 0)' || cs.backgroundColor === 'transparent');
+    });
+    return big.map(e => (e.id || e.tagName) + ' z=' + getComputedStyle(e).zIndex);
+  });
+  leftover.length === 0
+    ? ok('戻るで閉じたあと、画面を覆う見えないものが残らない')
+    : fail('見えない覆いが残っている: ' + leftover.join(', '));
+
+  // 開き直して、スキップが指で押せること（本数ではなく実際に seek が呼ばれたか）
+  await pg.evaluate(() => { window.__ytSeeks.length = 0;
+    window.videos = [{ id: 'dQw4w9WgXcQ', ytId: 'dQw4w9WgXcQ', pt: 'youtube',
+                       title: 'テスト', channel: 'ch', duration: 3600, bookmarks: [] }];
+    window.openVPanel('dQw4w9WgXcQ'); });
+  await pg.waitForTimeout(900);
+  const skip = pg.locator('#vpanel-ctrl-row2 button').filter({ has: pg.locator('.ab-skip-arrow') });
+  const total = await skip.count();
+  let pressed = 0;
+  for (let i = 0; i < total; i++) { try { await skip.nth(i).click({ timeout: 800 }); pressed++; } catch (e) {} }
+  const seeks = await pg.evaluate(() => window.__ytSeeks.length);
+  (total === 8 && pressed === 8 && seeks === 8)
+    ? ok('そのあともスキップ（◀1m〜1m▶）が8つとも指で押せて動く')
+    : fail(`スキップが押せない: ボタン ${total} / 押せた ${pressed} / 実際に動いた ${seeks}`);
 }
 
 errs.length === 0 ? ok('JSエラーなし') : fail('JSエラー: ' + errs.join(' / '));

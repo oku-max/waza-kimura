@@ -1463,6 +1463,9 @@ export function openVPanel(id) {
   // Notesタブで再生中のインライン動画があれば一時停止
   window._notesPauseAllInlineVideos?.();
   window.wkCardPreviewStop?.();   // カードのプレビューは閉じる（2本同時に流さない）
+  // 前の動画で開いていた字幕の見た目・⚙メニューは持ち越さない
+  window.wkSubOptsClose?.();
+  document.getElementById('vp-more-menu')?.remove();
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return;
   // カード要素がなければ（Organizeタブ等）ビデオオブジェクトから算出
@@ -2010,6 +2013,11 @@ export function closeVPanel() {
     _phCurrentId = null;
     // ボトムシートを閉じる
     window.vpCloseNextList?.();
+    // 動画の上に出していたものは、パネルと一緒に必ず片付ける。
+    // 指で閉じるとは限らない（Androidの戻る＝popstate でもここに来る）ので、
+    // 「外を押したら閉じる」だけに任せない。残すと画面に出ないまま操作を食う。
+    window.wkSubOptsClose?.();
+    document.getElementById('vp-more-menu')?.remove();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     window._vpLoopVisible = false; // ループ再生UIは既定で非表示に戻す
     _stopTimeDisplay();
@@ -3370,11 +3378,9 @@ function _subGenNote(t) {
   return how + (t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : '');
 }
 
-// YouTube側の字幕をまだ探している最中か。
-// 見つかる前に「字幕がありません」と言い切ると、実際にはある動画で嘘になる。
-function _subSearchingYt() {
-  return !_gdSubTracks.length && !!_ytSubId && !_ytCcFound && _ytCcTries < YT_CC_MAX_TRIES;
-}
+// 「YouTube側の字幕を探しています」は出さない（v52.945・オーナー「日本語が
+// おかしいだろいらんよ」）。探している最中かどうかは、字幕が出てきた時点で
+// 行が増えることで分かる。途中経過を文章で説明しない。
 
 // YouTube自身の字幕を取り込める状態か。
 // すでに純正トラックが候補にある／YouTubeの字幕から作った字幕が入っている動画では出さない。
@@ -6444,24 +6450,35 @@ function _fitPopup(el, anchorEl, opts) {
   el.style.right = 'auto';
 }
 
-// パネルと背景を必ずセットで閉じる
+// 外を押したら閉じる役。画面を覆う透明な板は置かない（下記 _gdSubOpenPanel の説明）。
+let _subOptsOutside = null;
+let _subOptsKey     = null;
+
+// 字幕の見た目のパネルを閉じる。外を押す役・Escの役も必ず一緒に外す。
 window.wkSubOptsClose = function() {
   document.getElementById('vp-sub-opts')?.remove();
+  // 前の版が置いていた透明な板が残っていたら、ここで片付ける
   document.getElementById('vp-sub-opts-bg')?.remove();
+  if (_subOptsOutside) {
+    document.removeEventListener('click',       _subOptsOutside, true);
+    document.removeEventListener('pointerdown', _subOptsOutside, true);
+    _subOptsOutside = null;
+  }
+  if (_subOptsKey) { document.removeEventListener('keydown', _subOptsKey, true); _subOptsKey = null; }
 };
 
 function _gdSubOpenPanel(anchorEl) {
   window.wkSubOptsClose();
 
-  // 外クリックで閉じるための当たり判定。透明にしておく。
-  // 画面を暗くすると調整中に肝心の字幕の見え方が判断できなくなるため暗幕にはしない。
-  const bg = document.createElement('div');
-  bg.id = 'vp-sub-opts-bg';
-  bg.style.cssText = 'position:fixed;inset:0;z-index:10000;background:transparent';
-  bg.addEventListener('pointerdown', e => { e.stopPropagation(); window.wkSubOptsClose(); });
-  bg.addEventListener('mousedown',   e => { e.stopPropagation(); window.wkSubOptsClose(); });
-  bg.addEventListener('click',       e => e.stopPropagation());
-  document.body.appendChild(bg);
+  // 【画面を覆う透明な板は置かない】（v52.945）
+  // v52.944 まで、外を押したら閉じるために #vp-sub-opts-bg という
+  // position:fixed / inset:0 / z-index:10000 / background:transparent の板を
+  // 画面全体に敷いていた。これが残ると、見えないのに全部のタップを食う。
+  // 実際、このパネルを開いたままAndroidの戻る（popstate）で動画パネルを閉じると
+  // 板だけが残り、開き直したあとスキップ（◀30s 等）が1つも押せなくなっていた
+  // （本物の index.html で再現: 押せないボタン 8/8・JSエラーなし・画面には何も出ない）。
+  // 閉じる役は ⚙メニュー（vpTogMoreMenu）と同じやり方＝document の捕捉リスナーにする。
+  // こちらは残っても何も覆わないので、同じ壊れ方をしない。
 
   const pop = document.createElement('div');
   pop.id = 'vp-sub-opts';
@@ -6485,13 +6502,24 @@ function _gdSubOpenPanel(anchorEl) {
   _fitPopup(pop, anchorEl, { anchorRight: true });
   pop.style.visibility = '';
 
-  const onKey = e => {
+  // 外を押したら閉じる（⚙メニューと同じ作り）。押した先のボタンは普通に効く。
+  _subOptsOutside = (ev) => {
+    if (pop.contains(ev.target)) return;
+    if (anchorEl && anchorEl.contains && anchorEl.contains(ev.target)) return;
+    window.wkSubOptsClose();
+  };
+  setTimeout(() => {
+    if (!_subOptsOutside) return;
+    document.addEventListener('click',       _subOptsOutside, true);
+    document.addEventListener('pointerdown', _subOptsOutside, true);
+  }, 0);
+
+  _subOptsKey = (e) => {
     if (e.key !== 'Escape') return;
     e.stopPropagation();
     window.wkSubOptsClose();
-    document.removeEventListener('keydown', onKey, true);
   };
-  document.addEventListener('keydown', onKey, true);
+  document.addEventListener('keydown', _subOptsKey, true);
 }
 
 function _showGDriveAuthUI(container, fileId, onAuth) {
@@ -8425,9 +8453,7 @@ function _subMenuBlock(box, closeMenu) {
   if (list.length <= 1) {
     const none = document.createElement('div');
     none.className = 'vp-sub-none';
-    none.textContent = _subSearchingYt()
-      ? 'YouTube側の字幕を探しています（再生を始めると出てきます）'
-      : 'まだこの動画の字幕はありません';
+    none.textContent = 'まだこの動画の字幕はありません';
     mine.appendChild(none);
   } else {
     // 出ているものは番号の丸が塗られる＝選択の印も兼ねる。
