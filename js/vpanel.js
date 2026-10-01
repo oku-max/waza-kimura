@@ -8364,13 +8364,18 @@ function _subMenuBlock(box, closeMenu) {
           : (_ytCcWanted ? 'YouTubeの字幕' : 'オフ'))}</span>`;
   grp.appendChild(head);
 
+  // アプリの字幕のかたまり（選択肢＋見た目の調整）。ここだけが見た目を変えられる。
+  const mine = document.createElement('div');
+  mine.className = 'vp-sub-mine';
+  grp.appendChild(mine);
+
   if (list.length <= 1) {
     const none = document.createElement('div');
     none.className = 'vp-sub-none';
     none.textContent = _subSearchingYt()
       ? 'YouTube側の字幕を探しています（再生を始めると出てきます）'
       : 'まだこの動画の字幕はありません';
-    grp.appendChild(none);
+    mine.appendChild(none);
   } else {
     for (const c of list) {
       if (c.key === 'off') continue;   // 「字幕なし」の行は置かない（もう一度押せば消える）
@@ -8381,7 +8386,7 @@ function _subMenuBlock(box, closeMenu) {
         <span class="tx"><span class="nm">${_escHtml(_subChoiceLabel(c))}</span>
         ${c.note ? `<span class="nt">${_escHtml(c.note)}</span>` : ''}</span>`;
       b.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };
-      grp.appendChild(b);
+      mine.appendChild(b);
     }
   }
 
@@ -8401,16 +8406,11 @@ function _subMenuBlock(box, closeMenu) {
     closeMenu();
     _gdSubOpenPanel(anchor);
   };
-  grp.appendChild(cfg);
+  mine.appendChild(cfg);
 
-  // ここから下は YouTube 本体の字幕。見た目を変えられないので、線で分ける
-  // （オーナー「YouTubeの字幕だと明らかに分かるように線を引くなりして区別をつけろ」）。
+  // YouTube本体の字幕は、アプリの字幕のカードの外に置く。
+  // 見た目（枠の外・地の色・CCの印）だけで別物と分かるようにする。
   if (_vpCurrentPlat === 'yt') {
-    const sep = document.createElement('div');
-    sep.className = 'vp-sub-sep';
-    sep.innerHTML = '<i></i><span>ここから下は YouTube 本体</span><i></i>';
-    grp.appendChild(sep);
-
     const cc = document.createElement('button');
     cc.type = 'button';
     cc.className = 'vp-sub-pick vp-sub-ytcc' + (_ytCcWanted ? ' on' : '');

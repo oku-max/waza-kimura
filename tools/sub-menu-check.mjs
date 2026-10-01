@@ -58,13 +58,20 @@ alive.length === 0
 // ⑤ 設定はメニューに展開せず、別のポップアップで開く
 // 並び（v52.937・オーナー「アプリの字幕とYouTubeの字幕の間に見た目の設定を置け。
 // YouTubeの字幕だと明らかに分かるように線を引け」）
-(src.indexOf("grp.appendChild(cfg);") > 0
-  && src.indexOf("grp.appendChild(cfg);") < src.indexOf("sep.className = 'vp-sub-sep'"))
-  ? ok('見た目の調整は、アプリの字幕とYouTube本体の間にある')
-  : fail('並びが違う（見た目の調整が YouTube の行より下にある）');
-/sep\.innerHTML = '<i><\/i><span>ここから下は YouTube 本体<\/span><i><\/i>';/.test(src)
-  ? ok('YouTube本体の字幕は線で区切る')
-  : fail('区切りが無い（どこからYouTubeか分からない）');
+// アプリの字幕（選択肢＋見た目の調整）は1枚のカードの中、YouTube本体はその外。
+// 文言では区切らない（オーナー「こんな文言いらん。見た目だけで分かるように」）。
+/mine\.className = 'vp-sub-mine';/.test(src) && /mine\.appendChild\(cfg\);/.test(src)
+  ? ok('見た目の調整は、アプリの字幕と同じカードの中にある')
+  : fail('見た目の調整がアプリの字幕のカードの外にある');
+/grp\.appendChild\(cc\);/.test(src)
+  ? ok('YouTube本体の行はカードの外（枠と地の色で別物と分かる）')
+  : fail('YouTube本体の行がアプリの字幕と同じカードに入っている');
+!/ここから下は YouTube 本体/.test(src)
+  ? ok('文言で区切っていない')
+  : fail('区切りの文言が戻っている');
+/\.vp-sub-mine \{/.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'))
+  ? ok('カードのCSSが index.html にある')
+  : fail('カードのCSSが無い');
 // アプリの字幕の説明に「YouTube」を入れない（紛らわしい・オーナー指摘）
 /const how = ai \? 'このアプリが作った字幕（時刻はAIの推測）' : 'このアプリが作った字幕';/.test(src)
   ? ok('アプリの字幕は「このアプリが作った字幕」と書く（YouTubeの語を混ぜない）')
