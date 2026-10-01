@@ -193,7 +193,7 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
-    '一括':'Bulk','一括編集':'Bulk edit',
+    '一括':'Bulk','一括編集':'Bulk edit','⏳ 読み込みが終わったら保存します':'⏳ Will save once loading finishes','⚠️ 読み込み中に行った変更は、ほかの端末の更新を優先したため反映されませんでした':'⚠️ Changes made while loading were not kept because another device had newer data',
     // 管理画面「検索辞書」（v52.828）
     '🔍 検索辞書': '🔍 Search dictionary',
     '🔍 検索辞書（オーナーのみ）': '🔍 Search dictionary (owner only)',

@@ -33,6 +33,77 @@ let _videosSource = 'none'; // 'storage' | 'firestore-legacy' | 'none'
 // 明示的に減らす経路はここで申告する（申告の無い減少は事故として扱う）
 window._wkDeleteIntent = function(n) { _deleteIntent += Math.max(0, Number(n) || 0); };
 
+// ── この端末の動画の控え（v52.934・起動を待たせないため）──────────────────
+// 起動のたびに 10MB 超の videos.json を落とし切るまで「0本」だった（オーナーの実測で約5秒）。
+// そこで、クラウドから読んだ／クラウドへ書いた中身を「そのまま」この端末（IndexedDB）に控え、
+// 次に開いたときは控えを先に出し、クラウドが届いたら次のとおり扱う:
+//   ・同じ版（updatedAt が同じ）… 控え＝クラウドなので、画面はそのまま。保存のロックを外す
+//   ・違う版（ほかの端末で更新）… 控えを捨てて、クラウドで丸ごと入れ替える（足し合わせない＝
+//                                 ほかの端末で消した動画を戻さない）
+//   ・読めない … 控えを出したまま、保存はロックのまま（今までどおり）
+// 控えはクラウドへは書かない。控えの版のまま保存することも無い（保存はクラウドが届いてから）。
+const _VC_DB = 'wk-video-cache', _VC_STORE = 'c';
+let _vcShown = false;      // いま画面に出ているのは控え（クラウドはまだ）
+let _vcAt = '';            // 出している控えの版（updatedAt）
+let _vcDirty = false;      // 控えを出している間に変更があった（保存を待たせている）
+let _vcNeedsSave = false;  // 控えを読み込んだときの変換で保存が要る形になった
+let _vcSettled = false;    // このログインで、クラウドの結果が出た（以後、控えは出さない）
+function _vcOpen() {
+  return new Promise((res, rej) => {
+    try {
+      const rq = indexedDB.open(_VC_DB, 1);
+      rq.onupgradeneeded = () => { try { rq.result.createObjectStore(_VC_STORE); } catch (e) {} };
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    } catch (e) { rej(e); }
+  });
+}
+async function _vcRead(uid) {
+  try {
+    const dbx = await _vcOpen();
+    return await new Promise(res => {
+      const rq = dbx.transaction(_VC_STORE, 'readonly').objectStore(_VC_STORE).get(uid);
+      rq.onsuccess = () => res(rq.result || null);
+      rq.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+// text はクラウドのファイルと同じ文字列（読んだもの／書いたもの）。それ以外は控えにしない
+function _vcWrite(uid, text, updatedAt) {
+  if (!uid || !text || !updatedAt) return;
+  setTimeout(async () => {
+    try {
+      const dbx = await _vcOpen();
+      dbx.transaction(_VC_STORE, 'readwrite').objectStore(_VC_STORE).put({ text, updatedAt, at: Date.now() }, uid);
+    } catch (e) { console.warn('[videoCache] 控えを書けませんでした:', e?.message || e); }
+  }, 300);   // 画面の描画を先に済ませる。書けずに閉じても、次はクラウドで入れ替わるだけ（安全側）
+}
+async function _vcShow(uid) {
+  const rec = await _vcRead(uid);
+  if (!rec?.text || !rec.updatedAt) return;
+  // 待っている間にクラウドが届いた・ユーザーが変わった・すでに動画がある → 出さない
+  if (_vcSettled || currentUser?.uid !== uid || (window.videos || []).length) return;
+  let data = null;
+  try { data = JSON.parse(rec.text); } catch (e) { return; }
+  if (!Array.isArray(data?.videos) || !data.videos.length || data.updatedAt !== rec.updatedAt) return;
+  if (_vcSettled || currentUser?.uid !== uid || (window.videos || []).length) return;
+  _vcNeedsSave = await _applyVideosData(data.videos);   // クラウドを読んだときと同じ変換を通す
+  _vcShown = true; _vcAt = rec.updatedAt; _vcDirty = false;
+  window.__pmark?.('v_cache');
+  console.log('[videoCache] 控えを表示:', data.videos.length, '本 /', rec.updatedAt);
+  window.AF?.();
+  if (window._libViewMode === 'org') window.renderOrg?.();
+}
+// クラウドの結果が出たときに呼ぶ。控えを出していたら、その状態を返して控えの扱いを終える
+function _vcTakeOver() {
+  _vcSettled = true;
+  if (!_vcShown) return null;
+  const st = { at: _vcAt, dirty: _vcDirty, needsSave: _vcNeedsSave };
+  _vcShown = false; _vcAt = ''; _vcDirty = false; _vcNeedsSave = false;
+  return st;
+}
+window._wkVideoCacheState = () => ({ shown: _vcShown, at: _vcAt, dirty: _vcDirty, settled: _vcSettled });
+
 window._currentUserUid = () => currentUser?.uid;
 
 auth.onAuthStateChanged(async (user) => {
@@ -59,6 +130,9 @@ auth.onAuthStateChanged(async (user) => {
   if (user) {
     window._notesInitForUser?.();
     window._murmursInitForUser?.();
+    // この端末の控えを先に出す（待たない。クラウドの読み込みと並んで走る）
+    _vcSettled = false; _vcShown = false; _vcDirty = false;
+    _vcShow(user.uid);
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     await loadUserSettings(user.uid);
@@ -341,7 +415,8 @@ export async function loadUserData(uid) {
       // 本文を最後まで読み切ってから「把握できた」とする。
       // ここを resp.ok の時点で true にしていたため、通信が途中で切れて JSON が壊れると
       // 「動画0本の状態で保存ロックだけ解除」になっていた。
-      const json = await resp.json();
+      const rawText = await resp.text();
+      const json = JSON.parse(rawText);
       window.__pmark?.('v_body');
       if (window.__perf) { window.__perf.v_kb = Math.round((+resp.headers.get('content-length') || 0) / 1024); window.__perf.v_n = json.videos?.length || 0; }
       // ?perf=1 のときだけ: ファイルのどの項目が重いかを数える（読むだけ。何も書き換えない）
@@ -354,21 +429,39 @@ export async function loadUserData(uid) {
         } catch (e) {}
       }
       storageKnown = true;
+      const cached = _vcTakeOver();   // 控えを出していたか
       if (json.videos?.length) {
-        needsSave = await _applyVideosData(json.videos);
+        if (cached && cached.at && json.updatedAt && cached.at === json.updatedAt) {
+          // 控えと同じ版 → 画面の中身はクラウドを読んだのと同じ。控えを出している間の変更も残す
+          needsSave = cached.needsSave || cached.dirty;
+          console.log('[videoCache] クラウドは控えと同じ版:', json.updatedAt, cached.dirty ? '（待たせていた変更を保存します）' : '');
+        } else {
+          // 違う版（または控えなし）→ クラウドで丸ごと入れ替える。控えに足し合わせない
+          if (cached) {
+            window.videos = [];
+            console.log('[videoCache] クラウドが新しい版のため入れ替え:', cached.at, '→', json.updatedAt);
+            if (cached.dirty) showToast('⚠️ 読み込み中に行った変更は、ほかの端末の更新を優先したため反映されませんでした', 7000);
+          }
+          needsSave = await _applyVideosData(json.videos);
+        }
         window.__pmark?.('v_apply');
         _videosLoadedAt = json.updatedAt || '';
         _videosSource = 'storage';
         loaded = true;
+        if (!needsSave) _vcWrite(uid, rawText, json.updatedAt);   // 読んだものをそのまま控える（保存するなら保存の後で控える）
       } else {
+        if (cached) window.videos = [];   // 控えは出さない（今までどおり空として扱う）
         storageAbsent = true; // ファイルはあるが中身が空 = 新規/空ユーザーと同じ扱い
         _videosSource = 'storage';
       }
     }
   } catch (e) {
+    const cached = _vcTakeOver();
     if (e.code === 'storage/object-not-found') {
+      if (cached) window.videos = [];   // ファイルが無いのに控えを出したままにしない
       storageKnown = true; storageAbsent = true; // ファイル不在を確認 = 新規/空ユーザー（状態は確定）
     } else {
+      // 読めなかった。控えは出したまま（見るだけ）。保存はロックのまま（下の警告どおり）
       console.warn('[loadUserData] Storage:', e.message); // 実際の読込失敗 → 状態未確定
     }
   }
@@ -442,6 +535,12 @@ export async function saveUserData() {
   }
   // クラウドの動画状態を読めていない（読込失敗等）ときは保存しない。
   // メモリが空のままクラウドの非空データを上書きする事故を防ぐ。
+  if (!_videosReady && _vcShown) {
+    // 控えを出している間（クラウドがまだ届いていない）。届いて同じ版なら、その時に保存する
+    if (!_vcDirty) showToast('⏳ 読み込みが終わったら保存します', 2500);
+    _vcDirty = true;
+    return false;
+  }
   if (!_videosReady) {
     console.warn('[saveUserData] not ready (load incomplete) — save skipped to avoid overwriting cloud data');
     showToast('⚠️ データ読込が未完了のため保存を見送りました。ページを更新してください', 5000);
@@ -505,7 +604,8 @@ export async function saveUserData() {
 
     const updatedAt = new Date().toISOString();
     _videosLoadedAt = updatedAt;
-    const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
+    const _text = JSON.stringify({ videos, updatedAt, savedBy: _sessionId });
+    const blob = new Blob([_text], { type: 'application/json' });
     await ref.put(blob, {
       contentType: 'application/json',
       cacheControl: 'no-cache, max-age=0',
@@ -513,6 +613,7 @@ export async function saveUserData() {
     });
     // 書き終えた内容＝いま手元の内容なので、この時点で「Storage由来」になる
     _videosSource = 'storage';
+    _vcWrite(uid, _text, updatedAt);   // クラウドに書いたものと同じ文字列を控える
     _videosCloudCount = videos.length;
     _deleteIntent = 0;
     try { window.wkLogVideoCount?.(videos.length, '保存'); } catch (e) {}
