@@ -197,15 +197,23 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
 
 // ⑨ YouTube自身の字幕を、このパネルで扱える字幕として取り込めること（v52.919）。
 //    プレイヤーの字幕モジュールは返事が無いことがあるので、それだけに頼らない。
-/window\.wkSubImportYt = async function/.test(src)
-  ? ok('YouTubeの字幕を取り込む入口がある')
-  : fail('YouTubeの字幕を取り込めない（プレイヤーのAPI頼み）');
-/_ytFetchTranscript\(idToken, ytId, 'orig'\)/.test(src) && /_ytSubStore\(ytId, 'orig', yt\.srt/.test(src)
-  ? ok('取り込みはサーバー経由でYouTubeの字幕を取り、こちらの字幕として保存する')
-  : fail('取り込みの中身が変わっている');
-!/wkSubImportYt[\s\S]{0,600}_ytGenSubtitle\(/.test(src)
-  ? ok('取り込みは字幕生成（言語を聞く・翻訳する）に相乗りしていない')
-  : fail('取り込みが _ytGenSubtitle に相乗りしている');
+/window\.wkSubShowYt = async function/.test(src)
+  ? ok('YouTubeの字幕を表示する入口がある')
+  : fail('YouTubeの字幕を出せない（プレイヤーのAPI頼み）');
+// 押したら出すだけ。確認ダイアログを出さない（オーナー「こんなの全く求めてない」）
+!/wkSubShowYt[\s\S]{0,900}confirm\(/.test(src)
+  ? ok('押したら出すだけ（確認ダイアログを出さない）')
+  : fail('確認ダイアログが戻っている');
+// 専用の置き場所に入れるので、既にある字幕を1文字も触らない
+/_ytSubStore\(ytId, 'ytcc', yt\.srt/.test(src)
+  ? ok('YouTubeの字幕は専用の置き場所に入れる（既存の字幕を触らない）')
+  : fail('既存の字幕の置き場所を上書きしている');
+/_ytFetchTranscript\(idToken, ytId, 'orig'\)/.test(src)
+  ? ok('YouTubeの字幕はサーバー経由で取る（プレイヤーのAPIに頼らない）')
+  : fail('取得の経路が変わっている');
+!/wkSubShowYt[\s\S]{0,600}_ytGenSubtitle\(/.test(src)
+  ? ok('表示は字幕生成（言語を聞く・翻訳する）に相乗りしていない')
+  : fail('表示が _ytGenSubtitle に相乗りしている');
 /function _subCanImportYt\(list\)/.test(src) && /vp-sub-import/.test(src)
   ? ok('YouTube由来の字幕がまだ無いときだけ取り込みの行を出す')
   : fail('取り込みの行の出し分けが無い');
@@ -217,9 +225,7 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
 /const same = \(subLang === 'orig'\)/.test(src)
   ? ok('原語のままなら YouTube の字幕をそのまま使う')
   : fail('原語なのにAIに通している（課金され、YouTubeの字幕に見えなくなる）');
-/const had = _ytSubList\(await _ytSubFetch\(ytId\)\)\.find\(t => t\.lang === 'orig'\);/.test(src)
-  ? ok('取り込みで既存の字幕を黙って上書きしない')
-  : fail('既存の字幕を確認なしに上書きしている');
+
 
 // ⑩ YouTubeの字幕そのものを「WAZA KIMURA生成」と呼ばないこと（v52.922・オーナー指摘）。
 //    取り込んだ字幕は中身も時刻もYouTubeのもの。名前が違うと「選べない」に見える。

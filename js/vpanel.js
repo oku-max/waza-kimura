@@ -3124,7 +3124,10 @@ async function _ytSubStore(ytId, lang, srt, meta) {
 }
 
 const _ytSubLangLabel = (lang, e) =>
-  lang === 'orig' ? (e?.srcLang ? _langLabel(e.srcLang) : '原語') : _langLabel(lang);
+  // 'ytcc' は YouTube の字幕をそのまま入れた置き場所。名前は元の言語で出す。
+  (lang === 'orig' || lang === 'ytcc')
+    ? (e?.srcLang ? _langLabel(e.srcLang) : (lang === 'ytcc' ? 'YouTubeの字幕' : '原語'))
+    : _langLabel(lang);
 
 // ドキュメント → 表示・利用できる字幕の一覧（日本語を先頭に）
 function _ytSubList(doc) {
@@ -3719,37 +3722,27 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
 // 時刻は音に対して正確（AIに書かせた時刻と違い、進んでもズレない）。
 // 【相乗りしない】_ytGenSubtitle（言語を聞く・翻訳する・既存を作り直す）には
 // 渡さない。ここは「YouTubeの字幕をそのまま取り込む」だけの薄い入口にする。
-window.wkSubImportYt = async function() {
+window.wkSubShowYt = async function() {
   const v = (window.videos || []).find(x => x.id === window.openVPanelId);
   const ytId = _ytSubId || (v ? _vYtId(v) : '');
   if (!ytId) { window.toast?.('YouTubeの動画を開いてから押してください'); return; }
-  if (!confirm('YouTubeが持っているこの動画の字幕を取り込みます。\n\n'
-             + '・翻訳はしません（話している言語のまま）\n'
-             + '・時刻はYouTubeのものをそのまま使います（音に合っています）\n'
-             + '・取り込むと、文字サイズや位置をこちらで変えられます')) return;
-
   const user = window._firebaseCurrentUser?.();
   if (!user) { window.toast?.('ログインが必要です'); return; }
-  window.toast?.('⏳ YouTubeの字幕を取得中…');
+  window.toast?.('⏳ YouTubeの字幕を読み込み中…');
   try {
     const idToken = await user.getIdToken();
     const yt = await _ytFetchTranscript(idToken, ytId, 'orig');
     if (!yt || !yt.srt) throw new Error(yt?.error || 'YouTubeの字幕を取得できませんでした');
-    // 同じ置き場所（原語）に既に字幕があるなら、黙って上書きしない。
-    // そこにあるのは作るのに費用がかかったものかもしれない。
-    const had = _ytSubList(await _ytSubFetch(ytId)).find(t => t.lang === 'orig');
-    if (had && !confirm(`すでに「${had.label}」の字幕があります。\n`
-        + `YouTubeの字幕で置き換えますか？（元には戻せません）`)) return;
-    await _ytSubStore(ytId, 'orig', yt.srt, { via: 'yt:' + (yt.lang || ''), srcLang: '' });
-    _subOffsetSet(ytId, 0);          // 新しい字幕に古いズレ補正を持ち越さない
-    await _ytSubRefreshNow(ytId, 'orig');
+    // 置き場所は 'ytcc' 専用。既にある字幕（原語・日本語…）には触らない。
+    await _ytSubStore(ytId, 'ytcc', yt.srt, { via: 'yt:' + (yt.lang || ''), srcLang: yt.lang || '' });
+    await _ytSubRefreshNow(ytId, 'ytcc');
     window.wkSubMenuSync?.();
     window.wkSubOptsRender?.();
-    window.toast?.(`✅ YouTubeの字幕を取り込みました（${yt.lang || '原語'} · ${yt.cues || 0}枚）`);
+    window.toast?.('✅ YouTubeの字幕を表示しました');
   } catch (e) {
     // 理由は決め打ちで書かない。サーバーが返したものをそのまま出す。
     window.toast?.('⚠️ ' + (e?.message || e));
-    console.warn('[ytsub] 取り込みに失敗:', e);
+    console.warn('[ytsub] YouTubeの字幕を出せませんでした:', e);
   }
 };
 
@@ -8324,9 +8317,9 @@ function _subMenuBlock(box, closeMenu) {
     imp.type = 'button';
     imp.className = 'vp-sub-pick vp-sub-import';
     imp.innerHTML = `<span class="mk">⤓</span>
-      <span class="tx"><span class="nm">YouTubeの字幕を取り込む</span>
-      <span class="nt">話している言語のまま・時刻は音に合っています</span></span>`;
-    imp.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkSubImportYt(); };
+      <span class="tx"><span class="nm">YouTubeの字幕を表示</span>
+      <span class="nt">自動生成でも、元から付いているものでも</span></span>`;
+    imp.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkSubShowYt(); };
     grp.appendChild(imp);
   }
 
