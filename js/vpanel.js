@@ -3234,6 +3234,20 @@ function _ytCcCurCode() {
   catch (e) { return ''; }
 }
 
+// いま出ている純正トラックの「何語か・自動生成か」。分からなければ空。
+function _ytCcCurInfo() {
+  let t = null;
+  try { t = _ytCcMod ? _ytPlayer?.getOption?.(_ytCcMod, 'track') : null; } catch (e) {}
+  const code = String(t?.languageCode || '');
+  if (!code) {
+    // プレイヤーが答えないときは、見つかっている一覧から探す
+    const cur = _ytCcTracks.find(x => x.code === _ytCcCurCode());
+    return cur ? `${cur.label} · ${cur.auto ? '自動生成' : '元から入っている字幕'}` : '';
+  }
+  const name = String(t.languageName || t.displayName || '') || _langLabel(code);
+  return `${name} · ${_ytCcAuto(t) ? '自動生成' : '元から入っている字幕'}`;
+}
+
 function _ytCcSet(track) {
   if (!_ytCcMod) return false;
   try { _ytPlayer.setOption(_ytCcMod, 'track', track || {}); return true; } catch (e) { return false; }
@@ -3390,11 +3404,9 @@ function _subChoices() {
       const auto = !!s.track.auto;
       out.push({
         key: s.key,
-        // 自動生成か、動画に元から付いている字幕かが名前だけで分かるようにする
-        name: s.label + (auto ? '（自動生成）' : ''),
+        name: s.label,                                        // 何語か
         src: 'yt',
-        note: (auto ? 'YouTubeが自動で作った字幕' : '動画に元から付いている字幕')
-              + '・YouTubeの中で表示',
+        note: auto ? '自動生成' : '元から入っている字幕',        // どういう字幕か
         on: _ytSubSel === s.key,
       });
       continue;
@@ -8382,6 +8394,7 @@ function _subMenuBlock(box, closeMenu) {
     let no = 0;
     for (const c of list) {
       if (c.key === 'off') continue;   // 「字幕なし」の行は置かない（もう一度押せば消える）
+      if (c.src === 'yt') continue;    // YouTube本体の字幕は下の欄に出す
       no++;
       const row = document.createElement('div');
       row.className = 'vp-sub-pick' + (c.on ? ' on' : '');
@@ -8414,16 +8427,34 @@ function _subMenuBlock(box, closeMenu) {
 
   // YouTube本体の字幕は、アプリの字幕のカードの外に置く。
   // 見た目（枠の外・地の色・CCの印）だけで別物と分かるようにする。
+  // 番号は通しで振る（オーナー「字幕には全部番号を付けろ」）。
   if (_vpCurrentPlat === 'yt') {
-    const cc = document.createElement('button');
-    cc.type = 'button';
-    cc.className = 'vp-sub-pick vp-sub-ytcc' + (_ytCcWanted ? ' on' : '');
-    cc.innerHTML = `<span class="mk">CC</span>
-      <span class="tx"><span class="nm">${_ytCcWanted ? 'YouTubeの字幕を消す' : 'YouTubeの字幕を出す'}</span>
-      <span class="nt">YouTube側で表示・見た目は変えられません</span></span>`;
-    cc.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkYtCcToggle(); };
-    grp.appendChild(cc);
+    // 一覧が取れているときは、その言語ぶんだけ行を出す。取れていなければ1行。
+    const ytList = list.filter(c => c.src === 'yt');
+    const mkYt = (label, note, on, onClick) => {
+      no++;
+      const row = document.createElement('div');
+      row.className = 'vp-sub-pick vp-sub-ytcc' + (on ? ' on' : '');
+      const hit = document.createElement('button');
+      hit.type = 'button';
+      hit.className = 'hit';
+      hit.innerHTML = `<span class="mk">${no}</span>
+        <span class="tx"><span class="nm">${_escHtml(label)}</span>
+        ${note ? `<span class="nt">${_escHtml(note)}</span>` : ''}</span>`;
+      hit.onclick = (ev) => { ev.stopPropagation(); closeMenu(); onClick(); };
+      row.appendChild(hit);
+      grp.appendChild(row);
+    };
+    if (ytList.length) {
+      for (const c of ytList) {
+        mkYt('YouTube字幕', `${c.name} · ${c.note}`, c.on, () => window.wkSubPick(c.key));
+      }
+    } else {
+      mkYt('YouTube字幕', _ytCcWanted ? (_ytCcCurInfo() || '表示中') : '', _ytCcWanted,
+           () => window.wkYtCcToggle());
+    }
   }
+
   // 状態（オーナーのときだけ）。推測せずに原因を見るための行。
   if (window.wkIsOwner?.() && _vpCurrentPlat === 'yt') {
     const d = document.createElement('div');

@@ -84,9 +84,23 @@ alive.length === 0
 !/vp-sub-ytcc[\s\S]{0,400}className = 'cog'/.test(src)
   ? ok('YouTube本体の行には ⚙ を付けない')
   : fail('YouTube本体の行にも ⚙ が付いている');
-/grp\.appendChild\(cc\);/.test(src)
-  ? ok('YouTube本体の行はカードの外（枠と地の色で別物と分かる）')
+/grp\.appendChild\(row\);\s*\n\s*\};/.test(src) && /if \(c\.src === 'yt'\) continue;/.test(src)
+  ? ok('YouTube本体の行はカードの外（アプリの字幕のカードには入れない）')
   : fail('YouTube本体の行がアプリの字幕と同じカードに入っている');
+// 字幕は全部に番号（オーナー「字幕には全部番号を付けろよ」）
+/const mkYt = \(label, note, on, onClick\) => \{\s*\n\s*no\+\+;/.test(src)
+  ? ok('YouTube本体の行にも通し番号を振る')
+  : fail('YouTubeの行に番号が無い');
+// 体言止め（オーナー「『YouTubeの字幕を出す』はおかしい。『YouTube字幕』でいい」）
+// 判定はメニューを組み立てる関数の中だけを見る（トースト・コメントは別物）
+const menuSrc = src.slice(src.indexOf('function _subMenuBlock'),
+                          src.indexOf('function _escHtml'));
+!/YouTubeの字幕を出す|YouTubeの字幕を消す/.test(menuSrc) && /mkYt\('YouTube字幕'/.test(menuSrc)
+  ? ok('行の名前は「YouTube字幕」（体言止め）')
+  : fail('行の名前が元に戻っている');
+!/YouTube側で表示・見た目は変えられません/.test(src)
+  ? ok('要らない説明文は出さない')
+  : fail('説明文が戻っている');
 !/ここから下は YouTube 本体/.test(src)
   ? ok('文言で区切っていない')
   : fail('区切りの文言が戻っている');
@@ -154,9 +168,11 @@ noCss.length === 0
 /function _ytSubAdoptCc\(\)/.test(src) && /_ytSubAdoptCc\(\);\s+\/\//.test(src)
   ? ok('YouTube側で出ている字幕を⚙の表示に映す')
   : fail('画面に出ている字幕と⚙の●がずれる');
-/（自動生成）/.test(src) && /YouTubeが自動で作った字幕/.test(src) && /動画に元から付いている字幕/.test(src)
-  ? ok('自動生成か、元から付いている字幕かを区別して出す')
-  : fail('自動生成かどうかが分からない');
+// YouTubeの字幕は「何語か」と「自動生成か・元から入っているか」を出す
+/note: auto \? '自動生成' : '元から入っている字幕',/.test(src)
+  && /function _ytCcCurInfo\(\)/.test(src)
+  ? ok('YouTubeの字幕は 言語 と 自動生成か を出す')
+  : fail('何語か・自動生成かが分からない');
 /function _subSearchingYt\(\)/.test(src) && /YouTube側の字幕を探しています/.test(src)
   ? ok('探している間は「字幕がありません」と言い切らない')
   : fail('見つける前に「字幕がありません」と言っている');
