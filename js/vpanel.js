@@ -6710,18 +6710,6 @@ export function buildDrawerHTML(id) {
         🔄 タグリセット
       </button>
     </div>
-    ${window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
-      ? `<div style="padding:6px 0 0" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
-          ${v.verified
-            ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
-            : `<button onclick="vpVerify('${id}')"
-                style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);
-                       background:transparent;color:var(--green,#6bc490);font-size:12px;
-                       font-weight:700;cursor:pointer">
-                ✓ 検証済みにする
-              </button>`}
-        </div>`
-      : ''}
     <div id="vp-autosave-${id}" style="text-align:center;font-size:10px;color:var(--text3);opacity:0;transition:opacity .3s;padding:4px 0 8px;letter-spacing:.5px;">✓ 自動保存済み</div>
   `;
 }
@@ -8274,26 +8262,6 @@ export function closePanel() {
     panelId = null;
   } catch(e) { console.warn('closePanel error:', e); }
 }
-
-// ── 検証済み ──
-export function vpVerify(id) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.verified = Date.now();
-  window.debounceSave?.();
-  window.AF?.();
-  // UIを即時更新
-  const wrap = document.getElementById('vp-verify-wrap-' + id);
-  if (wrap) wrap.innerHTML = '<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>';
-  // カードのドットを更新
-  const card = document.getElementById('card-' + id);
-  if (card) {
-    const dot = card.querySelector('.verify-dot');
-    if (dot) { dot.className = 'verify-dot verified'; }
-    else { card.insertAdjacentHTML('afterbegin', '<div class="verify-dot verified"></div>'); }
-  }
-  window.toast?.('✓ 検証済みに設定しました');
-}
-window.vpVerify = vpVerify;
 
 // ── アーカイブ ──
 export function vpArchive(id) {
