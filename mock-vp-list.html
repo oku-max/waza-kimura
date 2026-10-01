@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 動画パネルのリスト表示（5案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+  出している情報はどれも今の動画データにあるもの: タイトル・チャンネル・長さ(v.duration)・
+  視聴済み(v.watched)・続きの位置(再生位置の記録 phGetResume)。新しく保存するものは無い。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--accent-soft:rgba(229,196,122,.13);--on-accent:#1c1c1e;--text:#ececee;--text2:#b4b4b8;--text3:#8e8e94;--border:#48484a;--border2:#3a3a3c;--green:#6bc490}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;padding-bottom:40px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.bar{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{flex:1 1 130px;min-width:0;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap}
+.tab.on{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 1px var(--accent)}
+.row2{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text3);flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--surface);border:0;padding:5px 10px;font-size:12px;color:var(--text2)}
+.seg button.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.desc{margin:10px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)} .desc .pro{color:#8fd19e} .desc .con{color:#f0a0a0}
+
+/* ── 画面（動画の上にシートが出ている状態） ── */
+.stage{margin:0 auto;position:relative;height:760px;overflow:hidden;border:1px solid var(--border);border-radius:12px;background:#000}
+.stage.pc{width:min(1100px,calc(100% - 24px))} .stage.sp{width:390px;height:780px}
+.video{position:absolute;inset:0 0 auto 0;height:340px;background:linear-gradient(135deg,#5b5f66,#2d3035);display:flex;align-items:center;justify-content:center;color:#ffffff55;font-size:13px}
+.stage.sp .video{height:220px}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:300px;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -6px 28px rgba(0,0,0,.4);display:flex;flex-direction:column}
+.stage.sp .sheet{top:190px}
+.handle{padding:10px 0 4px;text-align:center}.handle::after{content:'';display:inline-block;width:40px;height:4px;border-radius:2px;background:var(--surface3)}
+.hdr{display:flex;align-items:center;gap:8px;padding:6px 16px 10px;border-bottom:1px solid var(--border2)}
+.hdr .ttl{font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;flex-shrink:0}
+.hdr .sub{font-size:12px;color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdr .sp1{flex:1 1 0}
+.hdr select{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.hdr .dir{font-size:13px;padding:4px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2)}
+.hdr .x{font-size:16px;padding:2px 8px;background:none;border:0;color:var(--text3)}
+.body{flex:1;overflow-y:auto}
+.th{background:#0d0d0f;position:relative;overflow:hidden;flex-shrink:0;border-radius:6px}
+.th::before{content:'';position:absolute;inset:18% 12% 30% 12%;background:repeating-linear-gradient(#ffffff26 0 2px,transparent 2px 6px)}
+.dur{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.8);color:#fff;font-size:10.5px;font-weight:700;padding:1px 5px;border-radius:4px;font-family:'DM Mono',monospace}
+.pbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:#ffffff30}.pbar i{display:block;height:100%;background:#e0453a}
+.chk{color:var(--green);font-weight:800}
+.nowtag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:var(--on-accent);background:var(--accent);padding:2px 7px;border-radius:10px}
+.ch{font-size:12px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* A: 大きく・はっきり */
+.A .it{display:flex;gap:14px;align-items:center;padding:10px 16px;cursor:pointer}
+.A .it:hover{background:var(--surface2)}
+.A .num{width:22px;text-align:right;font-size:13px;font-weight:700;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
+.A .th{width:128px;height:72px}
+.stage.sp .A .th{width:104px;height:58px}
+.A .t{font-size:15px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stage.sp .A .t{font-size:14px}
+.A .it.now{background:var(--accent-soft);box-shadow:inset 4px 0 0 var(--accent)}
+.A .it.now .num{color:var(--accent)}
+.A .it.now .t{color:var(--accent)}
+
+/* B: 番号の目次（サムネなし） */
+.B .it{display:flex;gap:12px;align-items:center;padding:13px 18px;border-bottom:1px solid var(--border2);cursor:pointer}
+.B .it:hover{background:var(--surface2)}
+.B .num{width:34px;height:34px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--text2);flex-shrink:0;font-family:'DM Mono',monospace}
+.B .t{flex:1;min-width:0;font-size:15.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage.sp .B .t{font-size:14.5px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.B .len{font-size:12.5px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
+.B .it.now{background:var(--accent-soft)} .B .it.now .num{background:var(--accent);color:var(--on-accent)} .B .it.now .t{color:var(--accent)}
+.B .it.done .num{background:#2f4a3a;color:var(--green)}
+
+/* C: グリッド */
+.C .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;padding:14px 16px}
+.stage.sp .C .grid{grid-template-columns:1fr 1fr;gap:10px;padding:12px}
+.C .it{cursor:pointer;border-radius:10px;padding:6px;transition:background .12s}
+.C .it:hover{background:var(--surface2)}
+.C .th{width:100%;aspect-ratio:16/9;border-radius:8px}
+.C .t{font-size:14px;font-weight:700;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stage.sp .C .t{font-size:12.5px}
+.C .it.now{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+.C .it.now .t{color:var(--accent)}
+
+/* D: 次の1本を大きく */
+.D .sec{font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text3);padding:12px 16px 6px}
+.D .nowrow{display:flex;gap:10px;align-items:center;padding:4px 16px 10px;opacity:.9}
+.D .nowrow .th{width:72px;height:40px}
+.D .nowrow .t{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.D .next{margin:0 16px 6px;display:flex;gap:16px;align-items:center;padding:12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);cursor:pointer}
+.stage.sp .D .next{flex-direction:column;align-items:stretch;gap:10px}
+.D .next .th{width:220px;height:124px;border-radius:8px}
+.stage.sp .D .next .th{width:100%;height:auto;aspect-ratio:16/9}
+.D .next .t{font-size:18px;font-weight:800;line-height:1.35}
+.D .next .go{margin-top:10px;display:inline-flex;gap:6px;align-items:center;background:var(--accent);color:var(--on-accent);font-weight:800;font-size:13px;border:0;border-radius:20px;padding:7px 16px}
+.D .it{display:flex;gap:12px;align-items:center;padding:9px 16px;cursor:pointer}
+.D .it:hover{background:var(--surface2)}
+.D .it .th{width:96px;height:54px}
+.D .it .t{font-size:14px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* E: 進み具合つき */
+.E .it{display:flex;gap:14px;align-items:center;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border2)}
+.E .it:hover{background:var(--surface2)}
+.E .th{width:128px;height:72px}
+.stage.sp .E .th{width:104px;height:58px}
+.E .t{font-size:15px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stage.sp .E .t{font-size:14px}
+.E .meta{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3);margin-top:4px;flex-wrap:wrap}
+.E .resume{color:#f0a37a;font-weight:700}
+.E .it.done{opacity:.55}
+.E .it.now{background:var(--accent-soft);box-shadow:inset 4px 0 0 var(--accent);opacity:1}
+.E .it.now .t{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。本物のデータには何も書き込みません。動画パネルの ☰（リスト表示）を押したときに下から出るリストの見た目を5案並べています。上のタブで切り替え、「PC／スマホ」で幅を変えられます。</div>
+<div class="bar">
+  <div class="tabs" id="tabs"></div>
+  <div class="row2">幅 <div class="seg" id="wseg"><button data-w="pc" class="on">PC</button><button data-w="sp">スマホ</button></div></div>
+</div>
+<div class="desc" id="desc"></div>
+<div class="stage pc" id="stage">
+  <div class="video">（動画）</div>
+  <div class="dim"></div>
+  <div class="sheet"><div class="handle"></div><div class="hdr" id="hdr"></div><div class="body" id="body"></div></div>
+</div>
+
+<script>
+const V=[
+ {t:'01.vs クローズドガード',d:5382,w:1},
+ {t:'02. 基本原則',d:2710,w:1},
+ {t:'03.ダブルアンダー・オーバーアンダー・ニーカット',d:3125,w:1},
+ {t:'04.トレアンドパス',d:1860,r:.42},
+ {t:'05.レッグドラッグ・ロングステップ・スマッシュ',d:2944},
+ {t:'06.ガード無効化・トップキープ',d:2290,now:1,r:.18},
+ {t:'07.エントリーポジション',d:1655},
+ {t:'08.vs ガードリテンション',d:3410},
+];
+const CH='John Danaher';
+const fmt=s=>{s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
+const th=(v,cls='')=>`<div class="th ${cls}"><span class="dur">${fmt(v.d)}</span>${v.r?`<div class="pbar"><i style="width:${v.r*100}%"></i></div>`:v.w?`<div class="pbar"><i style="width:100%"></i></div>`:''}</div>`;
+const sortHdr=(ttl,sub)=>`<span class="ttl">${ttl}</span><span class="sub">${sub}</span><span class="sp1"></span><select><option>追加日</option><option>タイトル</option></select><button class="dir">↑</button><button class="x">✕</button>`;
+const tot=V.reduce((a,v)=>a+v.d,0);
+const sumTxt=`${V.length}本 · ${Math.floor(tot/3600)}時間${Math.round(tot%3600/60)}分`;
+const nowI=V.findIndex(v=>v.now);
+
+const P={
+A:{name:'A 大きく・はっきり',
+ desc:'<b>今のリストの形のまま、全部を大きくする案。</b> サムネ 64×36→128×72、タイトル 11px→15px、番号を左に。再生中は金色の帯と文字色で一目で分かる。サムネの右下に長さ、下の赤い線はどこまで見たか（YouTubeと同じ形）。<br><span class="pro">◎ 今と使い方が変わらない／どの動画か絵で分かる</span>　<span class="con">△ 一画面に入る本数は今より少ない（PCで約5本）</span>',
+ hdr:()=>sortHdr('リスト',sumTxt),
+ body:()=>'<div class="A">'+V.map((v,i)=>`<div class="it ${v.now?'now':''}"><div class="num">${v.now?'▶':i+1}</div>${th(v)}<div style="min-width:0;flex:1"><div class="t">${v.t}</div><div class="ch">${v.now?'<span class="nowtag">再生中</span> ':''}${CH}</div></div></div>`).join('')+'</div>'},
+B:{name:'B 番号の目次',
+ desc:'<b>サムネをやめて、本の目次のように並べる案。</b> 番号の丸・大きなタイトル・右に長さ。見終わったものは番号が緑、再生中は金色。シリーズ教材（01〜08のように番号付き）と相性が良い。<br><span class="pro">◎ 文字がいちばん読みやすい／一画面に入る本数が最も多い</span>　<span class="con">△ サムネで探す人には手がかりが減る（教材のサムネはほぼ同じ黒画面なので影響は小さい）</span>',
+ hdr:()=>sortHdr('リスト',sumTxt),
+ body:()=>'<div class="B">'+V.map((v,i)=>`<div class="it ${v.now?'now':''} ${v.w?'done':''}"><div class="num">${v.now?'▶':v.w?'✓':i+1}</div><div class="t">${v.t}</div><div class="len">${fmt(v.d)}</div></div>`).join('')+'</div>'},
+C:{name:'C グリッド',
+ desc:'<b>カード表示と同じく、サムネを大きく格子に並べる案。</b> PCは3〜4列、スマホは2列。<br><span class="pro">◎ 絵で選ぶならいちばん速い／ライブラリのカード表示と見た目がそろう</span>　<span class="con">△ タイトルは2行で切れる／順番（次はどれか）が目で追いにくい</span>',
+ hdr:()=>sortHdr('リスト',sumTxt),
+ body:()=>'<div class="C"><div class="grid">'+V.map((v,i)=>`<div class="it ${v.now?'now':''}">${th(v)}<div class="t">${v.now?'<span class="nowtag">▶ 再生中</span><br>':''}${v.t}</div><div class="ch">${CH}</div></div>`).join('')+'</div></div>'},
+D:{name:'D 次の1本を大きく',
+ desc:'<b>「次に見るもの」を主役にする案。</b> 上に再生中を小さく、その下に次の1本を大きなカードで（「▶ 次を再生」ボタン付き）、残りはその下に普通の大きさで並べる。<br><span class="pro">◎ 順番に見ていく使い方なら1手で次へ行ける</span>　<span class="con">△ 飛ばして別の回を選ぶときは一段下まで見る必要がある／並べ替えると「次」の意味が変わる</span>',
+ hdr:()=>sortHdr('リスト',sumTxt),
+ body:()=>{const n=V[nowI+1];return '<div class="D"><div class="sec">再生中</div><div class="nowrow">'+th(V[nowI])+`<div class="t">▶ ${V[nowI].t}</div></div><div class="sec">次に再生</div><div class="next">${th(n)}<div><div class="t">${n.t}</div><div class="ch">${CH} · ${fmt(n.d)}</div><button class="go">▶ 次を再生</button></div></div><div class="sec">このあと</div>`+V.slice(nowI+2).map(v=>`<div class="it">${th(v)}<div style="min-width:0"><div class="t">${v.t}</div><div class="ch">${CH}</div></div></div>`).join('')+'<div class="sec">前の動画</div>'+V.slice(0,nowI).map(v=>`<div class="it">${th(v)}<div style="min-width:0"><div class="t">${v.t}</div><div class="ch">${CH}</div></div></div>`).join('')+'</div>'}},
+E:{name:'E 進み具合つき',
+ desc:'<b>A に「どこまで見たか」を言葉で足す案。</b> 見終わったものは ✓ 視聴済み で薄く、途中のものは「続きから 13:01」、まだのものは長さだけ。再生中は金色。<br><span class="pro">◎ シリーズのどこまで進んだかが一目で分かる</span>　<span class="con">△ 情報が増えるぶん A より少しにぎやか／視聴済みの印は今の「視聴済み」の記録しだい</span>',
+ hdr:()=>sortHdr('リスト',`${sumTxt} · 視聴済み ${V.filter(v=>v.w).length}/${V.length}`),
+ body:()=>'<div class="E">'+V.map((v,i)=>`<div class="it ${v.now?'now':''} ${v.w?'done':''}">${th(v)}<div style="min-width:0;flex:1"><div class="t">${v.t}</div><div class="meta">${v.now?'<span class="nowtag">▶ 再生中</span>':''}${v.w?'<span class="chk">✓ 視聴済み</span>':v.r&&!v.now?`<span class="resume">続きから ${fmt(v.d*v.r)}</span>`:''}<span>${fmt(v.d)}</span><span>${CH}</span></div></div></div>`).join('')+'</div>'},
+};
+let cur='A',w='pc';
+const tabs=document.getElementById('tabs');
+tabs.innerHTML=Object.keys(P).map(k=>`<button class="tab" data-k="${k}">${P[k].name}</button>`).join('');
+function draw(){
+  tabs.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===cur));
+  document.querySelectorAll('#wseg button').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
+  document.getElementById('stage').className='stage '+w;
+  document.getElementById('desc').innerHTML=P[cur].desc;
+  document.getElementById('hdr').innerHTML=P[cur].hdr();
+  document.getElementById('body').innerHTML=P[cur].body();
+  const bd=document.getElementById('body');bd.scrollTop=0;const n=document.querySelector('#body .now');if(n)n.scrollIntoView({block:'center'});window.scrollTo(0,0);
+}
+tabs.onclick=e=>{const b=e.target.closest('.tab');if(b){cur=b.dataset.k;draw();}};
+document.getElementById('wseg').onclick=e=>{const b=e.target.closest('button');if(b){w=b.dataset.w;draw();}};
+draw();
+</script>
+</body>
+</html>
