@@ -3169,12 +3169,16 @@ function _ytSubSetPref(v) { try { localStorage.setItem(YT_SUB_PREF_KEY, v); } ca
 const YT_CC_MODULES = ['captions', 'cc'];   // HTML5プレイヤーは 'captions'、旧いものは 'cc'
 const YT_CC_MAX_TRIES = 40;                 // 2秒ごと＝約80秒まで探し続ける
 
-// 「English (auto-generated)」のような長い名前はボタンに収まらないので詰める
+// 「English (auto-generated)」のような名前から、言語名だけを取り出す。
+// 自動生成かどうかは別に持つ（名前に混ぜると、並べたときに区別が読み取りにくい）。
 function _ytCcName(t) {
-  const raw  = String(t.displayName || t.languageName || t.languageCode || '').trim();
-  const auto = String(t.kind || '') === 'asr';
-  const name = raw.replace(/\s*[（(](?:auto-generated|自動生成|automatic)[）)]\s*/i, '').slice(0, 10);
-  return (name || '字幕') + (auto ? '(自動)' : '');
+  const raw = String(t.displayName || t.languageName || t.languageCode || '').trim();
+  const name = raw.replace(/\s*[（(](?:auto-generated|自動生成|automatic)[）)]\s*/i, '').slice(0, 24);
+  return name || '字幕';
+}
+// YouTubeが自動で作った字幕か。kind:'asr' が正。vss_id の 'a.' も同じ意味なので両方見る。
+function _ytCcAuto(t) {
+  return String(t.kind || '') === 'asr' || /^a\./.test(String(t.vss_id || ''));
 }
 
 // 純正トラックの一覧を取りに行く。取れたら true。
@@ -3188,10 +3192,15 @@ function _ytCcRead() {
     try { list = _ytPlayer?.getOption?.(m, 'tracklist'); } catch (e) {}
     if (!Array.isArray(list)) continue;
     _ytCcMod = m;
+    // 空で返ってきた直後に「この動画に字幕は無い」と決めない。
+    // モジュールが用意されきる前は空の配列が返ることがあり、そこで確定すると
+    // 実際には字幕がある動画で「字幕なし」と言い続けることになる（オーナー報告）。
+    if (!list.length && _ytCcTries < 10) return false;
     _ytCcTracks = list
-      .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: 'YT ' + _ytCcName(t), raw: t }))
+      .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: _ytCcName(t),
+                   auto: _ytCcAuto(t), raw: t }))
       .filter(t => t.code);
-    return true;   // 空配列＝この動画に純正字幕が無い。これも「分かった」ので探すのをやめる
+    return true;
   }
   return false;
 }
@@ -3218,9 +3227,31 @@ function _ytSubEnforceCc() {
   const cur = _ytSubCur();
   if (cur && cur.kind === 'yt') {
     if (_ytCcCurCode() !== cur.track.code) _ytCcSet(cur.track.raw);
-  } else if (_ytCcCurCode()) {
-    _ytCcSet(null);
+    return;
   }
+  if (cur) {                       // 生成字幕を出している間は純正を切る（重なって読めない）
+    if (_ytCcCurCode()) _ytCcSet(null);
+    return;
+  }
+  // 「字幕なし」のとき。この動画でユーザーが自分で「字幕なし」を選んだ時だけ切る。
+  // そうでなければ、YouTube側のCCボタンで出している字幕には触らない
+  // （こちらが勝手に消すと、出していたものが黙って消える）。
+  if (_ytSubPicked && _ytCcCurCode()) _ytCcSet(null);
+}
+
+// YouTube側のCCボタンで出ている字幕を、こちらの選択に映す。
+// ユーザーが⚙で選んでいない間だけ。画面に出ているものと⚙の●がずれないようにする。
+function _ytSubAdoptCc() {
+  if (_ytSubPicked) return;
+  const cur = _ytSubCur();
+  if (cur && cur.kind === 'gen') return;     // 生成字幕を出している最中は触らない
+  const code = _ytCcCurCode();
+  const key  = code ? 'yt:' + code : 'off';
+  if (key === _ytSubSel) return;
+  if (key !== 'off' && !_ytSubSources().some(x => x.key === key)) return;
+  _ytSubSel = key;
+  window.wkSubMenuSync?.();
+  window.wkSubOptsRender?.();
 }
 
 // 純正トラックは、モジュールが用意されるまで（多くは再生が始まるまで）取れない。
@@ -3306,6 +3337,12 @@ function _subGenNote(t) {
   return how + (t.updatedAt ? (how ? ' · ' : '') + String(t.updatedAt).slice(0, 10) : '');
 }
 
+// YouTube側の字幕をまだ探している最中か。
+// 見つかる前に「字幕がありません」と言い切ると、実際にはある動画で嘘になる。
+function _subSearchingYt() {
+  return !_gdSubTracks.length && !!_ytSubId && !_ytCcFound && _ytCcTries < YT_CC_MAX_TRIES;
+}
+
 function _subChoices() {
   const out = [{ key: 'off', name: '字幕なし', src: '', note: '', on: false }];
   if (_gdSubTracks.length) {
@@ -3316,9 +3353,15 @@ function _subChoices() {
     return out;
   }
   for (const s of _ytSubSources()) {
+    const auto = s.kind === 'yt' && !!s.track.auto;
     out.push({
-      key: s.key, name: s.label, src: s.kind === 'yt' ? 'yt' : 'wk',
-      note: s.kind === 'yt' ? '時刻は音に合っています' : _subGenNote(s.track),
+      key: s.key,
+      // 自動生成か、動画に元から付いている字幕かが名前だけで分かるようにする
+      name: s.kind === 'yt' ? s.label + (auto ? '（自動生成）' : '') : s.label,
+      src: s.kind === 'yt' ? 'yt' : 'wk',
+      note: s.kind === 'yt'
+              ? (auto ? 'YouTubeが自動で作った字幕' : '動画に元から付いている字幕')
+              : _subGenNote(s.track),
       on: _ytSubSel === s.key,
     });
   }
@@ -3390,8 +3433,10 @@ async function _ytSubAttachInner(ytId, want) {
   const doc  = await _ytSubFetch(ytId);
   if (my !== _ytSubToken) return;               // その間に別の動画へ移った
   const list = _ytSubList(doc);
-  // 生成字幕が1つも無い動画では出しゃばらない（YouTube純正のCCボタンがそのまま使える）
-  if (!list.length) return;
+  // 生成字幕が1つも無くても、ここで降りない（v52.918・オーナー報告）。
+  // 降りていたので _ytCcSeek が一度も回らず、YouTube側に字幕があるのに
+  // ⚙メニューが「この動画には字幕がありません」と言っていた。
+  // 自前の字幕を描く器（host）は、生成字幕があるときだけ必要。
   // パネルが開ききる前だとプレイヤーの器が測れない（幅0）。一度だけ待って取り直す。
   _ytSubHostEl = null;
   let host = _ytSubHost();
@@ -3400,7 +3445,7 @@ async function _ytSubAttachInner(ytId, want) {
     if (my !== _ytSubToken) return;
     host = _ytSubHost();
   }
-  if (!host) return;
+  if (!host && list.length) return;   // 生成字幕を描く場所が無いときだけ降りる
 
   _ytSubId = ytId;
   _ytSubTracks = list.map(t => ({ ...t, rawVtt: _srtToVtt(t.srt), cues: [] }));
@@ -3500,6 +3545,7 @@ function _ytSubTick() {
   if (now - _ytSubLastCc > 2000) {
     _ytSubLastCc = now;
     _ytCcSeek();          // 純正トラックが見つかるまで探し続ける
+    _ytSubAdoptCc();      // YouTube側で出ている字幕を⚙の表示に映す
     _ytSubEnforceCc();
   }
 
@@ -8144,7 +8190,9 @@ function _subMenuBlock(box, closeMenu) {
   if (list.length <= 1) {
     const none = document.createElement('div');
     none.className = 'vp-sub-none';
-    none.textContent = 'この動画には字幕がありません';
+    none.textContent = _subSearchingYt()
+      ? 'YouTube側の字幕を探しています（再生を始めると出てきます）'
+      : 'この動画には字幕がありません';
     grp.appendChild(none);
   } else {
     for (const c of list) {
