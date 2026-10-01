@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — リストのチャンネル名・プレイリスト名を押す（3案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  押したあとの動きは、動画パネルの右側でチャンネル／プレイリストを押したときと同じ
+  （vpJumpToChannel / vpJumpToPlaylist をそのまま呼ぶ）: 確かめる → 動画パネルを閉じる → ライブラリをそれだけに絞る。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f2f2f4;--surface:#fff;--surface2:#f3f3f5;--surface3:#e6e6ea;--accent:#111;--gold:#c9a24a;--gold-soft:#fbf5e6;--text:#111;--text2:#444;--text3:#777;--border:#dcdce0;--border2:#ececf0;--link:#2563eb}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;padding-bottom:40px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.bar{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{flex:1 1 150px;min-width:0;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap}
+.tab.on{border-color:#111;color:#111;font-weight:800;box-shadow:inset 0 0 0 1px #111}
+.row2{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text3);flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--surface);border:0;padding:5px 10px;font-size:12px;color:var(--text2)}
+.seg button.on{background:#111;color:#fff;font-weight:700}
+.desc{margin:10px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)} .desc .pro{color:#15803d} .desc .con{color:#b91c1c}
+.steps{display:flex;gap:6px;margin:0 12px 10px;font-size:12px;color:var(--text3);flex-wrap:wrap}
+.steps span{padding:4px 10px;border-radius:14px;background:var(--surface3)}
+.steps span.on{background:#111;color:#fff;font-weight:700}
+
+.stage{margin:0 auto;position:relative;height:640px;overflow:hidden;border:1px solid var(--border);border-radius:12px;background:#000}
+.stage.pc{width:min(1000px,calc(100% - 24px))} .stage.sp{width:390px;height:760px}
+.video{position:absolute;inset:0 32% 45% 0;background:linear-gradient(135deg,#5b5f66,#2d3035);display:flex;align-items:center;justify-content:center;color:#ffffff66;font-size:13px}
+.stage.sp .video{inset:0 0 auto 0;height:220px}
+.side{position:absolute;top:0;right:0;bottom:0;width:32%;background:#fafafa;border-left:1px solid var(--border);padding:14px;font-size:12px;color:var(--text3)}
+.stage.sp .side{display:none}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+.pop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;max-height:84%;background:var(--surface);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.35);display:flex;flex-direction:column}
+.stage.sp .pop{left:0;right:0;top:auto;bottom:0;transform:none;width:auto;max-height:70%;border-radius:16px 16px 0 0}
+.phdr{display:flex;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border2)}
+.phdr b{font-size:13px;color:var(--text3)} .phdr .sp1{flex:1} .phdr .x{border:0;background:none;font-size:18px;color:var(--text3)}
+.plist{overflow-y:auto}
+.it{display:flex;gap:10px;align-items:center;padding:9px 16px;border-top:1px solid var(--border2);cursor:pointer;position:relative}
+.it:hover{background:var(--surface2)}
+.it.now{background:var(--gold-soft);box-shadow:inset 3px 0 0 #111}
+.th{width:76px;height:43px;border-radius:5px;background:#111;flex-shrink:0}
+.info{flex:1;min-width:0}
+.t{font-size:13.5px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:11.5px;color:var(--text3);margin-top:3px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;min-width:0}
+.dur{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
+/* A: 文字のリンク */
+.A .lk{color:var(--text2);text-decoration:underline;text-decoration-color:#bbb;text-underline-offset:2px;cursor:pointer;border-radius:3px;padding:1px 2px;margin:-1px -2px}
+.A .lk:hover{color:var(--link);text-decoration-color:var(--link);background:#eef3ff}
+/* B: 小さなチップ */
+.B .lk{display:inline-block;vertical-align:middle;font-size:11px;color:var(--text2);border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:2px 8px;cursor:pointer;max-width:48%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.B .lk:hover{border-color:#111;color:#111}
+.B .lk i{font-style:normal;opacity:.6;margin-right:3px}
+/* C: ⋯ メニュー */
+.C .more{flex-shrink:0;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:14px;color:var(--text3)}
+.C .more:hover{border-color:#111;color:#111}
+.menu{position:absolute;right:52px;top:38px;z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:4px;min-width:250px}
+.menu div{padding:9px 12px;border-radius:7px;font-size:13px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu div:hover{background:var(--surface2)}
+.menu small{display:block;color:var(--text3);font-size:11px;margin-top:1px}
+/* 確かめる */
+.conf{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,88%);background:var(--surface);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.4);padding:18px}
+.conf h3{font-size:15px;margin-bottom:8px} .conf p{font-size:13px;color:var(--text2);line-height:1.6}
+.conf .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.conf .btns button{padding:8px 16px;border-radius:9px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:700}
+.conf .btns button.ok{background:#111;color:#fff;border-color:#111}
+/* ライブラリ */
+.lib{position:absolute;inset:0;background:var(--bg);padding:12px}
+.lhdr{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text3);margin-bottom:10px;flex-wrap:wrap}
+.fchip{display:inline-flex;gap:6px;align-items:center;background:#111;color:#fff;border-radius:14px;padding:4px 10px;font-size:12px;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.stage.sp .cards{grid-template-columns:1fr}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card .cth{aspect-ratio:16/9;background:#111}
+.stage.sp .card{display:flex;gap:10px;padding:8px}.stage.sp .card .cth{width:120px;flex-shrink:0;border-radius:6px}
+.card .ct{font-size:12.5px;font-weight:700;padding:8px 10px 2px}.stage.sp .card .ct{padding:2px 0}
+.card .cm{font-size:11px;color:var(--text3);padding:0 10px 10px}.stage.sp .card .cm{padding:0}
+.toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111;color:#fff;font-size:12px;padding:8px 14px;border-radius:20px}
+.hint{position:absolute;pointer-events:none;border:2px solid #ef4444;border-radius:8px;box-shadow:0 0 0 4px rgba(239,68,68,.18)}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。本物のデータには何も書き込みません。動画パネルの ☰ リストで、チャンネル名・プレイリスト名を押したときの動きです。<b>押した後は、動画パネルの右側でチャンネル／プレイリストを押したときと同じ</b>（確かめる → 動画パネルを閉じる → ライブラリをそれだけに絞る）。名前の見せ方を3案用意しました。リストの行の名前を実際に押して進めてください。</div>
+<div class="bar">
+  <div class="tabs" id="tabs"></div>
+  <div class="row2">幅 <div class="seg" id="wseg"><button data-w="pc" class="on">PC</button><button data-w="sp">スマホ</button></div>
+    <button id="reset" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px">↺ 最初から</button></div>
+</div>
+<div class="desc" id="desc"></div>
+<div class="steps" id="steps"><span data-s="0">① リスト</span><span data-s="1">② 確かめる</span><span data-s="2">③ ライブラリが絞られる</span></div>
+<div class="stage pc" id="stage"></div>
+
+<script>
+const V=[
+ {t:'スマッシュパスの基本について解説した',ch:'『ブラジリアン柔術』DEEP HALF CLUB',pl:'',d:''},
+ {t:'The "HULK SMASH PASS!!" Atos Jiu Jitsu HQ',ch:'Atos Jiu-Jitsu HQ',pl:'',d:''},
+ {t:'Adam Wardzinski - Closed Guard Reintroduced 01',ch:'Adam Wardzinski',pl:'Closed Guard Reintroduced',d:'44:04'},
+ {t:'Adam Wardzinski - Closed Guard Reintroduced 02',ch:'Adam Wardzinski',pl:'Closed Guard Reintroduced',d:'51:27'},
+ {t:'Adam Wardzinski - Closed Guard Reintroduced 03',ch:'Adam Wardzinski',pl:'Closed Guard Reintroduced',d:'47:35',now:1},
+ {t:'Adam Wardzinski - Closed Guard Reintroduced 04',ch:'Adam Wardzinski',pl:'Closed Guard Reintroduced',d:'46:34'},
+ {t:'Adam Wardzinski - Closed Guard Reintroduced 05',ch:'Adam Wardzinski',pl:'Closed Guard Reintroduced',d:'37:34'},
+ {t:'【質問回答】ワームを潰されないコツは？教えて野村先生！',ch:'浅草BOYS',pl:'',d:''},
+];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const P={
+A:{name:'A 文字のリンク',desc:'<b>今の見た目のまま、名前に薄い下線を付ける案。</b> マウスを乗せると青くなる。名前以外（タイトルやサムネ）を押すと今までどおりその動画を再生。<br><span class="pro">◎ 見た目がほとんど変わらない</span>　<span class="con">△ スマホでは押せることに気づきにくい／指で押すには文字が小さい</span>',
+ meta:(v,i)=>[v.ch&&`<span class="lk" data-k="ch" data-i="${i}">${esc(v.ch)}</span>`,v.pl&&`<span class="lk" data-k="pl" data-i="${i}">${esc(v.pl)}</span>`].filter(Boolean).join('<span>·</span>')},
+B:{name:'B 小さなチップ',desc:'<b>名前を小さな枠（チップ）にする案。</b> 動画パネルの右側のチャンネル・プレイリストと同じ「押せる形」。👤 がチャンネル、📁 がプレイリスト。<br><span class="pro">◎ 押せると一目で分かる／指でも押しやすい／右側と同じ形でそろう</span>　<span class="con">△ 行が少しにぎやかになる／長い名前は途中で切れる</span>',
+ meta:(v,i)=>[v.ch&&`<span class="lk" data-k="ch" data-i="${i}"><i>👤</i>${esc(v.ch)}</span>`,v.pl&&`<span class="lk" data-k="pl" data-i="${i}"><i>📁</i>${esc(v.pl)}</span>`].filter(Boolean).join('')},
+C:{name:'C ⋯ メニュー',desc:'<b>名前はそのまま文字で出し、行の右の ⋯ から選ぶ案。</b> ⋯ を押すと「このチャンネルを表示」「このプレイリストを表示」が出る。<br><span class="pro">◎ 行の見た目が今と同じ／押し間違えにくい</span>　<span class="con">△ 1手多い（⋯ → 選ぶ）</span>',
+ meta:(v)=>[v.ch,v.pl].filter(Boolean).map(esc).join(' · ')},
+};
+let cur='B',w='pc',step=0,pick=null,menuI=-1;
+const stage=document.getElementById('stage');
+function listHTML(){
+  return `<div class="video">（動画）</div><div class="side">ブックマーク・メモ・チャンネル・プレイリスト…（右の列）</div><div class="dim"></div>
+  <div class="pop ${cur}"><div class="phdr"><b>次の動画</b><span class="sp1"></span><button class="x">✕</button></div><div class="plist">`+
+  V.map((v,i)=>`<div class="it ${v.now?'now':''}" data-row="${i}"><div class="th"></div><div class="info"><div class="t">${esc(v.t)}</div><div class="meta">${P[cur].meta(v,i)}</div></div>${v.d?`<div class="dur">${v.d}</div>`:''}${cur==='C'&&(v.ch||v.pl)?`<button class="more" data-more="${i}">⋯</button>`:''}${cur==='C'&&menuI===i?`<div class="menu">${v.ch?`<div data-k="ch" data-i="${i}">👤 このチャンネルを表示<small>${esc(v.ch)}</small></div>`:''}${v.pl?`<div data-k="pl" data-i="${i}">📁 このプレイリストを表示<small>${esc(v.pl)}</small></div>`:''}</div>`:''}</div>`).join('')+`</div></div>`;
+}
+function draw(){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===cur));
+  document.querySelectorAll('#wseg button').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
+  document.querySelectorAll('#steps span').forEach(b=>b.classList.toggle('on',+b.dataset.s===step));
+  document.getElementById('desc').innerHTML=P[cur].desc;
+  stage.className='stage '+w;
+  if(step===0){stage.innerHTML=listHTML();const c=stage.querySelector('.it.now');if(c)c.scrollIntoView({block:'center'});window.scrollTo(0,0);}
+  else if(step===1){const v=V[pick.i],ch=pick.k==='ch';stage.innerHTML=listHTML()+`<div class="dim"></div><div class="conf"><h3>🔍 ${ch?'チャンネル':'プレイリスト'}を表示</h3><p>${ch?'チャンネル':'プレイリスト'}「${esc(ch?v.ch:v.pl)}」を表示しますか？</p><div class="btns"><button data-c="no">キャンセル</button><button class="ok" data-c="ok">OK</button></div></div>`;}
+  else{const v=V[pick.i],ch=pick.k==='ch',name=ch?v.ch:v.pl;const hits=V.filter(x=>(ch?x.ch:x.pl)===name);
+    stage.innerHTML=`<div class="lib"><div class="lhdr"><b style="color:var(--text)">Library</b><span>${hits.length} 本</span><span class="fchip">${ch?'👤':'📁'} ${esc(name)} ✕</span><span style="flex:1"></span><span>（動画パネルは閉じた）</span></div><div class="cards">${hits.map(x=>`<div class="card"><div class="cth"></div><div><div class="ct">${esc(x.t)}</div><div class="cm">${esc(x.ch)}${x.pl?' · '+esc(x.pl):''}</div></div></div>`).join('')}</div></div>`;}
+}
+const tabs=document.getElementById('tabs');
+tabs.innerHTML=Object.keys(P).map(k=>`<button class="tab" data-k="${k}">${P[k].name}</button>`).join('');
+tabs.onclick=e=>{const b=e.target.closest('.tab');if(b){cur=b.dataset.k;step=0;menuI=-1;draw();}};
+document.getElementById('wseg').onclick=e=>{const b=e.target.closest('button');if(b){w=b.dataset.w;draw();}};
+document.getElementById('steps').onclick=e=>{const b=e.target.closest('span');if(!b)return;const s=+b.dataset.s;if(s>0&&!pick)pick={k:'ch',i:4};step=s;draw();};
+document.getElementById('reset').onclick=()=>{step=0;pick=null;menuI=-1;draw();};
+stage.onclick=e=>{
+  const lk=e.target.closest('[data-k]'); if(lk&&step===0){e.stopPropagation();pick={k:lk.dataset.k,i:+lk.dataset.i};menuI=-1;step=1;draw();return;}
+  const m=e.target.closest('[data-more]'); if(m){menuI=menuI===+m.dataset.more?-1:+m.dataset.more;draw();return;}
+  const c=e.target.closest('[data-c]'); if(c){step=c.dataset.c==='ok'?2:0;draw();return;}
+  const row=e.target.closest('.it'); if(row&&step===0){menuI=-1;const v=V[+row.dataset.row];const t=document.createElement('div');t.className='toast';t.textContent=`「${v.t.slice(0,24)}…」を再生（今までどおり）`;stage.appendChild(t);setTimeout(()=>t.remove(),1400);}
+};
+draw();
+</script>
+</body>
+</html>
