@@ -3399,19 +3399,16 @@ function _subChoices() {
       });
       continue;
     }
-    // 保存してある字幕。中身がYouTubeの字幕そのものなら「YouTubeの字幕」として出す。
-    // ここを「WAZA KIMURA生成」と呼んでいたため、YouTubeの字幕が一覧に出ている
-    // のに「YouTubeの字幕が選べない」と見えていた（オーナー指摘・何度も）。
-    // 作り直したのでも訳したのでもなく、YouTubeの字幕をそのまま取り込んだもの。
-    const via    = String(s.track.via || '');
-    const fromYt = via.startsWith('yt:') && !via.includes('+translate');
-    const day    = s.track.updatedAt ? ' · ' + String(s.track.updatedAt).slice(0, 10) : '';
+    // 保存してある字幕は、このアプリの字幕。中身の元がYouTubeの字幕でも、
+    // ファイルを持っているのも画面に描いているのもこちらなので「WAZA KIMURA生成」。
+    // v52.923 でこれを「YouTube」と呼び替えたのは間違いだった（オーナー
+    // 「アプリで生成した字幕じゃん。嘘じゃん」）。元の呼び方に戻す。
+    // 中身がどこから来たかは説明の行に書く（YouTubeの字幕から作成 など）。
     out.push({
       key: s.key,
       name: s.label,
-      src: fromYt ? 'yt' : 'wk',
-      note: fromYt ? 'YouTubeの字幕をそのまま表示・見た目を変えられます' + day
-                   : _subGenNote(s.track),
+      src: 'wk',
+      note: _subGenNote(s.track),
       on: _ytSubSel === s.key,
     });
   }

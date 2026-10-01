@@ -218,14 +218,16 @@ r1.none.includes('字幕はありません') || r1.none.includes('探してい�
   ? ok('サーバー経由の「取り込む」は無い（オーナー: ややこしい）')
   : fail('取り込みが戻っている');
 
-// ⑩ YouTubeの字幕そのものを「WAZA KIMURA生成」と呼ばないこと（v52.922・オーナー指摘）。
-//    取り込んだ字幕は中身も時刻もYouTubeのもの。名前が違うと「選べない」に見える。
-/const fromYt = via\.startsWith\('yt:'\) && !via\.includes\('\+translate'\);/.test(src)
-  ? ok('YouTubeの字幕から作ったものは YouTube の字幕として出す')
-  : fail('YouTubeの字幕を「WAZA KIMURA生成」と呼んでいる（選べないように見える）');
-/YouTubeの字幕をそのまま表示/.test(src)
-  ? ok('取り込み済みの字幕は「そのまま表示」と説明する')
-  : fail('取り込み済みかどうかが説明されていない');
+// ⑩ 保存してある字幕は「このアプリの字幕」と呼ぶ（v52.931）。
+//    中身の元がYouTubeの字幕でも、ファイルを持ち画面に描いているのはこちら。
+//    v52.923 でこれを「YouTube」と呼び替え、オーナーに「嘘じゃん」と言われた。
+//    「YouTubeの字幕」と名乗ってよいのは、YouTube自身が描くもの（CCを出す行）だけ。
+!/YouTubeの字幕をそのまま表示/.test(src)
+  ? ok('保存した字幕を「YouTubeの字幕」と名乗らない')
+  : fail('アプリの字幕を「YouTubeの字幕」だと言っている');
+/src: 'wk',\s*\n\s*note: _subGenNote\(s\.track\),/.test(src)
+  ? ok('保存した字幕は WAZA KIMURA のもの・由来は説明の行に書く')
+  : fail('保存した字幕の呼び方が変わっている');
 r1.sync === 'function' ? ok('後から字幕が見つかったら描き直せる（wkSubMenuSync）') : fail('wkSubMenuSync が生えていない');
 r1.pick === 'function' ? ok('選択の入口は wkSubPick の1か所')                  : fail('wkSubPick が生えていない');
 
