@@ -3345,14 +3345,15 @@ window.wkYtSubPick = function(key) { _ytSubSetSel(key, true); };
 const SUB_SRC_LABEL = { wk: 'WAZA KIMURA生成', yt: 'YouTube' };
 
 // どうやって作った字幕かの一言。オーナーが見て意味の分かる言葉にする。
+// アプリの字幕の説明。
+// 「YouTubeの字幕から作成」のような材料の出どころは書かない（オーナー
+// 「紛らわしい。アプリがオリジナルで生成した字幕だと分かりやすく言え」）。
+// 例外は、時刻がAIの推測のもの（＝合わない字幕）。そこだけは黙って出さない。
 function _subGenNote(t) {
-  if (!t) return '';
-  const via = String(t.via || '');
-  const how = via.startsWith('yt:')       ? 'YouTubeの字幕から作成'
-            : via === 'gemini'            ? 'AIが動画から作成（時刻はAIの推測）'
-            : via.startsWith('translate') ? '既存の字幕から翻訳'
-            : '';
-  return how + (t.updatedAt ? (how ? ' · ' : '') + String(t.updatedAt).slice(0, 10) : '');
+  if (!t) return 'このアプリが作った字幕';
+  const ai  = String(t.via || '') === 'gemini';
+  const how = ai ? 'このアプリが作った字幕（時刻はAIの推測）' : 'このアプリが作った字幕';
+  return how + (t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : '');
 }
 
 // YouTube側の字幕をまだ探している最中か。
@@ -8384,24 +8385,10 @@ function _subMenuBlock(box, closeMenu) {
     }
   }
 
-  // YouTube自身の字幕を取り込む行。
-  // プレイヤーのAPIが返事をしない動画でも、ここから取り込めば一覧に並び、
-  // 見た目もこちらで変えられる（オーナー「YouTubeの字幕もこのパネルで扱いたい」）。
-  if (_vpCurrentPlat === 'yt') {
-    const cc = document.createElement('button');
-    cc.type = 'button';
-    cc.className = 'vp-sub-pick vp-sub-ytcc' + (_ytCcWanted ? ' on' : '');
-    cc.innerHTML = `<span class="mk">CC</span>
-      <span class="tx"><span class="nm">${_ytCcWanted ? 'YouTubeの字幕を消す' : 'YouTubeの字幕を出す'}</span>
-      <span class="nt">YouTube側で表示・見た目は変えられません</span></span>`;
-    cc.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkYtCcToggle(); };
-    grp.appendChild(cc);
-  }
-
   // 「どれを出すか」を選ぶ行と、「どう見せるか」を開く行は別物。
-  // 同じ形で並べると区別がつかない（オーナー指摘）ので、枠の中の最後に、
-  // 選択肢とは違う見た目（地の色・歯車・›）で置く。設定の中身は長いので
-  // ここには展開せず、別のポップアップで開く。
+  // 同じ形で並べると区別がつかない（オーナー指摘）ので、選択肢とは違う見た目
+  // （地の色・歯車・›）で、アプリの字幕のすぐ下に置く。
+  // 見た目を変えられるのはアプリの字幕だけなので、YouTube本体の行より上に置く。
   const cfg = document.createElement('button');
   cfg.type = 'button';
   cfg.className = 'vp-sub-cfg';
@@ -8416,6 +8403,23 @@ function _subMenuBlock(box, closeMenu) {
   };
   grp.appendChild(cfg);
 
+  // ここから下は YouTube 本体の字幕。見た目を変えられないので、線で分ける
+  // （オーナー「YouTubeの字幕だと明らかに分かるように線を引くなりして区別をつけろ」）。
+  if (_vpCurrentPlat === 'yt') {
+    const sep = document.createElement('div');
+    sep.className = 'vp-sub-sep';
+    sep.innerHTML = '<i></i><span>ここから下は YouTube 本体</span><i></i>';
+    grp.appendChild(sep);
+
+    const cc = document.createElement('button');
+    cc.type = 'button';
+    cc.className = 'vp-sub-pick vp-sub-ytcc' + (_ytCcWanted ? ' on' : '');
+    cc.innerHTML = `<span class="mk">CC</span>
+      <span class="tx"><span class="nm">${_ytCcWanted ? 'YouTubeの字幕を消す' : 'YouTubeの字幕を出す'}</span>
+      <span class="nt">YouTube側で表示・見た目は変えられません</span></span>`;
+    cc.onclick = (ev) => { ev.stopPropagation(); closeMenu(); window.wkYtCcToggle(); };
+    grp.appendChild(cc);
+  }
   // 状態（オーナーのときだけ）。推測せずに原因を見るための行。
   if (window.wkIsOwner?.() && _vpCurrentPlat === 'yt') {
     const d = document.createElement('div');

@@ -56,6 +56,19 @@ alive.length === 0
   : fail('略語（YT・アプリ）が画面に戻っている');
 
 // ⑤ 設定はメニューに展開せず、別のポップアップで開く
+// 並び（v52.937・オーナー「アプリの字幕とYouTubeの字幕の間に見た目の設定を置け。
+// YouTubeの字幕だと明らかに分かるように線を引け」）
+(src.indexOf("grp.appendChild(cfg);") > 0
+  && src.indexOf("grp.appendChild(cfg);") < src.indexOf("sep.className = 'vp-sub-sep'"))
+  ? ok('見た目の調整は、アプリの字幕とYouTube本体の間にある')
+  : fail('並びが違う（見た目の調整が YouTube の行より下にある）');
+/sep\.innerHTML = '<i><\/i><span>ここから下は YouTube 本体<\/span><i><\/i>';/.test(src)
+  ? ok('YouTube本体の字幕は線で区切る')
+  : fail('区切りが無い（どこからYouTubeか分からない）');
+// アプリの字幕の説明に「YouTube」を入れない（紛らわしい・オーナー指摘）
+/const how = ai \? 'このアプリが作った字幕（時刻はAIの推測）' : 'このアプリが作った字幕';/.test(src)
+  ? ok('アプリの字幕は「このアプリが作った字幕」と書く（YouTubeの語を混ぜない）')
+  : fail('アプリの字幕の説明に材料の出どころが戻っている');
 /vp-sub-cfg/.test(src) && /_gdSubOpenPanel\(anchor\)/.test(src)
   ? ok('設定は別のポップアップで開く（メニューに展開しない）')
   : fail('設定をメニューの中に展開している');
