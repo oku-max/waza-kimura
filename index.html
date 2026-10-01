@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.919</title>
+<title>WAZA KIMURA v52.920</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1626,13 +1626,13 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
         </div>
         <div style="display:flex;align-items:center;gap:4px">
           <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px" data-i18n="common.reset">リセット</button>
-          <select id="sort-key" onchange="_setSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+          <select id="sort-key" onchange="_setSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
             <option value="addedAt" data-i18n="sort.addedAt">追加日</option>
             <option value="title" data-i18n="sort.title">タイトル</option>
             <option value="lastPlayed" data-i18n="sort.lastPlayed">最近再生した</option>
             <option value="duration" data-i18n="sort.duration">再生時間</option>
           </select>
-          <button class="sort-dir-btn" onclick="_toggleSortDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
+          <button class="sort-dir-btn" onclick="_toggleSortDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
         </div>
       </div>
       <div class="bulk-inline" style="display:none">
