@@ -8377,15 +8377,19 @@ function _subMenuBlock(box, closeMenu) {
       : 'まだこの動画の字幕はありません';
     mine.appendChild(none);
   } else {
+    // 字幕には番号を振る（オーナー「わかりやすいように字幕に番号つけて」）。
+    // 出ているものは番号の丸が塗られる＝選択の印も兼ねる。
+    let no = 0;
     for (const c of list) {
       if (c.key === 'off') continue;   // 「字幕なし」の行は置かない（もう一度押せば消える）
+      no++;
       const row = document.createElement('div');
       row.className = 'vp-sub-pick' + (c.on ? ' on' : '');
       // 選ぶところ（行の大部分）
       const hit = document.createElement('button');
       hit.type = 'button';
       hit.className = 'hit';
-      hit.innerHTML = `<span class="mk">${c.on ? '●' : '○'}</span>
+      hit.innerHTML = `<span class="mk">${no}</span>
         <span class="tx"><span class="nm">${_escHtml(_subChoiceLabel(c))}</span>
         ${c.note ? `<span class="nt">${_escHtml(c.note)}</span>` : ''}</span>`;
       hit.onclick = (ev) => { ev.stopPropagation(); window.wkSubPick(c.key); };

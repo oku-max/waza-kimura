@@ -64,6 +64,14 @@ alive.length === 0
 // そしたら設定行不要になるだろうが」。
 // ⚙ は字幕の行の右端。独立した設定の行は置かない。
 // YouTube本体の行には ⚙ が付かないので、調整できる／できないが見た目で分かる。
+// 字幕には番号（オーナー「わかりやすいように字幕に番号つけて」）
+/<span class="mk">\$\{no\}<\/span>/.test(src) && /no\+\+;/.test(src)
+  ? ok('字幕に番号が振られる')
+  : fail('番号が無い');
+/\.vp-sub-pick\.on \.mk \{[^}]*background: var\(--accent/s
+  .test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'))
+  ? ok('出ている字幕は番号の丸が塗られる（選択の印を兼ねる）')
+  : fail('どれが出ているか分からない');
 /cog\.className = 'cog';/.test(src) && /row\.appendChild\(cog\);/.test(src)
   ? ok('⚙ は字幕の行の右端にある')
   : fail('⚙ が行の右端に無い');
