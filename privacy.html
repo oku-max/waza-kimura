@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<!--
+  プライバシーポリシー（草案 v1 / 2026-08-13 作成）
+  ⚠️ 未確定箇所は【要記入】と書いてあります。公開前に埋めてください。
+  日本語版が正本。英語版は参考訳。
+
+  ⚠️ このページには YouTube API Services および Google API Services User Data Policy が
+     要求する開示項目が含まれています。文言を削るときは下記を必ず残してください:
+       - YouTube 利用規約へのリンク
+       - Google プライバシーポリシーへのリンク
+       - アクセス権の取り消し方法（https://myaccount.google.com/permissions）
+       - 取得データの種類・利用目的・保存期間
+       - Google ユーザーデータの限定利用（Limited Use）に関する記述
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<title>プライバシーポリシー — WAZA KIMURA</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="css/legal.css">
+</head>
+<body>
+<div class="lg-wrap">
+
+  <div class="lg-head">
+    <a class="lg-back" href="/">← アプリに戻る</a>
+    <span class="lg-brand">WAZA KIMURA</span>
+    <div class="lg-langs" role="tablist">
+      <button class="lg-lang" id="btn-ja" role="tab" aria-selected="true"  onclick="setLang('ja')">日本語</button>
+      <button class="lg-lang" id="btn-en" role="tab" aria-selected="false" onclick="setLang('en')">English</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ 日本語（正本） ══════════════ -->
+  <section data-lang="ja" class="on">
+    <h1>プライバシーポリシー</h1>
+    <p class="lg-meta">最終改定日: 2026年8月13日 ／ 施行日: 【要記入：公開日】</p>
+
+    <div class="lg-note">
+      <strong>要点を先に。</strong>
+      WAZA KIMURA は動画そのものを保存しません。保存するのは、あなたが登録した動画の識別子と、
+      あなたが書いたメモ・タグです。広告は配信せず、あなたのデータを広告目的で第三者に販売・共有することはありません。
+    </div>
+
+    <div class="lg-toc">
+      <ol>
+        <li><a href="#ja-1">取得する情報</a></li>
+        <li><a href="#ja-2">利用目的</a></li>
+        <li><a href="#ja-3">外部サービスへの送信</a></li>
+        <li><a href="#ja-4">YouTube API Services について</a></li>
+        <li><a href="#ja-5">Google ユーザーデータの取扱い</a></li>
+        <li><a href="#ja-6">ローカルストレージ・Cookie</a></li>
+        <li><a href="#ja-7">保存期間</a></li>
+        <li><a href="#ja-8">データの削除・エクスポート</a></li>
+        <li><a href="#ja-9">安全管理</a></li>
+        <li><a href="#ja-10">第三者への提供</a></li>
+        <li><a href="#ja-11">本ポリシーの変更</a></li>
+        <li><a href="#ja-12">お問い合わせ</a></li>
+      </ol>
+    </div>
+
+    <h2 id="ja-1">1. 取得する情報</h2>
+    <table>
+      <tr><th>種類</th><th>具体的な内容</th><th>取得方法</th></tr>
+      <tr><td>アカウント情報</td><td>メールアドレス、表示名、ユーザーID（UID）</td><td>Google ログイン時</td></tr>
+      <tr><td>動画の参照情報</td><td>動画のURL・ID、タイトル、チャンネル名、再生時間、サムネイル、プレイリスト名</td><td>あなたの登録操作＋各プラットフォームのAPI</td></tr>
+      <tr><td>あなたが作成した内容</td><td>メモ、タグ、習得度、ブックマーク、ノート、プレイリスト（カスタムビュー）、フローチャート</td><td>あなたの入力</td></tr>
+      <tr><td>設定</td><td>表示設定、タグ設定、AI設定、列の並び順など</td><td>あなたの操作</td></tr>
+      <tr><td>Google Drive アクセストークン</td><td>Drive 上の動画を再生するための一時的な認可情報</td><td>Google 認可時（ブラウザ内に一時保持。当方のサーバーには保存しません）</td></tr>
+      <tr><td>フィードバック</td><td>送信内容、添付画像、端末種別、OS、送信時のページ、メールアドレス</td><td>アプリ内フィードバック送信時</td></tr>
+    </table>
+    <p><strong>取得しないもの:</strong> 氏名（表示名を除く）、住所、電話番号、クレジットカード情報、位置情報、行動追跡目的のトラッキング情報。本サービスは広告ネットワークおよびアクセス解析ツールを組み込んでいません。</p>
+
+    <h2 id="ja-2">2. 利用目的</h2>
+    <ul>
+      <li>本サービスの提供（データの保存・複数端末間の同期）</li>
+      <li>AI機能（タグ提案、要約、字幕生成、翻訳、文字起こし）の提供</li>
+      <li>不具合の調査および改善</li>
+      <li>外部APIの利用回数の管理（1利用者あたりの上限の適用）</li>
+      <li>本規約に違反する利用の防止</li>
+    </ul>
+    <p>取得した情報を、上記の目的以外に利用することはありません。</p>
+
+    <h2 id="ja-3">3. 外部サービスへの送信</h2>
+    <p>本サービスは、機能の提供に必要な範囲で、以下の外部サービスにデータを送信します。</p>
+    <table>
+      <tr><th>送信先</th><th>送信するデータ</th><th>目的</th></tr>
+      <tr><td>Google（Firebase Authentication / Cloud Firestore / Cloud Storage）</td><td>アカウント情報、動画の参照情報、あなたが作成した内容、設定</td><td>認証とデータの保存・同期</td></tr>
+      <tr><td>Google（YouTube Data API）</td><td>検索語、動画ID、プレイリストID</td><td>動画の検索とメタデータの取得</td></tr>
+      <tr><td>Google（Drive API）</td><td>ファイルID、アクセストークン</td><td>あなた自身の Drive 動画の再生</td></tr>
+      <tr><td>Google（Gemini API）</td><td>動画または字幕テキスト、動画タイトル、チャンネル名</td><td>要約・字幕生成・翻訳</td></tr>
+      <tr><td>Anthropic（Claude API）</td><td>動画タイトル、チャンネル名、プレイリスト名、チャプター見出し、タグ体系</td><td>タグの提案・分類</td></tr>
+      <tr><td>AssemblyAI</td><td>音声データ</td><td>文字起こし</td></tr>
+      <tr><td>Cloudflare</td><td>上記APIへの通信の中継</td><td>アプリの配信とAPI中継</td></tr>
+    </table>
+    <div class="lg-note">
+      <strong>AI機能を使わなければ、Gemini・Anthropic・AssemblyAI にデータは送信されません。</strong>
+      これらは、あなたが該当のボタンを押したときにのみ実行されます。
+    </div>
+    <p>各社のプライバシーポリシー:
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google</a>、
+      <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener">Anthropic</a>、
+      <a href="https://www.assemblyai.com/legal/privacy-policy" target="_blank" rel="noopener">AssemblyAI</a>、
+      <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare</a>
+    </p>
+
+    <h2 id="ja-4">4. YouTube API Services について</h2>
+    <ol>
+      <li>本サービスは <strong>YouTube API Services</strong> を利用しています。</li>
+      <li>本サービスを利用することにより、あなたは <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 利用規約</a> に同意したことになります。</li>
+      <li>Google のプライバシーポリシーは <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a> をご参照ください。</li>
+      <li>本サービスが YouTube API Services を通じて取得する情報は、<strong>公開されている動画のメタデータ</strong>（タイトル、チャンネル名、再生時間、サムネイル、公開日）に限られます。あなたの YouTube アカウント、視聴履歴、登録チャンネルにはアクセスしません。</li>
+      <li>取得したメタデータは、あなたのライブラリ表示のためにのみ利用し、<strong>30日を超えて保持する場合は最新の内容に更新します</strong>。更新できない場合は削除します。</li>
+      <li>動画の再生は YouTube 公式の埋め込みプレーヤー（IFrame Player API）を通じて行われます。本サービスが動画を保存・配信することはありません。</li>
+      <li>本サービスによる Google データへのアクセス権は、<a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google アカウントのセキュリティ設定ページ</a>からいつでも取り消すことができます。</li>
+    </ol>
+
+    <h2 id="ja-5">5. Google ユーザーデータの取扱い（限定利用）</h2>
+    <p>本サービスによる Google API から取得した情報の使用および他アプリへの転送は、<a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API サービスのユーザーデータに関するポリシー</a>（限定利用の要件を含む）に準拠します。</p>
+    <p>具体的には、本サービスは Google Drive から取得したデータを以下のとおり取り扱います。</p>
+    <ul>
+      <li>あなたが本サービスに登録した動画の再生およびサムネイル表示のためにのみ使用します。</li>
+      <li>当方のサーバーに Drive のファイル内容を保存しません（再生時に中継するのみです）。</li>
+      <li>広告目的で使用せず、第三者に販売しません。</li>
+      <li>人間による閲覧は行いません。ただし、あなたの明示的な同意を得た場合、セキュリティ目的の場合、法令遵守のために必要な場合を除きます。</li>
+    </ul>
+    <div class="lg-note">
+      <strong>【要確認：公開前】</strong> 本サービスは現在 Google Drive の全体アクセス権限（<code>auth/drive</code>）を要求しています。
+      これは Google の「制限付きスコープ」に該当し、一般公開にあたっては Google の審査（および年次のセキュリティ評価）が必要になる場合があります。
+      公開範囲を確定する前に、必要最小限のスコープ（<code>drive.file</code>）への変更を検討してください。
+    </div>
+
+    <h2 id="ja-6">6. ローカルストレージ・Cookie</h2>
+    <p>本サービスは、広告目的・追跡目的の Cookie を使用しません。ブラウザのローカルストレージおよびセッションストレージを、以下の目的で使用します。</p>
+    <ul>
+      <li>表示設定（テーマ、文字サイズ、列幅など）の端末ごとの記憶</li>
+      <li>オフライン時および読み込み高速化のためのデータの一時保持</li>
+      <li>Google Drive アクセストークンの一時保持（タブを閉じると消えます）</li>
+    </ul>
+    <p>ブラウザの設定からこれらを削除できます。削除した場合、端末ごとの表示設定は初期化されますが、クラウドに保存されたデータは失われません。</p>
+
+    <h2 id="ja-7">7. 保存期間</h2>
+    <table>
+      <tr><th>データ</th><th>保存期間</th></tr>
+      <tr><td>アカウント情報・あなたが作成した内容</td><td>アカウント削除まで</td></tr>
+      <tr><td>YouTube API から取得したメタデータ</td><td>30日ごとに更新、または削除</td></tr>
+      <tr><td>Google Drive アクセストークン</td><td>ブラウザのタブを閉じるまで（サーバーには保存しません）</td></tr>
+      <tr><td>フィードバック</td><td>対応完了後、合理的な期間内に削除</td></tr>
+      <tr><td>AI機能へ送信したデータ</td><td>本サービスでは保持しません（各社の保持方針は上記リンクをご確認ください）</td></tr>
+    </table>
+
+    <h2 id="ja-8">8. データの削除・エクスポート</h2>
+    <ul>
+      <li><strong>エクスポート:</strong> アプリの設定画面から、登録データを書き出せます。</li>
+      <li><strong>削除:</strong> アカウントおよび全データの削除をご希望の場合は、アプリ内フィードバックまたは下記メールアドレスまでご連絡ください。合理的な期間内に削除します。</li>
+      <li><strong>アクセス権の取り消し:</strong> <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google アカウントのセキュリティ設定</a>から、本サービスの権限をいつでも取り消せます。</li>
+    </ul>
+
+    <h2 id="ja-9">9. 安全管理</h2>
+    <ul>
+      <li>通信はすべて HTTPS で暗号化されます。</li>
+      <li>データは Google（Firebase）のインフラ上に保存され、利用者ごとにアクセスが分離されるよう設定されています。</li>
+      <li>ただし、本サービスはベータ版であり、当方は完全な安全性を保証するものではありません。機微な情報の入力はお控えください。</li>
+    </ul>
+
+    <h2 id="ja-10">10. 第三者への提供</h2>
+    <p>当方は、以下の場合を除き、あなたの情報を第三者に提供しません。</p>
+    <ul>
+      <li>あなたの同意がある場合</li>
+      <li>本ポリシー第3条に記載した、機能提供に必要な外部サービスへの送信</li>
+      <li>法令に基づく開示請求があった場合</li>
+    </ul>
+    <p><strong>あなたのデータを広告目的で販売・共有することはありません。</strong></p>
+
+    <h2 id="ja-11">11. 本ポリシーの変更</h2>
+    <p>本ポリシーは必要に応じて変更します。重要な変更を行う場合は、本サービス上での掲示その他の適切な方法により告知します。</p>
+
+    <h2 id="ja-12">12. お問い合わせ</h2>
+    <p>個人情報の取扱いに関するお問い合わせは、アプリ内のフィードバック機能、または <a href="mailto:okujournal@gmail.com">okujournal@gmail.com</a> までお願いします。</p>
+    <p class="lg-meta">運営者: 【要記入：運営者名】</p>
+  </section>
+
+  <!-- ══════════════ English (reference translation) ══════════════ -->
+  <section data-lang="en">
+    <h1>Privacy Policy</h1>
+    <p class="lg-meta">Last revised: August 13, 2026 / Effective: 【TBD: launch date】</p>
+
+    <div class="lg-note">
+      <strong>The short version.</strong>
+      WAZA KIMURA does not store video content. We store the identifiers of the videos you add and the notes and tags you write.
+      We serve no ads and never sell or share your data for advertising.<br>
+      <small>The Japanese version is authoritative. This English text is a reference translation; in case of any discrepancy, the Japanese version prevails.</small>
+    </div>
+
+    <h2>1. Information We Collect</h2>
+    <table>
+      <tr><th>Category</th><th>Details</th><th>Source</th></tr>
+      <tr><td>Account information</td><td>Email address, display name, user ID (UID)</td><td>Google sign-in</td></tr>
+      <tr><td>Video references</td><td>Video URL/ID, title, channel name, duration, thumbnail, playlist name</td><td>Your actions + platform APIs</td></tr>
+      <tr><td>Content you create</td><td>Notes, tags, proficiency levels, bookmarks, playlists (custom views), flowcharts</td><td>Your input</td></tr>
+      <tr><td>Settings</td><td>Display settings, tag settings, AI settings, column order</td><td>Your actions</td></tr>
+      <tr><td>Google Drive access token</td><td>Temporary authorization used to play your Drive videos</td><td>Google authorization (held in your browser only; never stored on our servers)</td></tr>
+      <tr><td>Feedback</td><td>Message, attached images, device type, OS, page, email address</td><td>In-app feedback</td></tr>
+    </table>
+    <p><strong>What we do not collect:</strong> legal name (beyond your display name), address, phone number, payment card details, location, or behavioral tracking data. The Service contains no advertising networks and no analytics trackers.</p>
+
+    <h2>2. How We Use It</h2>
+    <ul>
+      <li>To provide the Service (storing and syncing your data across devices)</li>
+      <li>To provide AI features (tag suggestions, summaries, subtitles, translation, transcription)</li>
+      <li>To investigate and fix problems</li>
+      <li>To manage external API usage (applying per-user limits)</li>
+      <li>To prevent misuse that violates our Terms</li>
+    </ul>
+
+    <h2>3. Data Sent to Third Parties</h2>
+    <table>
+      <tr><th>Recipient</th><th>Data sent</th><th>Purpose</th></tr>
+      <tr><td>Google (Firebase Auth / Firestore / Cloud Storage)</td><td>Account info, video references, your content, settings</td><td>Authentication, storage, sync</td></tr>
+      <tr><td>Google (YouTube Data API)</td><td>Search terms, video IDs, playlist IDs</td><td>Video search and metadata</td></tr>
+      <tr><td>Google (Drive API)</td><td>File IDs, access token</td><td>Playing your own Drive videos</td></tr>
+      <tr><td>Google (Gemini API)</td><td>Video or transcript text, video title, channel name</td><td>Summaries, subtitles, translation</td></tr>
+      <tr><td>Anthropic (Claude API)</td><td>Video title, channel name, playlist name, chapter headings, tag taxonomy</td><td>Tag suggestions and classification</td></tr>
+      <tr><td>AssemblyAI</td><td>Audio data</td><td>Transcription</td></tr>
+      <tr><td>Cloudflare</td><td>Relay of the above API traffic</td><td>App delivery and API relay</td></tr>
+    </table>
+    <div class="lg-note">
+      <strong>If you do not use the AI features, no data is sent to Gemini, Anthropic, or AssemblyAI.</strong>
+      Those calls happen only when you press the corresponding button.
+    </div>
+
+    <h2>4. YouTube API Services</h2>
+    <ol>
+      <li>The Service uses <strong>YouTube API Services</strong>.</li>
+      <li>By using the Service, you agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a>.</li>
+      <li>Google's Privacy Policy is available at <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a>.</li>
+      <li>Information we obtain through YouTube API Services is limited to <strong>publicly available video metadata</strong> (title, channel name, duration, thumbnail, publish date). We do not access your YouTube account, watch history, or subscriptions.</li>
+      <li>We use that metadata only to display your library, and <strong>refresh it if kept beyond 30 days</strong>. If it cannot be refreshed, we delete it.</li>
+      <li>Playback uses YouTube's official embedded player (IFrame Player API). We never store or serve video content.</li>
+      <li>You can revoke the Service's access to your Google data at any time via the <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google security settings page</a>.</li>
+    </ol>
+
+    <h2>5. Google User Data (Limited Use)</h2>
+    <p>The Service's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    <p>Specifically, data obtained from Google Drive is:</p>
+    <ul>
+      <li>Used only to play and show thumbnails for videos you have added to the Service</li>
+      <li>Never stored on our servers (it is only relayed during playback)</li>
+      <li>Never used for advertising and never sold to third parties</li>
+      <li>Never read by humans, except with your explicit consent, for security purposes, or to comply with applicable law</li>
+    </ul>
+
+    <h2>6. Local Storage and Cookies</h2>
+    <p>We use no advertising or tracking cookies. We use browser local/session storage to remember per-device display settings, to cache data for offline use and faster loading, and to temporarily hold your Google Drive access token (cleared when you close the tab).</p>
+
+    <h2>7. Retention</h2>
+    <table>
+      <tr><th>Data</th><th>Retention</th></tr>
+      <tr><td>Account info and content you create</td><td>Until account deletion</td></tr>
+      <tr><td>Metadata from YouTube API</td><td>Refreshed or deleted every 30 days</td></tr>
+      <tr><td>Google Drive access token</td><td>Until you close the browser tab (never stored server-side)</td></tr>
+      <tr><td>Feedback</td><td>Deleted within a reasonable period after resolution</td></tr>
+      <tr><td>Data sent to AI features</td><td>Not retained by us (see each provider's policy)</td></tr>
+    </table>
+
+    <h2>8. Deletion and Export</h2>
+    <ul>
+      <li><strong>Export:</strong> You can export your data from the app's settings screen.</li>
+      <li><strong>Deletion:</strong> To delete your account and all data, contact us via in-app feedback or the email below. We will delete it within a reasonable period.</li>
+      <li><strong>Revoking access:</strong> Use the <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google security settings page</a> at any time.</li>
+    </ul>
+
+    <h2>9. Security</h2>
+    <ul>
+      <li>All traffic is encrypted over HTTPS.</li>
+      <li>Data is stored on Google (Firebase) infrastructure and configured so that each user's data is isolated.</li>
+      <li>The Service is in beta and we cannot guarantee complete security. Please do not enter sensitive information.</li>
+    </ul>
+
+    <h2>10. Disclosure to Third Parties</h2>
+    <p>We do not disclose your information except: with your consent; to the third-party services listed in Section 3 as needed to provide features; or when required by law. <strong>We never sell or share your data for advertising.</strong></p>
+
+    <h2>11. Changes to This Policy</h2>
+    <p>We may update this policy. Material changes will be announced within the Service or by other appropriate means.</p>
+
+    <h2>12. Contact</h2>
+    <p>Use the in-app feedback feature or write to <a href="mailto:okujournal@gmail.com">okujournal@gmail.com</a>.</p>
+    <p class="lg-meta">Operator: 【TBD: operator name】</p>
+  </section>
+
+  <div class="lg-foot">
+    <a href="/">WAZA KIMURA</a> ・ <a href="terms.html">利用規約 / Terms of Service</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var mode = 'auto';
+  try { var s = JSON.parse(localStorage.getItem('wk_appearance') || '{}'); if (s.theme) mode = s.theme; } catch(e) {}
+  var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.body.classList.add('dark');
+})();
+
+function setLang(l){
+  document.querySelectorAll('[data-lang]').forEach(function(s){ s.classList.toggle('on', s.dataset.lang === l); });
+  document.getElementById('btn-ja').setAttribute('aria-selected', String(l === 'ja'));
+  document.getElementById('btn-en').setAttribute('aria-selected', String(l === 'en'));
+  document.documentElement.lang = l;
+  try { localStorage.setItem('wk_legal_lang', l); } catch(e) {}
+}
+(function(){
+  var q = new URLSearchParams(location.search).get('lang');
+  var saved = null;
+  try { saved = localStorage.getItem('wk_legal_lang'); } catch(e) {}
+  var l = q || saved || (navigator.language && navigator.language.startsWith('ja') ? 'ja' : 'en');
+  setLang(l === 'en' ? 'en' : 'ja');
+})();
+</script>
+</body>
+</html>
