@@ -20,6 +20,8 @@ const HTML=`<!DOCTYPE html><html><head><meta charset="utf-8">
    {key:'pos',label:'ポジション',visible:true,presets:['A','B','C','D','E','F','G','H','I','J','K','L']},{key:'tags',label:'テクニック',visible:true,presets:[]}];
  window.tagLabel=k=>(window.tagSettings.find(t=>t.key===k)||{}).label||k;
  window.tagPresets=k=>(window.tagSettings.find(t=>t.key===k)||{}).presets||[];
+ window.tagOptAdd=(k,v)=>{const p=window.tagPresets(k); if(!p.includes(v)) p.push(v);};
+ window.autoSaveVp=()=>{};
 <\/script>
 <script src="/js/tag-master.js"><\/script>
 <script src="/js/tag-registry.js"><\/script>
@@ -69,5 +71,16 @@ await pg.waitForTimeout(150);
 // 理由に出る名前は「ユーザーが付けたグループ名」。固定文字列ではない（Notion 項目03/05）。
 ck('見つからないときは理由を出す（グループ名つき）',
   (await pg.evaluate(()=>window.__toasts||[])).some(t=>String(t).includes('テクニック')));
+// v52.947: 並べて押す形（タグ1・選択肢2個）にも＋があり、新しい値を打ち込める（前はタグ4だけ）
+const TB='#vp-v4-f_tb-V1 [onclick^="vpV4OpenDd"]';
+ck('並べて押す形のグループにも＋の入口がある', await pg.locator(TB).count()===1);
+await pg.evaluate(()=>{ delete window._vpOpenDd; });
+await pg.locator(TB).click(); await pg.waitForTimeout(200);
+await pg.locator('#vp-v4-dd-f_tb-V1 .vp-dd-search').fill('スタンディング');
+await pg.locator('#vp-v4-dd-f_tb-V1 .vp-dd-search').press('Enter'); await pg.waitForTimeout(200);
+const nv=await pg.evaluate(()=>({tb:window.videos[0].tb.slice(), presets:window.tagPresets('tb').slice(),
+  chip:!!document.querySelector('#vp-v4-f_tb-V1 .vp-chip[data-val="スタンディング"]')}));
+ck('★ Enter で動画に付き、選択肢にも足され（ほかの動画でも押せる）、チップとして出る',
+  nv.tb.join()==='スタンディング' && nv.presets.join()==='トップ,ボトム,スタンディング' && nv.chip);
 console.log(fail?`\n✗ 失敗 ${fail}件`:'\n✓ 通過');
 await b.close(); srv.close(); process.exit(fail?1:0);

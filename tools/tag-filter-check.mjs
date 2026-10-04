@@ -169,7 +169,10 @@ console.log('── ⑦ 選択肢の見せ方（段階2c）──');
   // まとめて編集の「タグリセット」（bulkTagReset）は別の機能。段階4 で js/tag-ops.js に移した（tag-ops-check が見る）
   const apply = bk.slice(bk.indexOf('function _bvpApply'), bk.indexOf('export function bvpTagChip'));
   ck('書き込みの入口は1つ（まとめて編集の付け外しも wkSetTagValue を使う）', /window\.wkSetTagValue = function/.test(vp) && /window\.wkSetTagValue\(v, gid, val, on\)/.test(apply) && !/\.push\(|\.splice\(|\.filter\(/.test(apply.replace(/sel\.forEach/, '')));
-  ck('新しい値を打ち込めるのはタグ4だけ（今までどおり。選択肢へ自動で足すのは段階4）', /_allowNew = g => g\.store === 'tags'/.test(vp) && /g\.store !== 'tags'\) return;/.test(bk));
+  // v52.947: どのタググループでも新しい値を打ち込める（オーナー「並べて押す形でも新規で追加できるように」）。前はタグ4だけ
+  ck('新しい値はどのグループでも打ち込める（並べて押す形にも＋の入口がある・Enter で足せる）',
+    /_allowNew = g => !!g/.test(vp) && /if \(_allowNew\(g\)\) inner \+= _ddHTML\(id, g\)/.test(vp)
+    && /inner \+= _bvpDdHTML\(g, da\);/.test(bk) && /if \(ev\.key !== 'Enter'\) return;/.test(bk) && !/g\.store !== 'tags'\) return;/.test(bk));
   ck('まとめて編集の取り消しに新しいグループの値（v.tg）も入る', /s\.tg = JSON\.parse\(JSON\.stringify\(v\.tg\)\)/.test(bk) && /!\('tg' in s\)/.test(bk));
   ck('古いグループ別の部品が戻っていない', !/vpV4ToggleTb|vpV4ToggleCat|vpV4OpenPosDd|vpV4OpenTagDd|bvpToggleV4|bvpOpenPosDd|bvpOpenTagDd/.test(vp + bk));
 }

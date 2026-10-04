@@ -18,13 +18,14 @@
   // タグ1〜4の枠（tag-registry.js の slots）に入っているグループを、同じ作りで並べる。
   // 見せ方は選択肢の数で決める（displayMode: 少なければ並べて押す、多ければプルダウン）。
   // 以前はグループごとに作りが違った（タグ1・2は並べる、タグ3・4はプルダウン）。
-  // できることは変えない: 新しい値を打ち込めるのはタグ4（tags）だけ（選択肢へ自動で足すのは段階4）。
+  // 新しい値は、どのタググループでも打ち込める（v52.947 オーナー「ブックマークのような並べて押す形でも新規で追加できるように」。
+  // 前はタグ4（tags）だけ）。打ち込んだ値は wkSetTagValue が選択肢にも足す（段階4）。
   // 値は onclick の文字列に埋め込まず data 属性で渡す（' を含む値でボタンが壊れていた）。
   const FIELDS = ['tb', 'cat', 'pos', 'tags'];
   const _R = () => window.tagRegistry;
   const _ON_CLS = { tb: 'on-tb', cat: 'on-cat', pos: 'on-pos', tags: 'on-tags' };
   const _onCls = g => _ON_CLS[g.store] || 'on-tags';
-  const _allowNew = g => g.store === 'tags';
+  const _allowNew = g => !!g;   // どのグループでも新しい値を打ち込める（v52.947）
   // 値の表示（組み込みの値だけ英語表示で訳す。データは日本語のまま）
   const _lbl = (g, v) => g.store === 'tb' ? _lTb(v) : g.store === 'cat' ? _lCat(v) : g.store === 'pos' ? _lPos(v) : String(v);
 
@@ -107,7 +108,7 @@
     return `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_esc(g.name)}</span><div class="vp-chips" id="vp-v4-${_esc(g.id)}-${id}">${inner}</div></div>`;
   }
   function _ddHTML(id, g) {
-    const ph = _allowNew(g) ? _T('itag.dd.tech', 'テクニック検索・新規追加（Enterで追加）') : _T('itag.dd.filter', '絞り込み...');
+    const ph = g.store === 'tags' ? _T('itag.dd.tech', 'テクニック検索・新規追加（Enterで追加）') : _T('itag.dd.new', '検索・新規追加（Enterで追加）');
     return `
       <div class="vp-dd-wrap" style="display:inline-block;position:relative">
         <span class="vp-chip" style="border-style:dashed;cursor:pointer" ${_dAttr(id, g)} onclick="vpV4OpenDd(this)" data-user-text="1">＋ ${_esc(g.name)}</span>
@@ -230,7 +231,7 @@
     if (dd) dd.style.display = 'none';
     _after(id);
   };
-  // Enter: 新しい値を付ける（打ち込めるのはタグ4だけ。今までと同じ）／Escape: 閉じる
+  // Enter: 新しい値を付ける（どのグループでも。v52.947）／Escape: 閉じる
   window.vpV4DdKey = function (ev, inp) {
     const id = inp.dataset.vid, g = _group(inp.dataset.gid); if (!g) return;
     if (ev.key === 'Escape') {
@@ -243,7 +244,9 @@
     const val = inp.value.trim();
     if (!val) return;
     const v = _findV(id); if (!v) return;
-    _setVal(v, g, val, true);
+    // 打ち込んだ値は、まとめて編集と同じ入口で書く（どの動画にも無い新しい値なら選択肢にも足す。
+    // 足さないと、並べて押す形のグループでは、ほかの動画に出てこない）
+    window.wkSetTagValue(v, g.id, val, true);
     inp.value = '';
     _after(id);
   };

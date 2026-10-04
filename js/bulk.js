@@ -93,7 +93,7 @@ export function buildBulkDrawerHTML() {
     if (_TGR.displayMode(g.options.length) === 'chips') {
       const shown = g.options.concat(common.filter(t => !g.options.includes(t)));
       inner = shown.map(t => `<span class="vp-chip${common.includes(t) ? ' ' + cls : ''}" style="cursor:pointer" ${da(t)} onclick="bvpTagChip(this)">${_esc(t)}</span>`).join('');
-      if (g.store === 'tags') inner += _bvpDdHTML(g, da);
+      inner += _bvpDdHTML(g, da);   // 並べて押す形でも新しい値を打ち込める（v52.947）
     } else {
       inner = common.map(t => `<span class="vp-chip ${cls}" style="cursor:pointer" ${da(t)} onclick="bvpTagRemove(this)">${_esc(t)} ×</span>`).join('') + _bvpDdHTML(g, da);
     }
@@ -158,7 +158,7 @@ export function bvpTogDd(key) {
 // ── タグのプルダウン（グループ共通・段階2c）──
 function _bvpEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function _bvpDdHTML(g, da) {
-  const ph = g.store === 'tags' ? 'テクニック検索・新規追加（Enterで追加）' : '絞り込み...';
+  const ph = g.store === 'tags' ? 'テクニック検索・新規追加（Enterで追加）' : '検索・新規追加（Enterで追加）';
   return `
     <div class="vp-dd-wrap" style="display:inline-block;position:relative">
       <span class="vp-chip" style="border-style:dashed;cursor:pointer" ${da()} onclick="bvpTagOpenDd(this)" data-user-text="1">＋ ${_bvpEsc(g.name)}</span>
@@ -218,7 +218,7 @@ export function bvpTagDdPick(el) {
 export function bvpTagDdKey(ev, inp) {
   const g = window.tagRegistry?.group(inp.dataset.gid); if (!g) return;
   if (ev.key === 'Escape') { const dd = document.getElementById('bvp-dd-g-' + g.id); if (dd) dd.style.display = 'none'; return; }
-  if (ev.key !== 'Enter' || g.store !== 'tags') return;   // 打ち込めるのはタグ4だけ（今までどおり）
+  if (ev.key !== 'Enter') return;   // どのグループでも新しい値を打ち込める（v52.947。前はタグ4だけ）
   ev.preventDefault();
   const val = inp.value.trim(); if (!val) return;
   inp.value = '';
