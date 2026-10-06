@@ -388,6 +388,7 @@ function _load() {
     const raw = localStorage.getItem('wk_cv_views');
     if (raw) _views = JSON.parse(raw);
     _views.forEach(v => { if (!v.rowData) v.rowData = {}; _hydrateView(v); });
+    _cvFpRemember();
     _syncNextColId();
     _loadTemplates();
     const prefs = localStorage.getItem('wk_cv_col_prefs');
@@ -396,6 +397,7 @@ function _load() {
 }
 
 function _save() {
+  _cvStampEdited();
   _refreshSharedSnaps();
   _saveShared();
   try {
@@ -561,30 +563,71 @@ window.cvOpenViewPicker = function() {
   el.style.display = 'flex';
 };
 
-// ピッカー各行の表示形式トグル（📋/📊）
-function _rowDispHTML(id, vt) {
-  const base = 'border:none;background:transparent;cursor:pointer;font-size:11px;padding:3px 7px';
-  const on = 'background:var(--accent);color:var(--on-accent)';
-  const off = 'color:var(--text3)';
-  return `<span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden" onclick="event.stopPropagation()">
-    <button style="${base};${vt==='card'?on:off}" onclick="event.stopPropagation();window._cvRowSetView('${id}','card')" title="カード">📋</button>
-    <button style="${base};${vt==='table'?on:off}" onclick="event.stopPropagation();window._cvRowSetView('${id}','table')" title="テーブル">📊</button>
-  </span>`;
+// ── ピッカーの並べ替え（v52.948・オーナー「リスト名、編集日、動画数で降順、昇順」）──
+// 表示の並びだけを変える。_views の順番（「整理」で決める手動の並び・全端末同期）は書き換えない。
+// 並べ方はこの端末の好みとして localStorage（wk_cvPickerSort）にだけ置く。
+const _CV_PSORT_KEY = 'wk_cvPickerSort';
+const _CV_PSORT_KEYS = ['manual', 'name', 'edited', 'count'];
+function _cvPickerSortGet() {
+  try {
+    const o = JSON.parse(localStorage.getItem(_CV_PSORT_KEY) || '{}') || {};
+    return { key: _CV_PSORT_KEYS.includes(o.key) ? o.key : 'manual', dir: o.dir === 'asc' ? 'asc' : 'desc' };
+  } catch (e) { return { key: 'manual', dir: 'desc' }; }
 }
-
-// ピッカー行から表示形式を変更（リストごとに記憶）
-window._cvRowSetView = function(id, vt) {
-  if (id === '__master__') {
-    const mode = vt === 'card' ? 'card' : 'org';
-    localStorage.setItem('wk_masterViewType', mode);
-    if (!_curId) window._libView?.(mode);
-  } else {
-    const view = _views.find(v => v.id === id);
-    if (view) { view.viewType = (vt === 'card' ? 'card' : 'table'); _save(); if (_curId === id) _showView(id); }
-  }
+window._cvPickerSetSort = function(key, dir) {
+  const cur = _cvPickerSortGet();
+  const next = { key: _CV_PSORT_KEYS.includes(key) ? key : cur.key, dir: (dir === 'asc' || dir === 'desc') ? dir : cur.dir };
+  try { localStorage.setItem(_CV_PSORT_KEY, JSON.stringify(next)); } catch (e) {}
   const ov = document.getElementById('cv-picker-overlay');
   if (ov) ov.innerHTML = _buildPickerHTML();
 };
+// 編集日: 中身（名前・選び方・動画・条件・語）が変わった時刻。無ければ作った時刻（id の cv_<時刻>）。
+function _cvEditedAt(v) {
+  if (typeof v.updatedAt === 'number') return v.updatedAt;
+  const m = /^cv_(\d{10,})/.exec(v.id || '');
+  return m ? Number(m[1]) : 0;
+}
+// 表示する順の _views の写し（元の配列は触らない）。counts は id → 本数（不明は -1）。
+function _cvPickerOrder(counts) {
+  const { key, dir } = _cvPickerSortGet();
+  const list = _views.slice();
+  if (key === 'manual' || _cvPickerEditMode) return list;
+  const sgn = dir === 'asc' ? 1 : -1;
+  const idx = new Map(_views.map((v, i) => [v.id, i]));
+  const cmp = {
+    name:   (a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'ja', { numeric: true, sensitivity: 'base' }),
+    edited: (a, b) => _cvEditedAt(a) - _cvEditedAt(b),
+    count:  (a, b) => (counts.get(a.id) ?? -1) - (counts.get(b.id) ?? -1),
+  }[key];
+  return list.sort((a, b) => (cmp(a, b) * sgn) || (idx.get(a.id) - idx.get(b.id)));
+}
+function _cvPickerSortHTML() {
+  const { key, dir } = _cvPickerSortGet();
+  const opt = (k, ja) => `<option value="${k}"${key === k ? ' selected' : ''}>${ja}</option>`;
+  const st = 'font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text2);cursor:pointer';
+  const dirBtn = key === 'manual' ? '' :
+    `<button class="cv-picker-sort-dir" style="${st}" onclick="window._cvPickerSetSort(null,'${dir === 'asc' ? 'desc' : 'asc'}')" title="${dir === 'asc' ? '昇順' : '降順'}">${dir === 'asc' ? '↑ 昇順' : '↓ 降順'}</button>`;
+  return `<select class="cv-picker-sort" style="${st}" onchange="window._cvPickerSetSort(this.value)" title="並び順">
+      ${opt('manual', '手動の並び')}${opt('name', 'リスト名')}${opt('edited', '編集日')}${opt('count', '動画数')}
+    </select>${dirBtn}`;
+}
+
+// 編集日の記録: 保存のたびに中身の指紋を比べ、変わったリストだけ updatedAt を足す（足すだけ・ほかは触らない）。
+// 他の端末から来た変更（updatedAt が変わっている）は記録だけして時刻を書き換えない。
+const _cvFp = new Map();   // id → { fp, at }
+function _cvFingerprint(v) {
+  return JSON.stringify([v.label || '', v.saveMode || '', v.videoIds || [], v.filterConditions || null,
+    v.saveMode === 'dynamic' ? (v.searchQuery || '') : '']);
+}
+function _cvFpRemember() { _views.forEach(v => { if (v && v.id && !_cvFp.has(v.id)) _cvFp.set(v.id, { fp: _cvFingerprint(v), at: v.updatedAt }); }); }
+function _cvStampEdited() {
+  _views.forEach(v => {
+    if (!v || !v.id) return;
+    const fp = _cvFingerprint(v), prev = _cvFp.get(v.id);
+    if (!prev || (prev.fp !== fp && prev.at === v.updatedAt)) v.updatedAt = Date.now();
+    _cvFp.set(v.id, { fp, at: v.updatedAt });
+  });
+}
 
 function _buildPickerHTML() {
   // ── マスター行（先頭） ──
@@ -596,11 +639,12 @@ function _buildPickerHTML() {
       <span class="cv-picker-meta">${T('cv.masterDesc','ライブラリ全体')}</span>
     </span>
     <span class="cv-picker-check">${masterActive ? '✓' : ''}</span>
-    ${_rowDispHTML('__master__', _viewTypeOf('__master__'))}
   </div>`;
 
   // ── カスタムリスト群 ──
-  const items = _views.map((v, idx) => {
+  const counts = new Map();
+  if (_cvPickerSortGet().key === 'count') _views.forEach(v => { const l = _cvPickerList(v); counts.set(v.id, l ? l.length : -1); });
+  const items = _cvPickerOrder(counts).map((v, idx) => {
     const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
     const modeLbl = v.saveMode === 'dynamic' ? T('cv.dynamic','条件で自動選択') : T('cv.manual','手動選択');
     // 動画が未読込のときは 0 と嘘をつかず「—」を出す
@@ -644,7 +688,6 @@ function _buildPickerHTML() {
         ${deadHtml}
       </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
-      ${_rowDispHTML(v.id, _viewTypeOf(v.id))}
       <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">${T('cv.edit','編集')}</button>
     </div>`;
   }).join('');
@@ -654,6 +697,7 @@ function _buildPickerHTML() {
   const tplMgrBtn = _cvUserTemplates.length > 0 ? `<button onclick="window._cvOpenTemplateManager()" class="cv-picker-organize-btn">${T('cv.tpl','テンプレ')}</button>` : '';
   const cvSecHeader = `<div style="display:flex;align-items:center;gap:6px;padding:8px 16px 4px">
     <span style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.04em;flex:1">${T('cv.section','カスタムビュー')}</span>
+    ${_views.length > 1 && !_cvPickerEditMode ? _cvPickerSortHTML() : ''}
     ${tplMgrBtn}${editToggleBtn}
   </div>`;
 
@@ -1604,18 +1648,20 @@ function _dynamicList(v, all0, fc0) {
 }
 // ピッカーに出す「N本 · 合計時間」。手動選択は videoIds を実体に引き当てて数える。
 // 合計時間の書式は一覧の件数バーと共通（organize.js の _orgTotalDurLabel）。
+// 本数で並べるときにも使う。動画がまだ読み込めていなければ null（手動選択は本数だけの配列）。
+function _cvPickerList(v) {
+  const all = window.videos || [];
+  if (v.saveMode === 'dynamic') return _dynamicList(v) || null;
+  const ids = v.videoIds || [];
+  if (!all.length) return null;
+  const byId = _cvVideoById(all);
+  return ids.map(id => byId.get(id)).filter(Boolean);
+}
 function _cvPickerCountLabel(v) {
   const all = window.videos || [];
-  let list;
-  if (v.saveMode === 'dynamic') {
-    list = _dynamicList(v);
-    if (!list) return '—';                       // 動画がまだ読み込めていない
-  } else {
-    const ids = v.videoIds || [];
-    if (!all.length) return `${ids.length}${T('cv.count','本')}`;   // 実体が無いので本数だけ
-    const byId = _cvVideoById(all);
-    list = ids.map(id => byId.get(id)).filter(Boolean);
-  }
+  if (v.saveMode !== 'dynamic' && !all.length) return `${(v.videoIds || []).length}${T('cv.count','本')}`;   // 実体が無いので本数だけ
+  const list = _cvPickerList(v);
+  if (!list) return '—';                         // 動画がまだ読み込めていない
   return `${list.length}${T('cv.count','本')}` + (window._wkTotalDurLabel?.(list) || '');
 }
 
@@ -3798,7 +3844,7 @@ window._cvSave = _save;
 window._cvRefreshViewBar = _renderViewBar;  // 言語切替時の再描画用
 
 // Firestore sync 用: saveUserSettings から参照
-Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _views = v; }, configurable: true });
+Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _views = v; _cvFpRemember(); }, configurable: true });
 // 現在選択中のカスタムビューID（master のとき null）。_syncURL 等が「CV 表示中か」を
 // _cvVideoIds 確定前でも判定できるように公開する。
 Object.defineProperty(window, '_cvActiveViewId', { get: () => _curId, configurable: true });
@@ -3806,6 +3852,7 @@ window._cvApplyLoadedViews = function(views) {
   if (!Array.isArray(views)) return;
   _views = views;
   _views.forEach(v => { if (!v.rowData) v.rowData = {}; _hydrateView(v); });
+  _cvFpRemember();
   _syncNextColId();
   _renderViewBar();
   // アクティブなテーブルビューがある場合、列ヘッダーを最新データで再構築（stale closure 対策）
