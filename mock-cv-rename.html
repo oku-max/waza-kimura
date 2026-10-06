@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — リスト名を「編集」から変える</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:640px;margin:0 auto;padding-bottom:80px}
+button,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.tabs{position:sticky;top:0;z-index:5;display:flex;gap:6px;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tabs button{flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text2)}
+.tabs button.on{background:var(--accent);color:#1c1c1e;font-weight:700;border-color:var(--accent)}
+.desc{padding:12px 16px;font-size:13px;line-height:1.7;color:var(--text2)}
+.desc b{color:var(--text)}
+.desc .pc{display:block;margin-top:4px;font-size:12px;color:var(--text3)}
+
+/* ピッカー（本物と同じ見た目） */
+.modal{margin:6px 12px;background:var(--surface);border-radius:14px;overflow:hidden;position:relative}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700}
+.mh .x{border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px}
+.sec{display:flex;align-items:center;gap:6px;padding:8px 16px 4px;font-size:10px;font-weight:800;color:var(--text3)}
+.sec span{flex:1}
+.sec select,.sec .sb{font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text2)}
+.item{display:flex;align-items:center;gap:10px;padding:9px 14px;position:relative}
+.item.active{background:rgba(76,175,80,.08)}
+.ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;background:var(--surface2)}
+.info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.nm{font-size:14px;font-weight:700;line-height:1.35;word-break:break-word}
+.meta{font-size:11px;color:var(--text2)}
+.chk{font-size:12px;font-weight:700;color:#4caf50;width:18px;text-align:center;flex-shrink:0}
+.eb{font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text2);flex-shrink:0;white-space:nowrap}
+.eb.pri{background:var(--accent);color:#1c1c1e;border-color:var(--accent);font-weight:700}
+.nin{width:100%;font-size:14px;font-weight:700;padding:6px 8px;border:1px solid var(--accent);border-radius:7px;background:var(--bg);outline:none}
+
+/* A: メニュー */
+.menu{position:absolute;right:14px;top:44px;z-index:4;background:var(--surface2);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden;min-width:190px}
+.menu button{display:flex;gap:10px;align-items:center;width:100%;background:none;border:0;padding:11px 14px;font-size:13px;text-align:left}
+.menu button+button{border-top:1px solid var(--border)}
+.menu small{color:var(--text3);font-size:11px;display:block}
+
+/* B: 行の中で開く */
+.inl{padding:4px 14px 12px 56px;display:flex;flex-direction:column;gap:8px}
+.inl .row{display:flex;gap:6px}
+.inl .row .eb{flex:1;text-align:center;padding:8px}
+
+/* C / D: シート */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:6;display:flex;align-items:flex-end}
+.sheet{width:100%;background:var(--surface);border-top-left-radius:14px;border-top-right-radius:14px;border-top:1px solid var(--border);padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.sheet h4{font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.lbl{font-size:11px;color:var(--text3);margin-bottom:4px}
+.big{display:flex;gap:10px;align-items:center;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;text-align:left}
+.big small{display:block;color:var(--text3);font-size:11px;margin-top:2px}
+.big .ar{margin-left:auto;color:var(--text3)}
+.btns{display:flex;gap:8px}
+.btns .eb{flex:1;padding:10px;text-align:center;font-size:13px}
+
+/* D: 編集画面（統合フィルター）の頭 */
+.ed{position:absolute;inset:0;background:var(--bg);z-index:6;display:flex;flex-direction:column}
+.edh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.edh .nin{flex:1}
+.edb{padding:14px;display:flex;flex-direction:column;gap:10px;font-size:12px;color:var(--text3)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{padding:4px 10px;border-radius:12px;background:var(--surface2);color:var(--text2);font-size:12px}
+.chips span.on{background:rgba(229,196,122,.2);color:var(--accent)}
+.edf{margin-top:auto;padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px}
+.edf .eb{flex:1;padding:10px;text-align:center}
+
+/* E: 2つに分ける */
+.pair{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.pair .eb{padding:3px 10px;font-size:11px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%;z-index:20}
+.toast.on{opacity:1}
+.cmp{margin:18px 16px 0;font-size:12px;color:var(--text2);border-collapse:collapse;width:calc(100% - 32px)}
+.cmp th,.cmp td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+.cmp th{color:var(--text);background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="banner">
+  見本の画面です（本物のデータには触りません）。<br>
+  上の A〜E を切り替えて、右端の「編集」を押してみてください。どの案でも、名前の横の ✏️ は無くします（名前を変えるのは「編集」の中だけ）。
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="desc" id="desc"></div>
+<div class="modal" id="modal"></div>
+
+<table class="cmp">
+  <tr><th></th><th>名前を変えるまで</th><th>条件・動画の編集まで</th><th>見た目</th></tr>
+  <tr><td>A メニュー</td><td>2タップ＋入力</td><td>2タップ（1つ増える）</td><td>行は今のまま</td></tr>
+  <tr><td>B 行の中で開く</td><td>1タップ＋入力</td><td>2タップ（1つ増える）</td><td>行が縦に伸びる</td></tr>
+  <tr><td>C 下から出る画面</td><td>1タップ＋入力</td><td>2タップ（1つ増える）</td><td>削除・テンプレも同じ場所に置ける</td></tr>
+  <tr><td>D 編集画面の頭に名前</td><td>1タップ＋入力</td><td>1タップ（今と同じ）</td><td>ピッカーは今のまま</td></tr>
+  <tr><td>E ボタンを2つに</td><td>1タップ＋入力</td><td>1タップ（今と同じ）</td><td>右端が少し混む</td></tr>
+</table>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = [
+  { id:'a', name:'John Danaher パスガード', meta:'条件で自動 · 8本 · 11時間10分', ic:'🔄', dyn:true },
+  { id:'b', name:'Lachlan Giles _Guard Retention', meta:'条件で自動 · 181本 · 10時間56分', ic:'🔄', dyn:true },
+  { id:'c', name:'TFアドバンスド 今やる', meta:'条件で自動 · 72本 · 7時間43分', ic:'🔄', dyn:true, active:true },
+  { id:'d', name:'取り組み中 トップ', meta:'手動選択 · 291本 · 21時間42分', ic:'📌', dyn:false },
+];
+const PLANS = {
+  A:{ t:'A メニュー', d:'<b>「編集」を押すと小さなメニュー</b>が出て、「名前を変える」「条件・動画を編集」を選ぶ。行の見た目は今と同じ。<span class="pc">良い: 行がすっきり。あとで「削除」「テンプレとして保存」も並べられる。　気になる: 条件の編集が1タップ増える。</span>' },
+  B:{ t:'B 行の中で開く', d:'<b>「編集」を押すと、その行が開いて</b>名前の欄と「条件・動画を編集」が出る。名前を打って「保存」。<span class="pc">良い: どの行を直しているか迷わない。画面が切り替わらない。　気になる: 条件の編集が1タップ増える。</span>' },
+  C:{ t:'C 下から出る画面', d:'<b>「編集」を押すと、下から「リストの編集」</b>が出る。いちばん上が名前の欄、その下に「条件・動画を編集 →」。<span class="pc">良い: 指が届きやすい。削除・テンプレ保存などもここにまとめられる。　気になる: 条件の編集が1タップ増える。</span>' },
+  D:{ t:'D 編集画面の頭に名前', d:'<b>「編集」は今と同じく条件・動画の編集画面</b>を開く。その画面の一番上に名前の欄を置き、条件と一緒に保存する。<span class="pc">良い: 今の動きのまま、押す回数も増えない。　気になる: 名前だけ変えたいときも、条件の画面を開くことになる。</span>' },
+  E:{ t:'E ボタンを2つに', d:'<b>右端を「名前」「中身」の2つ</b>に分ける。「名前」はその場で名前の欄になり、「中身」は今の「編集」と同じ。<span class="pc">良い: どちらも1タップ。迷わない。　気になる: 右端のボタンが小さくなる。</span>' },
+};
+let plan = 'A', open = null, mode = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),1800); }
+function rename(id, val){ const v = DATA.find(x=>x.id===id); val=(val||'').trim(); if(!val){toast('名前が空なので変えません');return;} if(val!==v.name){v.name=val;toast(`名前を「${val}」に変えました`);} open=null; mode=null; render(); }
+function cond(id){ toast('（ここで今の条件・動画の編集画面が開きます）'); open=null; mode=null; render(); }
+
+function editBtn(v){
+  if (plan==='E') return `<div class="pair"><button class="eb" onclick="open='${v.id}';mode='name';render()">名前</button><button class="eb" onclick="cond('${v.id}')">中身</button></div>`;
+  return `<button class="eb${open===v.id?' pri':''}" onclick="tapEdit('${v.id}')">編集</button>`;
+}
+function tapEdit(id){ open = (open===id && (plan==='A'||plan==='B')) ? null : id; mode=null; render(); if((plan==='B'||plan==='E') && open) setTimeout(()=>$('nin')?.focus(),0); }
+
+function row(v){
+  const naming = (plan==='E' && open===v.id && mode==='name');
+  let h = `<div class="item${v.active?' active':''}"><span class="ic">${v.ic}</span><span class="info">`;
+  h += naming
+    ? `<input class="nin" id="nin" value="${esc(v.name)}" onkeydown="if(event.key==='Enter')rename('${v.id}',this.value);if(event.key==='Escape'){open=null;render()}" onblur="rename('${v.id}',this.value)">`
+    : `<span class="nm">${esc(v.name)}</span>`;
+  h += `<span class="meta">${v.meta}</span></span><span class="chk">${v.active?'✓':''}</span>${editBtn(v)}`;
+  if (plan==='A' && open===v.id) h += `<div class="menu">
+      <button onclick="mode='name';promptName('${v.id}')">✏️ <span>名前を変える</span></button>
+      <button onclick="cond('${v.id}')">⚙️ <span>${v.dyn?'条件を編集':'動画を選び直す'}<small>今の「編集」と同じ画面</small></span></button>
+    </div>`;
+  h += `</div>`;
+  if (plan==='B' && open===v.id) h += `<div class="inl">
+      <div><div class="lbl">名前</div><input class="nin" id="nin" value="${esc(v.name)}" onkeydown="if(event.key==='Enter')rename('${v.id}',this.value)"></div>
+      <div class="row"><button class="eb" onclick="cond('${v.id}')">${v.dyn?'⚙️ 条件を編集':'⚙️ 動画を選び直す'}</button><button class="eb pri" onclick="rename('${v.id}',$('nin').value)">保存</button></div>
+    </div>`;
+  return h;
+}
+function promptName(id){ open=null; render(); const v=DATA.find(x=>x.id===id); const n=prompt('リストの名前', v.name); if(n!==null) rename(id,n); }
+
+function overlay(){
+  const v = DATA.find(x=>x.id===open); if(!v) return '';
+  if (plan==='C') return `<div class="dim" onclick="if(event.target===this){open=null;render()}"><div class="sheet">
+      <h4>リストの編集<button class="eb" onclick="open=null;render()">✕</button></h4>
+      <div><div class="lbl">名前</div><input class="nin" id="nin" value="${esc(v.name)}" onkeydown="if(event.key==='Enter')rename('${v.id}',this.value)"></div>
+      <button class="big" onclick="cond('${v.id}')">⚙️<span>${v.dyn?'条件を編集':'動画を選び直す'}<small>${v.meta}</small></span><span class="ar">›</span></button>
+      <div class="btns"><button class="eb" onclick="open=null;render()">キャンセル</button><button class="eb pri" onclick="rename('${v.id}',$('nin').value)">保存</button></div>
+    </div></div>`;
+  if (plan==='D') return `<div class="ed">
+      <div class="edh"><button class="eb" onclick="open=null;render()">‹</button><input class="nin" id="nin" value="${esc(v.name)}" placeholder="リストの名前"></div>
+      <div class="edb">
+        <div>${v.dyn?'条件（今の編集画面と同じ。見本なので押しても何も起きません）':'動画を選ぶ（今の編集画面と同じ）'}</div>
+        <div class="lbl">タグ1</div><div class="chips"><span class="on">トップ</span><span>ボトム</span><span>スタンディング</span></div>
+        <div class="lbl">チャンネル</div><div class="chips"><span class="on">John Danaher</span><span>Lachlan Giles</span><span>Miky musmeci</span></div>
+      </div>
+      <div class="edf"><button class="eb" onclick="open=null;render()">キャンセル</button><button class="eb pri" onclick="rename('${v.id}',$('nin').value)">保存（名前と条件）</button></div>
+    </div>`;
+  return '';
+}
+
+function render(){
+  $('tabs').innerHTML = Object.keys(PLANS).map(k=>`<button class="${k===plan?'on':''}" onclick="plan='${k}';open=null;mode=null;render()">${PLANS[k].t}</button>`).join('');
+  $('desc').innerHTML = PLANS[plan].d;
+  $('modal').innerHTML = `<div class="mh">リスト<button class="x">✕</button></div>
+    <div class="item active" style="background:none"><span class="ic">🏠</span><span class="info"><span class="nm">マスター</span><span class="meta">ライブラリ全体</span></span></div>
+    <div class="sec"><span>カスタムビュー</span><select><option>手動の並び</option></select><button class="sb">整理</button></div>
+    ${DATA.map(row).join('')}
+    <div style="height:8px"></div>${overlay()}`;
+  if (plan==='C' || plan==='D') $('modal').style.minHeight = open ? '520px' : '';
+}
+document.addEventListener('click', e => { if (plan==='A' && open && !e.target.closest('.menu') && !e.target.closest('.eb')) { open=null; render(); } });
+render();
+</script>
+</body>
+</html>
