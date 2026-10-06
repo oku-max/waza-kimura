@@ -728,6 +728,10 @@ window.wkRestoreFromLegacyFirestore = async function () {
 const CV_DOC_PREFIX = 'cv_';
 const CV_INDEX_DOC  = 'cv_index';
 let _cvLastSynced = {};   // id -> 直近クラウドと一致した内容のJSON署名。差分のあるビューだけ書く基準。
+// この端末がクラウドで一度でも見た（読んだ・書いた）リストの id。_cvLastSynced は読み直すたびに
+// 作り直されるので「まだ送れていない」と「ほかの端末で消された」の区別には使えない（v52.951）。
+// ここに無い id だけを「まだ送れていない」として残す。減らすのはこの端末で消したときだけ。
+const _cvSeenInCloud = new Set();
 let _cvMigrated   = false; // cv_index.migrated: 移行完了後は旧 customViews 配列を読まない（削除の復活防止）
 
 const _dataDoc    = (uid, name) => db.collection('users').doc(uid).collection('data').doc(name);
@@ -757,6 +761,7 @@ window._cvSyncRemote = async function(force) {
         updatedAt: new Date().toISOString(), savedBy: _sessionId
       });
       _cvLastSynced[v.id] = sig;
+      _cvSeenInCloud.add(v.id);
       wrote++;
     } catch (e) { failed++; console.error('[cvSync] 保存失敗', v.id, e); }
   }
@@ -818,14 +823,19 @@ function _cvWatch(uid) {
       if (snap.metadata?.hasPendingWrites) return;     // 自分のローカル書き込みの反映
 
       const before = window._cvViews || [];
-      const { merged } = await _cvLoadAndMerge(uid, null);
+      const { merged, idxExists, cloudIds } = await _cvLoadAndMerge(uid, null);
       if (!Array.isArray(merged)) return;
+      if (!idxExists) return;                          // 索引を読めなかった＝消されたか分からない。何もしない
 
-      // 決まり2: 一度も同期していないローカルのビューは残す。
-      // クラウドから消えたものでも、_cvLastSynced に記録が無ければ
-      // 「削除された」のではなく「まだ送れていない」なので落とさない。
+      // 決まり2: 一度もクラウドに載ったことのないローカルのビューは残す（まだ送れていない）。
+      // 一度載ったのにクラウドから消えたものは、ほかの端末で消されたので落とす。
+      // 以前は _cvLastSynced を見ていたが、_cvLoadAndMerge が直前にそれを作り直すので、
+      // ほかの端末で消したリストがいつも「まだ送れていない」扱いで残り、
+      // この端末が次に保存したときクラウドへ書き戻して、消した端末でも復活していた（v52.951）。
       const ids = new Set(merged.map(v => v && v.id));
-      const keep = before.filter(v => v && v.id && !ids.has(v.id) && _cvLastSynced[v.id] === undefined);
+      // 落とすのは索引からも外れたもの（明示の削除だけが索引から外す）。索引にあるのに本体が
+      // 一時的に読めなかったものは残す。
+      const keep = before.filter(v => v && v.id && !ids.has(v.id) && !(_cvSeenInCloud.has(v.id) && !cloudIds.has(v.id)));
       const next = merged.concat(keep);
 
       // 決まり1: 非空 → 空 にはしない
@@ -932,6 +942,7 @@ async function _cvLoadAndMerge(uid, legacyArr) {
   baseLocal.forEach((v, i) => { if (v && v.id) map.set(v.id, { v, order: i }); });
   if (!_cvMigrated) legacy.forEach((v, i) => { if (v && v.id) map.set(v.id, { v, order: i }); });
   perDoc.forEach((e, id) => map.set(id, e));
+  perDoc.forEach((e, id) => _cvSeenInCloud.add(id));
 
   const merged = [...map.values()].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)).map(e => e.v);
 
@@ -944,7 +955,7 @@ async function _cvLoadAndMerge(uid, legacyArr) {
   });
 
   const needSeed = merged.some(v => !perDoc.has(v.id));
-  return { merged, needSeed, hadLegacy: legacy.length > 0, idxExists: !!idx };
+  return { merged, needSeed, hadLegacy: legacy.length > 0, idxExists: !!idx, cloudIds: new Set(cvIds) };
 }
 
 export async function saveUserSettings() {
