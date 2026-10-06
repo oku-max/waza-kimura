@@ -682,13 +682,12 @@ function _buildPickerHTML() {
       <span class="cv-picker-info">
         <span style="display:flex;align-items:center;gap:4px">
           <span class="cv-picker-name">${_esc(v.label)}</span>
-          <button class="cv-picker-rename-btn" onclick="event.stopPropagation();window._cvRenameView('${v.id}')" title="名前を変更">✏️</button>
         </span>
         <span class="cv-picker-meta">${modeLbl} · ${cnt}</span>
         ${deadHtml}
       </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
-      <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">${T('cv.edit','編集')}</button>
+      <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._cvPickerEditMenu('${v.id}',this)">${T('cv.edit','編集')}</button>
     </div>`;
   }).join('');
 
@@ -721,6 +720,42 @@ function _buildPickerHTML() {
     </div>
   </div>`;
 }
+
+// ── 行の「編集」を押すと出る小さなメニュー（v52.949・オーナー決定: mock-cv-rename.html の A）──
+// 「名前を変える」は今までの ✏️ と同じ _cvRenameView、「条件を編集／動画を選び直す」は
+// 今までの「編集」と同じ cvOpenConditionEditor を、そのまま呼ぶだけ（入口を足すだけで中身は変えない）。
+// 本体（.cv-picker-body）は縦に流れるので、下の行で見切れないよう画面に固定して出す。
+function _cvCloseEditMenu() { document.getElementById('cv-picker-edit-menu')?.remove(); }
+window._cvPickerEditMenu = function(id, btn) {
+  const was = document.getElementById('cv-picker-edit-menu');
+  _cvCloseEditMenu();
+  if (was && was.dataset.id === id) return;           // 同じ「編集」をもう一度押したら閉じる
+  const view = _views.find(v => v.id === id);
+  const ov = document.getElementById('cv-picker-overlay');
+  if (!view || !ov) return;
+  const dyn = view.saveMode === 'dynamic';
+  const m = document.createElement('div');
+  m.id = 'cv-picker-edit-menu';
+  m.dataset.id = id;
+  m.className = 'cv-picker-edit-menu';
+  m.innerHTML = `<button data-act="rename">✏️ <span>名前を変える</span></button>`
+    + `<button data-act="edit">⚙️ <span>${dyn ? '条件を編集' : '動画を選び直す'}</span></button>`;
+  m.addEventListener('click', e => {
+    e.stopPropagation();
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    _cvCloseEditMenu();
+    if (b.dataset.act === 'rename') window._cvRenameView(id);
+    else { window._closePicker(); window.cvOpenConditionEditor(id); }
+  });
+  ov.appendChild(m);
+  const r = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px';
+  m.style.top = (r.bottom + 4 + mh > window.innerHeight - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', function _off(e) {
+    if (!e.target.closest('#cv-picker-edit-menu, .cv-picker-edit-btn')) { _cvCloseEditMenu(); document.removeEventListener('pointerdown', _off, true); }
+  }, true), 0);
+};
 
 window._cvEditCurrent = function() {
   if (_curId) window.cvOpenConditionEditor(_curId);
@@ -796,6 +831,7 @@ window._cvClearSelection = function() {
 };
 
 window._closePicker = function() {
+  _cvCloseEditMenu();
   _cvPickerEditMode = false;
   const el = document.getElementById('cv-picker-overlay');
   if (el) el.style.display = 'none';

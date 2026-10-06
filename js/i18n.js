@@ -1486,6 +1486,8 @@
     "ライブラリにこの動画が見つかりません": "This video is not in your library",
     "ライブラリに保存済みの動画": "Videos saved in your library",
     "ライブラリ全体": "Entire library",
+    "名前を変える": "Rename",
+    "動画を選び直す": "Re-select videos",
     "手動の並び": "Manual order",
     "リスト名": "List name",
     "編集日": "Last edited",

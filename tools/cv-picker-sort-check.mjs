@@ -5,6 +5,8 @@
 //  ③ 行の 📋/📊（カード/テーブル切替）が出ていない（オーナー「もはや不要」）
 //  ④ 編集日: 名前を変えたリストだけ updatedAt が付く。ほかのリストの updatedAt は変わらない
 //  ⑤ 「整理」中は手動の並びで出す（▲▼と表示順がずれない）
+//  ⑥ 右端の「編集」で小さなメニュー（v52.949・mock-cv-rename.html の A）: 名前を変える／条件を編集（動画を選び直す）。
+//     名前の横の ✏️ は無い。メニューの外を押すと閉じる。「条件を編集」は今までの「編集」と同じ画面を開く
 // 使い方: node tools/cv-picker-sort-check.mjs
 import http from 'http';
 import fs from 'fs';
@@ -94,6 +96,25 @@ await page.evaluate(() => { window._cvPickerSetSort('edited', 'desc'); });
 ok('④ 編集日の降順で先頭に来る', (await names())[0] === 'Aリスト改', (await names()).join(','));
 const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('wk_cv_views')).map(v => v.label).join(','));
 ok('② 保存された並びも手動のまま', kept === 'Bリスト,Aリスト改,Cリスト', kept);
+
+// ⑥ 「編集」のメニュー
+await page.evaluate(() => { window._cvPickerSetSort('manual'); });
+ok('⑥ 名前の横の ✏️ が無い', await page.evaluate(() => !document.querySelector('#cv-picker-overlay .cv-picker-rename-btn')));
+await page.click('#cv-picker-overlay .cv-picker-edit-btn >> nth=0');
+const menu = await page.evaluate(() => [...document.querySelectorAll('#cv-picker-edit-menu button')].map(b => b.textContent.trim()));
+ok('⑥ 「編集」でメニューが出る（名前を変える／動画を選び直す）', menu.join('|') === '✏️ 名前を変える|⚙️ 動画を選び直す', menu.join('|'));
+await page.click('#cv-picker-overlay .cv-picker-header');
+ok('⑥ 外を押すと閉じる', await page.evaluate(() => !document.getElementById('cv-picker-edit-menu')));
+await page.click('#cv-picker-overlay .cv-picker-edit-btn >> nth=0');
+await page.evaluate(() => { window.prompt = () => 'Bリスト新'; });
+await page.click('#cv-picker-edit-menu button[data-act=rename]');
+ok('⑥ 「名前を変える」で名前が変わる', (await names())[0] === 'Bリスト新', (await names()).join(','));
+ok('⑥ メニューは閉じている', await page.evaluate(() => !document.getElementById('cv-picker-edit-menu')));
+await page.evaluate(() => { window._cvEditOpened = null; const o = window.cvOpenConditionEditor; window.cvOpenConditionEditor = id => { window._cvEditOpened = id; }; });
+await page.click('#cv-picker-overlay .cv-picker-edit-btn >> nth=0');
+await page.click('#cv-picker-edit-menu button[data-act=edit]');
+const r6 = await page.evaluate(() => ({ id: window._cvEditOpened, closed: document.getElementById('cv-picker-overlay').style.display === 'none' }));
+ok('⑥ 「動画を選び直す」で今までの編集画面を開き、ピッカーを閉じる', r6.id === 'cv_1700000002000' && r6.closed, JSON.stringify(r6));
 
 ok('JSエラーなし', !errs.filter(e => !/firebase|gstatic|googleapis|net::ERR/i.test(e)).length, errs.join(' / '));
 await browser.close(); srv.close();
