@@ -652,14 +652,8 @@ function _buildPickerHTML() {
     const isActive = v.id === _curId;
 
     if (_cvPickerEditMode) {
-      const canUp   = idx > 0;
-      const canDown = idx < _views.length - 1;
       return `<div class="cv-picker-item cv-picker-edit-row" data-cv-sort="views" data-cv-id="${v.id}">
         <div class="cv-drag-handle" title="${T('cv.dragSort','ドラッグして並べ替え')}"></div>
-        <div class="cv-picker-arrows">
-          <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',-1)" ${canUp ? '' : 'disabled'}>▲</button>
-          <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',1)" ${canDown ? '' : 'disabled'}>▼</button>
-        </div>
         <span class="cv-picker-icon">${icon}</span>
         <span class="cv-picker-info">
           <span class="cv-picker-name">${_esc(v.label)}</span>
@@ -915,14 +909,8 @@ window._cvSaveAsTemplate = function(viewId) {
 // ── テンプレートマネージャー ──
 function _buildTemplateManagerHTML() {
   const items = _cvUserTemplates.map((tpl, idx) => {
-    const canUp   = idx > 0;
-    const canDown = idx < _cvUserTemplates.length - 1;
     return `<div class="cv-picker-item cv-picker-edit-row" data-cv-sort="tpls" data-cv-id="${tpl.id}">
       <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
-      <div class="cv-picker-arrows">
-        <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',-1)" ${canUp?'':'disabled'}>▲</button>
-        <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',1)" ${canDown?'':'disabled'}>▼</button>
-      </div>
       <span class="cv-picker-icon" style="font-size:16px">📐</span>
       <span class="cv-picker-info" style="flex:1;min-width:0">
         <span class="cv-picker-name" style="word-break:break-all">${_esc(tpl.label)}</span>

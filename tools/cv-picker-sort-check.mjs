@@ -6,6 +6,7 @@
 //  ④ 編集日: 名前を変えたリストだけ updatedAt が付く。ほかのリストの updatedAt は変わらない
 //  ⑤ 「整理」中は手動の並びで出す（▲▼と表示順がずれない）
 //  ⑥ 右端の「編集」で小さなメニュー（v52.949・mock-cv-rename.html の A）: 名前を変える／条件を編集（動画を選び直す）。
+//  ⑦ 「整理」中の ▲▼ は無い（ドラッグで並べ替える・v52.950）。新しいリストを作る画面に「ビューの種類」は無い
 //     名前の横の ✏️ は無い。メニューの外を押すと閉じる。「条件を編集」は今までの「編集」と同じ画面を開く
 // 使い方: node tools/cv-picker-sort-check.mjs
 import http from 'http';
@@ -80,7 +81,13 @@ ok('② _views の順番は変わらない', (await viewsOrder()) === before, aw
 await page.evaluate(() => window._cvPickerToggleEdit());
 const editNames = await page.evaluate(() => [...document.querySelectorAll('#cv-picker-overlay .cv-picker-edit-row .cv-picker-name')].map(e => e.textContent).join(','));
 ok('⑤ 整理中は手動の並び', editNames === 'Bリスト,Aリスト,Cリスト', editNames);
+ok('⑦ 整理中に ▲▼ が無く、ドラッグのつまみはある', await page.evaluate(() =>
+  !document.querySelector('#cv-picker-overlay .cv-picker-arrows') && document.querySelectorAll('#cv-picker-overlay .cv-drag-handle').length === 3));
 await page.evaluate(() => window._cvPickerToggleEdit());
+ok('⑦ 新しいリストの画面に「ビューの種類」が無い', await page.evaluate(() => {
+  const m = document.getElementById('cv-new-modal');
+  return !!m && !m.textContent.includes('ビューの種類') && !document.getElementById('cv-type-card-lbl');
+}));
 
 // ④ 編集日
 const r4 = await page.evaluate(() => {
