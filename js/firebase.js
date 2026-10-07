@@ -135,7 +135,9 @@ auth.onAuthStateChanged(async (user) => {
     _vcShow(user.uid);
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
+    window.__pmark?.('cv_startup');
     await loadUserSettings(user.uid);
+    window.__pmark?.('settings');
     await loadTagRegistry(user.uid);  // 設定（テンプレート含む）を読んだ後でないと、旧テンプレートを移せない
     _cvWatch(user.uid);               // 他端末のカスタムビュー変更を拾う（読むだけ）
     await loadNotes(user.uid);
@@ -734,6 +736,16 @@ let _cvLastSynced = {};   // id -> 直近クラウドと一致した内容のJSO
 const _cvSeenInCloud = new Set();
 let _cvMigrated   = false; // cv_index.migrated: 移行完了後は旧 customViews 配列を読まない（削除の復活防止）
 
+// リストの同期の見える化（v52.954）。?perf=1 のパネルに、送った・受け取った・無視した（理由）を時刻つきで出す。
+// 2台で開けば、どちらの何秒で止まっているかが見える。読むだけ・何も保存しない。
+function _cvLog(msg) {
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  const log = (window.__cvSyncLog ||= []);
+  log.push(`${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())} ${msg}`);
+  if (log.length > 10) log.shift();
+  window.__perfRender?.();
+}
+
 const _dataDoc    = (uid, name) => db.collection('users').doc(uid).collection('data').doc(name);
 const _cvViewRef  = (uid, id)   => _dataDoc(uid, CV_DOC_PREFIX + id);
 const _cvIndexRef = (uid)       => _dataDoc(uid, CV_INDEX_DOC);
@@ -743,7 +755,7 @@ window._cvSyncRemote = async function(force) {
   if (!currentUser) return;
   // 通常保存はロード完了(_settingsReady)まで待つ（空/部分上書き防止）。
   // 移行シードは _cvLoadAndMerge 直後＝クラウド状態を確定済みで呼ぶため force で通す。
-  if (!_settingsReady && !force) { console.warn('[cvSync] settings未確定のためスキップ（空/部分上書き防止）'); return; }
+  if (!_settingsReady && !force) { console.warn('[cvSync] settings未確定のためスキップ（空/部分上書き防止）'); _cvLog('送信→送らず（起動の読み込み中）'); return; }
   const uid = currentUser.uid;
   const views = window._cvViews || [];
   const ids = [];
@@ -777,6 +789,7 @@ window._cvSyncRemote = async function(force) {
     } catch (e) { console.error('[cvSync] index更新失敗', e); }
   }
   if (wrote) console.log(`[cvSync] ${wrote}件のプレイリストを個別保存${failed ? ` / ${failed}件失敗` : ''}`);
+  if (wrote || failed) _cvLog(`送信 ${wrote}件${failed ? ` / 失敗${failed}件` : ''}`);
   if (failed) showToast('⚠️ 一部プレイリストの保存に失敗しました', 5000);
 };
 
@@ -814,18 +827,22 @@ let _cvUnsubscribe = null;
 
 function _cvWatch(uid) {
   if (_cvUnsubscribe) { _cvUnsubscribe(); _cvUnsubscribe = null; }
+  window.__pmark?.('cv_watch');
+  let first = true;
   _cvUnsubscribe = _cvIndexRef(uid).onSnapshot(async snap => {
+    const tag = first ? '見張り開始' : '受信';
+    first = false;
     try {
       if (currentUser?.uid !== uid) return;          // 別ユーザーに切り替わった
-      if (!snap.exists) return;
-      if (!_settingsReady) return;                    // 初回ロードが終わるまでは触らない
-      if (snap.data()?.savedBy === _sessionId) return; // 自分の書き込み
+      if (!snap.exists) { _cvLog(`${tag}→目次が無い`); return; }
+      if (!_settingsReady) { _cvLog(`${tag}→無視（起動の読み込み中）`); return; }   // 初回ロードが終わるまでは触らない
+      if (snap.data()?.savedBy === _sessionId) { _cvLog(`${tag}（この端末の送信）`); return; } // 自分の書き込み
       if (snap.metadata?.hasPendingWrites) return;     // 自分のローカル書き込みの反映
 
       const before = window._cvViews || [];
       const { merged, idxExists, cloudIds } = await _cvLoadAndMerge(uid, null);
       if (!Array.isArray(merged)) return;
-      if (!idxExists) return;                          // 索引を読めなかった＝消されたか分からない。何もしない
+      if (!idxExists) { _cvLog(`${tag}→目次を読めず何もしない`); return; }   // 索引を読めなかった＝消されたか分からない。何もしない
 
       // 決まり2: 一度もクラウドに載ったことのないローカルのビューは残す（まだ送れていない）。
       // 一度載ったのにクラウドから消えたものは、ほかの端末で消されたので落とす。
@@ -841,16 +858,19 @@ function _cvWatch(uid) {
       // 決まり1: 非空 → 空 にはしない
       if (!next.length && before.length) {
         console.warn('[cvWatch] クラウドが空。ローカルを残す（消さない）');
+        _cvLog(`${tag}→クラウドが空なので残す`);
         return;
       }
-      if (JSON.stringify(next) === JSON.stringify(before)) return;   // 変化なし
+      if (JSON.stringify(next) === JSON.stringify(before)) { _cvLog(`${tag}→変化なし`); return; }   // 変化なし
       console.log(`[cvWatch] 他端末の変更を反映: ${before.length}件 → ${next.length}件`);
+      _cvLog(`${tag}→反映 ${before.length}件→${next.length}件`);
       window._cvApplyLoadedViews?.(next);
       showToast('🔄 リストを他の端末の内容に更新しました', 3000);
     } catch (e) {
       console.error('[cvWatch] 反映に失敗（現状維持）', e);
+      _cvLog(`${tag}→失敗: ${String(e?.message || e).slice(0, 60)}`);
     }
-  }, e => console.error('[cvWatch] onSnapshot:', e));
+  }, e => { console.error('[cvWatch] onSnapshot:', e); _cvLog(`見張りエラー: ${e?.code || e?.message || e}`); });
 }
 
 // ── カスタムビューの同期状態を出す（読むだけ・何も書かない）──────
