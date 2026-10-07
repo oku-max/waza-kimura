@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — ブックマークの仕切り（自動で入れる2パターン）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。AIも呼ばない（決まった結果を少し待ってから出すだけ）。
+  触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--border2:#eaeae6;--new:#2f7d4f}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--border2:#3a3a3c;--new:#7fd19e}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:620px;margin:0 auto;padding-bottom:80px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.tabs{display:flex;gap:5px;padding:10px 12px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--border)}
+.tab{flex:1;min-width:0;padding:8px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap}
+.tab.on{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 1px var(--accent)}
+.opts{display:flex;gap:12px;align-items:center;padding:8px 14px;font-size:11px;color:var(--text3);flex-wrap:wrap}
+.opts label{display:flex;gap:4px;align-items:center;cursor:pointer}
+.opts button{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.desc{margin:6px 12px 10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)}
+.desc ol{margin:4px 0 0 18px}
+.panel{margin:0 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+
+.hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.hsp{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.hbtn{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap}
+.hbtn.on{border-color:var(--accent);color:var(--accent);background:var(--gold-soft);font-weight:700}
+.hbtn.newb{border-color:var(--new);color:var(--new)}
+
+#list{position:relative}
+.row{border-bottom:1px solid var(--border);padding:6px 4px;display:flex;align-items:center;gap:6px}
+.t{flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:500;white-space:nowrap;min-width:58px;text-align:center}
+.name{flex:1;min-width:0;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed{padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9.5px;flex-shrink:0}
+.flash{animation:fl 1.6s ease-out}
+@keyframes fl{0%{background:var(--gold-soft)}100%{background:transparent}}
+
+/* 仕切り: 時刻ボタンなし・押しても飛ばない。文字と線だけ */
+.div{display:flex;align-items:center;gap:6px;padding:14px 2px 5px;border-bottom:2px solid var(--text3)}
+.div:first-child{padding-top:4px}
+.div .dt{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--text);letter-spacing:.02em}
+.div .ai{font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:4px;padding:0 4px;flex-shrink:0}
+.div .dbtn{display:none;width:24px;height:22px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;flex-shrink:0;padding:0}
+.div .handle{display:none;cursor:grab;color:var(--text3);font-size:14px;padding:0 2px;touch-action:none;user-select:none}
+.div input{flex:1;min-width:0;font:inherit;font-size:13px;font-weight:700;padding:3px 6px;border:1px solid var(--accent);border-radius:5px;background:var(--surface);color:var(--text)}
+.editing .div .dbtn,.editing .div .handle{display:inline-block}
+.editing .div .dt{cursor:text;text-decoration:underline dotted var(--text3);text-underline-offset:3px}
+.div.dragging{opacity:.35}
+
+/* 編集中だけ出る「ここに仕切り」 */
+.slot{display:none;height:0;position:relative}
+.editing .slot{display:block;height:18px}
+.slot button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;padding:1px 10px;border-radius:10px;border:1px dashed var(--text3);background:var(--surface);color:var(--text3);white-space:nowrap}
+.slot button:hover{border-style:solid;color:var(--accent);border-color:var(--accent)}
+.dropline{position:absolute;left:0;right:0;height:3px;background:var(--accent);border-radius:2px;pointer-events:none;display:none;z-index:3}
+
+.empty{font-size:12px;color:var(--text3);padding:14px 4px;text-align:center}
+
+/* ダイアログ */
+.bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.dlg{background:var(--surface);border-radius:12px;max-width:420px;width:100%;max-height:86vh;overflow:auto;padding:16px;border:1px solid var(--border)}
+.dlg h3{font-size:13px;margin-bottom:10px}
+.dlg p{font-size:12px;line-height:1.7;color:var(--text2);margin-bottom:8px}
+.dlg .grain{display:flex;gap:5px;margin:4px 0 12px}
+.dlg .grain span{flex:1;text-align:center;font-size:11px;padding:5px 0;border:1px solid var(--border);border-radius:6px;color:var(--text2)}
+.dlg .grain span.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.dlg .chk{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border:1.5px solid var(--new);border-radius:8px;margin-bottom:12px;cursor:pointer}
+.dlg .chk input{margin-top:3px}
+.dlg .chk b{font-size:12px}
+.dlg .chk small{display:block;font-size:11px;color:var(--text3);line-height:1.6;margin-top:2px}
+.dlg .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.dlg .acts button{font-size:12px;padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface2)}
+.dlg .acts .go{background:var(--accent);color:var(--surface);border-color:var(--accent);font-weight:700}
+.pv{border:1px solid var(--border);border-radius:8px;padding:4px 8px;max-height:46vh;overflow:auto}
+.pv .row{padding:4px 2px}
+.pv .t{font-size:11px;min-width:52px}
+.pv .div{padding:10px 0 3px}
+.pv .div:first-child{padding-top:3px}
+.pv .tag{font-size:9px;color:var(--new);border:1px solid var(--new);border-radius:4px;padding:0 4px;flex-shrink:0}
+.spin{font-size:12px;color:var(--text2);padding:20px 0;text-align:center}
+
+.data{margin:12px 12px 0;font-size:11px;color:var(--text3)}
+.data summary{cursor:pointer;padding:4px 0}
+.data pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:10.5px;line-height:1.55;overflow:auto;color:var(--text2);white-space:pre-wrap;word-break:break-all}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。本物のデータには書き込みません。AIも呼びません（決まった結果を出すだけ）。<br>上のタブで「仕切りを自動で入れる」2つのパターンを切り替えてください。どちらも <b>✎ 仕切りを編集</b> で、足す・名前を変える・動かす（⠿ をドラッグ／↑↓）・消すが実際に動きます。</div>
+<div class="tabs" id="tabs"></div>
+<div class="opts">
+  <label><input type="checkbox" id="dark"> ダーク表示</label>
+  <button onclick="reset()">最初の状態に戻す</button>
+</div>
+<div class="desc" id="desc"></div>
+<div class="panel">
+  <div class="hd">
+    <span class="lbl">🔖 ブックマーク</span>
+    <span class="hsp" id="hbtns"></span>
+  </div>
+  <div id="list"><div class="dropline" id="dropline"></div></div>
+</div>
+<details class="data">
+  <summary>保存される中身を見る（仕切りはブックマークとは別の列に、時刻で入る）</summary>
+  <pre id="dump"></pre>
+</details>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 見本データ（1時間10分の教則を想定） ─────────────────────
+const CHAPS = [
+  [0,'イントロと全体の流れ'],[100,'クローズドガードの姿勢作り'],[245,'袖と襟のグリップ'],
+  [450,'ヒップエスケープで角度を作る'],[612,'シザースイープ'],[828,'フラワースイープ'],
+  [1040,'相手が立った時の対応'],[1205,'デラヒーバの足の入れ方'],[1420,'デラヒーバからベリンボロへ'],
+  [1635,'ベリンボロの回転と背中の取り方'],[1862,'ベリンボロが止められた時'],[2070,'よくある失敗と修正'],
+  [2290,'ニーカットパスへの対処'],[2565,'ハーフガードへの戻し'],[2840,'アンダーフックからのスイープ'],
+  [3125,'ドリル：ガードリテンション'],[3510,'スパー解説①'],[3850,'スパー解説②'],[4180,'まとめ'],
+].map(([time,label]) => ({ time, label, auto:'chapter' }));
+const MANUAL = [
+  { time:1700, label:'☆背中を取る瞬間の手の位置' },
+  { time:2600, label:'☆膝を入れるタイミング' },
+];
+// AIが返したことにする「大きな区切り」（どのブックマークの前に入れるか）
+const AI_DIVS = [
+  [100,'クローズドガード'],[1205,'デラヒーバとベリンボロ'],
+  [2290,'パスへの対処とハーフガード'],[3125,'ドリルとスパー解説'],
+];
+const ADD_TIMES = [[1500,'（追加したブックマーク）'],[3300,'（追加したブックマーク）'],[400,'（追加したブックマーク）']];
+
+const PAT = {
+  '1': { tab:'1 チャプターと一緒に入れる',
+    desc:`<b>パターン1: 自動チャプターを作るときに、一緒に入れる。</b><br>
+      「📑 自動チャプター」の確認画面に <b>「大きな区切りに仕切りも入れる」</b> のチェックが増えるだけ。ボタンは増えません。
+      <ol><li>📑 自動チャプター を押す</li><li>チェックが入ったまま「作成する」</li><li>チャプターと仕切りがまとめて入る</li></ol>
+      ◯ 手順が1回で済む。<br>
+      △ 自動チャプターを作るときにしか入らない。<b>すでにあるブックマーク</b>（手で作ったもの・前に作ったチャプター・YouTubeのチャプター）に仕切りだけ足したいときは、チャプターを作り直すことになる。<br>
+      <small>この見本は、手で作ったブックマーク2本だけがある状態から始まります。</small>` },
+  '2': { tab:'2 あとから別のボタンで入れる',
+    desc:`<b>パターン2: ブックマークができた後に、別のボタンで入れる。</b><br>
+      見出しに <b>「仕切りを自動で入れる」</b> ボタンが増える。今あるブックマークの名前と時刻を読んで、大きな区切りを探す。「📑 自動チャプター」は今のまま変わりません。
+      <ol><li>（ブックマークが何らかの方法でできている）</li><li>「仕切りを自動で入れる」を押す</li><li>仕切りだけが入る。ブックマークは1本も変わらない</li></ol>
+      ◯ どうやって作ったブックマークにも使える。前に作ったチャプターにも、あとから足せる。<br>
+      △ 新しくチャプターを作るときは、ボタンを2回押す（自動チャプター → 仕切りを自動で入れる）。<br>
+      <small>この見本は、前に作った自動チャプター19本＋手で作った2本がある状態から始まります。</small>` },
+};
+
+let cur = '1', bms = [], divs = [], editing = false, did = 1, addIdx = 0, flashKey = null;
+
+function fmt(s){ s=Math.round(s); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60, z=n=>String(n).padStart(2,'0'); return h?`${h}:${z(m)}:${z(x)}`:`${m}:${z(x)}`; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function sortAll(){ bms.sort((a,b)=>a.time-b.time); divs.sort((a,b)=>a.time-b.time || a.id-b.id); }
+
+function reset(){
+  bms = cur === '1' ? MANUAL.map(b=>({...b})) : [...CHAPS, ...MANUAL].map(b=>({...b}));
+  divs = []; editing = false; addIdx = 0; sortAll(); render();
+}
+
+// ── 一覧: 仕切りは「その時刻以降の最初のブックマークの直前」に出す ──
+function render(){
+  document.getElementById('tabs').innerHTML = Object.entries(PAT).map(([k,p]) =>
+    `<button class="tab ${k===cur?'on':''}" onclick="setPat('${k}')">${p.tab}</button>`).join('');
+  document.getElementById('desc').innerHTML = PAT[cur].desc;
+  document.getElementById('hbtns').innerHTML =
+    (cur === '2' ? `<button class="hbtn newb" onclick="openDivAuto()">仕切りを自動で入れる</button>` : '') +
+    `<button class="hbtn" onclick="openChap()">📑 自動チャプター</button>` +
+    `<button class="hbtn ${editing?'on':''}" onclick="toggleEdit()">✎ 仕切りを編集${editing?'中':''}</button>` +
+    `<button class="hbtn" onclick="addBm()">＋ 現在位置でブックマーク</button>`;
+
+  const list = document.getElementById('list');
+  list.classList.toggle('editing', editing);
+  let h = '', di = 0;
+  if (!bms.length && !divs.length) h = `<div class="empty">ブックマークはまだありません</div>`;
+  bms.forEach((b, i) => {
+    h += slot(i);
+    while (di < divs.length && divs[di].time <= b.time) h += divHTML(divs[di++]);
+    const fk = 'b' + b.time + b.label;
+    h += `<div class="row ${flashKey===fk?'flash':''}" data-bi="${i}"><span class="t">${fmt(b.time)}</span><span class="name">${esc(b.label)}</span><button class="ed">編集</button></div>`;
+  });
+  while (di < divs.length) h += divHTML(divs[di++]);
+  h += slot(bms.length);
+  list.innerHTML = h + `<div class="dropline" id="dropline"></div>`;
+  flashKey = null;
+  dump();
+}
+function slot(i){ return `<div class="slot"><button onclick="addDiv(${i})">＋ ここに仕切り</button></div>`; }
+function divHTML(d){
+  const fk = 'd' + d.id;
+  const body = d.editing
+    ? `<input id="din-${d.id}" value="${esc(d.label)}" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel=1;this.blur()}" onblur="finishRename(${d.id},this)">`
+    : `<span class="dt" onclick="startRename(${d.id})">${esc(d.label || '（名前なし）')}</span>`;
+  return `<div class="div ${flashKey===fk?'flash':''}" data-did="${d.id}">
+    <span class="handle" onpointerdown="dragStart(event,${d.id})" title="ドラッグで動かす">⠿</span>
+    ${body}
+    ${d.auto && editing ? '<span class="ai">自動</span>' : ''}
+    <button class="dbtn" onclick="moveDiv(${d.id},-1)" title="1つ上へ">↑</button>
+    <button class="dbtn" onclick="moveDiv(${d.id},1)" title="1つ下へ">↓</button>
+    <button class="dbtn" onclick="delDiv(${d.id})" title="消す">×</button>
+  </div>`;
+}
+function dump(){
+  const o = {
+    bookmarks: bms.map(b => ({ time:b.time, label:b.label, ...(b.auto?{auto:b.auto}:{}) })),
+    bmDividers: divs.map(d => ({ time:d.time, label:d.label, ...(d.auto?{auto:true}:{}) })),
+  };
+  document.getElementById('dump').textContent =
+    'bookmarks（今のまま・仕切りでは1文字も変わらない）\n' +
+    o.bookmarks.map(b => `  ${fmt(b.time).padStart(7)}  ${b.label}${b.auto?'  [auto]':''}`).join('\n') +
+    '\n\nbmDividers（新しい列。time より後の最初のブックマークの上に出る）\n' +
+    (o.bmDividers.length ? o.bmDividers.map(d => `  ${fmt(d.time).padStart(7)}  ${d.label}${d.auto?'  [自動]':''}`).join('\n') : '  （なし）');
+}
+function setPat(k){ cur = k; reset(); window.scrollTo({top:0}); }
+
+// ── 手で編集 ──────────────────────────────────────────
+function toggleEdit(){ editing = !editing; divs.forEach(d=>d.editing=false); render(); }
+function anchorTime(i){ return i < bms.length ? bms[i].time : (bms.length ? bms[bms.length-1].time + 1 : 0); }
+function addDiv(i){
+  const d = { id: did++, time: anchorTime(i), label: '', editing: true };
+  divs.push(d); sortAll(); render();
+  setTimeout(() => document.getElementById('din-'+d.id)?.focus(), 0);
+}
+function startRename(id){ if (!editing) return; const d = divs.find(x=>x.id===id); d.editing = true; render(); setTimeout(()=>{ const el=document.getElementById('din-'+id); el?.focus(); el?.select(); },0); }
+function finishRename(id, el){
+  const d = divs.find(x=>x.id===id); if (!d) return;
+  d.editing = false;
+  if (!el.dataset.cancel) {
+    const v = el.value.trim();
+    if (v !== d.label) { d.label = v; d.auto = false; }
+  }
+  if (!d.label) { divs = divs.filter(x=>x.id!==id); toast('名前が空の仕切りは入れません'); }
+  render();
+}
+function delDiv(id){ divs = divs.filter(x=>x.id!==id); render(); toast('仕切りを消しました（ブックマークはそのまま）'); }
+// 今どのブックマークの上にいるか（anchor = 番号。末尾なら bms.length）
+function anchorOf(d){ const i = bms.findIndex(b => d.time <= b.time); return i < 0 ? bms.length : i; }
+function moveDiv(id, dir){
+  const d = divs.find(x=>x.id===id);
+  const a = Math.max(0, Math.min(bms.length, anchorOf(d) + dir));
+  d.time = anchorTime(a); d.auto = false; sortAll(); flashKey = 'd'+id; render();
+}
+
+// ⠿ のドラッグ（指でもマウスでも）。落とした隙間のすぐ下のブックマークの時刻を仕切りに入れる
+let drag = null;
+function dragStart(e, id){
+  e.preventDefault();
+  drag = { id, el: e.target.closest('.div') };
+  drag.el.classList.add('dragging');
+  document.addEventListener('pointermove', dragMove);
+  document.addEventListener('pointerup', dragEnd, { once:true });
+}
+function gapAt(y){
+  const list = document.getElementById('list'), lr = list.getBoundingClientRect();
+  const rows = [...list.querySelectorAll('.row')];
+  let best = { a: bms.length, y: rows.length ? rows[rows.length-1].getBoundingClientRect().bottom : lr.top, d: Infinity };
+  rows.forEach((r, i) => {
+    // その行の上に仕切りがあれば、仕切りの上を隙間とする
+    let top = r.getBoundingClientRect().top, p = r.previousElementSibling;
+    while (p && (p.classList.contains('div') || p.classList.contains('slot'))) { if (p.classList.contains('div') && p !== drag.el) top = p.getBoundingClientRect().top; p = p.previousElementSibling; }
+    const dist = Math.abs(y - top); if (dist < best.d) best = { a: i, y: top, d: dist };
+  });
+  const endY = rows.length ? rows[rows.length-1].getBoundingClientRect().bottom : lr.top;
+  if (Math.abs(y - endY) < best.d) best = { a: bms.length, y: endY, d: 0 };
+  return { a: best.a, top: best.y - lr.top };
+}
+function dragMove(e){
+  if (!drag) return;
+  const g = gapAt(e.clientY), line = document.getElementById('dropline');
+  line.style.display = 'block'; line.style.top = (g.top - 2) + 'px'; drag.a = g.a;
+}
+function dragEnd(){
+  document.removeEventListener('pointermove', dragMove);
+  if (!drag) return;
+  const d = divs.find(x=>x.id===drag.id);
+  if (drag.a != null && d) { d.time = anchorTime(drag.a); d.auto = false; sortAll(); flashKey = 'd'+d.id; }
+  drag = null; render();
+}
+
+// ブックマークを足しても、仕切りは時刻で覚えているので位置がずれない
+function addBm(){
+  const [t, l] = ADD_TIMES[addIdx++ % ADD_TIMES.length];
+  bms.push({ time:t, label:l }); sortAll(); flashKey = 'b'+t+l; render();
+  setTimeout(()=>document.querySelector('.row.flash')?.scrollIntoView({block:'center',behavior:'smooth'}),30);
+  toast(`${fmt(t)} にブックマークを追加（仕切りは動きません）`);
+}
+
+// ── ダイアログ ─────────────────────────────────────────
+function dlg(html){ closeDlg(); const bg=document.createElement('div'); bg.className='bg'; bg.id='dlg'; bg.innerHTML=`<div class="dlg">${html}</div>`; bg.addEventListener('click',e=>{ if(e.target===bg) closeDlg(); }); document.body.appendChild(bg); }
+function closeDlg(){ document.getElementById('dlg')?.remove(); }
+function previewHTML(rows){
+  return `<div class="pv">${rows.map(r => r.div
+    ? `<div class="div"><span class="dt">${esc(r.label)}</span>${r.isNew?'<span class="tag">新しい仕切り</span>':''}</div>`
+    : `<div class="row"><span class="t">${fmt(r.time)}</span><span class="name">${esc(r.label)}</span>${r.isNew?'<span class="tag">新</span>':''}</div>`).join('')}</div>`;
+}
+function merged(bmList, divList){
+  const out = []; let di = 0;
+  for (const b of bmList) { while (di < divList.length && divList[di].time <= b.time) out.push({ div:true, ...divList[di++] }); out.push(b); }
+  while (di < divList.length) out.push({ div:true, ...divList[di++] });
+  return out;
+}
+function keepNote(){
+  const autoN = divs.filter(d=>d.auto).length, handN = divs.filter(d=>!d.auto).length;
+  if (!autoN && !handN) return '';
+  return `<p>${autoN?`前に自動で入れた仕切り <b>${autoN}本</b> は置き換えます。`:''}${handN?`手で入れた・直した仕切り <b>${handN}本</b> はそのまま残します。`:''}</p>`;
+}
+
+// パターン1: 自動チャプターの確認画面にチェックが1つ増える
+function openChap(){
+  if (cur === '2') {
+    dlg(`<h3>📑 自動チャプター</h3><p>いまの「📑 自動チャプター」と同じです（このパターンでは変わりません）。</p>
+      <p>この見本ではチャプターはもう入っています。仕切りは「仕切りを自動で入れる」から入れてください。</p>
+      <div class="acts"><button onclick="closeDlg()">閉じる</button></div>`);
+    return;
+  }
+  dlg(`<h3>📑 自動チャプター</h3>
+    <p>字幕を読んで、話の切り替わりでブックマークを作ります。既存のブックマークは消しません。</p>
+    <div style="font-size:11px;color:var(--text3)">粒度</div>
+    <div class="grain"><span>細かめ</span><span class="on">ふつう</span><span>大きめ</span></div>
+    <label class="chk"><input type="checkbox" id="withDiv" checked>
+      <span><b>大きな区切りに仕切りも入れる</b>　<span style="font-size:10px;color:var(--new)">← ここが増える</span>
+      <small>話の大きなまとまりの頭に、文字だけの仕切りを入れます。あとで名前・位置を自由に直せます。</small></span></label>
+    ${keepNote()}
+    <div class="acts"><button onclick="closeDlg()">キャンセル</button><button class="go" onclick="runChap()">作成する</button></div>`);
+}
+function runChap(){
+  const withDiv = document.getElementById('withDiv').checked;
+  dlg(`<div class="spin">字幕を読んでいます…</div>`);
+  setTimeout(() => {
+    // 既存の自動チャプターと近いものは足さない（今の動きと同じ）
+    const newCh = CHAPS.filter(c => !bms.some(b => b.auto === 'chapter' && Math.abs(b.time - c.time) <= 20)).map(c => ({...c, isNew:true}));
+    const bmAfter = [...bms, ...newCh].sort((a,b)=>a.time-b.time);
+    const newDivs = withDiv ? AI_DIVS.map(([time,label]) => ({ time, label, isNew:true })) : [];
+    const keptDivs = withDiv ? divs.filter(d=>!d.auto) : divs;
+    const divAfter = [...keptDivs, ...newDivs].sort((a,b)=>a.time-b.time);
+    window._pending = { newCh, newDivs, withDiv };
+    dlg(`<h3>📑 見つかったチャプター</h3>
+      <p>チャプター <b>${newCh.length}本</b>${withDiv?`と、仕切り <b>${newDivs.length}本</b>`:''}を追加します。手で作ったブックマーク${bms.filter(b=>!b.auto).length}本はそのまま。</p>
+      ${previewHTML(merged(bmAfter, divAfter))}
+      <div class="acts"><button onclick="closeDlg()">キャンセル</button><button class="go" onclick="applyChap()">追加する</button></div>`);
+  }, 1100);
+}
+function applyChap(){
+  const p = window._pending; closeDlg();
+  p.newCh.forEach(c => bms.push({ time:c.time, label:c.label, auto:'chapter' }));
+  if (p.withDiv) { divs = divs.filter(d=>!d.auto); p.newDivs.forEach(d => divs.push({ id:did++, time:d.time, label:d.label, auto:true })); }
+  sortAll(); render();
+  toast(`チャプター${p.newCh.length}本${p.withDiv?`・仕切り${p.newDivs.length}本`:''}を追加しました`);
+}
+
+// パターン2: 今あるブックマークを読んで仕切りだけを入れる
+function openDivAuto(){
+  if (bms.length < 3) { toast('ブックマークが3本以上あるときに使えます'); return; }
+  dlg(`<h3>仕切りを自動で入れる</h3>
+    <p>いまのブックマーク <b>${bms.length}本</b> の名前と時刻を読んで、話の大きなまとまりの頭に文字だけの仕切りを入れます。</p>
+    <p><b>ブックマークは1本も変えません。</b>仕切りはあとで名前・位置を自由に直せます。</p>
+    ${keepNote()}
+    <div class="acts"><button onclick="closeDlg()">キャンセル</button><button class="go" onclick="runDivAuto()">探す</button></div>`);
+}
+function runDivAuto(){
+  dlg(`<div class="spin">ブックマークを読んでいます…</div>`);
+  setTimeout(() => {
+    // 返ってきた区切りは、必ず実在するブックマークの頭に合わせる
+    const newDivs = AI_DIVS.map(([t,label]) => { const b = bms.find(x => x.time >= t); return b ? { time:b.time, label, isNew:true } : null; }).filter(Boolean);
+    const divAfter = [...divs.filter(d=>!d.auto), ...newDivs].sort((a,b)=>a.time-b.time);
+    window._pending = { newDivs };
+    dlg(`<h3>見つかった区切り</h3>
+      <p>仕切りを <b>${newDivs.length}本</b> 入れます。ブックマークはそのまま。</p>
+      ${previewHTML(merged(bms, divAfter))}
+      <div class="acts"><button onclick="closeDlg()">キャンセル</button><button class="go" onclick="applyDivAuto()">入れる</button></div>`);
+  }, 900);
+}
+function applyDivAuto(){
+  const p = window._pending; closeDlg();
+  divs = divs.filter(d=>!d.auto);
+  p.newDivs.forEach(d => divs.push({ id:did++, time:d.time, label:d.label, auto:true }));
+  sortAll(); render(); toast(`仕切りを${p.newDivs.length}本入れました`);
+}
+
+document.getElementById('dark').addEventListener('change', e => document.body.classList.toggle('dark', e.target.checked));
+reset();
+</script>
+</body>
+</html>
