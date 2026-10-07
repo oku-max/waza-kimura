@@ -11,6 +11,9 @@
 //   ⑦ 確認画面に仕切りが出る・× で外せる・文字を直せる・外したチャプターの上には残らない・チェックを外せば入らない
 //   ⑧ 書き込み: 前に自動で入れた仕切りだけを置き換え、手の仕切りは残す。新しい仕切りが無ければ何も触らない
 //   ⑨ チャプターが全部入っていても、仕切りだけは入れられる
+//   ⑩ 後からAIで入れる（v52.953）: 編集中に「🤖 AIで仕切りを入れる」が出る（6本未満は押せない・通信しない）／
+//      送るのはブックマークの名前・補足・時刻だけ／返しの番号を行の頭に合わせる／確かめる画面で × と文字直しが効く／
+//      入れるのは仕切りの列だけ・自動の仕切りだけ置き換え・ブックマークは1文字も変えない／見つからなければ何も書かない／キャンセルなら何も書かない
 // 使い方: node tools/bm-divider-check.mjs
 import http from 'http'; import fs from 'fs'; import path from 'path'; import { execSync } from 'child_process';
 const pw = await import(path.join(execSync('npm root -g',{encoding:'utf8'}).trim(),'playwright','index.mjs'));
@@ -181,6 +184,50 @@ ck('⑧ 新しい仕切りが無ければ、仕切りの列には何も触らな
   JSON.stringify(ap.v2.bmDividers)===JSON.stringify([{time:0,label:'前の自動',auto:true},{time:100,label:'手の仕切り'},'壊れた値']) && ap.r2.divs===0, ap.v2.bmDividers);
 ck('⑨ チャプターが全部入っていても、仕切りだけは入れられる（チャプターは二重に足さない）',
   ap.r3.added===0 && ap.r3.divs===1 && JSON.stringify(ap.v3.bookmarks)===ap.bm0, ap);
+
+// ⑩ 後からAIで入れる
+const idx=await page.evaluate(()=>window.__vp._chapDivTest.indexed([{at:2,title:'1. A'},{at:2,title:'重複'},{at:0,title:'範囲外'},{at:9,title:'範囲外'},{at:5,title:''},{at:4,title:'B'}],6));
+ck('⑩ 返しの番号（1から）を行の番号へ・範囲外・同じ番号の2本目・空の見出しは落とす', JSON.stringify(idx)===JSON.stringify([{at:1,label:'A'},{at:3,label:'B'}]), idx);
+await page.evaluate(()=>{
+  window.__fetches=[]; window.__reply={sections:[{at:2,title:'クローズドガード'},{at:4,title:'スイープ'},{at:7,title:'デラヒーバ'}]};
+  window.fetch=async(u,o)=>{window.__fetches.push(JSON.parse(o.body)); return {ok:true,status:200,json:async()=>({summary:JSON.stringify(window.__reply),costUsd:0.002})};};
+  window._firebaseCurrentUser=()=>({getIdToken:async()=>'tok'});
+  window.__BM2=[0,100,245,450,612,1205,1420].map((t,i)=>({time:t,label:'ブックマーク'+i,note:i===2?'補足':''}));
+  window.videos=[{id:'ai1',title:'教則',pt:'youtube',ytId:'dQw4w9WgXcQ',memo:'',bookmarks:JSON.parse(JSON.stringify(window.__BM2)),
+    bmDividers:[{time:0,label:'前の自動',auto:true},{time:1420,label:'手の仕切り'}]},
+   {id:'ai2',title:'短い',pt:'youtube',ytId:'dQw4w9WgXcQ',memo:'',bookmarks:[{time:0,label:'a'},{time:9,label:'b'}]}];
+  window.__vp._openPanel('ai2','https://www.youtube.com/embed/x',null,'youtube');
+});
+await page.waitForSelector('#vp-bm-list-ai2'); await page.evaluate(()=>window.vpDivEditToggle('ai2'));
+const short=await page.evaluate(async()=>{const b=document.getElementById('vp-divai-ai2'); await window.vpDivAuto('ai2'); return {disabled:b?.disabled, fetches:window.__fetches.length};});
+ck('⑩ ブックマークが6本未満ならボタンは押せず、通信もしない', short.disabled===true && short.fetches===0, short);
+await page.evaluate(()=>window.__vp._openPanel('ai1','https://www.youtube.com/embed/x',null,'youtube'));
+await page.waitForSelector('#vp-bm-list-ai1'); await page.evaluate(()=>{ if(!document.getElementById('vp-divai-ai1')) window.vpDivEditToggle('ai1'); });
+const barOk=await page.evaluate(()=>{const b=document.getElementById('vp-divai-ai1'); return !!b && !b.disabled;});
+ck('⑩ 「✎ 仕切り」の編集中に「🤖 AIで仕切りを入れる」が出る', barOk);
+// キャンセル
+await page.evaluate(()=>{window.__p=window.vpDivAuto('ai1');}); await page.waitForSelector('#vp-divai-bg');
+await page.evaluate(()=>document.getElementById('vp-divai-cancel').click()); await page.evaluate(()=>window.__p);
+let av=await page.evaluate(()=>JSON.parse(JSON.stringify(window.videos[0])));
+ck('⑩ キャンセルなら何も書かない', JSON.stringify(av.bmDividers)===JSON.stringify([{time:0,label:'前の自動',auto:true},{time:1420,label:'手の仕切り'}]), av.bmDividers);
+const sent=await page.evaluate(()=>window.__fetches[0]);
+ck('⑩ 送るのはブックマークの名前・補足・時刻だけ（source:bmlist）',
+  sent.source==='bmlist' && sent.mode==='chapters' && sent.items.length===7 && JSON.stringify(sent.items[2])===JSON.stringify({t:245,label:'ブックマーク2',note:'補足'}) && !('transcript' in sent), sent);
+// 入れる（スイープを × で外し、クローズドガードの文字を直す。デラヒーバは手の仕切りと同じ位置）
+await page.evaluate(()=>{window.__p=window.vpDivAuto('ai1');}); await page.waitForSelector('#vp-divai-bg');
+const dlgRows=await page.evaluate(()=>[...document.querySelectorAll('#vp-divai-bg .vp-divai-t')].map(e=>e.textContent));
+await page.evaluate(()=>{const r=[...document.querySelectorAll('#vp-divai-bg .vp-divai-row')];
+  r[0].querySelector('.vp-divai-t').textContent='クローズドガード編'; r[1].querySelector('.vp-divai-x').click(); document.getElementById('vp-divai-ok').click();});
+await page.evaluate(()=>window.__p);
+av=await page.evaluate(()=>JSON.parse(JSON.stringify(window.videos[0])));
+ck('⑩ 確かめる画面に、見つかった仕切りが行の上に並ぶ', JSON.stringify(dlgRows)==='["クローズドガード","スイープ","デラヒーバ"]', dlgRows);
+ck('⑩ 直した文字で入り、× で外したもの・手の仕切りと同じ位置のものは入らず、前の自動の仕切りは置き換わる',
+  JSON.stringify(av.bmDividers)===JSON.stringify([{time:100,label:'クローズドガード編',auto:true},{time:1420,label:'手の仕切り'}]), av.bmDividers);
+ck('⑩ ブックマークは1文字も変わらない', JSON.stringify(av.bookmarks)===await page.evaluate(()=>JSON.stringify(window.__BM2)));
+// 見つからない
+await page.evaluate(()=>{window.__reply={sections:[]};}); await page.evaluate(()=>window.vpDivAuto('ai1'));
+const av2=await page.evaluate(()=>JSON.parse(JSON.stringify(window.videos[0])));
+ck('⑩ 見つからなければ確かめる画面を出さず、仕切りには何も書かない', JSON.stringify(av2.bmDividers)===JSON.stringify(av.bmDividers) && !(await page.$('#vp-divai-bg')), av2.bmDividers);
 
 const bad=errs.filter(e=>/Error/.test(e)); let f=0;
 for(const [n,ok] of C){console.log((ok?'✓ ':'✗ ')+n);if(!ok)f++}

@@ -848,6 +848,7 @@ function _bookmarkListHTML(id) {
   // 仕切りは「その時刻以降の最初のブックマークの直前」に出す。編集中は行の間に「＋ ここに仕切り」
   const editing = _divEditing(id);
   let di = 0;
+  const head = editing ? _divAiBarHTML(id, bms.length) : '';
   const rows = bms.map((bm, i) => {
     let pre = editing ? _divSlotHTML(id, i) : '';
     while (di < divs.length && divs[di].d.time <= bm.time) pre += _divRowHTML(id, divs[di++]);
@@ -859,7 +860,7 @@ function _bookmarkListHTML(id) {
   if (_divUi.draft?.id === id && _divUi.draft.at === bms.length) tail += _divInputHTML(id, 'draft', -1, '');
   if (editing) tail += _divSlotHTML(id, bms.length);
   if (!bms.length) tail += '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
-  return rows.join('') + tail;
+  return head + rows.join('') + tail;
 }
 
 function _bmRowHTML(id, bm, i) {
@@ -1097,6 +1098,144 @@ window.vpDivDelete = function(id, di) {
   _divSave(v, id);
   window.toast?.('仕切りを消しました（ブックマークはそのままです）');
 };
+// ── 今あるブックマークに、後からAIで仕切りを入れる（v52.953）──
+// 自動チャプターを作り直さずに、仕切りだけを足す。AIに渡すのはブックマークの名前・補足・時刻だけ
+// （動画も字幕も送らない）。AIは「何番の前に入れるか」を返すので、仕切りは必ず実在する行の頭に入る。
+// 書き込みは自動チャプターと同じ _applyChapterDividers（自動の仕切りだけ置き換え・手の仕切りは残す・
+// 新しい仕切りが無ければ何も触らない）。ブックマークには触らない。
+function _divAiBarHTML(id, n) {
+  const ok = n >= CHAP_DIV_MIN_CHAPS;
+  return `<div class="vp-bm-div-ai">
+    <button id="vp-divai-${id}" onclick="vpDivAuto('${id}')" ${ok ? '' : 'disabled'}>🤖 AIで仕切りを入れる</button>
+    <span>${ok ? 'いまのブックマークの名前から、大きな区切りを探します。ブックマークは変えません'
+               : `ブックマークが${CHAP_DIV_MIN_CHAPS}本以上あるときに使えます`}</span>
+  </div>`;
+}
+// AIの返し（1から数えた番号）をブックマークの番号へ。範囲外・同じ番号の2本目・空の見出しは落とす
+function _divFromIndexed(raw, n) {
+  const used = new Set(), out = [];
+  for (const s of (Array.isArray(raw) ? raw : [])) {
+    const at = Math.round(Number(s?.at)) - 1;
+    const label = _chapDivLabel(s?.title ?? s?.label);
+    if (!Number.isFinite(at) || at < 0 || at >= n || used.has(at) || !label) continue;
+    used.add(at); out.push({ at, label });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+window.vpDivAuto = async function(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  const bms = _getBookmarks(id).slice();
+  if (!v || bms.length < CHAP_DIV_MIN_CHAPS) { window.toast?.(`ブックマークが${CHAP_DIV_MIN_CHAPS}本以上あるときに使えます`); return; }
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { window.toast?.('ログインが必要です'); return; }
+  const btn = document.getElementById('vp-divai-' + id);
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 探しています…'; }
+  try {
+    const idToken = await user.getIdToken();
+    const res = await fetch('/api/ai-summary', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idToken, mode: 'chapters', source: 'bmlist',
+        items: bms.map(b => ({ t: Number(b.time) || 0, label: b.label || '', note: b.note || '' })),
+        title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.summary) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+    let parsed;
+    try { parsed = JSON.parse(String(d.summary).replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/, '').trim()); }
+    catch (e) { throw new Error('結果を読み取れませんでした。もう一度お試しください'); }
+    if (d.usage) console.log('[dividers] tokens:', d.usage, '/ 概算 $', d.costUsd);
+    const divs = _divFromIndexed(parsed?.sections, bms.length);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    if (!divs.length) { window.toast?.('大きな区切りは見つかりませんでした（仕切りは変えていません）'); return; }
+    const sel = await _divAutoDialog(id, bms, divs, Number(d.costUsd) || 0);
+    if (!sel) return;
+    const n = _applyChapterDividers(v, sel);
+    if (!n) { window.toast?.('入れられる仕切りがありませんでした（同じ位置に手で入れた仕切りがあります）'); return; }
+    window.debounceSave?.();
+    _refreshBmList(id);
+    window.toast?.(`📑 仕切りを${n}本入れました`);
+  } catch (e) {
+    console.warn('[dividers] 失敗:', e);
+    window.toast?.('⚠️ 仕切りを探せませんでした: ' + (e?.message || e));
+  } finally {
+    const b2 = document.getElementById('vp-divai-' + id);
+    if (b2 && b2.textContent.startsWith('⏳')) { b2.disabled = false; b2.textContent = orig; }
+  }
+};
+// 確かめる画面。ブックマーク一覧に仕切りを挟んで見せ、文字を直す・× で外すができる。
+// resolve は [{time, label}]（入れる仕切り）／キャンセルは null
+function _divAutoDialog(id, bms, divs, cost) {
+  return new Promise(resolve => {
+    document.getElementById('vp-divai-bg')?.remove();
+    const v = (window.videos || []).find(x => x.id === id);
+    const autoN = _divList(v).filter(d => _divOk(d) && d.auto).length;
+    const handN = _divList(v).filter(d => _divOk(d) && !d.auto).length;
+    const divAt = new Map(divs.map(d => [d.at, d.label]));
+    const rows = bms.map((b, i) => (divAt.has(i) ? `
+      <div class="vp-divai-row" data-at="${i}" style="display:flex;align-items:center;gap:6px;padding:10px 2px 4px;border-bottom:2px solid var(--text3,#888)">
+        <div class="vp-divai-t" contenteditable="plaintext-only"
+          style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text,#eee);outline:none;padding:2px 4px;border-radius:5px;border:1px dashed var(--border,#444)"></div>
+        <button type="button" class="vp-divai-x" title="この仕切りを入れない"
+          style="flex-shrink:0;width:22px;height:20px;padding:0;border-radius:5px;border:1px solid var(--border,#444);background:transparent;color:var(--text3,#999);cursor:pointer;font-family:inherit">×</button>
+      </div>` : '') + `
+      <div style="display:flex;align-items:center;gap:7px;padding:4px 2px;border-bottom:0.5px solid var(--border,#444)">
+        <span style="flex-shrink:0;padding:1px 7px;border-radius:5px;border:1.5px solid var(--accent);color:var(--accent);font-size:11px;font-family:'DM Mono',monospace">${_chapFmt(b.time)}</span>
+        <span style="flex:1;min-width:0;font-size:11.5px;color:var(--text,#eee);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_vpEsc(b.label || '（ラベルなし）')}</span>
+      </div>`).join('');
+    const bg = document.createElement('div');
+    bg.id = 'vp-divai-bg';
+    bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    bg.innerHTML = `
+      <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
+                  width:100%;max-width:520px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">🤖 AIで仕切りを入れる</div>
+          <div id="vp-divai-cnt" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px"></div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px"><span>ブックマークは変えません。仕切りの文字は押して直せます。</span>${
+            autoN ? `<span>前に自動で入れた仕切り${autoN}本は置き換えます。</span>` : ''}${
+            handN ? `<span>手で入れた・直した仕切り${handN}本はそのまま残します。</span>` : ''}${cost ? `<span> · $${cost.toFixed(3)}</span>` : ''}</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:4px 14px 8px;min-height:60px">${rows}</div>
+        <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end;border-top:0.5px solid var(--border,#444)">
+          <button id="vp-divai-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
+          <button id="vp-divai-ok" style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 12px;font-size:11.5px">✔ 仕切りを入れる</button>
+        </div>
+      </div>`;
+    document.body.appendChild(bg);
+    const divRows = () => Array.from(bg.querySelectorAll('.vp-divai-row'));
+    const paint = () => {
+      const n = divRows().length;
+      bg.querySelector('#vp-divai-cnt').textContent = `大きな区切りが${n}か所見つかりました`;
+      const ok = bg.querySelector('#vp-divai-ok');
+      ok.textContent = `✔ 仕切りを入れる（${n}本）`; ok.disabled = !n; ok.style.opacity = n ? '1' : '.45';
+    };
+    divRows().forEach(r => {
+      const t = r.querySelector('.vp-divai-t');
+      t.textContent = divAt.get(Number(r.dataset.at)) || '';
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
+      r.querySelector('.vp-divai-x').addEventListener('click', () => { r.remove(); paint(); });
+    });
+    paint();
+    const done = val => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(val); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    document.addEventListener('keydown', onKey, true);
+    bg.querySelector('#vp-divai-cancel').addEventListener('click', () => done(null));
+    bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
+    bg.querySelector('#vp-divai-ok').addEventListener('click', () => {
+      const out = [];
+      for (const r of divRows()) {
+        const label = _chapDivLabel(r.querySelector('.vp-divai-t')?.textContent);
+        const b = bms[Number(r.dataset.at)];
+        if (label && b && !out.some(d => d.time === b.time)) out.push({ time: Number(b.time) || 0, label });
+      }
+      if (out.length) done(out);
+    });
+  });
+}
+
 // ⠿ のドラッグ（指でもマウスでも）。落とした隙間のすぐ下のブックマークの直前へ動かす
 let _divDrag = null;
 window.vpDivDragStart = function(e, id, di) {
@@ -1123,7 +1262,7 @@ function _divDragMove(e) {
   rows.forEach((r, i) => {
     // その行の上に仕切りや「＋」が並んでいれば、そのいちばん上を隙間とする
     let top = r.getBoundingClientRect().top, p = r.previousElementSibling;
-    while (p && !p.hasAttribute('data-bm-idx')) { if (p !== g.el) top = p.getBoundingClientRect().top; p = p.previousElementSibling; }
+    while (p && (p.classList.contains('vp-bm-div') || p.classList.contains('vp-bm-div-slot'))) { if (p !== g.el) top = p.getBoundingClientRect().top; p = p.previousElementSibling; }
     const dd = Math.abs(e.clientY - top);
     if (dd < bd) { bd = dd; best = { at: i, y: top }; }
   });
@@ -4987,14 +5126,18 @@ function _snapChapters(chaps, cues) {
 // チャプターが少ない動画には仕切りを入れない（区切っても見やすくならない）。
 const CHAP_DIV_MIN_CHAPS = 6;
 const CHAP_DIV_SNAP_SEC  = 60;
+// 仕切りの見出しを整える（AIが付けがちな「第1章」「1.」の飾りを落とす）
+function _chapDivLabel(v) {
+  return String(v ?? '').replace(/\s+/g, ' ').trim()
+    .replace(/^(?:第\s*[\d０-９]+\s*(?:章|部|編)|[\d０-９]+\s*[.．、）)：:\-–—]+)\s*/, '').trim()
+    .slice(0, CHAP_DIV_LABEL_MAX);
+}
 function _chapSections(raw, chaps) {
   if (!Array.isArray(raw) || !Array.isArray(chaps) || chaps.length < CHAP_DIV_MIN_CHAPS) return [];
   const used = new Set(), out = [];
   for (const s of raw) {
     const t = _chapSec(s?.start ?? s?.time);
-    const label = String(s?.title ?? s?.label ?? '').replace(/\s+/g, ' ').trim()
-      .replace(/^(?:第\s*[\d０-９]+\s*(?:章|部|編)|[\d０-９]+\s*[.．、）)：:\-–—]+)\s*/, '').trim()
-      .slice(0, CHAP_DIV_LABEL_MAX);
+    const label = _chapDivLabel(s?.title ?? s?.label);
     if (t == null || !label) continue;
     let best = -1, bd = Infinity;
     chaps.forEach((c, i) => { const d = Math.abs(c.time - t); if (d < bd) { bd = d; best = i; } });
@@ -9105,4 +9248,4 @@ function _vpGoSearchFree() {
 }
 
 // 検査（tools/bm-divider-check.mjs）が自動チャプターの確認画面と書き込みを直接踏むための入口。画面からは使わない
-export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections };
+export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections, indexed: _divFromIndexed };

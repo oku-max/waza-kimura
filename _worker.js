@@ -383,6 +383,13 @@ async function handleAiSummary(request, env) {
     return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
   }
 
+  // すでにあるブックマークの一覧（名前と時刻）だけを読んで、大きな区切り（仕切り）を探す経路（v52.953）。
+  // 動画も字幕も送らない。ブックマークを作り直さず、仕切りだけを後から入れるためのもの。
+  if (source === 'bmlist') {
+    if (mode !== 'chapters') return jsonRes({ error: 'source:bmlist は mode:chapters のみ対応しています' }, 400);
+    return _aiDividersFromBookmarks(env, body.items, title, channel, playlist);
+  }
+
   // 貼り付けられたチャプター一覧（テキスト／スクショ画像）を読み取る経路。
   // 動画も字幕も送らないので最も安い。ここでは表を構造化するだけで、
   // 時刻が書かれていない場合の位置決めは別リクエスト（titles付き）で行う。
@@ -730,6 +737,42 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
     summary: result.summary, usage: result.usage, costUsd: result.costUsd,
     via: 'transcript', clipped,
   });
+}
+
+// ブックマークの一覧から仕切り（大きな区切り）を探す。返すのは「何番の前に、どんな見出しを入れるか」だけ。
+// 番号で返させるので、仕切りは必ず実在するブックマークの頭に入る（時刻を推測させない）。
+const BMLIST_MAX = 400;
+async function _aiDividersFromBookmarks(env, items, title, channel, playlist) {
+  const list = (Array.isArray(items) ? items : []).slice(0, BMLIST_MAX).map((it, i) => {
+    const t = Math.max(0, Math.round(Number(it?.t) || 0));
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60, z = n => String(n).padStart(2, '0');
+    const tm = h ? `${h}:${z(m)}:${z(sec)}` : `${m}:${z(sec)}`;
+    const label = String(it?.label || '').replace(/\s+/g, ' ').trim().slice(0, 200) || '（名前なし）';
+    const note  = String(it?.note || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    return `${i + 1}. [${tm}] ${label}${note ? ` — ${note}` : ''}`;
+  });
+  if (list.length < 2) return jsonRes({ error: 'ブックマークが少なすぎます' }, 400);
+  const ctx = _ctxStr(title, channel, playlist);
+  const prompt = `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+以下は1本の長い教則動画に付けられたブックマーク（チャプター）の一覧です。各行は「番号. [開始時刻] 名前 — 補足」です。
+これをいくつかの大きなまとまりに分け、各まとまりの最初のブックマークの番号と、そのまとまりの短い見出しを返してください。
+ブックマーク一覧に、文字だけの仕切りとして挟むためのものです。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+【ブックマーク一覧（全${list.length}件）】
+${list.join('\n')}
+
+【決まり】
+- 名前と補足の内容から判断して、扱うテクニック・ポジション・テーマが大きく変わる所だけに入れる。1時間あたり3〜8か所程度が目安
+- at はまとまりの最初のブックマークの番号（1〜${list.length}）。番号の早い順に並べ、同じ番号を2回出さない
+- 1つのまとまりにブックマークが3件以上入るようにする
+- 大きな区切りが無い時は [] にする
+- title は20文字程度までの日本語。通し番号や記号で飾らない。柔術用語はカタカナ
+- 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
+
+{"sections":[{"at":番号,"title":"まとまりの短い見出し"}]}`;
+  const result = await _geminiGenerate(env, [{ text: prompt }], _genOptsFor('chapters'));
+  if (result.error) return jsonRes(result, 502);
+  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd, via: 'bmlist' });
 }
 
 // 分岐抽出: 「シチュエーション → 相手の反応(＝分岐/発生ポイント) → こちらの対応」を構造化JSONで返す。

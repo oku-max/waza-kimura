@@ -195,6 +195,11 @@
 
   const STATIC_AUTO = {
     // ブックマークの仕切り（v52.952）
+    '🤖 AIで仕切りを入れる':'🤖 Add dividers with AI','⏳ 探しています…':'⏳ Searching…','✔ 仕切りを入れる':'✔ Add dividers',
+    'いまのブックマークの名前から、大きな区切りを探します。ブックマークは変えません':'Finds major breaks from your bookmark names. Bookmarks are not changed',
+    '大きな区切りは見つかりませんでした（仕切りは変えていません）':'No major breaks found (dividers unchanged)',
+    '入れられる仕切りがありませんでした（同じ位置に手で入れた仕切りがあります）':'No dividers to add (you already have dividers at those positions)',
+    'ブックマークは変えません。仕切りの文字は押して直せます。':'Bookmarks are not changed. Click a divider to edit its text.',
     '✎ 仕切り':'✎ Dividers','✔ 仕切りの編集を終える':'✔ Done editing dividers','＋ ここに仕切り':'+ Divider here',
     '仕切り':'Divider','仕切りの文字':'Divider text','仕切りの文字（例: デラヒーバ編）':'Divider text (e.g. De La Riva)',
     '押すと名前を変えられます':'Click to rename','ドラッグで動かす':'Drag to move','1つ上へ':'Move up','1つ下へ':'Move down','この仕切りを消す':'Delete this divider',
@@ -1970,6 +1975,12 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     '大きな区切りに仕切りを入れる（#本）':'Add dividers at major breaks (#)',
+    '前に自動で入れた仕切り#本は置き換えます。':'The # dividers added automatically before will be replaced. ',
+    '手で入れた・直した仕切り#本はそのまま残します。':'The # dividers you added or edited will be kept.',
+    'ブックマークが#本以上あるときに使えます':'Available when there are # or more bookmarks',
+    '大きな区切りが#か所見つかりました':'Found # major breaks',
+    '✔ 仕切りを入れる（#本）':'✔ Add dividers (#)',
+
     '📑 仕切りを#本入れました':'📑 Added # dividers',
     '📑 #件のチャプターをブックマークに追加しました（仕切り#本）':'📑 Added # chapters to bookmarks (# dividers)',
     '（仕切り#本）':'(# dividers)',
@@ -2313,6 +2324,8 @@
       const en = _autoMap.get(head);
       return en != null ? `${en} · ${cost}` : null;   // 知らない見出しは他のパターンに任せる
     }],
+    [/^⚠️ 仕切りを探せませんでした: (.+)$/,
+      (m, d) => `⚠️ Could not find dividers: ${_autoMap.get(d) || d}`],
     [/^⚠️ チャプターの検出に失敗: (.+)$/,
       (m, d) => `⚠️ Chapter detection failed: ${_autoMap.get(d) || d}`],
     [/^字幕の取得に失敗 \((\d+)\)$/, 'Failed to fetch the subtitles ($1)'],
