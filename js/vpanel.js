@@ -842,9 +842,28 @@ window.vpBmNoteAll = function(id) {
 
 function _bookmarkListHTML(id) {
   const bms = _getBookmarks(id);
-  if (!bms.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
+  const divs = _divSorted(id);
+  if (!bms.length && !divs.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
 
-  return bms.map((bm, i) => {
+  // 仕切りは「その時刻以降の最初のブックマークの直前」に出す。編集中は行の間に「＋ ここに仕切り」
+  const editing = _divEditing(id);
+  let di = 0;
+  const rows = bms.map((bm, i) => {
+    let pre = editing ? _divSlotHTML(id, i) : '';
+    while (di < divs.length && divs[di].d.time <= bm.time) pre += _divRowHTML(id, divs[di++]);
+    if (_divUi.draft?.id === id && _divUi.draft.at === i) pre += _divInputHTML(id, 'draft', -1, '');
+    return pre + _bmRowHTML(id, bm, i);
+  });
+  let tail = '';
+  while (di < divs.length) tail += _divRowHTML(id, divs[di++]);
+  if (_divUi.draft?.id === id && _divUi.draft.at === bms.length) tail += _divInputHTML(id, 'draft', -1, '');
+  if (editing) tail += _divSlotHTML(id, bms.length);
+  if (!bms.length) tail += '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
+  return rows.join('') + tail;
+}
+
+function _bmRowHTML(id, bm, i) {
+  {
     const hasEnd = bm.endTime != null;
     const timeLabel = hasEnd
       ? `${_formatTime(bm.time)} → ${_formatTime(bm.endTime)}`
@@ -953,7 +972,179 @@ function _bookmarkListHTML(id) {
       ${bm.note && !isExpanded && noteOpen ? `<div class="vp-bm-note">${_vpEsc(bm.note)}</div>` : ''}
       ${editorHTML}
     </div>`;
-  }).join('');
+  }
+}
+
+// ── ブックマークの仕切り（v52.952）──────────────────────────
+// 長い動画のブックマーク一覧に、文字だけの仕切りを挟む。押しても飛ばない・時刻を持たない見た目。
+// 【データ】仕切りはブックマークとは別の列 v.bmDividers = [{time, label, auto?}] に置く。
+//   v.bookmarks には1文字も触らない。ノートの埋め込みプレーヤーは v.bookmarks を
+//   time/label/note/endTime だけで書き直す（notes.js _nBviSyncBmsToLib）ので、
+//   ブックマークの列に混ぜると、そこで普通のブックマークに化けて戻らなくなる。
+// 位置は「何番目」ではなく時刻で覚える。ブックマークは足すたびに時刻順に並び直すので、
+// 番号で覚えると1本足しただけでずれる。仕切りは time 以降の最初のブックマークの直前に出る。
+// auto は自動チャプターで入れた印。もう一度作ったとき置き換えるのは auto の仕切りだけ。
+// 手で名前を変えた・動かした仕切りは auto を外す（＝次の自動で消えない）。
+// 編集中かどうか・入力中の欄は画面の中だけで持つ（保存しない）。
+const CHAP_DIV_LABEL_MAX = 80;
+const _divUi = { edit: {}, draft: null, rename: null };   // draft: {id, at} / rename: {id, di}
+
+function _divList(v) { return Array.isArray(v?.bmDividers) ? v.bmDividers : []; }
+function _divOk(d) { return d && typeof d === 'object' && Number.isFinite(Number(d.time)); }
+// 時刻順の並び。di は v.bmDividers の中の番号（形が崩れたものは出さないが、消しもしない）
+function _divSorted(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  return _divList(v).map((d, di) => ({ d, di })).filter(x => _divOk(x.d))
+    .sort((a, b) => Number(a.d.time) - Number(b.d.time) || a.di - b.di);
+}
+function _divEditing(id) { return !!_divUi.edit[id]; }
+// 番号 a のブックマークの直前に置くときの時刻（末尾なら最後のブックマークの1秒後）
+function _divAnchorTime(id, a) {
+  const bms = _getBookmarks(id);
+  if (a < bms.length) return Number(bms[a].time) || 0;
+  return bms.length ? (Number(bms[bms.length - 1].time) || 0) + 1 : 0;
+}
+// 今どのブックマークの直前にいるか（末尾なら bms.length）
+function _divAnchorOf(id, d) {
+  const bms = _getBookmarks(id);
+  const i = bms.findIndex(b => Number(d.time) <= Number(b.time));
+  return i < 0 ? bms.length : i;
+}
+
+function _divSlotHTML(id, at) {
+  return `<div class="vp-bm-div-slot"><button onclick="vpDivAdd('${id}',${at})">＋ ここに仕切り</button></div>`;
+}
+function _divInputHTML(id, mode, di, val) {
+  return `<div class="vp-bm-div"><input class="vp-bm-div-in" id="vp-div-in-${id}" data-mode="${mode}" data-di="${di}" maxlength="${CHAP_DIV_LABEL_MAX}"
+    value="${_vpEsc(val)}" placeholder="仕切りの文字（例: デラヒーバ編）"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.dataset.cancel='1';this.blur()}"
+    onblur="vpDivCommit('${id}',this)"></div>`;
+}
+function _divRowHTML(id, x) {
+  const { d, di } = x;
+  if (_divUi.rename?.id === id && _divUi.rename.di === di) return _divInputHTML(id, 'rename', di, d.label || '');
+  const editing = _divEditing(id);
+  const btn = (fn, label, title) =>
+    `<button class="vp-bm-div-btn" onclick="${fn}('${id}',${di}${fn === 'vpDivMove' ? (label === '↑' ? ',-1' : ',1') : ''})" title="${title}">${label}</button>`;
+  return `<div class="vp-bm-div${editing ? ' editing' : ''}" data-div-idx="${di}">
+    ${editing ? `<span class="vp-bm-div-handle" onpointerdown="vpDivDragStart(event,'${id}',${di})" title="ドラッグで動かす">⠿</span>` : ''}
+    <span class="vp-bm-div-t"${editing ? ` onclick="vpDivRename('${id}',${di})" title="押すと名前を変えられます"` : ''}>${_vpEsc(d.label || '')}</span>
+    ${editing ? btn('vpDivMove', '↑', '1つ上へ') + btn('vpDivMove', '↓', '1つ下へ') + btn('vpDivDelete', '×', 'この仕切りを消す') : ''}
+  </div>`;
+}
+function _divBtnHTML(id) {
+  const on = _divEditing(id);
+  const show = _getBookmarks(id).length > 0 || _divSorted(id).length > 0;
+  return `<button data-div-edit="${id}" onclick="vpDivEditToggle('${id}')" ${show ? '' : 'hidden'}
+    title="ブックマークの間に、文字だけの仕切りを入れる・名前を変える・動かす・消す"
+    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};background:${on ? 'var(--gold-soft)' : 'transparent'};color:${on ? 'var(--accent)' : 'var(--text2)'};cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:${on ? '700' : 'normal'}">${on ? '✔ 仕切りの編集を終える' : '✎ 仕切り'}</button>`;
+}
+function _divBtnSync(id) {
+  document.querySelectorAll(`[data-div-edit="${id}"]`).forEach(b => { b.outerHTML = _divBtnHTML(id); });
+}
+function _divSave(v, id) {
+  v.bmDividers.sort((a, b) => (Number(a?.time) || 0) - (Number(b?.time) || 0));
+  window.debounceSave?.();
+  _refreshBmList(id);
+}
+function _divFocus(id) {
+  setTimeout(() => { const el = document.getElementById('vp-div-in-' + id); if (el) { el.focus(); el.select(); } }, 0);
+}
+
+window.vpDivEditToggle = function(id) {
+  _divUi.edit[id] = !_divUi.edit[id];
+  _divUi.draft = null; _divUi.rename = null;
+  _refreshBmList(id);
+};
+// 足す: まず画面に入力欄だけ出す。文字が入って確定したときに初めて保存する（空の仕切りは作らない）
+window.vpDivAdd = function(id, at) {
+  _divUi.rename = null; _divUi.draft = { id, at };
+  _refreshBmList(id); _divFocus(id);
+};
+window.vpDivRename = function(id, di) {
+  _divUi.draft = null; _divUi.rename = { id, di };
+  _refreshBmList(id); _divFocus(id);
+};
+window.vpDivCommit = function(id, el) {
+  const mode = el.dataset.mode, di = Number(el.dataset.di);
+  const draft = _divUi.draft, cancel = el.dataset.cancel === '1';
+  _divUi.draft = null; _divUi.rename = null;
+  const val = String(el.value || '').replace(/\s+/g, ' ').trim().slice(0, CHAP_DIV_LABEL_MAX);
+  const v = (window.videos || []).find(x => x.id === id);
+  if (!v || cancel || !val) { _refreshBmList(id); return; }   // 空・取り消しは何も書かない
+  if (!Array.isArray(v.bmDividers)) v.bmDividers = [];
+  if (mode === 'draft' && draft?.id === id) {
+    v.bmDividers.push({ time: _divAnchorTime(id, draft.at), label: val });
+  } else if (mode === 'rename') {
+    const d = v.bmDividers[di];
+    if (!_divOk(d) || d.label === val) { _refreshBmList(id); return; }
+    d.label = val; delete d.auto;
+  }
+  _divSave(v, id);
+};
+window.vpDivMove = function(id, di, dir) {
+  const v = (window.videos || []).find(x => x.id === id);
+  const d = _divList(v)[di]; if (!_divOk(d)) return;
+  const n = _getBookmarks(id).length;
+  const a = Math.max(0, Math.min(n, _divAnchorOf(id, d) + dir));
+  d.time = _divAnchorTime(id, a); delete d.auto;
+  _divSave(v, id);
+};
+window.vpDivDelete = function(id, di) {
+  const v = (window.videos || []).find(x => x.id === id);
+  if (!_divOk(_divList(v)[di])) return;
+  v.bmDividers.splice(di, 1);
+  _divSave(v, id);
+  window.toast?.('仕切りを消しました（ブックマークはそのままです）');
+};
+// ⠿ のドラッグ（指でもマウスでも）。落とした隙間のすぐ下のブックマークの直前へ動かす
+let _divDrag = null;
+window.vpDivDragStart = function(e, id, di) {
+  e.preventDefault();
+  const list = document.getElementById('vp-bm-list-' + id);
+  const el = e.target.closest('.vp-bm-div');
+  if (!list || !el) return;
+  el.classList.add('dragging');
+  const line = document.createElement('div');
+  line.className = 'vp-bm-div-dropline';
+  list.style.position = list.style.position || 'relative';
+  list.appendChild(line);
+  _divDrag = { id, di, list, el, line, at: null };
+  document.addEventListener('pointermove', _divDragMove);
+  document.addEventListener('pointerup', _divDragEnd, { once: true });
+  document.addEventListener('pointercancel', _divDragEnd, { once: true });
+};
+function _divDragMove(e) {
+  const g = _divDrag; if (!g) return;
+  const lr = g.list.getBoundingClientRect();
+  const rows = [...g.list.querySelectorAll('[data-bm-idx]')];
+  let best = { at: rows.length, y: rows.length ? rows[rows.length - 1].getBoundingClientRect().bottom : lr.top };
+  let bd = Math.abs(e.clientY - best.y);
+  rows.forEach((r, i) => {
+    // その行の上に仕切りや「＋」が並んでいれば、そのいちばん上を隙間とする
+    let top = r.getBoundingClientRect().top, p = r.previousElementSibling;
+    while (p && !p.hasAttribute('data-bm-idx')) { if (p !== g.el) top = p.getBoundingClientRect().top; p = p.previousElementSibling; }
+    const dd = Math.abs(e.clientY - top);
+    if (dd < bd) { bd = dd; best = { at: i, y: top }; }
+  });
+  g.at = best.at;
+  g.line.style.top = (best.y - lr.top - 2) + 'px';
+  g.line.style.display = 'block';
+}
+function _divDragEnd() {
+  document.removeEventListener('pointermove', _divDragMove);
+  document.removeEventListener('pointerup', _divDragEnd);
+  document.removeEventListener('pointercancel', _divDragEnd);
+  const g = _divDrag; _divDrag = null;
+  if (!g) return;
+  g.line.remove(); g.el.classList.remove('dragging');
+  if (g.at == null) return;   // 動かさずに離しただけ
+  const v = (window.videos || []).find(x => x.id === g.id);
+  const d = _divList(v)[g.di]; if (!_divOk(d)) return;
+  const t = _divAnchorTime(g.id, g.at);
+  if (Number(d.time) === t) { _refreshBmList(g.id); return; }
+  d.time = t; delete d.auto;
+  _divSave(v, g.id);
 }
 
 // HTMLに埋めるときのエスケープ。ブックマークのコメントはユーザーの文章なので
@@ -1037,6 +1228,7 @@ function _bookmarkSectionHTML(id) {
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
           ${_bmNoteAllBtnHTML(id)}
+          ${_divBtnHTML(id)}
           ${chapBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
@@ -1263,6 +1455,7 @@ function _refreshBmList(id, flashIdx) {
     const _savedScroll = _scrollWrap ? _scrollWrap.scrollTop : 0;
     el.innerHTML = _bookmarkListHTML(id);
     _bmNoteAllSync(id);
+    _divBtnSync(id);
     if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
     // スライダーのmax値（長さが分かったら反映。分からなければ描画時の余裕値のまま）
     const dur = _getDurationSec(id);
@@ -4789,6 +4982,29 @@ function _snapChapters(chaps, cues) {
   return chaps;
 }
 
+// AIが返した仕切り（大きな区切り）を、検出したチャプターの頭に合わせる。
+// 返しは { at: チャプターの番号, label }。合わせられないもの・同じチャプターへの2本目は落とす。
+// チャプターが少ない動画には仕切りを入れない（区切っても見やすくならない）。
+const CHAP_DIV_MIN_CHAPS = 6;
+const CHAP_DIV_SNAP_SEC  = 60;
+function _chapSections(raw, chaps) {
+  if (!Array.isArray(raw) || !Array.isArray(chaps) || chaps.length < CHAP_DIV_MIN_CHAPS) return [];
+  const used = new Set(), out = [];
+  for (const s of raw) {
+    const t = _chapSec(s?.start ?? s?.time);
+    const label = String(s?.title ?? s?.label ?? '').replace(/\s+/g, ' ').trim()
+      .replace(/^(?:第\s*[\d０-９]+\s*(?:章|部|編)|[\d０-９]+\s*[.．、）)：:\-–—]+)\s*/, '').trim()
+      .slice(0, CHAP_DIV_LABEL_MAX);
+    if (t == null || !label) continue;
+    let best = -1, bd = Infinity;
+    chaps.forEach((c, i) => { const d = Math.abs(c.time - t); if (d < bd) { bd = d; best = i; } });
+    if (best < 0 || bd > CHAP_DIV_SNAP_SEC || used.has(best)) continue;
+    used.add(best);
+    out.push({ at: best, label });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
 // ── チャプター一覧の貼り付け ──────────────────────────────
 // 教則DVDは商品ページに章立てが載っていることが多い。それが手に入るなら
 // AIに推測させるより正確なので、テキスト／スクショを読み取って章立てを確定させ、
@@ -5097,7 +5313,7 @@ function _askChapterSource(anchorEl, hasYt, ytPeek) {
 }
 
 // 検出結果の確認ダイアログ。ここを通さずにブックマークへ書き込まない。
-// resolve は { chaps, withEnd, replaceAuto, replaceAll } / キャンセルは null
+// resolve は { chaps, divs, withEnd, replaceAuto, replaceAll } / キャンセルは null
 function _chapReviewDialog(chaps, info) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-rv-bg')?.remove();
@@ -5126,7 +5342,18 @@ function _chapReviewDialog(chaps, info) {
       document.head.appendChild(st);
     }
 
-    const rows = chaps.map((c, i) => `
+    // 仕切り（大きな区切り）は、その位置のチャプターの上に出す。文字は直せる・× で外せる
+    const divAt = new Map((Array.isArray(info?.divs) ? info.divs : []).map(d => [d.at, d.label]));
+    const divRow = i => divAt.has(i) ? `
+      <div class="vp-chap-divrow" data-at="${i}" style="display:flex;align-items:center;gap:6px;padding:10px 2px 4px;border-bottom:2px solid var(--text3,#888)">
+        <div class="vp-chap-divt" contenteditable="plaintext-only" data-ph="仕切りの文字"
+          style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text,#eee);outline:none;padding:2px 4px;border-radius:5px;border:1px dashed transparent"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
+        <span style="font-size:9.5px;color:var(--text3,#999);flex-shrink:0">仕切り</span>
+        <button type="button" class="vp-chap-divx" title="この仕切りを入れない"
+          style="flex-shrink:0;width:22px;height:20px;padding:0;border-radius:5px;border:1px solid var(--border,#444);background:transparent;color:var(--text3,#999);cursor:pointer;font-family:inherit">×</button>
+      </div>` : '';
+    const rows = chaps.map((c, i) => divRow(i) + `
       <div style="display:flex;align-items:flex-start;gap:7px;padding:5px 2px;border-bottom:0.5px solid var(--border,#444)">
         <input type="checkbox" class="vp-chap-ck" data-i="${i}" checked style="flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;cursor:pointer;margin-top:4px">
         <button class="vp-chap-seek" data-t="${c.time}" title="ここから再生"
@@ -5166,6 +5393,10 @@ function _chapReviewDialog(chaps, info) {
         </div>
         <div style="flex:1;overflow-y:auto;padding:4px 14px 8px;min-height:60px">${rows}</div>
         <div style="padding:8px 14px;border-top:0.5px solid var(--border,#444);display:flex;flex-direction:column;gap:6px">
+          ${divAt.size ? `<label style="display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text2,#bbb);cursor:pointer">
+            <input type="checkbox" id="vp-chap-divs" checked style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
+            <span id="vp-chap-divs-lbl">大きな区切りに仕切りを入れる（${divAt.size}本）<div style="font-size:10px;color:var(--text3,#999)">ブックマークの間に文字だけの仕切りを挟みます。あとで「✎ 仕切り」から名前・位置を直せます</div></span>
+          </label>` : ''}
           <label style="display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text2,#bbb);cursor:pointer">
             <input type="checkbox" id="vp-chap-end" style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
             <span>終了時間を入れる（次の開始まで）<div style="font-size:10px;color:var(--text3,#999)">1チャプターが区間になり、そのままループ再生できます</div></span>
@@ -5199,6 +5430,21 @@ function _chapReviewDialog(chaps, info) {
       t.textContent = chaps[Number(t.dataset.i)]?.label || '';
       t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
     });
+    // 仕切りの文字を流し込む。× で外す・全体のチェックで出し入れする
+    const divRows = () => Array.from(bg.querySelectorAll('.vp-chap-divrow'));
+    const paintDivs = () => {
+      const on = bg.querySelector('#vp-chap-divs')?.checked !== false;
+      divRows().forEach(r => { r.style.display = on ? 'flex' : 'none'; });
+      const lbl = bg.querySelector('#vp-chap-divs-lbl');
+      if (lbl?.firstChild) lbl.firstChild.textContent = `大きな区切りに仕切りを入れる（${divRows().length}本）`;
+    };
+    divRows().forEach(r => {
+      const t = r.querySelector('.vp-chap-divt');
+      t.textContent = divAt.get(Number(r.dataset.at)) || '';
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
+      r.querySelector('.vp-chap-divx').addEventListener('click', () => { r.remove(); paintDivs(); });
+    });
+    bg.querySelector('#vp-chap-divs')?.addEventListener('change', paintDivs);
 
     const cks = () => Array.from(bg.querySelectorAll('.vp-chap-ck'));
     // 既存のブックマークをどうするか。既定は「追加する」（消さない方）。
@@ -5256,8 +5502,21 @@ function _chapReviewDialog(chaps, info) {
         return { ...chaps[Number(i)], label: titles[i] ?? chaps[Number(i)].label };
       });
       if (!picked.length) return;
+      // 仕切りは、その位置か後ろで最初に選ばれているチャプターの頭に付ける（外したチャプターの上には残さない）
+      const pickedIdx = cks().filter(c => c.checked).map(c => Number(c.dataset.i));
+      const divs = [];
+      if (bg.querySelector('#vp-chap-divs')?.checked) {
+        for (const r of divRows()) {
+          const label = (r.querySelector('.vp-chap-divt')?.textContent || '').replace(/\s+/g, ' ').trim();
+          const j = pickedIdx.find(k => k >= Number(r.dataset.at));
+          if (!label || j == null) continue;
+          const time = chaps[j].time;
+          if (!divs.some(d => d.time === time)) divs.push({ time, label });
+        }
+      }
       done({
         chaps: picked,
+        divs,
         withEnd:     !!bg.querySelector('#vp-chap-end')?.checked,
         replaceAuto: _chapMode === 'auto',
         replaceAll:  _chapMode === 'all',
@@ -5271,7 +5530,7 @@ function _chapReviewDialog(chaps, info) {
 // ブックマークへの反映。空では何も書かない・既存は消さない（置き換えは明示指定時のみ）。
 function _applyChapters(id, sel, duration) {
   const v = (window.videos || []).find(x => x.id === id);
-  if (!v || !sel?.chaps?.length) return 0;
+  if (!v || !sel?.chaps?.length) return { added: 0, divs: 0 };
   if (!Array.isArray(v.bookmarks)) v.bookmarks = [];
 
   // 明示的に選ばれた時だけ消す。既定（追加）では1件も消さない。
@@ -5282,7 +5541,6 @@ function _applyChapters(id, sel, duration) {
   // 再実行で同じ位置が二重にならないよう、近接する既存の自動チャプターは飛ばす
   const dup = t => v.bookmarks.some(b => b.auto === 'chapter' && Math.abs((b.time || 0) - t) <= CHAP_DUP_SEC);
   const list = sel.chaps.filter(c => !dup(c.time));
-  if (!list.length) return 0;
 
   if (sel.withEnd) {
     const dur = Number(duration) || 0;
@@ -5297,9 +5555,32 @@ function _applyChapters(id, sel, duration) {
     v.bookmarks.push(bm);
   }
   v.bookmarks.sort((a, b) => a.time - b.time);
-  window.debounceSave?.();
-  _refreshBmList(id);
-  return list.length;
+  // 仕切りは、もう全部入っているチャプターに対してだけでも入れられる（再実行で仕切りだけ欲しい時）
+  const divs = _applyChapterDividers(v, sel.divs);
+  if (list.length || divs || sel.replaceAll || sel.replaceAuto) {
+    window.debounceSave?.();
+    _refreshBmList(id);
+  }
+  return { added: list.length, divs };
+}
+
+// 仕切りの反映。ブックマークとは別の列（v.bmDividers）に置く。
+// 置き換えるのは前に自動で入れた仕切り（auto）だけ。手で入れた・直した仕切りは残す。
+// 新しく入る仕切りが1本も無ければ、何も触らない（空や欠けで上書きしない）。
+function _applyChapterDividers(v, divs) {
+  const keep  = _divList(v).filter(d => !(_divOk(d) && d.auto));
+  const fresh = [];
+  for (const d of (Array.isArray(divs) ? divs : [])) {
+    const t = Math.round(Number(d?.time));
+    const label = String(d?.label || '').replace(/\s+/g, ' ').trim().slice(0, CHAP_DIV_LABEL_MAX);
+    if (!Number.isFinite(t) || !label) continue;
+    // 手で入れた仕切りと同じ位置・同じ時刻の2本目には足さない
+    if (keep.some(k => _divOk(k) && Number(k.time) === t) || fresh.some(f => f.time === t)) continue;
+    fresh.push({ time: t, label, auto: true });
+  }
+  if (!fresh.length) return 0;
+  v.bmDividers = keep.concat(fresh).sort((a, b) => (Number(a?.time) || 0) - (Number(b?.time) || 0));
+  return fresh.length;
 }
 
 // この動画の字幕本文（VTT）を1つ取る。再生中でメモリにあればそれを使う。
@@ -5528,7 +5809,7 @@ window.vpGenChapters = async function(id, preset) {
     for (;;) {
       const grain    = _chapGrain(grainKey);
       const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen };
-      let chaps = [], cost = 0, noteSrc = '', warn = '';
+      let chaps = [], cost = 0, noteSrc = '', warn = '', divs = [];
 
       if (via === 'yt') {
         // 2a-0. YouTubeに埋め込まれたチャプターをそのまま取り込む。AIも課金も通らない。
@@ -5584,6 +5865,7 @@ window.vpGenChapters = async function(id, preset) {
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
         chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }), cues);
+        divs    = _chapSections(r.parsed?.sections, chaps);
         noteSrc = '字幕から検出';
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
 
@@ -5591,6 +5873,7 @@ window.vpGenChapters = async function(id, preset) {
         const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
         chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
+        divs    = _chapSections(r.parsed?.sections, chaps);
         noteSrc = '動画から検出';
       }
 
@@ -5605,18 +5888,22 @@ window.vpGenChapters = async function(id, preset) {
       const note = noteSrc + (totalCost ? ` · $${totalCost.toFixed(3)}` : '');
       const sel = preset
         ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto,
-            replaceAll: !!preset.replaceAll }
+            replaceAll: !!preset.replaceAll,
+            divs: divs.map(d => ({ time: chaps[d.at].time, label: d.label })) }
         : await _chapReviewDialog(chaps, {
-            note, autoCount, handCount, warn,
+            note, autoCount, handCount, warn, divs,
             grain: grainKey, canRedo: via !== 'list' && via !== 'yt',
           });
       if (!sel) return { ok: false, skipped: true };
       if (sel.redo) { grainKey = _chapGrainKey(sel.grain); setBtn('⏳ 検出中…'); continue; }
 
-      const added = _applyChapters(id, sel, duration);
-      if (!added) return fail('追加できるチャプターがありませんでした');
-      if (!silent) window.toast?.(`📑 ${added}件のチャプターをブックマークに追加しました`);
-      return { ok: true, added, cost: totalCost };
+      const res = _applyChapters(id, sel, duration);
+      const added = res.added;
+      if (!added && !res.divs) return fail('追加できるチャプターがありませんでした');
+      if (!silent) window.toast?.(added
+        ? `📑 ${added}件のチャプターをブックマークに追加しました` + (res.divs ? `（仕切り${res.divs}本）` : '')
+        : `📑 仕切りを${res.divs}本入れました`);
+      return { ok: true, added, divs: res.divs, cost: totalCost };
     }
   } catch (e) {
     console.warn('[chapters] 検出失敗:', e);
@@ -8816,3 +9103,6 @@ function _vpGoSearchFree() {
     if (inp) { inp.value = ''; inp.focus(); }
   }, 80);
 }
+
+// 検査（tools/bm-divider-check.mjs）が自動チャプターの確認画面と書き込みを直接踏むための入口。画面からは使わない
+export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections };

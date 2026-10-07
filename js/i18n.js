@@ -194,6 +194,13 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // ブックマークの仕切り（v52.952）
+    '✎ 仕切り':'✎ Dividers','✔ 仕切りの編集を終える':'✔ Done editing dividers','＋ ここに仕切り':'+ Divider here',
+    '仕切り':'Divider','仕切りの文字':'Divider text','仕切りの文字（例: デラヒーバ編）':'Divider text (e.g. De La Riva)',
+    '押すと名前を変えられます':'Click to rename','ドラッグで動かす':'Drag to move','1つ上へ':'Move up','1つ下へ':'Move down','この仕切りを消す':'Delete this divider',
+    'この仕切りを入れない':'Skip this divider','仕切りを消しました（ブックマークはそのままです）':'Divider deleted (bookmarks unchanged)',
+    'ブックマークの間に、文字だけの仕切りを入れる・名前を変える・動かす・消す':'Add, rename, move or delete text-only dividers between bookmarks',
+    'ブックマークの間に文字だけの仕切りを挟みます。あとで「✎ 仕切り」から名前・位置を直せます':'Inserts text-only dividers between bookmarks. You can rename or move them later with "✎ Dividers"',
     '一括':'Bulk','一括編集':'Bulk edit','⏳ 読み込みが終わったら保存します':'⏳ Will save once loading finishes','⚠️ 読み込み中に行った変更は、ほかの端末の更新を優先したため反映されませんでした':'⚠️ Changes made while loading were not kept because another device had newer data',
     // 管理画面「検索辞書」（v52.828）
     '🔍 検索辞書': '🔍 Search dictionary',
@@ -1962,6 +1969,10 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '大きな区切りに仕切りを入れる（#本）':'Add dividers at major breaks (#)',
+    '📑 仕切りを#本入れました':'📑 Added # dividers',
+    '📑 #件のチャプターをブックマークに追加しました（仕切り#本）':'📑 Added # chapters to bookmarks (# dividers)',
+    '（仕切り#本）':'(# dividers)',
     'YouTubeのチャプターを取得（#個）':'Get the YouTube chapters (#)',
     '開く（#:# から）':'Open (from #:#)',
     '開く（#:#:# から）':'Open (from #:#:#)',

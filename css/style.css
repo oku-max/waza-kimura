@@ -1749,3 +1749,18 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 }
 .sheet-x:hover{background:var(--border);color:var(--text)}
 .sheet-x:active{transform:scale(.94)}
+
+/* ブックマークの仕切り（v52.952）: 時刻ボタンなし・押しても飛ばない、文字と線だけ */
+.vp-bm-div{display:flex;align-items:center;gap:6px;padding:12px 4px 4px;border-bottom:2px solid var(--text3);}
+.vp-bm-div:first-child{padding-top:4px;}
+.vp-bm-div-t{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--text);letter-spacing:.02em;overflow-wrap:anywhere;}
+.vp-bm-div.editing .vp-bm-div-t{cursor:text;text-decoration:underline dotted var(--text3);text-underline-offset:3px;}
+.vp-bm-div-btn{flex-shrink:0;width:24px;height:22px;padding:0;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit;}
+.vp-bm-div-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vp-bm-div-handle{flex-shrink:0;cursor:grab;color:var(--text3);font-size:14px;padding:0 2px;touch-action:none;user-select:none;}
+.vp-bm-div.dragging{opacity:.35;}
+.vp-bm-div-in{flex:1;min-width:0;font:inherit;font-size:12.5px;font-weight:700;padding:3px 7px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);outline:none;}
+.vp-bm-div-slot{position:relative;height:18px;}
+.vp-bm-div-slot button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;padding:1px 10px;border-radius:10px;border:1px dashed var(--text3);background:var(--surface);color:var(--text3);white-space:nowrap;cursor:pointer;font-family:inherit;}
+.vp-bm-div-slot button:hover{border-style:solid;border-color:var(--accent);color:var(--accent);}
+.vp-bm-div-dropline{position:absolute;left:0;right:0;height:3px;background:var(--accent);border-radius:2px;pointer-events:none;display:none;z-index:3;}
