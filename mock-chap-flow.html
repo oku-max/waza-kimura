@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 自動チャプターの流れを1つの場所にまとめる（5案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  AIも呼ばない（決まった結果を少し待ってから出すだけ）。触った結果はこのページの中だけ。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--on-accent:#fff;--gold-soft:#fdf8e8;--gold:#c8a24a;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--border2:#eaeae6;--new:#2f7d4f}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--border2:#3a3a3c;--new:#7fd19e}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;padding-bottom:60px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.top{max-width:1120px;margin:0 auto;padding:0 12px}
+.tabs{display:flex;gap:5px;padding:10px 0;flex-wrap:wrap}
+.tab{flex:1;min-width:150px;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);text-align:left;line-height:1.35}
+.tab b{display:block;font-size:12.5px;color:var(--text)}
+.tab.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opts{display:flex;gap:14px;align-items:center;padding:4px 2px 8px;font-size:11.5px;color:var(--text2);flex-wrap:wrap}
+.opts label{display:flex;gap:5px;align-items:center;cursor:pointer}
+.opts button{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.desc{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2);margin-bottom:10px}
+.desc b{color:var(--text)}
+
+/* 画面の見本（この中に窓を出す） */
+.stage{position:relative;margin:0 auto;height:660px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg);display:flex}
+.stage.pc{max-width:1100px}
+.stage.sp{width:390px;flex-direction:column;height:760px}
+.video{flex:1.6;background:#111;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px;min-height:0}
+.sp .video{flex:none;height:220px}
+.side{flex:1;min-width:0;overflow:auto;padding:12px;background:var(--surface);border-left:1px solid var(--border)}
+.sp .side{border-left:none;border-top:1px solid var(--border)}
+.sec{margin-bottom:12px}
+.hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.hsp{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.hbtn{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap}
+.hbtn.on{border-color:var(--accent);color:var(--accent);background:var(--gold-soft);font-weight:700}
+.empty{font-size:11px;color:var(--text3);padding:4px 0}
+.memo{height:90px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)}
+.row{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);padding:5px 2px}
+.t{flex-shrink:0;padding:1px 7px;border-radius:5px;border:1.5px solid var(--accent);color:var(--accent);font-size:11.5px;min-width:52px;text-align:center}
+.name{flex:1;min-width:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dv{display:flex;align-items:center;gap:6px;padding:10px 2px 3px;border-bottom:2px solid var(--text3);font-size:12.5px;font-weight:700}
+.dv:first-child{padding-top:2px}
+
+/* 共通の部品 */
+.ttl{font-size:13.5px;font-weight:700}
+.sub{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.55}
+.crumbs{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.crumbs span{font-size:10.5px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text3)}
+.crumbs span.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.crumbs span.done{color:var(--text2)}
+.crumbs i{font-style:normal;color:var(--text3);font-size:10px}
+.dots{display:flex;gap:5px;justify-content:center;margin-top:6px}
+.dots b{width:7px;height:7px;border-radius:50%;background:var(--surface3)}
+.dots b.on{background:var(--accent)}
+.card{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--surface);margin-bottom:7px}
+.card:hover:not(:disabled){border-color:var(--accent)}
+.card.on{border-color:var(--accent);background:var(--gold-soft)}
+.card:disabled{opacity:.45;cursor:default}
+.card b{font-size:12.5px}
+.card .tag{font-size:10px;font-weight:700;margin-left:6px;color:var(--text2)}
+.card small{display:block;font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.5}
+.seg{display:flex;gap:5px}
+.seg button{flex:1;padding:7px 4px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);font-size:11px;color:var(--text2);line-height:1.35}
+.seg button.on{border-color:var(--accent);background:var(--accent);color:var(--on-accent);font-weight:700}
+.seg button small{display:block;font-size:9.5px;opacity:.8}
+.qh{font-size:11px;font-weight:700;color:var(--text2);margin:12px 0 6px;display:flex;gap:6px;align-items:center}
+.qh .n{width:17px;height:17px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:10px;display:inline-flex;align-items:center;justify-content:center}
+.note{font-size:10.5px;color:var(--text2);background:var(--gold-soft);border:1px solid var(--border);border-radius:7px;padding:6px 9px;margin:6px 0;line-height:1.55}
+.ta{width:100%;height:110px;font:inherit;font-size:11.5px;padding:8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);resize:vertical}
+.drop{border:1.5px dashed var(--border);border-radius:7px;padding:10px;text-align:center;font-size:11px;color:var(--text3);margin-top:6px}
+.prog{padding:18px 4px}
+.prog li{list-style:none;font-size:12px;padding:5px 0;color:var(--text3);display:flex;gap:8px;align-items:center}
+.prog li.on{color:var(--text);font-weight:700}
+.prog li.ok{color:var(--text2)}
+.prog .ic{width:16px;text-align:center}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.rv{border:1px solid var(--border);border-radius:8px;padding:2px 8px}
+.rv .row{padding:4px 0}
+.rv .dv{padding:9px 0 3px}
+.ck{display:flex;gap:7px;align-items:flex-start;font-size:11px;color:var(--text2);margin-top:8px;cursor:pointer}
+.ck small{display:block;font-size:10px;color:var(--text3)}
+.acts{display:flex;gap:7px;justify-content:flex-end;align-items:center}
+.acts .sp{flex:1}
+.btn{font-size:11.5px;padding:6px 13px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2)}
+.btn.go{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.btn.go:disabled{opacity:.4;cursor:default}
+.lnk{font-size:11px;color:var(--text2);background:none;border:none;padding:4px 2px}
+.x{width:26px;height:26px;border-radius:50%;border:none;background:var(--surface2);color:var(--text2);font-size:14px;flex-shrink:0}
+
+/* A 同じ窓で進む */
+.shade{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:14px;z-index:20}
+.win{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.35);width:100%;max-width:470px;display:flex;flex-direction:column;overflow:hidden}
+.win .wh{padding:13px 15px 10px;border-bottom:1px solid var(--border)}
+.win .wb{flex:1;overflow:auto;padding:12px 15px}
+.win .wf{padding:10px 15px;border-top:1px solid var(--border)}
+.A .win{height:520px}
+.sp.A .win,.sp.B .win{height:auto;max-height:100%}
+.B .win{max-height:600px}
+
+/* C ボタンの下で進む */
+.pop{position:absolute;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.25);width:340px;display:flex;flex-direction:column;overflow:hidden}
+.pop .wh{padding:11px 13px 8px;border-bottom:1px solid var(--border)}
+.pop .wb{overflow:auto;padding:10px 13px}
+.pop .wf{padding:8px 13px;border-top:1px solid var(--border)}
+.pop::before{content:'';position:absolute;top:-6px;right:var(--arrow,40px);width:10px;height:10px;background:var(--surface);border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg)}
+
+/* D パネルの中で進む */
+.inl{border:1.5px solid var(--accent);border-radius:11px;background:var(--surface);margin:2px 0 10px;overflow:hidden}
+.inl .wh{padding:10px 12px 8px;background:var(--gold-soft);border-bottom:1px solid var(--border)}
+.inl .wb{padding:10px 12px}
+.inl .wf{padding:8px 12px;border-top:1px solid var(--border)}
+
+/* E 下から出るシート */
+.E .shade{align-items:flex-end;padding:0}
+.sheet{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:82%;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.3)}
+.sheet.first{animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+.sheet .grab{width:38px;height:4px;border-radius:2px;background:var(--surface3);margin:8px auto 2px}
+.sheet .wh{padding:6px 16px 10px;border-bottom:1px solid var(--border)}
+.sheet .wb{overflow:auto;padding:12px 16px}
+.sheet .wf{padding:10px 16px 16px;border-top:1px solid var(--border)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。本物のデータには書き込みません。AIも呼びません。<br>上のタブで5案を切り替え、右の「📑 自動チャプター」を押して最後まで進めてみてください。「字幕がある動画」のチェックを外すと、字幕を先に作る流れ（言語を聞く画面）も見られます。</div>
+<div class="top">
+  <div class="tabs" id="tabs"></div>
+  <div class="opts">
+    <label><input type="checkbox" id="o-subs"> 字幕がある動画</label>
+    <label><input type="checkbox" id="o-yt" checked> YouTubeのチャプターがある動画</label>
+    <label><input type="checkbox" id="o-sp"> スマホの幅で見る</label>
+    <label><input type="checkbox" id="o-dark"> ダーク表示</label>
+    <button onclick="resetAll()">最初に戻す</button>
+  </div>
+  <div class="desc" id="desc"></div>
+  <div class="stage pc" id="stage"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DESIGNS = {
+  A: { tab:'A 同じ窓で進む', sub:'中央の1つの窓。中身だけ変わる',
+    desc:'<b>A 同じ窓で進む。</b>画面の真ん中に1つの窓が出て、<b>位置も大きさも変えずに中身だけ</b>が「作り方 → 細かさ → 字幕の言語 → 作成中 → 確認」と進む。上に今どこかの目印、下に「← 戻る」。いまの3つの窓（ボタンの下・真ん中・字幕ボタンの下）が全部この1枚になる。' },
+  B: { tab:'B 1枚にまとめる', sub:'聞くことを全部1画面に並べる',
+    desc:'<b>B 1枚にまとめる。</b>聞くことを<b>最初から1画面に全部並べ</b>、「作成する」を1回押すだけ。作り方を選ぶと、必要な質問（細かさ・字幕の言語・貼り付け欄）だけがその下に開く。押した後は同じ窓が「作成中」→「確認」に変わる。手順を覚えなくていい・前に戻る必要が無い。' },
+  C: { tab:'C ボタンの下で進む', sub:'📑 の真下の吹き出し1つ',
+    desc:'<b>C ボタンの下で進む。</b>いまの1つ目のメニューと同じく<b>「📑 自動チャプター」の真下</b>に吹き出しが出て、その吹き出しの中身が進んでいく。画面を暗くしないので、動画を見ながら選べる。確認の一覧も同じ吹き出しの中（縦に伸びてスクロール）。' },
+  D: { tab:'D パネルの中で進む', sub:'窓を出さず、ブックマーク欄がそのまま変わる',
+    desc:'<b>D パネルの中で進む。</b>窓を出さない。押すと<b>ブックマーク欄そのもの</b>が枠に変わり、その中で質問 → 作成中 → 確認と進む。終わるとその場所がブックマーク一覧になる。作成中も動画やメモを触れる（待ち時間が長い字幕づくりと相性がいい）。' },
+  E: { tab:'E 下から出るシート', sub:'スマホで指が届く下側にまとめる',
+    desc:'<b>E 下から出るシート。</b>画面の下から1枚のシートがせり上がり、その中で進む。スマホで親指が届く位置に選択肢が来る。PCでは画面下の中央に出る。位置は最後まで同じ。' },
+};
+const CHAPS = [[0,'イントロと全体の流れ'],[100,'クローズドガードの姿勢作り'],[245,'袖と襟のグリップ'],[450,'ヒップエスケープで角度を作る'],[612,'シザースイープ'],[1205,'デラヒーバの足の入れ方'],[1420,'デラヒーバからベリンボロへ'],[2290,'ニーカットパスへの対処'],[2565,'ハーフガードへの戻し']];
+const DIVS = {1:'クローズドガード',5:'デラヒーバとベリンボロ',7:'パスへの対処とハーフガード'};
+const GRAINS = [['fine','細かめ','1つ25秒以上 · 最大60個'],['normal','ふつう','1つ45秒以上 · 最大40個'],['coarse','大きめ','1つ2分30秒以上 · 最大20個']];
+
+const S = { d:'A', step:null, via:null, grain:'normal', lang:'ja', prog:[], progAt:0, done:false, divOn:true, listText:'' };
+const $ = id => document.getElementById(id);
+const opt = id => $(id).checked;
+function fmt(s){ const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60,z=n=>String(n).padStart(2,'0'); return h?`${h}:${z(m)}:${z(x)}`:`${m}:${z(x)}`; }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200); }
+
+// ── 流れ ─────────────────────────────────────────
+const needLang = () => S.via === 'sub' && !opt('o-subs');
+function stepsOf(){
+  const st = ['source'];
+  if (S.via === 'list') st.push('list');
+  if (S.via === 'sub') { st.push('grain'); if (needLang()) st.push('lang'); }
+  st.push('prog', 'review');
+  return st;
+}
+const STEP_NAME = { source:'作り方', list:'貼り付け', grain:'細かさ', lang:'字幕の言語', prog:'作成中', review:'確認' };
+function flowOpen(){ if (S.step) { flowClose(); return; } S.step = S.d === 'B' ? 'form' : 'source'; S.via = null; render(); }
+function flowClose(){ clearTimeout(S._timer); S.step = null; render(); }
+function pick(v){
+  S.via = v;
+  if (S.d === 'B') { render(); return; }
+  if (v === 'yt') start();
+  else { S.step = v === 'list' ? 'list' : 'grain'; render(); }
+}
+function pickGrain(g){ S.grain = g; if (S.d === 'B') { render(); return; } if (needLang()) { S.step = 'lang'; render(); } else start(); }
+function pickLang(l){ S.lang = l; if (S.d === 'B') { render(); return; } start(); }
+function back(){
+  const st = stepsOf(), i = st.indexOf(S.step);
+  if (i > 0) { S.step = st[i - 1]; if (S.step === 'source') S.via = null; render(); }
+}
+function start(){
+  S.step = 'prog';
+  S.prog = S.via === 'yt' ? ['YouTubeのチャプターを取得']
+         : S.via === 'list' ? ['貼り付けた一覧を読み取る']
+         : needLang() ? [`字幕を作る（${S.lang === 'ja' ? '日本語' : '原語のまま'}）※実際は数分`, 'チャプターと仕切りを検出']
+         : ['チャプターと仕切りを検出'];
+  S.progAt = 0; render(); tick();
+}
+function tick(){
+  S._timer = setTimeout(() => {
+    S.progAt++;
+    if (S.progAt >= S.prog.length) { S.step = 'review'; }
+    render();
+    if (S.step === 'prog') tick();
+  }, 1100);
+}
+function apply(){ S.done = true; S.step = null; render(); toast(`📑 ${CHAPS.length}件のチャプターを追加しました${S.divOn ? '（仕切り3本）' : ''}`); }
+
+// ── 中身（どの案でも同じ部品） ──────────────────────
+function srcCards(compact){
+  const yt = opt('o-yt');
+  const subLine = opt('o-subs') ? 'AIが字幕から内容を判断してチャプターを作る' : 'この動画には字幕がまだ無いので、先に字幕を作ってから検出します（数分）';
+  const c = (v, b, s, dis, tag='') => `<button class="card ${S.via===v?'on':''}" ${dis?'disabled':''} onclick="pick('${v}')"><b>${b}</b>${tag?`<span class="tag">${tag}</span>`:''}<small>${s}</small></button>`;
+  return c('yt', yt ? 'YouTubeのチャプターを取得（12個）' : 'YouTubeのチャプターを取得', yt ? '動画に付いているチャプターをそのまま取り込む（無料・最も正確）' : 'この動画にはYouTubeのチャプターがありません', !yt, yt?'おすすめ':'')
+       + c('sub', '字幕から検出', subLine, false)
+       + c('list', '自分で一括入力', 'チャプター名と時間をまとめて貼り付け・手入力する', false);
+}
+function grainCards(){
+  if (S.d === 'B') return `<div class="seg">${GRAINS.map(([k,l,s]) => `<button class="${S.grain===k?'on':''}" onclick="pickGrain('${k}')">${l}<small>${s}</small></button>`).join('')}</div>`;
+  return `<div class="sub" style="margin-bottom:8px">この動画の字幕から検出します（1時間1分）</div>` + GRAINS.map(([k,l,s]) =>
+    `<button class="card ${S.grain===k?'on':''}" onclick="pickGrain('${k}')"><b>${l}</b>${k==='normal'?'<span class="tag">前回と同じ</span>':''}<small>${s}</small></button>`).join('');
+}
+function langCards(){
+  const n = `<div class="note">この動画には字幕がまだありません。<b>先に字幕を作ってから</b>チャプターを検出します。字幕は何語で作りますか？</div>`;
+  if (S.d === 'B') return `<div class="seg"><button class="${S.lang==='ja'?'on':''}" onclick="pickLang('ja')">日本語<small>この言語に翻訳して字幕にする</small></button><button class="${S.lang==='orig'?'on':''}" onclick="pickLang('orig')">原語のまま<small>話されている言語で文字起こし</small></button></div>`;
+  return n + `<button class="card ${S.lang==='ja'?'on':''}" onclick="pickLang('ja')"><b>日本語</b><small>この言語に翻訳して字幕にする</small></button><button class="card ${S.lang==='orig'?'on':''}" onclick="pickLang('orig')"><b>原語のまま</b><small>話されている言語で文字起こし</small></button>`;
+}
+function listBox(){
+  return `<div class="sub" style="margin-bottom:6px">チャプター名と時間をまとめて入れてください。貼り付けでも手入力でも、スクショでも構いません</div>
+    <textarea class="ta" placeholder="0:00 イントロ&#10;1:40 クローズドガードの姿勢作り&#10;…" oninput="S.listText=this.value">${S.listText}</textarea>
+    <div class="drop">🖼 スクショを貼り付け / ドロップ</div>`;
+}
+function progBox(){
+  return `<div class="prog"><ul>${S.prog.map((p, i) => `<li class="${i<S.progAt?'ok':i===S.progAt?'on':''}"><span class="ic">${i<S.progAt?'✓':i===S.progAt?'<span class="spin"></span>':'·'}</span>${p}</li>`).join('')}</ul>
+    <div class="sub" style="margin-top:10px">${S.d==='D' ? '待っている間も、動画やメモはそのまま使えます' : 'このまま閉じても、作成は続きます'}</div></div>`;
+}
+function reviewBox(){
+  const rows = CHAPS.map(([t, l], i) => (DIVS[i] && S.divOn && S.via !== 'yt' && S.via !== 'list' ? `<div class="dv">${DIVS[i]}</div>` : '') +
+    `<div class="row"><input type="checkbox" checked><span class="t">${fmt(t)}</span><span class="name">${l}</span></div>`).join('');
+  const divCk = S.via === 'sub' ? `<label class="ck"><input type="checkbox" ${S.divOn?'checked':''} onchange="S.divOn=this.checked;render()"><span>大きな区切りに仕切りを入れる（3本）<small>あとで「✎ 仕切り」から直せます</small></span></label>` : '';
+  return `<div class="sub" style="margin-bottom:6px">${S.via==='yt'?'YouTubeのチャプター':S.via==='list'?'貼り付けた一覧':'字幕から検出'} · ${CHAPS.length}件 · いまのブックマークはそのまま残します</div>
+    <div class="rv">${rows}</div>${divCk}
+    <label class="ck"><input type="checkbox"><span>終了時間を入れる（次の開始まで）<small>1チャプターが区間になり、そのままループ再生できます</small></span></label>`;
+}
+
+// 今の段の中身と、下のボタン
+function bodyFor(step){
+  if (step === 'source') return srcCards();
+  if (step === 'grain')  return grainCards();
+  if (step === 'lang')   return langCards();
+  if (step === 'list')   return listBox();
+  if (step === 'prog')   return progBox();
+  if (step === 'review') return reviewBox();
+  if (step === 'form')   return formB();
+  return '';
+}
+function footFor(step){
+  const canBack = !['source','form','prog','review'].includes(step) || (step === 'review' && S.d !== 'B');
+  const backBtn = canBack && step !== 'review' ? `<button class="lnk" onclick="back()">← 戻る</button>` : '';
+  if (step === 'review') return `<div class="acts"><button class="lnk" onclick="S.step='${S.d==='B'?'form':'source'}';S.via=null;render()">↺ 最初から</button><span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button><button class="btn go" onclick="apply()">✔ ブックマークに追加（${CHAPS.length}件）</button></div>`;
+  if (step === 'prog')   return `<div class="acts"><span class="sp"></span><button class="btn" onclick="flowClose();toast('作成は続いています（見本では止まります）')">閉じる</button></div>`;
+  if (step === 'list')   return `<div class="acts">${backBtn}<span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button><button class="btn go" onclick="start()">読み取る</button></div>`;
+  if (step === 'form')   return footB();
+  return `<div class="acts">${backBtn}<span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button></div>`;
+}
+function headFor(step, crumbs){
+  const st = stepsOf();
+  const i = st.indexOf(step);
+  const crumbHTML = crumbs === 'dots'
+    ? `<div class="dots">${st.map((s, k) => `<b class="${k<=i?'on':''}"></b>`).join('')}</div>`
+    : crumbs ? `<div class="crumbs">${st.map((s, k) => `<span class="${k===i?'on':k<i?'done':''}">${k<i?'✓ ':''}${STEP_NAME[s]}</span>`).join('<i>›</i>')}</div>` : '';
+  const sub = { source:'どうやって作りますか？', grain:'どのくらい細かく区切りますか？', lang:'字幕を先に作ります', list:'一覧を入れてください', prog:'作成しています…', review:'追加するチャプターを確かめてください', form:'選んで「作成する」を押すだけです' }[step] || '';
+  return `<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div class="ttl">📑 自動チャプター</div><div class="sub">${sub}</div></div><button class="x" onclick="flowClose()">×</button></div>${crumbHTML}`;
+}
+
+// B: 1画面に全部
+function formB(){
+  let h = `<div class="qh"><span class="n">1</span>作り方</div>` + srcCards();
+  if (S.via === 'sub') {
+    h += `<div class="qh"><span class="n">2</span>細かさ</div>` + grainCards();
+    if (needLang()) h += `<div class="qh"><span class="n">3</span>字幕の言語</div><div class="note">この動画には字幕がまだありません。先に字幕を作ってから検出します（数分）。</div>` + langCards();
+  }
+  if (S.via === 'list') h += `<div class="qh"><span class="n">2</span>一覧</div>` + listBox();
+  return h;
+}
+function footB(){
+  const label = !S.via ? '作り方を選んでください' : S.via === 'yt' ? '✔ 取り込む' : S.via === 'list' ? '✔ 読み取る' : needLang() ? '✔ 字幕を作ってから検出する' : '✔ 検出する';
+  return `<div class="acts"><span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button><button class="btn go" ${S.via?'':'disabled'} onclick="start()">${label}</button></div>`;
+}
+
+// ── 画面の見本 ───────────────────────────────────
+function bmListHTML(){
+  if (!S.done) return `<div class="empty">まだブックマークがありません</div>`;
+  return CHAPS.map(([t, l], i) => (DIVS[i] && S.divOn && S.via === 'sub' ? `<div class="dv">${DIVS[i]}</div>` : '') + `<div class="row"><span class="t">${fmt(t)}</span><span class="name">${l}</span></div>`).join('');
+}
+function render(){
+  document.body.classList.toggle('dark', opt('o-dark'));
+  $('tabs').innerHTML = Object.entries(DESIGNS).map(([k, d]) => `<button class="tab ${k===S.d?'on':''}" onclick="setD('${k}')"><b>${d.tab}</b>${d.sub}</button>`).join('');
+  $('desc').innerHTML = DESIGNS[S.d].desc;
+  const stage = $('stage');
+  stage.className = `stage ${opt('o-sp') ? 'sp' : 'pc'} ${S.d}`;
+  const busy = S.step === 'prog';
+  const chapBtn = `<button class="hbtn ${S.step?'on':''}" id="chapbtn" onclick="flowOpen()">${busy ? '⏳ 作成中…' : '📑 自動チャプター'}</button>`;
+  const inline = S.d === 'D' && S.step ? `<div class="inl"><div class="wh">${headFor(S.step, 'dots')}</div><div class="wb">${bodyFor(S.step)}</div><div class="wf">${footFor(S.step)}</div></div>` : '';
+  stage.innerHTML = `
+    <div class="video">動画</div>
+    <div class="side" id="side">
+      <div class="sec">
+        <div class="hd"><span class="lbl">🔖 ブックマーク</span><span class="hsp">${chapBtn}<button class="hbtn">＋ 現在位置でブックマーク</button></span></div>
+        ${inline}
+        ${inline && !S.done ? '' : bmListHTML()}
+      </div>
+      <div class="sec"><div class="hd"><span class="lbl">MEMO</span><span class="hsp"><button class="hbtn">💬 字幕生成</button></span></div><div class="memo"></div></div>
+      <div class="sec"><div class="hd"><span class="lbl">SNAPSHOT</span></div><div class="memo" style="height:70px"></div></div>
+    </div>`;
+  if (!S.step) { S._opened = false; return; }
+  if (S.d === 'D') return;
+  const body = bodyFor(S.step), foot = footFor(S.step);
+  if (S.d === 'A' || S.d === 'B') {
+    stage.insertAdjacentHTML('beforeend', `<div class="shade" onclick="if(event.target===this)flowClose()"><div class="win"><div class="wh">${headFor(S.step, S.d==='A')}</div><div class="wb">${body}</div><div class="wf">${foot}</div></div></div>`);
+  } else if (S.d === 'E') {
+    stage.insertAdjacentHTML('beforeend', `<div class="shade" onclick="if(event.target===this)flowClose()"><div class="sheet${S._opened ? '' : ' first'}"><div class="grab"></div><div class="wh">${headFor(S.step, true)}</div><div class="wb">${body}</div><div class="wf">${foot}</div></div></div>`);
+    S._opened = true;
+  } else if (S.d === 'C') {
+    const sr = stage.getBoundingClientRect(), br = $('chapbtn').getBoundingClientRect();
+    const w = Math.min(340, sr.width - 16);
+    const left = Math.max(8, Math.min(br.right - sr.left - w, sr.width - w - 8));
+    const top = br.bottom - sr.top + 8;
+    const arrow = Math.max(14, sr.left + left + w - (br.left + br.width / 2) - 5);
+    stage.insertAdjacentHTML('beforeend', `<div class="pop" style="left:${left}px;top:${top}px;width:${w}px;max-height:${sr.height - top - 10}px;--arrow:${arrow}px"><div class="wh">${headFor(S.step, true)}</div><div class="wb">${body}</div><div class="wf">${foot}</div></div>`);
+  }
+}
+function setD(k){ clearTimeout(S._timer); S.d = k; S.step = null; S.via = null; S.done = false; render(); }
+function resetAll(){ setD(S.d); }
+['o-subs','o-yt','o-sp','o-dark'].forEach(id => $(id).addEventListener('change', () => { if (id !== 'o-dark' && id !== 'o-sp') { clearTimeout(S._timer); S.step = null; S.via = null; } render(); }));
+window.addEventListener('resize', () => { if (S.d === 'C' && S.step) render(); });
+render();
+</script>
+</body>
+</html>
