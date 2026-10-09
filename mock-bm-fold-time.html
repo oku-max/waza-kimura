@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 仕切りに範囲と合計時間・再生中のハイライト</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--now:#c8831a;--now-soft:rgba(200,131,26,.12)}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--now:#e5a34a;--now-soft:rgba(229,163,74,.16)}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:620px;margin:0 auto;padding-bottom:60px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.tabs{display:flex;gap:5px;padding:10px 12px 4px;flex-wrap:wrap}
+.tab{flex:1;min-width:120px;padding:7px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--text2);text-align:left;line-height:1.35}
+.tab b{display:block;font-size:12px;color:var(--text)}
+.tab.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sub{font-size:11px;color:var(--text3);padding:6px 14px 0}
+.opts{display:flex;gap:12px;align-items:center;padding:8px 14px;font-size:11px;color:var(--text3);flex-wrap:wrap}
+.opts label{display:flex;gap:4px;align-items:center;cursor:pointer}
+.desc{margin:6px 12px 10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)}
+.player{margin:0 12px 10px;padding:10px 12px;background:#111;border-radius:10px;color:#ddd;font-size:11px}
+.player .row1{display:flex;justify-content:space-between;margin-bottom:6px;font-family:'DM Mono',monospace}
+.player input{width:100%;accent-color:var(--now)}
+.panel{margin:0 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.hsp{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.hbtn{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);white-space:nowrap}
+/* ブックマークの行 */
+.row{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);padding:6px 4px;position:relative}
+.t{flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid var(--accent);color:var(--accent);font-size:12px;min-width:58px;text-align:center}
+.name{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed{padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9.5px;flex-shrink:0}
+/* ハイライト1: 行に色＋左の線 */
+.hl1 .row.now{background:var(--now-soft)}
+.hl1 .row.now::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:3px;border-radius:2px;background:var(--now)}
+.hl1 .row.now .t{border-color:var(--now);color:var(--now)}
+/* ハイライト2: 時刻ボタンを塗る＋「再生中」 */
+.hl2 .row.now .t{background:var(--now);border-color:var(--now);color:#fff}
+.hl2 .row.now .name{font-weight:700}
+.hl2 .row.now .name::after{content:'  ▶ 再生中';font-size:10px;font-weight:600;color:var(--now)}
+/* 仕切り */
+.dv{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:none;background:none;padding:12px 4px 6px;border-bottom:2px solid var(--text3)}
+.dv .car{width:14px;font-size:10px;color:var(--text3);transition:transform .15s;flex-shrink:0}
+.dv.open .car{transform:rotate(90deg)}
+.dv .dt{flex:1;min-width:0;font-size:12.5px;font-weight:700;line-height:1.35}
+.dv .meta{flex-shrink:0;text-align:right;color:var(--text3);font-weight:400;font-family:'DM Mono',ui-monospace,monospace;font-size:10.5px;line-height:1.45;white-space:nowrap}
+.dv .meta b{font-weight:600;color:var(--text2)}
+.dv .chip{display:inline-block;padding:1px 7px;border-radius:9px;background:var(--surface2);color:var(--text2);margin-left:4px}
+/* 区切りの中で再生中（閉じていても分かる） */
+.dv.nowsec .dt{color:var(--now)}
+.dv.nowsec .car{color:var(--now)}
+.dv .nowtag{font-size:9.5px;font-weight:700;color:var(--now);border:1px solid var(--now);border-radius:8px;padding:0 6px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+@media (prefers-reduced-motion: reduce){.dv .car{transition:none}}
+</style>
+</head>
+<body class="dark">
+<div class="banner">見本の画面です。本物のデータには書き込みません。<br>上のタブで、仕切りの右側の出し方（3案）を切り替えます。下の「再生位置」を動かすと、再生中のチャプターのハイライトが動きます。</div>
+<div class="tabs" id="tabs"></div>
+<div class="sub">ハイライトの形</div>
+<div class="tabs" id="hls"></div>
+<div class="opts">
+  <label><input type="checkbox" id="dark" checked> ダーク表示</label>
+</div>
+<div class="desc" id="desc"></div>
+<div class="player">
+  <div class="row1"><span>▶ 再生位置（見本）</span><span id="pt"></span></div>
+  <input type="range" id="pos" min="0" max="7395" value="2629" step="5">
+</div>
+<div class="panel" id="panel">
+  <div class="hd">
+    <span class="lbl">🔖 ブックマーク</span>
+    <span class="hsp"><button class="hbtn" id="allbtn" onclick="allToggle()"></button><button class="hbtn">✎ 仕切り</button><button class="hbtn">📑 自動チャプター</button></span>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+const DUR = 7395;   // 2:03:15
+const BMS = [[0,'イントロ'],[95,'ピンエスケープとは'],[300,'オフェンスとディフェンス'],[520,'ピンの4つの形'],[760,'エスケープの3段階'],[980,'なぜ逃げられないのか'],[1180,'システムで考える'],[1390,'フレームの作り方'],[1560,'まとめと予告'],
+  [1720,'脆弱性とは'],[1980,'不快感を減らす姿勢'],[2210,'呼吸と体の向き'],[2420,'肘と膝の距離'],[2629,'不快感の軽減ドリル'],
+  [2870,'問題を特定する'],[3120,'ウェッジとは'],[3380,'ウェッジを外す'],[3600,'ウェッジを作らせない'],[3840,'実演'],
+  [4020,'基本動作'],[4300,'インサイドコントロール'],[4560,'膝を入れる'],[4800,'肘を戻す'],[5010,'ドリル'],
+  [5250,'ディフェンスの哲学'],[5600,'先に動く'],[5900,'受けの姿勢'],
+  [6200,'エスケープの種類'],[6500,'ピンの戦術'],[6900,'まとめ']];
+const DIVS = [[95,'ピンエスケープの基本概念とシステム'],[1720,'脆弱性と不快感の軽減'],[2870,'問題特定とウェッジへの対処'],[4020,'基本動作とインサイドコントロール'],[5250,'ディフェンスとピンエスケープの哲学'],[6200,'エスケープの種類とピンの戦術']];
+
+const LAYOUT = {
+  A: { tab:'A 2段', sub:'範囲／合計時間・件数', desc:'<b>A 2段。</b>上の段に<b>範囲</b>（<b>28:40 – 47:50</b>。今のアプリと同じく、1時間を超えても分で数える＝72:12 のように書く）、下の段に<b>合計時間と件数</b>（19分10秒 · 5件）。いちばん読みやすいが、行が少し高くなる。' },
+  B: { tab:'B 1行', sub:'範囲 · 合計 · 件数', desc:'<b>B 1行。</b>「28:40–47:50 · 19分 · 5件」を1行に並べる。行の高さは今と同じ。スマホでは見出しが長いと見出しの方が折り返す。' },
+  C: { tab:'C 合計を目立たせる', sub:'合計は丸い枠', desc:'<b>C 合計を目立たせる。</b>範囲は小さく、合計時間を丸い枠に入れて目立たせる（「19分」）。件数は合計の後ろに小さく。' },
+};
+const HL = {
+  hl1: { tab:'① 行に色と線', sub:'行の背景・左の線・時刻の色' },
+  hl2: { tab:'② 時刻を塗る', sub:'時刻ボタンを塗る＋「再生中」' },
+};
+let lay = 'A', hl = 'hl1', open = new Set([1]), pos = 2629;
+const $ = id => document.getElementById(id);
+// 今のアプリと同じ「分で数える」書き方（95:30 のように分が60を超えても分で書く）
+const mmss = s => { s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const hms  = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}` : mmss(s); };
+const durTxt = (s, short) => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  if (short) return h ? `${h}時間${m}分` : `${m}分`;
+  return (h ? `${h}時間` : '') + (m ? `${m}分` : '') + (x && !h ? `${x}秒` : ''); };
+const membersOf = i => { const a = DIVS[i][0], b = DIVS[i + 1] ? DIVS[i + 1][0] : Infinity; return BMS.filter(([t]) => t >= a && t < b); };
+const endOf = i => DIVS[i + 1] ? DIVS[i + 1][0] : DUR;   // 最後の区切りは動画の終わりまで
+const nowIdx = () => { let k = -1; BMS.forEach(([t], i) => { if (pos >= t) k = i; }); return k; };
+const secAt = t => { let k = -1; DIVS.forEach(([d], i) => { if (t >= d) k = i; }); return k; };
+
+function meta(i, n) {
+  const a = DIVS[i][0], b = endOf(i), d = b - a;
+  if (lay === 'A') return `<span class="meta"><b>${mmss(a)} – ${mmss(b)}</b><br>${durTxt(d)} · ${n}件</span>`;
+  if (lay === 'B') return `<span class="meta"><b>${mmss(a)}–${mmss(b)}</b> · ${durTxt(d, true)} · ${n}件</span>`;
+  return `<span class="meta">${mmss(a)}–${mmss(b)}<span class="chip">${durTxt(d, true)}</span> ${n}件</span>`;
+}
+function render() {
+  document.body.classList.toggle('dark', $('dark').checked);
+  $('tabs').innerHTML = Object.entries(LAYOUT).map(([k, d]) => `<button class="tab ${k===lay?'on':''}" onclick="lay='${k}';render()"><b>${d.tab}</b>${d.sub}</button>`).join('');
+  $('hls').innerHTML = Object.entries(HL).map(([k, d]) => `<button class="tab ${k===hl?'on':''}" onclick="hl='${k}';render()"><b>${d.tab}</b>${d.sub}</button>`).join('');
+  $('desc').innerHTML = LAYOUT[lay].desc + '<br><b>再生中のハイライト。</b>いま再生している所のチャプターの行を目立たせる。その区切りが閉じていても、<b>仕切りの文字が同じ色</b>になり「再生中」と付くので、どこを見ているか分かる。';
+  $('pt').textContent = `${mmss(pos)} / ${hms(DUR)}`;
+  $('panel').className = 'panel ' + hl;
+  $('allbtn').textContent = open.size === DIVS.length ? '仕切りを全部閉じる' : '仕切りを全部開く';
+  const ni = nowIdx(), ns = secAt(pos);
+  const row = ([t, l]) => `<div class="row ${BMS.findIndex(b => b[0] === t) === ni ? 'now' : ''}"><span class="t">${mmss(t)}</span><span class="name">${l}</span><button class="ed">編集</button></div>`;
+  let h = BMS.filter(([t]) => t < DIVS[0][0]).map(row).join('');
+  DIVS.forEach(([t, label], i) => {
+    const m = membersOf(i), isOpen = open.has(i), isNow = i === ns;
+    h += `<button class="dv ${isOpen ? 'open' : ''} ${isNow ? 'nowsec' : ''}" onclick="toggle(${i})"><span class="car">▶</span><span class="dt">${label}${isNow ? '<span class="nowtag">再生中</span>' : ''}</span>${meta(i, m.length)}</button>`;
+    if (isOpen) h += m.map(row).join('');
+  });
+  $('list').innerHTML = h;
+}
+function toggle(i) { open.has(i) ? open.delete(i) : open.add(i); render(); }
+function allToggle() { open = open.size === DIVS.length ? new Set() : new Set(DIVS.map((_, i) => i)); render(); }
+$('pos').addEventListener('input', e => { pos = Number(e.target.value); render(); });
+$('dark').addEventListener('change', render);
+render();
+</script>
+</body>
+</html>
