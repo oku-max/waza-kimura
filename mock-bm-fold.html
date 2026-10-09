@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 仕切りでブックマークを開閉する（4案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--on-accent:#fff;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--now:#c8831a}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--now:#e5a34a}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:620px;margin:0 auto;padding-bottom:60px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.tabs{display:flex;gap:5px;padding:10px 12px;position:sticky;top:0;background:var(--bg);z-index:5;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.tab{flex:1;min-width:120px;padding:7px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--text2);text-align:left;line-height:1.35}
+.tab b{display:block;font-size:12px;color:var(--text)}
+.tab.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opts{display:flex;gap:12px;align-items:center;padding:8px 14px;font-size:11px;color:var(--text3);flex-wrap:wrap}
+.opts label{display:flex;gap:4px;align-items:center;cursor:pointer}
+.desc{margin:6px 12px 10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)}
+.player{margin:0 12px 10px;padding:10px 12px;background:#111;border-radius:10px;color:#ddd;font-size:11px}
+.player .row1{display:flex;justify-content:space-between;margin-bottom:6px}
+.player input{width:100%;accent-color:var(--now)}
+.panel{margin:0 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.hsp{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.hbtn{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap}
+.row{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);padding:6px 4px}
+.row.now{background:var(--gold-soft)}
+.t{flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid var(--accent);color:var(--accent);font-size:12px;min-width:58px;text-align:center}
+.row.now .t{border-color:var(--now);color:var(--now)}
+.name{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed{padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9.5px;flex-shrink:0}
+/* 仕切り＝開閉の見出し */
+.dv{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:none;background:none;padding:12px 4px 5px;border-bottom:2px solid var(--text3)}
+.dv:first-child{padding-top:4px}
+.dv .car{width:14px;font-size:10px;color:var(--text3);transition:transform .15s;flex-shrink:0}
+.dv.open .car{transform:rotate(90deg)}
+.dv .dt{flex:1;min-width:0;font-size:12.5px;font-weight:700}
+.dv .meta{font-size:10.5px;color:var(--text3);font-weight:400;white-space:nowrap}
+.dv .nowdot{width:7px;height:7px;border-radius:50%;background:var(--now);flex-shrink:0}
+.dv.closed{border-bottom-style:dashed}
+.peek{font-size:10.5px;color:var(--text3);padding:3px 4px 7px 24px;line-height:1.5;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sec{overflow:hidden}
+@media (prefers-reduced-motion: reduce){.dv .car{transition:none}}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。本物のデータには書き込みません。<br>上のタブで4案を切り替えてください。仕切りの行を押すと、その下のブックマークが開いたり閉じたりします。</div>
+<div class="tabs" id="tabs"></div>
+<div class="opts">
+  <label><input type="checkbox" id="dark"> ダーク表示</label>
+  <label><input type="checkbox" id="startClosed" checked> 最初は閉じた状態で開く</label>
+</div>
+<div class="desc" id="desc"></div>
+<div class="player" id="player">
+  <div class="row1"><span>▶ 再生位置（見本）</span><span id="pt">0:00</span></div>
+  <input type="range" id="pos" min="0" max="4200" value="0" step="10">
+</div>
+<div class="panel">
+  <div class="hd">
+    <span class="lbl">🔖 ブックマーク</span>
+    <span class="hsp" id="hbtns"></span>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+const BMS = [[0,'イントロと全体の流れ'],[100,'クローズドガードの姿勢作り'],[245,'袖と襟のグリップ'],[450,'ヒップエスケープで角度を作る'],[612,'シザースイープ'],[828,'フラワースイープ'],
+  [1205,'デラヒーバの足の入れ方'],[1420,'デラヒーバからベリンボロへ'],[1635,'ベリンボロの回転と背中の取り方'],[1862,'ベリンボロが止められた時'],
+  [2290,'ニーカットパスへの対処'],[2565,'ハーフガードへの戻し'],[2840,'アンダーフックからのスイープ'],
+  [3125,'ドリル：ガードリテンション'],[3510,'スパー解説①'],[3850,'スパー解説②'],[4180,'まとめ']];
+const DIVS = [[100,'クローズドガード'],[1205,'デラヒーバとベリンボロ'],[2290,'パスへの対処とハーフガード'],[3125,'ドリルとスパー解説']];
+
+const D = {
+  A: { tab:'A 基本', sub:'▸ と本数だけ', desc:'<b>A 基本。</b>仕切りの左に ▸、右に中の本数。押すとその下が開く／閉じる。いちばん単純。最初の仕切りより前のブックマーク（イントロ）は、どこにも属さないので常に出ている。' },
+  B: { tab:'B 範囲と一括', sub:'時間の範囲＋全部たたむ', desc:'<b>B 時間の範囲と、全部たたむ／ひらく。</b>仕切りの右に「1:40〜20:05 · 5本」のように、その区切りがどこからどこまでかを出す。見出しに「全部たたむ／全部ひらく」の1つのボタン。閉じたときは、中のブックマークの名前を1行だけ薄く見せる（何が入っているか開かずに分かる）。' },
+  C: { tab:'C 1つだけ開く', sub:'開くと他が閉じる', desc:'<b>C 1つだけ開く（アコーディオン）。</b>ある区切りを開くと、ほかの区切りは自動で閉じる。一覧がいつも短く、長い動画でもスクロールしなくて済む。2つを見比べたいときは不便。' },
+  D: { tab:'D 再生位置で開く', sub:'いま見ている所が開く', desc:'<b>D 再生位置に合わせて自動で開く。</b>A に加えて、<b>いま再生している所の区切りが自動で開き</b>、ほかは閉じる。仕切りには再生中の印（●）が付く。上の「再生位置」をつまんで動かして試せます。手で開け閉めしたら、次に区切りをまたぐまではそのまま。' },
+};
+let cur = 'A', open = new Set(), pos = 0, lastSec = -1;
+const $ = id => document.getElementById(id);
+function fmt(s){ const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60,z=n=>String(n).padStart(2,'0'); return h?`${h}:${z(m)}:${z(x)}`:`${m}:${z(x)}`; }
+// 区切り i に入るブックマーク（その仕切りの時刻以上、次の仕切りの時刻未満）
+function membersOf(i){ const a = DIVS[i][0], b = DIVS[i+1] ? DIVS[i+1][0] : Infinity; return BMS.filter(([t]) => t >= a && t < b); }
+function secAt(t){ let k = -1; DIVS.forEach(([dt], i) => { if (t >= dt) k = i; }); return k; }
+function nowIdx(){ let k = -1; BMS.forEach(([t], i) => { if (pos >= t) k = i; }); return k; }
+
+function reset(){
+  open = $('startClosed').checked ? new Set() : new Set(DIVS.map((_, i) => i));
+  lastSec = -1; pos = 0; $('pos').value = 0;
+  if (cur === 'D') { const s = secAt(pos); open = new Set(s >= 0 ? [s] : []); lastSec = s; }
+  render();
+}
+function toggle(i){
+  if (cur === 'C') { open = open.has(i) ? new Set() : new Set([i]); }
+  else { open.has(i) ? open.delete(i) : open.add(i); }
+  render();
+}
+function allToggle(){ open = open.size === DIVS.length ? new Set() : new Set(DIVS.map((_, i) => i)); render(); }
+
+function render(){
+  document.body.classList.toggle('dark', $('dark').checked);
+  $('tabs').innerHTML = Object.entries(D).map(([k, d]) => `<button class="tab ${k===cur?'on':''}" onclick="setD('${k}')"><b>${d.tab}</b>${d.sub}</button>`).join('');
+  $('desc').innerHTML = D[cur].desc;
+  $('player').style.display = cur === 'D' ? '' : 'none';
+  $('pt').textContent = fmt(pos);
+  $('hbtns').innerHTML = (cur === 'B' ? `<button class="hbtn" onclick="allToggle()">${open.size === DIVS.length ? '全部たたむ' : '全部ひらく'}</button>` : '')
+    + `<button class="hbtn">✎ 仕切り</button><button class="hbtn">📑 自動チャプター</button><button class="hbtn">＋ 現在位置でブックマーク</button>`;
+  const ni = cur === 'D' ? nowIdx() : -1, ns = cur === 'D' ? secAt(pos) : -99;
+  const row = ([t, l]) => `<div class="row ${BMS.findIndex(b => b[0] === t) === ni ? 'now' : ''}"><span class="t">${fmt(t)}</span><span class="name">${l}</span><button class="ed">編集</button></div>`;
+  let h = BMS.filter(([t]) => t < DIVS[0][0]).map(row).join('');
+  DIVS.forEach(([t, label], i) => {
+    const m = membersOf(i), isOpen = open.has(i);
+    const end = DIVS[i+1] ? fmt(DIVS[i+1][0]) : '終わり';
+    const meta = cur === 'B' ? `${fmt(t)}〜${end} · ${m.length}本` : `${m.length}本`;
+    h += `<button class="dv ${isOpen ? 'open' : 'closed'}" onclick="toggle(${i})" aria-expanded="${isOpen}">
+      <span class="car">▶</span><span class="dt">${label}</span>${i === ns ? '<span class="nowdot" title="再生中"></span>' : ''}<span class="meta">${meta}</span></button>`;
+    if (isOpen) h += `<div class="sec">${m.map(row).join('')}</div>`;
+    else if (cur === 'B') h += `<div class="peek">${m.map(b => b[1]).join(' · ')}</div>`;
+  });
+  $('list').innerHTML = h;
+}
+function setD(k){ cur = k; reset(); }
+$('pos').addEventListener('input', e => {
+  pos = Number(e.target.value);
+  const s = secAt(pos);
+  if (s !== lastSec) { open = new Set(s >= 0 ? [s] : []); lastSec = s; }   // 区切りをまたいだときだけ開き直す
+  render();
+});
+['dark','startClosed'].forEach(id => $(id).addEventListener('change', () => id === 'dark' ? render() : reset()));
+reset();
+</script>
+</body>
+</html>
