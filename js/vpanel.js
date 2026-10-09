@@ -1359,7 +1359,7 @@ function _bookmarkSectionHTML(id) {
   if (_ytid && _peek === undefined) setTimeout(() => _ytChapPrecheck(id), 0);
   const chapBtn = isGd
     ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
-         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">📑 自動チャプター${_ytChapBadgeHTML(_peek)}</button>`
+         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">${_chapBtnLabel(id, _peek)}</button>`
     : '';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">
@@ -4354,6 +4354,13 @@ function _subGenLangChoices() {
 }
 
 function _askSubtitleLang(anchorEl) {
+  // 共通の窓が開いていれば、その中に出す（v52.955。自動チャプターから字幕を作るとき、3つ目の窓を別の場所に出さない）。
+  // 選べる言語・選んだ後の動きは同じ。窓の持ち主は onAsked で「答えた」ことを知る（字幕は窓の持ち主を知らない）
+  if (_flowWin.el) {
+    return _flowWinChoose(_subGenLangChoices().map(([c, l]) => ({
+      v: c, label: l, sub: c === 'orig' ? '話されている言語で文字起こし' : 'この言語に翻訳して字幕にする' })), false)
+      .then(v => { const f = _flowWin.onAsked; _flowWin.onAsked = null; if (v && f) f(v); return v; });
+  }
   return new Promise(resolve => {
     document.getElementById('vp-subgen-menu')?.remove();
     const r = anchorEl?.getBoundingClientRect();
@@ -5182,6 +5189,213 @@ function _chapImgToBase64(file) {
   });
 }
 
+// ── 自動チャプターの窓（v52.955・オーナー決定 mock-chap-flow.html の A）──────────────
+// 以前は1つの作業なのに、ボタンの下（作り方）・画面の真ん中（細かさ・確認）・字幕ボタンの下（字幕の言語）と
+// 3か所に別々の窓が出ていた。1つの窓を真ん中に出し、位置も大きさも変えずに中身だけを進める。
+// 各画面（作り方・細かさ・貼り付け・確認）は今までどおり自分のカードを作り、窓があればその中へ移す
+// （_flowEmbed）。窓が無いとき（一括処理・検査から直接呼んだとき）は今までどおり単独で出る。
+// 長い作業は「閉じて続ける」で窓を隠せる。隠している間は左下の帯（_chapChipSync）と 📑 ボタンに経過を出し、
+// 終わったら帯が「確認する」に変わる。勝手にブックマークへ入れない（確認画面は窓を開いたときに出す）。
+// 作業の状態は画面の中だけで持つ（保存しない）。アプリを閉じる・再読み込みすると止まる（作り終わった字幕は残る）。
+const _flowWin = { el: null, box: null, sub: null, crumbs: null, note: null, body: null, visible: false, onX: null, onAsked: null };
+
+function _flowWinOpen(title) {
+  _flowWinClose();
+  const bg = document.createElement('div');
+  bg.id = 'vp-flow-win';
+  bg.className = 'vp-flow-bg';
+  bg.innerHTML = `
+    <div class="vp-flow-box">
+      <div class="vp-flow-head">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div class="vp-flow-ttl">${_vpEsc(title)}</div>
+            <div class="vp-flow-sub"></div>
+          </div>
+          <button class="vp-flow-x" title="閉じる">×</button>
+        </div>
+        <div class="vp-flow-crumbs"></div>
+      </div>
+      <div class="vp-flow-note" hidden></div>
+      <div class="vp-flow-body"></div>
+    </div>`;
+  document.body.appendChild(bg);
+  Object.assign(_flowWin, {
+    el: bg, box: bg.querySelector('.vp-flow-box'), sub: bg.querySelector('.vp-flow-sub'),
+    crumbs: bg.querySelector('.vp-flow-crumbs'), note: bg.querySelector('.vp-flow-note'),
+    body: bg.querySelector('.vp-flow-body'), visible: true, onX: null, onAsked: null,
+  });
+  bg.querySelector('.vp-flow-x').addEventListener('click', () => _flowWin.onX?.());
+  bg.addEventListener('mousedown', e => { if (e.target === bg) _flowWin.onX?.(); });
+}
+function _flowWinClose() {
+  _flowWin.el?.remove();
+  Object.assign(_flowWin, { el: null, box: null, sub: null, crumbs: null, note: null, body: null, visible: false, onX: null, onAsked: null });
+  _chapChipSync();
+}
+function _flowWinShow() {
+  if (!_flowWin.el) return;
+  _flowWin.el.style.display = '';
+  _flowWin.visible = true;
+  const w = _chapJob?.wake; if (w) { _chapJob.wake = null; w(); }
+  _chapChipSync();
+}
+function _flowWinHide() {
+  if (!_flowWin.el) return;
+  _flowWin.el.style.display = 'none';
+  _flowWin.visible = false;
+  _chapChipSync();
+}
+// 見出しの一言と、今どこにいるかの目印
+function _flowWinHead(sub, crumbs, cur) {
+  if (!_flowWin.el) return;
+  _flowWin.sub.textContent = sub || '';
+  if (crumbs) _flowWin.crumbs.innerHTML = crumbs.map((c, i) =>
+    `<span class="${i === cur ? 'on' : i < cur ? 'done' : ''}">${i < cur ? '✓ ' : ''}${_vpEsc(c)}</span>`).join('<i>›</i>');
+}
+function _flowWinNote(text) {
+  if (!_flowWin.el) return;
+  _flowWin.note.hidden = !text;
+  _flowWin.note.textContent = text || '';
+}
+// 各画面のカード（bg の中の1枚目）を窓へ移す。窓が無ければ今までどおり bg を画面に出す
+function _flowEmbed(bg, onX) {
+  if (!_flowWin.el) {
+    document.body.appendChild(bg);
+    return { root: bg, inWin: false, close: () => bg.remove() };
+  }
+  const card = bg.firstElementChild;
+  card.classList.add('vp-flow-card');
+  card.querySelectorAll('.vp-flow-dup').forEach(e => e.remove());
+  const wrap = document.createElement('div');
+  wrap.id = bg.id;
+  wrap.className = 'vp-flow-embed';
+  wrap.appendChild(card);
+  _flowWin.body.replaceChildren(wrap);
+  _flowWin.onX = onX;
+  _flowWinShow();
+  return { root: wrap, inWin: true, close: () => { wrap.remove(); if (_flowWin.onX === onX) _flowWin.onX = null; } };
+}
+// 窓の中に並べる選択肢（作り方・字幕の言語）。resolve は選んだ値 / キャンセルは null
+function _flowWinChoose(items, footBack) {
+  return new Promise(resolve => {
+    const bg = document.createElement('div');
+    bg.id = 'vp-flow-choose';
+    bg.innerHTML = `<div style="display:flex;flex-direction:column;height:100%">
+      <div style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:7px">
+        ${items.map(it => `<button class="vp-flow-opt" data-v="${_vpEsc(it.v)}" ${it.disabled ? 'disabled' : ''}>
+          <b>${_vpEsc(it.label)}</b><small>${_vpEsc(it.sub || '')}</small></button>`).join('')}
+      </div>
+      <div style="padding:9px 14px 12px;display:flex;gap:7px;align-items:center;border-top:0.5px solid var(--border,#444)">
+        ${footBack ? '<button class="vp-flow-back" data-back>← 戻る</button>' : ''}<span style="flex:1"></span>
+        <button data-cancel style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
+      </div></div>`;
+    const fm = _flowEmbed(bg, () => done(null));
+    const onKey = e => { if (e.key === 'Escape' && _flowWin.visible) { e.stopPropagation(); done(null); } };
+    const done = v => { document.removeEventListener('keydown', onKey, true); fm.close(); resolve(v); };
+    document.addEventListener('keydown', onKey, true);
+    fm.root.querySelectorAll('.vp-flow-opt').forEach(b => { if (!b.disabled) b.addEventListener('click', () => done(b.dataset.v)); });
+    fm.root.querySelector('[data-cancel]').addEventListener('click', () => done(null));
+    fm.root.querySelector('[data-back]')?.addEventListener('click', () => done('back'));
+  });
+}
+
+// ── 作業の状態（画面の中だけ）と、閉じている間の帯 ──
+let _chapJob = null;   // { id, title, phase:'ask'|'run'|'ready', label, start, cancelled, wake }
+let _chapClock = null;
+function _chapElapsed() {
+  const sec = _chapJob?.start ? Math.max(0, Math.floor((Date.now() - _chapJob.start) / 1000)) : 0;
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+// 長い作業の段（setBtn の文言を、窓・帯で読める言葉に）
+const CHAP_RUN_LABEL = {
+  '確認中…': '字幕やチャプターの有無を確かめています', '字幕を作成中…': '字幕を作っています（長い動画は数分かかります）',
+  '検出中…': 'チャプターと仕切りを検出しています', '取得中…': 'YouTubeのチャプターを取得しています', '位置合わせ中…': '位置を合わせています',
+};
+function _chapRun(txt) {
+  const j = _chapJob; if (!j || j.cancelled) return;
+  const key = String(txt || '').replace(/^⏳\s*/, '');
+  j.phase = 'run';
+  j.label = CHAP_RUN_LABEL[key] || key;
+  if (!j.start) j.start = Date.now();
+  if (!_chapClock) _chapClock = setInterval(() => {
+    if (!_chapJob || _chapJob.phase !== 'run') return;
+    document.querySelectorAll('.vp-chap-el').forEach(e => { e.textContent = _chapElapsed(); });
+  }, 1000);
+  if (_flowWin.el) {
+    _flowWinNote('');
+    _flowWin.onX = _flowWinHide;
+    _flowWin.body.innerHTML = `
+      <div style="display:flex;flex-direction:column;height:100%">
+        <div style="flex:1;overflow-y:auto;padding:18px 16px">
+          <div class="vp-flow-run"><span class="vp-flow-spin"></span><b>${_vpEsc(j.label)}</b></div>
+          <div style="font-size:11px;color:var(--text3,#999);margin:6px 0 0 24px">経過 <span class="vp-chap-el">${_chapElapsed()}</span></div>
+          <div class="vp-flow-hint"><span>「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯と「📑」ボタンに出ます。終わったら帯が「確認する」に変わります（勝手にブックマークには入れません）。</span><br><b>アプリを閉じる・再読み込みすると止まります</b><span>（作り終わった字幕は残ります）。</span></div>
+        </div>
+        <div style="padding:9px 14px 12px;display:flex;gap:7px;align-items:center;border-top:0.5px solid var(--border,#444)">
+          <button class="vp-flow-back" data-stop title="結果を受け取らずにやめます。AIへの依頼は止まらないため、料金がかかることがあります">作成をやめる</button>
+          <span style="flex:1"></span>
+          <button data-hide style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 14px;font-size:11.5px">閉じて続ける</button>
+        </div>
+      </div>`;
+    _flowWin.body.querySelector('[data-hide]').addEventListener('click', _flowWinHide);
+    _flowWin.body.querySelector('[data-stop]').addEventListener('click', _chapStop);
+  }
+  _chapChipSync(); _chapBtnSync(j.id);
+}
+// やめる: 結果を受け取らない。AIへの依頼は止められない（料金はかかることがある）。字幕生成の途中なら字幕はできて残る
+function _chapStop() {
+  const j = _chapJob; if (!j) return;
+  j.cancelled = true;
+  _chapJob = null;
+  _flowWinClose();
+  _chapBtnSync(j.id);
+  window.toast?.('作成をやめました（AIへの依頼は止まらないため、料金がかかることがあります）');
+}
+// 隠している間に終わったら、帯を「確認する」にして、窓を開くまで待つ
+function _chapWaitShown() {
+  const j = _chapJob;
+  if (!j || !_flowWin.el || _flowWin.visible) return Promise.resolve();
+  j.phase = 'ready';
+  _chapChipSync(); _chapBtnSync(j.id);
+  window.toast?.('✔ チャプターができました。左下の「確認する」から追加できます', 6000);
+  return new Promise(r => { j.wake = r; });
+}
+function _chapChipSync() {
+  const j = _chapJob;
+  let chip = document.getElementById('vp-chap-chip');
+  const show = j && !j.cancelled && (j.phase === 'run' || j.phase === 'ready') && _flowWin.el && !_flowWin.visible;
+  if (!show) { chip?.remove(); return; }
+  if (!chip) {
+    chip = document.createElement('button');
+    chip.id = 'vp-chap-chip';
+    chip.className = 'vp-chap-chip';
+    chip.addEventListener('click', () => _flowWinShow());
+    document.body.appendChild(chip);
+  }
+  chip.innerHTML = j.phase === 'run'
+    ? `<span class="vp-flow-spin"></span><span class="vp-chap-chip-t"><b>チャプター作成中</b> · <span class="vp-chap-el">${_chapElapsed()}</span><small>${_vpEsc(j.label || '')} · ${_vpEsc(j.title || '')}</small></span><i>開く</i>`
+    : `<span>✔</span><span class="vp-chap-chip-t"><b>チャプターができました</b><small>${_vpEsc(j.title || '')}</small></span><i>確認する</i>`;
+}
+// 📑 ボタンの文字。作業中はパネルを開き直しても経過が出る（ボタンは作り直されるので、状態から毎回作る）
+function _chapBtnLabel(id, peek) {
+  const j = _chapJob;
+  if (j && j.id === id && j.phase === 'run') return `⏳ 作成中 <span class="vp-chap-el">${_chapElapsed()}</span>`;
+  if (j && j.id === id && j.phase === 'ready') return '✔ できました・確認する';
+  return `📑 自動チャプター${_ytChapBadgeHTML(peek)}`;
+}
+function _chapBtnSync(id) {
+  const b = document.getElementById('vp-chapgen-' + id); if (!b) return;
+  const v = (window.videos || []).find(x => x.id === id);
+  const yt = _vYtId(v);
+  b.innerHTML = _chapBtnLabel(id, yt ? _ytChapCache.get(yt) : undefined);
+  b.disabled = false; b.style.opacity = '';
+}
+// 作業中に再読み込み・タブを閉じようとしたら、ブラウザの確認を出す（止まってしまうため）
+window.addEventListener('beforeunload', e => {
+  if (_chapJob && !_chapJob.cancelled && _chapJob.phase === 'run') { e.preventDefault(); e.returnValue = ''; }
+});
+
 // テキスト貼り付け＋画像貼り付けの入力ダイアログ。resolve は {text, images} / キャンセルは null
 // 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
@@ -5200,7 +5414,7 @@ function _chapGrainDialog(via, duration) {
     const durLabel = dur > 0
       ? (dur >= 3600 ? `${Math.floor(dur / 3600)}時間${Math.floor((dur % 3600) / 60)}分` : `${Math.floor(dur / 60)}分`)
       : '';
-    const bg = document.createElement('div');
+    let bg = document.createElement('div');
     bg.id = 'vp-chap-grain-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
     const word = { fine: '短めに区切る', normal: 'ほどよく区切る', coarse: '大きく区切る' };
@@ -5230,18 +5444,22 @@ function _chapGrainDialog(via, duration) {
               <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc(k)}</div>
             </button>`).join('')}
         </div>
-        <div style="padding:2px 14px 12px;display:flex;justify-content:flex-end">
+        <div style="padding:2px 14px 12px;display:flex;justify-content:flex-end;align-items:center;gap:7px">
+          ${_flowWin.el ? `<button id="vp-chap-grain-back" class="vp-flow-back">← 戻る</button><span style="flex:1"></span>` : ''}
           <button id="vp-chap-grain-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
         </div>
       </div>`;
-    document.body.appendChild(bg);
+    const fm = _flowEmbed(bg, () => onX());
+    bg = fm.root;
 
-    const done = v => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
+    const done = v => { fm.close(); document.removeEventListener('keydown', onKey, true); resolve(v); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
     bg.querySelectorAll('.vp-chap-grain-opt').forEach(b =>
       b.addEventListener('click', () => done(b.dataset.g)));
     bg.querySelector('#vp-chap-grain-cancel').addEventListener('click', () => done(null));
-    bg.addEventListener('click', e => { if (e.target === bg) done(null); });
+    bg.querySelector('#vp-chap-grain-back')?.addEventListener('click', () => done('back'));
+    function onX() { done(null); }
+    if (!fm.inWin) bg.addEventListener('click', e => { if (e.target === bg) done(null); });
     document.addEventListener('keydown', onKey, true);
   });
 }
@@ -5249,7 +5467,7 @@ function _chapGrainDialog(via, duration) {
 function _chapListDialog() {
   return new Promise(resolve => {
     document.getElementById('vp-chap-in-bg')?.remove();
-    const bg = document.createElement('div');
+    let bg = document.createElement('div');
     bg.id = 'vp-chap-in-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
     bg.innerHTML = `
@@ -5270,12 +5488,14 @@ function _chapListDialog() {
           <input type="file" id="vp-chap-in-file" accept="image/*" multiple style="display:none">
           <div id="vp-chap-in-thumbs" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
         </div>
-        <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end;border-top:0.5px solid var(--border,#444)">
+        <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end;align-items:center;border-top:0.5px solid var(--border,#444)">
+          ${_flowWin.el ? `<button id="vp-chap-in-back" class="vp-flow-back">← 戻る</button><span style="flex:1"></span>` : ''}
           <button id="vp-chap-in-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
           <button id="vp-chap-in-ok" style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 12px;font-size:11.5px">読み取る</button>
         </div>
       </div>`;
-    document.body.appendChild(bg);
+    const fm = _flowEmbed(bg, () => onX());
+    bg = fm.root;
 
     const images  = [];
     const txt     = bg.querySelector('#vp-chap-in-text');
@@ -5315,7 +5535,7 @@ function _chapListDialog() {
       if (files.length) { e.preventDefault(); addFiles(files); }
     };
     const done = val => {
-      bg.remove();
+      fm.close();
       document.removeEventListener('paste', onPaste, true);
       document.removeEventListener('keydown', onKey, true);
       resolve(val);
@@ -5332,7 +5552,9 @@ function _chapListDialog() {
       addFiles(e.dataTransfer?.files);
     });
     bg.querySelector('#vp-chap-in-cancel').addEventListener('click', () => done(null));
-    bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
+    bg.querySelector('#vp-chap-in-back')?.addEventListener('click', () => done('back'));
+    function onX() { done(null); }
+    if (!fm.inWin) bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
     okBtn.addEventListener('click', () => {
       const text = txt.value.trim();
       if (!text && !images.length) return;
@@ -5406,7 +5628,20 @@ function _chapMergeAligned(titles, aligned) {
 //   list … 自分で一括入力（コピペ・スクショ）。
 // 「動画から検出」はメニューから外した（2026-09-20）。遅くて高いうえ、
 // 時刻がAIの推測になるため、上の3つで足りる。一括処理の経路だけは残してある。
-function _askChapterSource(anchorEl, hasYt, ytPeek) {
+function _askChapterSource(anchorEl, hasYt, ytPeek, hasSubs) {
+  // 窓が開いていれば、その中に選択肢を並べる（v52.955）。勝手に「おすすめ」は付けない（オーナー指示）
+  if (_flowWin.el) {
+    const items = [];
+    if (hasYt) items.push(Array.isArray(ytPeek) && !ytPeek.length
+      ? { v: 'yt', label: 'YouTubeのチャプターを取得', sub: 'この動画にはYouTubeのチャプターがありません', disabled: true }
+      : { v: 'yt', label: Array.isArray(ytPeek) ? `YouTubeのチャプターを取得（${ytPeek.length}個）` : 'YouTubeのチャプターを取得',
+          sub: '動画に付いているチャプターをそのまま取り込む（無料・最も正確）' });
+    items.push({ v: 'sub', label: '字幕から検出', sub: hasSubs
+      ? 'AIが字幕から内容を判断してチャプターを作る'
+      : 'この動画には字幕がまだ無いので、先に字幕を作ってから検出します（数分）' });
+    items.push({ v: 'list', label: '自分で一括入力', sub: 'チャプター名と時間をまとめて貼り付け・手入力する' });
+    return _flowWinChoose(items, false);
+  }
   return new Promise(resolve => {
     document.getElementById('vp-chapgen-menu')?.remove();
     const menu = document.createElement('div');
@@ -5463,7 +5698,7 @@ function _chapReviewDialog(chaps, info) {
     const autoCount = Number(info?.autoCount) || 0;
     const handCount = Number(info?.handCount) || 0;
     const bmCount   = autoCount + handCount;
-    const bg = document.createElement('div');
+    let bg = document.createElement('div');
     bg.id = 'vp-chap-rv-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
 
@@ -5512,7 +5747,7 @@ function _chapReviewDialog(chaps, info) {
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📑 自動チャプター</div>
+          <div class="vp-flow-dup" style="font-size:13px;font-weight:700;color:var(--text,#eee)">📑 自動チャプター</div>
           <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${_escAttr(info?.note || '')}</div>
           ${info?.warn ? `<div style="font-size:10.5px;color:var(--accent);margin-top:2px">⚠ ${_escAttr(info.warn)}</div>` : ''}
         </div>
@@ -5560,11 +5795,12 @@ function _chapReviewDialog(chaps, info) {
           </div>` : ''}
         </div>
         <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end">
-          <button id="vp-chap-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
+          <button id="vp-chap-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">追加しない</button>
           <button id="vp-chap-ok" style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 12px;font-size:11.5px">✔ ブックマークに追加</button>
         </div>
       </div>`;
-    document.body.appendChild(bg);
+    const fm = _flowEmbed(bg, () => onX());
+    bg = fm.root;
 
     // タイトルを流し込み、中身に合わせて高さを合わせる。
     // タイトルを流し込む。高さは要素が勝手に持つので計算しない。
@@ -5619,11 +5855,12 @@ function _chapReviewDialog(chaps, info) {
       _chapMode = b.dataset.mode; paintMode();
     }));
     const done = val => {
-      bg.remove();
+      fm.close();
       document.removeEventListener('keydown', onKey, true);
       resolve(val);
     };
-    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    const onKey = e => { if (e.key === 'Escape' && (!fm.inWin || _flowWin.visible)) { e.stopPropagation(); onX(); } };
+    function onX() { if (fm.inWin) _flowWinHide(); else done(null); }
 
     bg.querySelectorAll('.vp-chap-seek').forEach(b =>
       b.addEventListener('click', () => _seekTo(Number(b.dataset.t) || 0)));
@@ -5636,7 +5873,7 @@ function _chapReviewDialog(chaps, info) {
     bg.querySelector('#vp-chap-all').addEventListener('click',  () => { cks().forEach(c => { c.checked = true;  }); paintOk(); });
     bg.querySelector('#vp-chap-none').addEventListener('click', () => { cks().forEach(c => { c.checked = false; }); paintOk(); });
     bg.querySelector('#vp-chap-cancel').addEventListener('click', () => done(null));
-    bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
+    if (!fm.inWin) bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
     bg.querySelector('#vp-chap-ok').addEventListener('click', () => {
       const titles = {};
       bg.querySelectorAll('.vp-chap-title').forEach(el => { titles[el.dataset.i] = (el.textContent || '').replace(/\s+/g, ' ').trim(); });
@@ -5803,6 +6040,7 @@ async function _ytChapPrecheck(id) {
   const r = await _ytChapLookup(ytId);
   const btn = document.getElementById('vp-chapgen-' + id);
   if (!btn || btn.disabled) return;   // 押されて処理中なら触らない（終わったら元の中身に戻る）
+  if (_chapJob && _chapJob.id === id && _chapJob.phase !== 'ask') return;   // 作成中・確認待ちの表示を上書きしない
   btn.querySelector('.vp-ytchap-badge')?.remove();
   btn.insertAdjacentHTML('beforeend', _ytChapBadgeHTML(r));
 }
@@ -5821,7 +6059,8 @@ async function _ytPeekChapters(ytId) {
 
 window.vpGenChapters = async function(id, preset) {
   const silent = !!(preset && preset.silent);
-  const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
+  let job = null;   // ボタンから始めたときの作業（窓・帯・ボタンの表示はこれから作る）。一括処理(preset)は null
+  const fail = (msg) => { if (!silent && !job?.cancelled) window.toast?.(msg, job ? 9000 : undefined); return { ok: false, error: msg }; };
 
   const v = (window.videos || []).find(x => x.id === id);
   const isYt = !!_vYtId(v);
@@ -5834,50 +6073,90 @@ window.vpGenChapters = async function(id, preset) {
   const gdToken = isGd ? window.getDriveTokenIfAvailable?.() : null;
   if (isGd && !gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
+  // 作業中・確認待ちなら、新しく始めずにその窓を開く（同時に1つだけ）
+  if (!preset && _chapJob) {
+    _flowWinShow();
+    if (_chapJob.id !== id) window.toast?.('ほかの動画でチャプターを作成中です。終わってから始めてください');
+    return { ok: false, skipped: true };
+  }
+
   const fileId = isGd ? (v.id || '').replace(/^gd-/, '') : '';
   const btn  = preset ? null : document.getElementById('vp-chapgen-' + id);
   const orig = btn ? btn.innerHTML : '';   // バッジ（YouTube N）ごと戻す
-  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
-  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = orig; } };
+  // 窓で進めるときは、長い作業の段を窓・帯・ボタンに出す（_chapRun）。一括処理は今までどおりボタンだけ
+  const setBtn = txt => { if (job) { head('作成しています…', '作成中'); _chapRun(txt); return; } if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const endBtn = () => { if (job) return; if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = orig; } };
+  // 今どこにいるかの目印（作り方 › 細かさ › 字幕の言語 › 作成中 › 確認）
+  let curVia = null, subs = [];
+  const head = (sub, name) => {
+    if (!job) return;
+    const list = ['作り方',
+      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['細かさ', ...(subs.length ? [] : ['字幕の言語'])] : []),
+      '作成中', '確認'];
+    _flowWinHead(sub, list, Math.max(0, list.indexOf(name)));
+  };
+  if (!preset) {
+    job = _chapJob = { id, title: v.title || '', phase: 'ask', label: '', start: 0, cancelled: false, wake: null };
+    _flowWinOpen('📑 自動チャプター');
+    head('字幕やチャプターの有無を確かめています…', '作り方');
+    _flowWin.onX = _chapStop;
+    _flowWin.body.innerHTML = `<div class="vp-flow-run" style="padding:22px 16px"><span class="vp-flow-spin"></span><b>確かめています…</b></div>`;
+  }
 
   try {
     // 1. 字幕があるか先に調べて、入り口を選ばせる
-    setBtn('⏳ 確認中…');
+    if (!job) setBtn('⏳ 確認中…');
     // 字幕の在りか: Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント
     const findSubs = async () => isGd
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
       : _ytSubList(await _ytSubFetch(_vYtId(v), true));
     // YouTubeのチャプターの有無も同時に調べる（メニューで「無い」なら押せないようにする）
     const [subsFound, ytPeek] = await Promise.all([findSubs(), (isYt && !preset) ? _ytChapLookup(_vYtId(v)) : Promise.resolve(null)]);
-    let subs = subsFound;
+    subs = subsFound;
     endBtn();
-    // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
-    const via = preset ? (preset.via || (subs.length ? 'sub' : 'video'))
-                       : await _askChapterSource(btn, isYt, ytPeek);
-    if (!via) return { ok: false, skipped: true };
-
-    // 2枚目。どこから作るかによって聞くことが違う。
-    //   貼り付け  → 一覧を入れてもらう
-    //   字幕/動画 → 細かさを選んでもらう
-    // どちらもキャンセルなら通信もしない。
-    const input = via === 'list' ? (preset?.input || await _chapListDialog()) : null;
-    if (via === 'list' && !input) return { ok: false, skipped: true };
-
+    if (job?.cancelled) return { ok: false, skipped: true };
     // 細かさの説明は動画の長さで変わるので、先に尺を出しておく
     let duration = Number(v.duration) || (isGd && _gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
     if (!duration && isYt) { try { duration = Number(_ytPlayer?.getDuration?.()) || 0; } catch (e) {} }
+
+    // 作り方 → 2枚目（どこから作るかによって聞くことが違う）。一括実行(preset)の時は聞かない。
+    //   貼り付け  → 一覧を入れてもらう
+    //   字幕/動画 → 細かさを選んでもらう
+    // どれもキャンセルなら通信もしない。窓では「← 戻る」で作り方からやり直せる。
+    let via, input = null, pickedGrain = preset?.grain;
+    if (preset) {
+      via = preset.via || (subs.length ? 'sub' : 'video');
+      input = via === 'list' ? (preset.input || null) : null;
+      if (via === 'list' && !input) return { ok: false, skipped: true };
+    } else {
+      for (;;) {
+        curVia = null; job.phase = 'ask';
+        head('どうやって作りますか？', '作り方');
+        via = await _askChapterSource(btn, isYt, ytPeek, subs.length > 0);
+        if (!via || job.cancelled) return { ok: false, skipped: true };
+        curVia = via;
+        if (via === 'list') {
+          head('チャプター名と時間を入れてください', '貼り付け');
+          input = await _chapListDialog();
+          if (input === 'back') continue;
+          if (!input) return { ok: false, skipped: true };
+        }
+        // 粒度が要るのは「検出」だけ。yt（公式の区切り）と list（入力どおり）は聞かない
+        if (via !== 'list' && via !== 'yt') {
+          head('どのくらい細かく区切りますか？', '細かさ');
+          pickedGrain = await _chapGrainDialog(via, duration);
+          if (pickedGrain === 'back') continue;
+          if (!pickedGrain) return { ok: false, skipped: true };
+        }
+        break;
+      }
+    }
 
     // 動画そのものをAIに読ませる時の宛先。Driveはファイル、YouTubeはURLを渡す。
     const videoSrc = isGd
       ? { source: 'gdrive', gdFileId: fileId, accessToken: gdToken }
       : { source: 'youtube', ytId: _vYtId(v), durationSec: duration || 0 };
 
-    // 粒度が要るのは「検出」だけ。yt（公式の区切り）と list（入力どおり）は聞かない
-    let pickedGrain = preset?.grain;
-    if (!preset && via !== 'list' && via !== 'yt') {
-      pickedGrain = await _chapGrainDialog(via, duration);
-      if (!pickedGrain) return { ok: false, skipped: true };
-    }
 
     // 字幕が無いまま「字幕から検出」を選んだら、ここで字幕を作ってから検出へ進む。
     //
@@ -5896,9 +6175,14 @@ window.vpGenChapters = async function(id, preset) {
     // 作った字幕の料金だけ払って何も残らない。
     // 質問は全部先、長い処理は全部あとにする。
     if (via === 'sub' && !subs.length && !preset) {
-      setBtn('⏳ 字幕を作成中…');
+      // 窓では、字幕生成が聞く「何語で作るか」も同じ窓の中に出る（_askSubtitleLang）。答えたら作成中の表示へ
+      head('字幕を何語で作りますか？', '字幕の言語');
+      _flowWinNote('この動画には字幕がまだありません。先に字幕を作ってから、チャプターを検出します。');
+      _flowWin.onAsked = () => setBtn('⏳ 字幕を作成中…');
       const g = await window.vpGenSubtitle(id);
+      _flowWin.onAsked = null;
       endBtn();
+      if (job.cancelled) return { ok: false, skipped: true };
       // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
       if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
       // Driveは作った直後の検索に出てこないことがあるので、空なら一度だけ待って引き直す。
@@ -6029,6 +6313,14 @@ window.vpGenChapters = async function(id, preset) {
       const autoCount = bmAll.filter(b => b.auto === 'chapter').length;
       const handCount = bmAll.length - autoCount;
       const note = noteSrc + (totalCost ? ` · $${totalCost.toFixed(3)}` : '');
+      // 窓を隠している間に終わったら、帯を「確認する」にして、開くまで待つ（勝手に入れない）
+      if (job) {
+        await _chapWaitShown();
+        if (job.cancelled) return { ok: false, skipped: true };
+        job.phase = 'ready';
+        head('追加するチャプターを確かめてください', '確認');
+        _chapBtnSync(id);
+      }
       const sel = preset
         ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto,
             replaceAll: !!preset.replaceAll,
@@ -6050,10 +6342,13 @@ window.vpGenChapters = async function(id, preset) {
     }
   } catch (e) {
     console.warn('[chapters] 検出失敗:', e);
-    if (!silent) window.toast?.('⚠️ チャプターの検出に失敗: ' + (e?.message || e));
+    if (!silent && !job?.cancelled) window.toast?.('⚠️ チャプターの検出に失敗: ' + (e?.message || e), job ? 9000 : undefined);
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
     endBtn();
+    // 窓・帯・ボタンを元に戻す（やめた後に別の作業が始まっていたら、そちらには触らない）
+    if (job && _chapJob === job) { _chapJob = null; _flowWinClose(); }
+    if (job) _chapBtnSync(id);
   }
 };
 

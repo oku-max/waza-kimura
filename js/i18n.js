@@ -194,6 +194,26 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 自動チャプターの窓（v52.955）
+    'どうやって作りますか？':'How do you want to create them?','チャプター名と時間を入れてください':'Enter chapter names and times',
+    'どのくらい細かく区切りますか？':'How finely should it split?','字幕を何語で作りますか？':'Which language should the subtitles be in?',
+    '追加するチャプターを確かめてください':'Check the chapters to add','作成しています…':'Creating…',
+    '字幕やチャプターの有無を確かめています…':'Checking for subtitles and chapters…','確かめています…':'Checking…',
+    '作り方':'Method','貼り付け':'Paste','字幕の言語':'Subtitle language','作成中':'Creating','確認':'Review',
+    'この動画には字幕がまだありません。先に字幕を作ってから、チャプターを検出します。':'This video has no subtitles yet. Subtitles will be created first, then chapters will be detected.',
+    'AIが字幕から内容を判断してチャプターを作る':'AI reads the subtitles and creates chapters',
+    'この動画には字幕がまだ無いので、先に字幕を作ってから検出します（数分）':'This video has no subtitles yet, so they will be created first (a few minutes)',
+    '字幕やチャプターの有無を確かめています':'Checking for subtitles and chapters','字幕を作っています（長い動画は数分かかります）':'Creating subtitles (long videos take a few minutes)',
+    'チャプターと仕切りを検出しています':'Detecting chapters and dividers','YouTubeのチャプターを取得しています':'Getting the YouTube chapters','位置を合わせています':'Aligning positions',
+    '経過':'Elapsed','作成をやめる':'Stop','閉じて続ける':'Close and continue','追加しない':'Don\'t add',
+    '「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯と「📑」ボタンに出ます。終わったら帯が「確認する」に変わります（勝手にブックマークには入れません）。':'Creation continues after "Close and continue". Progress shows in the bar at the bottom left and on the "📑" button. When it finishes, the bar changes to "Review" (nothing is added to bookmarks automatically).',
+    'アプリを閉じる・再読み込みすると止まります':'Closing or reloading the app stops it','（作り終わった字幕は残ります）。':' (finished subtitles are kept).',
+    '結果を受け取らずにやめます。AIへの依頼は止まらないため、料金がかかることがあります':'Stops without receiving the result. The AI request itself cannot be stopped, so it may still be charged',
+    '作成をやめました（AIへの依頼は止まらないため、料金がかかることがあります）':'Stopped (the AI request itself cannot be stopped, so it may still be charged)',
+    '✔ チャプターができました。左下の「確認する」から追加できます':'✔ Chapters are ready. Add them from "Review" at the bottom left',
+    'ほかの動画でチャプターを作成中です。終わってから始めてください':'Chapters are being created for another video. Start after it finishes',
+    'チャプター作成中':'Creating chapters','チャプターができました':'Chapters are ready','確認する':'Review',
+    '✔ できました・確認する':'✔ Ready · Review','⏳ 作成中':'⏳ Creating',
     // ブックマークの仕切り（v52.952）
     '🤖 AIで仕切りを入れる':'🤖 Add dividers with AI','⏳ 探しています…':'⏳ Searching…','✔ 仕切りを入れる':'✔ Add dividers',
     'いまのブックマークの名前から、大きな区切りを探します。ブックマークは変えません':'Finds major breaks from your bookmark names. Bookmarks are not changed',

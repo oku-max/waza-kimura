@@ -1768,3 +1768,40 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 .vp-bm-div-ai button{font-size:11px;padding:4px 11px;border-radius:6px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .vp-bm-div-ai button:disabled{border-color:var(--border);color:var(--text3);cursor:default;font-weight:normal;}
 .vp-bm-div-ai span{flex:1;min-width:140px;font-size:10px;color:var(--text3);line-height:1.5;}
+
+/* 自動チャプターの窓（v52.955）: 真ん中に1つ。位置も大きさも変えずに中身だけが進む */
+.vp-flow-bg{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;}
+.vp-flow-box{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);width:100%;max-width:500px;height:min(580px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;}
+.vp-flow-head{padding:12px 14px 9px;border-bottom:0.5px solid var(--border);}
+.vp-flow-ttl{font-size:13.5px;font-weight:700;color:var(--text);}
+.vp-flow-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.vp-flow-x{flex-shrink:0;width:26px;height:26px;border-radius:50%;border:none;background:var(--surface2);color:var(--text2);font-size:15px;line-height:1;cursor:pointer;font-family:inherit;}
+.vp-flow-crumbs{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+.vp-flow-crumbs:empty{display:none;}
+.vp-flow-crumbs span{font-size:10.5px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text3);}
+.vp-flow-crumbs span.on{background:var(--accent);color:var(--on-accent);font-weight:700;}
+.vp-flow-crumbs span.done{color:var(--text2);}
+.vp-flow-crumbs i{font-style:normal;color:var(--text3);font-size:10px;}
+.vp-flow-note{margin:10px 14px 0;padding:7px 10px;border-radius:8px;background:var(--gold-soft);border:1px solid var(--border);font-size:11px;line-height:1.55;color:var(--text2);}
+.vp-flow-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+.vp-flow-body > div{flex:1;min-height:0;}
+.vp-flow-embed{display:flex;flex-direction:column;}
+.vp-flow-card{flex:1;min-height:0;width:100%!important;max-width:none!important;max-height:none!important;border:none!important;border-radius:0!important;box-shadow:none!important;background:transparent!important;overflow:auto;}
+.vp-flow-opt{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;}
+.vp-flow-opt:hover:not(:disabled){border-color:var(--accent);background:var(--gold-soft);}
+.vp-flow-opt:disabled{opacity:.45;cursor:default;}
+.vp-flow-opt b{display:block;font-size:12.5px;}
+.vp-flow-opt small{display:block;font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.5;}
+.vp-flow-back{font-size:11px;padding:4px 2px;border:none;background:none;color:var(--text2);cursor:pointer;font-family:inherit;}
+.vp-flow-back:hover{color:var(--accent);}
+.vp-flow-run{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text);}
+.vp-flow-spin{display:inline-block;flex-shrink:0;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:vpFlowSpin .8s linear infinite;}
+@keyframes vpFlowSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.vp-flow-spin{animation-duration:2.4s;}}
+.vp-flow-hint{margin-top:16px;padding:9px 11px;border-radius:8px;background:var(--gold-soft);border:1px solid var(--border);font-size:11px;line-height:1.65;color:var(--text2);}
+/* 窓を閉じている間の帯（作成中・できました） */
+.vp-chap-chip{position:fixed;left:14px;bottom:16px;z-index:10040;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 28px);padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);box-shadow:0 6px 22px rgba(0,0,0,.28);text-align:left;font-size:12px;font-family:inherit;cursor:pointer;}
+.vp-chap-chip-t{min-width:0;}
+.vp-chap-chip small{display:block;font-size:10.5px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62vw;}
+.vp-chap-chip i{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 8px;white-space:nowrap;}
+@media (max-width: 768px){.vp-chap-chip{bottom:calc(72px + env(safe-area-inset-bottom));}}

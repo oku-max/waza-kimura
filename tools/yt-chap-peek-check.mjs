@@ -87,12 +87,13 @@ const panelDiff = await pg.evaluate(() => { const a = JSON.parse(window.__vsnap)
 ck('⓪ 開いて調べるだけでは、動画のチャプター・ブックマークを書かない', !panelDiff);
 await pg.evaluate(() => { window.__vsnap = JSON.stringify(window.videos); });   // ここからはメニューだけの差分を見る（パネルを開いた記録＝最後に再生・再生回数は別）
 const openMenu = async (id) => {
-  await pg.evaluate(id => { document.getElementById('vp-chapgen-menu')?.remove(); window.vpGenChapters(id); }, id);
-  await pg.waitForSelector('#vp-chapgen-menu', { timeout: 8000 });
-  return pg.evaluate(() => { const b = document.querySelector('#vp-chapgen-menu .vp-chapgen-item[data-via="yt"]');
+  // v52.955〜 作り方の選択肢は、自動チャプターの窓（#vp-flow-win）の中に出る
+  await pg.evaluate(id => { window.vpGenChapters(id); }, id);
+  await pg.waitForSelector('#vp-flow-win .vp-flow-opt', { timeout: 8000 });
+  return pg.evaluate(() => { const b = document.querySelector('#vp-flow-win .vp-flow-opt[data-v="yt"]');
     return b ? { has: true, disabled: b.disabled, text: b.textContent.replace(/\s+/g, ' ').trim() } : { has: false }; });
 };
-const closeMenu = async () => { await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); };
+const closeMenu = async () => { await pg.keyboard.press('Escape'); await pg.waitForTimeout(300); };
 
 const a = await openMenu('AAAAAAAAAAA');
 ck('① ある動画: 「YouTubeのチャプターを取得（3個）」で押せる', a.has && !a.disabled && /（3個）/.test(a.text), a);
@@ -114,9 +115,9 @@ const keep = await pg.evaluate(() => JSON.stringify(window.videos) === window.__
 ck('⑥ メニューを開いて閉じるだけでは動画のデータを変えない', keep);
 
 // ⑤ 選ぶと、調べたチャプターがそのまま確認ダイアログに出る
-await pg.evaluate(() => { document.getElementById('vp-chapgen-menu')?.remove(); window.vpGenChapters('AAAAAAAAAAA'); });
-await pg.waitForSelector('#vp-chapgen-menu .vp-chapgen-item[data-via="yt"]');
-await pg.click('#vp-chapgen-menu .vp-chapgen-item[data-via="yt"]');
+await pg.evaluate(() => { window.vpGenChapters('AAAAAAAAAAA'); });
+await pg.waitForSelector('#vp-flow-win .vp-flow-opt[data-v="yt"]');
+await pg.click('#vp-flow-win .vp-flow-opt[data-v="yt"]');
 let rv = null;
 for (let i = 0; i < 30 && !rv; i++) { await pg.waitForTimeout(200);
   rv = await pg.evaluate(() => { const bg = document.getElementById('vp-chap-rv-bg'); return bg ? bg.textContent.replace(/\s+/g, ' ') : null; }); }
