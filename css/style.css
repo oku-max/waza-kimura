@@ -1805,3 +1805,11 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 .vp-chap-chip small{display:block;font-size:10.5px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62vw;}
 .vp-chap-chip i{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 8px;white-space:nowrap;}
 @media (max-width: 768px){.vp-chap-chip{bottom:calc(72px + env(safe-area-inset-bottom));}}
+/* 仕切りで開閉（v52.956）: 線は仕切りと同じ。▶ と本数を足すだけ */
+.vp-bm-div-fold{cursor:pointer;user-select:none;}
+.vp-bm-div-fold:hover .vp-bm-div-t{color:var(--accent);}
+.vp-bm-div-fold:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+.vp-bm-div-car{flex-shrink:0;width:14px;font-size:10px;color:var(--text3);transition:transform .15s;}
+.vp-bm-div-fold.open .vp-bm-div-car{transform:rotate(90deg);}
+.vp-bm-div-n{flex-shrink:0;font-size:10.5px;font-weight:400;color:var(--text3);white-space:nowrap;}
+@media (prefers-reduced-motion: reduce){.vp-bm-div-car{transition:none;}}

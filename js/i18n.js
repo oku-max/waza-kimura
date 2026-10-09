@@ -194,6 +194,8 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 仕切りで開閉（v52.956）
+    '仕切りを全部開く':'Expand all dividers','仕切りを全部閉じる':'Collapse all dividers','この区切りを開く':'Expand this section','この区切りを閉じる':'Collapse this section',
     // 自動チャプターの窓（v52.955）
     'どうやって作りますか？':'How do you want to create them?','チャプター名と時間を入れてください':'Enter chapter names and times',
     'どのくらい細かく区切りますか？':'How finely should it split?','字幕を何語で作りますか？':'Which language should the subtitles be in?',

@@ -846,17 +846,30 @@ function _bookmarkListHTML(id) {
   if (!bms.length && !divs.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
 
   // 仕切りは「その時刻以降の最初のブックマークの直前」に出す。編集中は行の間に「＋ ここに仕切り」
+  // 編集中でなければ、仕切りを押すとその区切りのブックマークを開閉できる（v52.956。最初は閉じている）。
+  // 編集中は全部開く（動かす先が見えないと困るため）。最初の仕切りより前のブックマークは常に出す。
   const editing = _divEditing(id);
-  let di = 0;
+  const folds = !editing && divs.length > 0;
+  const counts = _divCounts(bms, divs);
+  if (folds) {   // 編集を開いているブックマークの区切りは閉じない
+    const ex = window._vpBmExpanded?.[id];
+    if (ex != null && bms[ex]) _divOpenFor(id, bms[ex].time);
+  }
+  const openSet = _divOpenSet(id);
+  let di = 0, curOpen = true;
   const head = editing ? _divAiBarHTML(id, bms.length) : '';
   const rows = bms.map((bm, i) => {
     let pre = editing ? _divSlotHTML(id, i) : '';
-    while (di < divs.length && divs[di].d.time <= bm.time) pre += _divRowHTML(id, divs[di++]);
+    while (di < divs.length && Number(divs[di].d.time) <= Number(bm.time)) {
+      const k = di, x = divs[di++];
+      curOpen = !folds || openSet.has(_divKey(x.d));
+      pre += _divRowHTML(id, x, folds ? { open: curOpen, n: counts[k] } : null);
+    }
     if (_divUi.draft?.id === id && _divUi.draft.at === i) pre += _divInputHTML(id, 'draft', -1, '');
-    return pre + _bmRowHTML(id, bm, i);
+    return pre + (curOpen ? _bmRowHTML(id, bm, i) : '');
   });
   let tail = '';
-  while (di < divs.length) tail += _divRowHTML(id, divs[di++]);
+  while (di < divs.length) { const k = di, x = divs[di++]; tail += _divRowHTML(id, x, folds ? { open: openSet.has(_divKey(x.d)), n: counts[k] } : null); }
   if (_divUi.draft?.id === id && _divUi.draft.at === bms.length) tail += _divInputHTML(id, 'draft', -1, '');
   if (editing) tail += _divSlotHTML(id, bms.length);
   if (!bms.length) tail += '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
@@ -1021,9 +1034,15 @@ function _divInputHTML(id, mode, di, val) {
     onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.dataset.cancel='1';this.blur()}"
     onblur="vpDivCommit('${id}',this)"></div>`;
 }
-function _divRowHTML(id, x) {
+function _divRowHTML(id, x, fold) {
   const { d, di } = x;
   if (_divUi.rename?.id === id && _divUi.rename.di === di) return _divInputHTML(id, 'rename', di, d.label || '');
+  // 開閉できる見出し（編集中でないとき）。▶ と中の本数。線は今までの仕切りと同じ
+  if (fold) return `<div class="vp-bm-div vp-bm-div-fold${fold.open ? ' open' : ''}" data-div-idx="${di}" role="button" tabindex="0"
+      aria-expanded="${fold.open}" onclick="vpDivFold('${id}',${di})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();vpDivFold('${id}',${di})}"
+      title="${fold.open ? 'この区切りを閉じる' : 'この区切りを開く'}">
+    <span class="vp-bm-div-car">▶</span><span class="vp-bm-div-t">${_vpEsc(d.label || '')}</span><span class="vp-bm-div-n">${fold.n}件</span>
+  </div>`;
   const editing = _divEditing(id);
   const btn = (fn, label, title) =>
     `<button class="vp-bm-div-btn" onclick="${fn}('${id}',${di}${fn === 'vpDivMove' ? (label === '↑' ? ',-1' : ',1') : ''})" title="${title}">${label}</button>`;
@@ -1033,6 +1052,54 @@ function _divRowHTML(id, x) {
     ${editing ? btn('vpDivMove', '↑', '1つ上へ') + btn('vpDivMove', '↓', '1つ下へ') + btn('vpDivDelete', '×', 'この仕切りを消す') : ''}
   </div>`;
 }
+// ── 仕切りでの開閉（v52.956・オーナー決定 mock-bm-fold.html の A）──
+// 開いている区切りは画面の中だけで持つ（保存しない。動画のデータに書かない）。最初は全部閉じている。
+// 区切りは仕切りの時刻と文字で見分ける（名前を変えた・動かした区切りは閉じた状態に戻る）。
+function _divKey(d) { return `${Number(d.time)}|${d.label || ''}`; }
+function _divOpenSet(id) { const all = (window._vpDivOpen ||= {}); return (all[id] ||= new Set()); }
+// 区切りごとの本数（仕切りの時刻以上・次の仕切りの時刻未満）
+function _divCounts(bms, divs) {
+  const n = divs.map(() => 0);
+  for (const b of bms) { const k = _divSecOf(divs, Number(b.time)); if (k >= 0) n[k]++; }
+  return n;
+}
+function _divSecOf(divs, t) { let k = -1; for (let j = 0; j < divs.length; j++) { if (Number(divs[j].d.time) <= t) k = j; else break; } return k; }
+// その時刻のブックマークが入る区切りを開く（足したばかり・編集中のブックマークが閉じた中に隠れないように）
+function _divOpenFor(id, t) {
+  const divs = _divSorted(id), k = _divSecOf(divs, Number(t));
+  if (k >= 0) _divOpenSet(id).add(_divKey(divs[k].d));
+}
+window.vpDivFold = function(id, di) {
+  const v = (window.videos || []).find(x => x.id === id);
+  const d = _divList(v)[di]; if (!_divOk(d)) return;
+  const set = _divOpenSet(id), k = _divKey(d);
+  set.has(k) ? set.delete(k) : set.add(k);
+  _refreshBmList(id);
+};
+// 見出しの1つのボタン（説明の「全部表示／全部隠す」と同じ形）: 閉じている区切りが1つでもあれば「全部開く」
+function _divFoldState(id) {
+  const divs = _divSorted(id), set = _divOpenSet(id);
+  return { any: divs.length > 0 && !_divEditing(id), allOpen: divs.length > 0 && divs.every(x => set.has(_divKey(x.d))) };
+}
+function _divFoldBtnHTML(id) {
+  const st = _divFoldState(id);
+  return `<button data-div-foldall="${id}" onclick="vpDivFoldAll('${id}')" ${st.any ? '' : 'hidden'}
+    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">${st.allOpen ? '仕切りを全部閉じる' : '仕切りを全部開く'}</button>`;
+}
+function _divFoldBtnSync(id) {
+  const st = _divFoldState(id);
+  document.querySelectorAll(`[data-div-foldall="${id}"]`).forEach(b => {
+    b.hidden = !st.any;
+    b.textContent = st.allOpen ? '仕切りを全部閉じる' : '仕切りを全部開く';
+  });
+}
+window.vpDivFoldAll = function(id) {
+  const set = _divOpenSet(id);
+  if (_divFoldState(id).allOpen) set.clear();
+  else _divSorted(id).forEach(x => set.add(_divKey(x.d)));
+  _refreshBmList(id);
+};
+
 function _divBtnHTML(id) {
   const on = _divEditing(id);
   const show = _getBookmarks(id).length > 0 || _divSorted(id).length > 0;
@@ -1367,6 +1434,7 @@ function _bookmarkSectionHTML(id) {
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
           ${_bmNoteAllBtnHTML(id)}
+          ${_divFoldBtnHTML(id)}
           ${_divBtnHTML(id)}
           ${chapBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
@@ -1592,9 +1660,12 @@ function _refreshBmList(id, flashIdx) {
     // スクロール位置を保持（innerHTML置換でジャンプしないように）
     const _scrollWrap = document.getElementById('vpanel-edit-wrap');
     const _savedScroll = _scrollWrap ? _scrollWrap.scrollTop : 0;
+    // 足したばかりのブックマークが閉じた区切りに隠れないよう、その区切りを開く
+    if (flashIdx != null) { const b = _getBookmarks(id)[flashIdx]; if (b) _divOpenFor(id, b.time); }
     el.innerHTML = _bookmarkListHTML(id);
     _bmNoteAllSync(id);
     _divBtnSync(id);
+    _divFoldBtnSync(id);
     if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
     // スライダーのmax値（長さが分かったら反映。分からなければ描画時の余裕値のまま）
     const dur = _getDurationSec(id);
@@ -9543,4 +9614,4 @@ function _vpGoSearchFree() {
 }
 
 // 検査（tools/bm-divider-check.mjs）が自動チャプターの確認画面と書き込みを直接踏むための入口。画面からは使わない
-export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections, indexed: _divFromIndexed };
+export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections, indexed: _divFromIndexed, refresh: _refreshBmList };

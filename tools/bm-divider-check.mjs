@@ -52,8 +52,22 @@ const order=()=>page.evaluate(()=>[...document.querySelectorAll('#vp-bm-list-dv1
 const data=()=>page.evaluate(()=>JSON.parse(JSON.stringify(window.videos[0])));
 const bmSame=async()=>{const v=await data(); return JSON.stringify(v.bookmarks)===await page.evaluate(()=>JSON.stringify(window.__BM));};
 
-// ①
+// ⑪ 仕切りで開閉（v52.956）: 最初は閉じていて、仕切りより前のブックマークだけが出る
 let o=await order();
+const fold=()=>page.evaluate(()=>({btn:document.querySelector('[data-div-foldall="dv1"]')?.textContent, hidden:document.querySelector('[data-div-foldall="dv1"]')?.hidden,
+  n:[...document.querySelectorAll('#vp-bm-list-dv1 .vp-bm-div-n')].map(e=>e.textContent), saved:JSON.stringify(window.videos[0])}));
+let f0=await fold();
+ck('⑪ 最初は区切りが閉じていて、最初の仕切りより前のブックマークと仕切りだけが出る・仕切りに中の本数',
+  JSON.stringify(o)===JSON.stringify(['0:00','|クローズドガード','|デラヒーバ編']) && JSON.stringify(f0.n)==='["2件","3件"]', {o,f0});
+ck('⑪ 見出しに「仕切りを全部開く」が出る（説明の一括ボタンと同じ形）', f0.btn==='仕切りを全部開く' && !f0.hidden, f0);
+await page.evaluate(()=>window.vpDivFold('dv1',0)); o=await order();
+ck('⑪ 仕切りを押すと、その区切りだけが開く', JSON.stringify(o)===JSON.stringify(['0:00','|クローズドガード','1:40','4:05','|デラヒーバ編']), o);
+await page.evaluate(()=>window.vpDivFold('dv1',0)); o=await order();
+ck('⑪ もう一度押すと閉じる', JSON.stringify(o)===JSON.stringify(['0:00','|クローズドガード','|デラヒーバ編']), o);
+await page.evaluate(()=>window.vpDivFoldAll('dv1')); let f1=await fold();
+ck('⑪ 一括ボタンで全部開き、表示が「仕切りを全部閉じる」に変わる', f1.btn==='仕切りを全部閉じる', f1);
+ck('⑪ 開閉の状態を動画のデータに書かない', f1.saved===f0.saved && !/open|fold/i.test(f1.saved));
+o=await order();
 ck('① 仕切りが「その時刻以降の最初のブックマーク」の直前に出る',
   JSON.stringify(o)===JSON.stringify(['0:00','|クローズドガード','1:40','4:05','|デラヒーバ編','20:05','23:40','38:10']), o);
 ck('① 仕切りの行に時刻ボタンが無い（押しても飛ばない）', await page.evaluate(()=>[...document.querySelectorAll('#vp-bm-list-dv1 .vp-bm-div')].every(d=>!d.querySelector('button'))));
@@ -118,7 +132,15 @@ v=await data();
 ck('③ × で消すと、その仕切りだけが消える', !v.bmDividers.some(d=>d&&d.label==='ベリンボロ編') && v.bmDividers.length===4, v.bmDividers);
 ck('③ どの操作でも v.bookmarks は1文字も変わらない', await bmSame());
 ck('③ 編集中の状態を動画のデータに書かない', !JSON.stringify(v).match(/editing|draft|rename/));
+const fe=await page.evaluate(()=>({hidden:document.querySelector('[data-div-foldall="dv1"]')?.hidden, folds:document.querySelectorAll('#vp-bm-list-dv1 .vp-bm-div-fold').length}));
+ck('⑪ 編集中は全部開いていて（開閉の見出しにならない）、一括ボタンは隠れる', fe.hidden===true && fe.folds===0, fe);
 await page.evaluate(()=>window.vpDivEditToggle('dv1'));
+await page.evaluate(()=>{ window._vpDivOpen={}; const v=window.videos[0]; v.bookmarks.push({time:2400,label:'足したブックマーク',note:''}); v.bookmarks.sort((a,b)=>a.time-b.time);
+  window.__BM=JSON.parse(JSON.stringify(v.bookmarks)); window.__vp._chapDivTest; });
+const fl=await page.evaluate(()=>{ const v=window.videos[0]; const i=v.bookmarks.findIndex(b=>b.label==='足したブックマーク'); window.__vp._chapDivTest.refresh('dv1', i);
+  return [...document.querySelectorAll('#vp-bm-list-dv1 [data-bm-idx]')].map(e=>e.textContent).join('|'); });
+ck('⑪ 足したばかりのブックマークは、閉じた区切りに隠れない（その区切りを開く）', /足したブックマーク/.test(fl), fl);
+
 
 // ⑥ AIの区切りをチャプターの頭に合わせる
 const sec=await page.evaluate(()=>{
