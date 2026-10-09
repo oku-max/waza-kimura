@@ -128,6 +128,9 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 .sheet .wh{padding:6px 16px 10px;border-bottom:1px solid var(--border)}
 .sheet .wb{overflow:auto;padding:12px 16px}
 .sheet .wf{padding:10px 16px 16px;border-top:1px solid var(--border)}
+.chip{position:absolute;left:12px;bottom:12px;z-index:30;display:flex;align-items:center;gap:10px;max-width:calc(100% - 24px);padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);box-shadow:0 6px 22px rgba(0,0,0,.25);text-align:left;font-size:12px}
+.chip small{display:block;font-size:10.5px;color:var(--text3);margin-top:1px}
+.chip i{font-style:normal;font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 8px;margin-left:4px;white-space:nowrap}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 </style>
@@ -141,6 +144,7 @@ button{font-family:inherit;cursor:pointer;color:inherit}
     <label><input type="checkbox" id="o-yt" checked> YouTubeのチャプターがある動画</label>
     <label><input type="checkbox" id="o-sp"> スマホの幅で見る</label>
     <label><input type="checkbox" id="o-dark"> ダーク表示</label>
+    <label><input type="checkbox" id="o-closed"> 動画パネルを閉じた画面にする</label>
     <button onclick="resetAll()">最初に戻す</button>
   </div>
   <div class="desc" id="desc"></div>
@@ -151,7 +155,7 @@ button{font-family:inherit;cursor:pointer;color:inherit}
 <script>
 const DESIGNS = {
   A: { tab:'A 同じ窓で進む', sub:'中央の1つの窓。中身だけ変わる',
-    desc:'<b>A 同じ窓で進む。</b>画面の真ん中に1つの窓が出て、<b>位置も大きさも変えずに中身だけ</b>が「作り方 → 細かさ → 字幕の言語 → 作成中 → 確認」と進む。上に今どこかの目印、下に「← 戻る」。いまの3つの窓（ボタンの下・真ん中・字幕ボタンの下）が全部この1枚になる。' },
+    desc:'<b>A 同じ窓で進む。</b>画面の真ん中に1つの窓が出て、<b>位置も大きさも変えずに中身だけ</b>が「作り方 → 細かさ → 字幕の言語 → 作成中 → 確認」と進む。上に今どこかの目印、下に「← 戻る」。いまの3つの窓（ボタンの下・真ん中・字幕ボタンの下）が全部この1枚になる。<br><b>長い作業は「閉じて続ける」。</b>閉じると画面の左下に進み具合の帯（経過時間つき）が出て、「📑」ボタンも「⏳ 作成中 1:23」になる。動画パネルを閉じても帯は残る。終わると帯が「✔ できました・確認する」に変わり、押すと同じ窓で確認画面が開く。上の「動画パネルを閉じた画面にする」で試せます。' },
   B: { tab:'B 1枚にまとめる', sub:'聞くことを全部1画面に並べる',
     desc:'<b>B 1枚にまとめる。</b>聞くことを<b>最初から1画面に全部並べ</b>、「作成する」を1回押すだけ。作り方を選ぶと、必要な質問（細かさ・字幕の言語・貼り付け欄）だけがその下に開く。押した後は同じ窓が「作成中」→「確認」に変わる。手順を覚えなくていい・前に戻る必要が無い。' },
   C: { tab:'C ボタンの下で進む', sub:'📑 の真下の吹き出し1つ',
@@ -181,8 +185,19 @@ function stepsOf(){
   return st;
 }
 const STEP_NAME = { source:'作り方', list:'貼り付け', grain:'細かさ', lang:'字幕の言語', prog:'作成中', review:'確認' };
-function flowOpen(){ if (S.step) { flowClose(); return; } S.step = S.d === 'B' ? 'form' : 'source'; S.via = null; render(); }
-function flowClose(){ clearTimeout(S._timer); S.step = null; render(); }
+// 作成中・確認待ちは「閉じても続く」。窓を隠すだけで、作業と結果は持ったまま（hidden）
+function flowOpen(){
+  if (S.step && S.hidden) { S.hidden = false; render(); return; }
+  if (S.step) { flowClose(); return; }
+  S.step = S.d === 'B' ? 'form' : 'source'; S.via = null; S.hidden = false; render();
+}
+function flowClose(){
+  if (S.step === 'prog' || S.step === 'review') { S.hidden = true; render(); return; }
+  flowCancel();
+}
+function flowCancel(){ clearTimeout(S._timer); clearInterval(S._clock); S.step = null; S.hidden = false; render(); }
+function jobEl(){ const s = Math.floor((Date.now() - S.jobStart) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function chipOpen(){ $('o-closed').checked = false; S.hidden = false; render(); }
 function pick(v){
   S.via = v;
   if (S.d === 'B') { render(); return; }
@@ -201,24 +216,32 @@ function start(){
          : S.via === 'list' ? ['貼り付けた一覧を読み取る']
          : needLang() ? [`字幕を作る（${S.lang === 'ja' ? '日本語' : '原語のまま'}）※実際は数分`, 'チャプターと仕切りを検出']
          : ['チャプターと仕切りを検出'];
-  S.progAt = 0; render(); tick();
+  S.progAt = 0; S.jobStart = Date.now(); render(); tick();
+  clearInterval(S._clock);
+  S._clock = setInterval(() => {   // 経過時間だけ書き換える（窓の中を作り直さない）
+    if (S.step !== 'prog') { clearInterval(S._clock); return; }
+    document.querySelectorAll('.el').forEach(e => { e.textContent = jobEl(); });
+  }, 1000);
 }
 function tick(){
   S._timer = setTimeout(() => {
     S.progAt++;
-    if (S.progAt >= S.prog.length) { S.step = 'review'; }
+    if (S.progAt >= S.prog.length) {
+      S.step = 'review';
+      if (S.hidden) toast('✔ チャプターができました。「確認する」から追加できます');
+    }
     render();
     if (S.step === 'prog') tick();
-  }, 1100);
+  }, /字幕を作る/.test(S.prog[S.progAt] || '') ? 6000 : 2200);
 }
-function apply(){ S.done = true; S.step = null; render(); toast(`📑 ${CHAPS.length}件のチャプターを追加しました${S.divOn ? '（仕切り3本）' : ''}`); }
+function apply(){ S.done = true; S.step = null; S.hidden = false; render(); toast(`📑 ${CHAPS.length}件のチャプターを追加しました${S.divOn ? '（仕切り3本）' : ''}`); }
 
 // ── 中身（どの案でも同じ部品） ──────────────────────
 function srcCards(compact){
   const yt = opt('o-yt');
   const subLine = opt('o-subs') ? 'AIが字幕から内容を判断してチャプターを作る' : 'この動画には字幕がまだ無いので、先に字幕を作ってから検出します（数分）';
   const c = (v, b, s, dis, tag='') => `<button class="card ${S.via===v?'on':''}" ${dis?'disabled':''} onclick="pick('${v}')"><b>${b}</b>${tag?`<span class="tag">${tag}</span>`:''}<small>${s}</small></button>`;
-  return c('yt', yt ? 'YouTubeのチャプターを取得（12個）' : 'YouTubeのチャプターを取得', yt ? '動画に付いているチャプターをそのまま取り込む（無料・最も正確）' : 'この動画にはYouTubeのチャプターがありません', !yt, yt?'おすすめ':'')
+  return c('yt', yt ? 'YouTubeのチャプターを取得（12個）' : 'YouTubeのチャプターを取得', yt ? '動画に付いているチャプターをそのまま取り込む（無料・最も正確）' : 'この動画にはYouTubeのチャプターがありません', !yt)
        + c('sub', '字幕から検出', subLine, false)
        + c('list', '自分で一括入力', 'チャプター名と時間をまとめて貼り付け・手入力する', false);
 }
@@ -239,7 +262,8 @@ function listBox(){
 }
 function progBox(){
   return `<div class="prog"><ul>${S.prog.map((p, i) => `<li class="${i<S.progAt?'ok':i===S.progAt?'on':''}"><span class="ic">${i<S.progAt?'✓':i===S.progAt?'<span class="spin"></span>':'·'}</span>${p}</li>`).join('')}</ul>
-    <div class="sub" style="margin-top:10px">${S.d==='D' ? '待っている間も、動画やメモはそのまま使えます' : 'このまま閉じても、作成は続きます'}</div></div>`;
+    <div class="sub" style="margin-top:6px">経過 <span class="el">${jobEl()}</span></div>
+    <div class="note" style="margin-top:12px">「閉じて続ける」を押しても作成は続きます。進み具合は、画面の下の帯と「📑」ボタンに出ます。終わったら帯が「確認する」に変わります（勝手にブックマークには入れません）。<br><b>アプリを閉じる・再読み込みすると止まります</b>（作り終わった字幕は残ります）。</div></div>`;
 }
 function reviewBox(){
   const rows = CHAPS.map(([t, l], i) => (DIVS[i] && S.divOn && S.via !== 'yt' && S.via !== 'list' ? `<div class="dv">${DIVS[i]}</div>` : '') +
@@ -264,8 +288,8 @@ function bodyFor(step){
 function footFor(step){
   const canBack = !['source','form','prog','review'].includes(step) || (step === 'review' && S.d !== 'B');
   const backBtn = canBack && step !== 'review' ? `<button class="lnk" onclick="back()">← 戻る</button>` : '';
-  if (step === 'review') return `<div class="acts"><button class="lnk" onclick="S.step='${S.d==='B'?'form':'source'}';S.via=null;render()">↺ 最初から</button><span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button><button class="btn go" onclick="apply()">✔ ブックマークに追加（${CHAPS.length}件）</button></div>`;
-  if (step === 'prog')   return `<div class="acts"><span class="sp"></span><button class="btn" onclick="flowClose();toast('作成は続いています（見本では止まります）')">閉じる</button></div>`;
+  if (step === 'review') return `<div class="acts"><button class="lnk" onclick="S.step='${S.d==='B'?'form':'source'}';S.via=null;render()">↺ 最初から</button><span class="sp"></span><button class="btn" onclick="flowCancel()">追加しない</button><button class="btn go" onclick="apply()">✔ ブックマークに追加（${CHAPS.length}件）</button></div>`;
+  if (step === 'prog')   return `<div class="acts"><button class="lnk" onclick="flowCancel();toast('作成をやめました')">作成をやめる</button><span class="sp"></span><button class="btn go" onclick="flowClose()">閉じて続ける</button></div>`;
   if (step === 'list')   return `<div class="acts">${backBtn}<span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button><button class="btn go" onclick="start()">読み取る</button></div>`;
   if (step === 'form')   return footB();
   return `<div class="acts">${backBtn}<span class="sp"></span><button class="btn" onclick="flowClose()">キャンセル</button></div>`;
@@ -307,9 +331,18 @@ function render(){
   const stage = $('stage');
   stage.className = `stage ${opt('o-sp') ? 'sp' : 'pc'} ${S.d}`;
   const busy = S.step === 'prog';
-  const chapBtn = `<button class="hbtn ${S.step?'on':''}" id="chapbtn" onclick="flowOpen()">${busy ? '⏳ 作成中…' : '📑 自動チャプター'}</button>`;
-  const inline = S.d === 'D' && S.step ? `<div class="inl"><div class="wh">${headFor(S.step, 'dots')}</div><div class="wb">${bodyFor(S.step)}</div><div class="wf">${footFor(S.step)}</div></div>` : '';
-  stage.innerHTML = `
+  const ready = S.step === 'review' && S.hidden;
+  const chapBtn = `<button class="hbtn ${S.step?'on':''}" id="chapbtn" onclick="flowOpen()">${busy ? '⏳ 作成中 <span class="el">' + jobEl() + '</span>' : ready ? '✔ できました・確認する' : '📑 自動チャプター'}</button>`;
+  const inline = S.d === 'D' && S.step && !S.hidden ? `<div class="inl"><div class="wh">${headFor(S.step, 'dots')}</div><div class="wb">${bodyFor(S.step)}</div><div class="wf">${footFor(S.step)}</div></div>` : '';
+  const closed = opt('o-closed');
+  const chip = (busy || ready) && (S.hidden || closed) ? `<button class="chip" onclick="chipOpen()">${busy
+      ? `<span class="spin"></span><span><b>チャプター作成中</b> · <span class="el">${jobEl()}</span><small>${S.prog[S.progAt] || ''} · BJJ教則 ガードの基本</small></span><i>開く</i>`
+      : `<span>✔</span><span><b>チャプターができました</b><small>${CHAPS.length}件・仕切り3本 · BJJ教則 ガードの基本</small></span><i>確認する</i>`}</button>` : '';
+  if (closed) {
+    stage.innerHTML = `<div class="video" style="background:var(--surface2);color:var(--text3)">ライブラリ（動画パネルを閉じた画面）</div>${chip}`;
+    return;
+  }
+  stage.innerHTML = chip + `
     <div class="video">動画</div>
     <div class="side" id="side">
       <div class="sec">
@@ -320,7 +353,7 @@ function render(){
       <div class="sec"><div class="hd"><span class="lbl">MEMO</span><span class="hsp"><button class="hbtn">💬 字幕生成</button></span></div><div class="memo"></div></div>
       <div class="sec"><div class="hd"><span class="lbl">SNAPSHOT</span></div><div class="memo" style="height:70px"></div></div>
     </div>`;
-  if (!S.step) { S._opened = false; return; }
+  if (!S.step || S.hidden) { S._opened = false; return; }
   if (S.d === 'D') return;
   const body = bodyFor(S.step), foot = footFor(S.step);
   if (S.d === 'A' || S.d === 'B') {
@@ -337,8 +370,9 @@ function render(){
     stage.insertAdjacentHTML('beforeend', `<div class="pop" style="left:${left}px;top:${top}px;width:${w}px;max-height:${sr.height - top - 10}px;--arrow:${arrow}px"><div class="wh">${headFor(S.step, true)}</div><div class="wb">${body}</div><div class="wf">${foot}</div></div>`);
   }
 }
-function setD(k){ clearTimeout(S._timer); S.d = k; S.step = null; S.via = null; S.done = false; render(); }
+function setD(k){ clearTimeout(S._timer); clearInterval(S._clock); S.d = k; S.step = null; S.hidden = false; S.via = null; S.done = false; render(); }
 function resetAll(){ setD(S.d); }
+$('o-closed').addEventListener('change', render);
 ['o-subs','o-yt','o-sp','o-dark'].forEach(id => $(id).addEventListener('change', () => { if (id !== 'o-dark' && id !== 'o-sp') { clearTimeout(S._timer); S.step = null; S.via = null; } render(); }));
 window.addEventListener('resize', () => { if (S.d === 'C' && S.step) render(); });
 render();
