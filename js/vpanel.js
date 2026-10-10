@@ -293,7 +293,7 @@ function _recordPlayhead(flush) {
 
 function _startTimeDisplay() {
   _stopTimeDisplay();
-  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); }, 500);
+  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); _bmNowSync(); }, 500);
   _updateTimeDisplay();
 }
 
@@ -856,6 +856,8 @@ function _bookmarkListHTML(id) {
     if (ex != null && bms[ex]) _divOpenFor(id, bms[ex].time);
   }
   const openSet = _divOpenSet(id);
+  const vDur = folds ? _getDurationSec(id) : 0;
+  const foldOf = (k, isOpen) => ({ open: isOpen, n: counts[k], start: Number(divs[k].d.time), end: _divEnd(divs, k, vDur) });
   let di = 0, curOpen = true;
   const head = editing ? _divAiBarHTML(id, bms.length) : '';
   const rows = bms.map((bm, i) => {
@@ -863,13 +865,13 @@ function _bookmarkListHTML(id) {
     while (di < divs.length && Number(divs[di].d.time) <= Number(bm.time)) {
       const k = di, x = divs[di++];
       curOpen = !folds || openSet.has(_divKey(x.d));
-      pre += _divRowHTML(id, x, folds ? { open: curOpen, n: counts[k] } : null);
+      pre += _divRowHTML(id, x, folds ? foldOf(k, curOpen) : null);
     }
     if (_divUi.draft?.id === id && _divUi.draft.at === i) pre += _divInputHTML(id, 'draft', -1, '');
     return pre + (curOpen ? _bmRowHTML(id, bm, i) : '');
   });
   let tail = '';
-  while (di < divs.length) { const k = di, x = divs[di++]; tail += _divRowHTML(id, x, folds ? { open: openSet.has(_divKey(x.d)), n: counts[k] } : null); }
+  while (di < divs.length) { const k = di, x = divs[di++]; tail += _divRowHTML(id, x, folds ? foldOf(k, openSet.has(_divKey(x.d))) : null); }
   if (_divUi.draft?.id === id && _divUi.draft.at === bms.length) tail += _divInputHTML(id, 'draft', -1, '');
   if (editing) tail += _divSlotHTML(id, bms.length);
   if (!bms.length) tail += '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
@@ -977,7 +979,7 @@ function _bmRowHTML(id, bm, i) {
       : 'border-bottom:1px solid var(--border);padding:6px 8px;';
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
-        <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
+        <button class="vp-bm-tbtn" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
         <span style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
         ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
         <span style="flex:1"></span>
@@ -1041,7 +1043,7 @@ function _divRowHTML(id, x, fold) {
   if (fold) return `<div class="vp-bm-div vp-bm-div-fold${fold.open ? ' open' : ''}" data-div-idx="${di}" role="button" tabindex="0"
       aria-expanded="${fold.open}" onclick="vpDivFold('${id}',${di})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();vpDivFold('${id}',${di})}"
       title="${fold.open ? 'この区切りを閉じる' : 'この区切りを開く'}">
-    <span class="vp-bm-div-car">▶</span><span class="vp-bm-div-t">${_vpEsc(d.label || '')}</span><span class="vp-bm-div-n">${fold.n}件</span>
+    <span class="vp-bm-div-car">▶</span><span class="vp-bm-div-t">${_vpEsc(d.label || '')}<span class="vp-bm-div-nowtag">再生中</span></span>${_divMetaHTML(fold)}
   </div>`;
   const editing = _divEditing(id);
   const btn = (fn, label, title) =>
@@ -1068,6 +1070,44 @@ function _divSecOf(divs, t) { let k = -1; for (let j = 0; j < divs.length; j++) 
 function _divOpenFor(id, t) {
   const divs = _divSorted(id), k = _divSecOf(divs, Number(t));
   if (k >= 0) _divOpenSet(id).add(_divKey(divs[k].d));
+}
+// 区切りの終わり＝次の仕切りの時刻。最後の区切りは動画の終わり（長さが分からなければ書かない）
+function _divEnd(divs, k, dur) {
+  if (divs[k + 1]) return Number(divs[k + 1].d.time);
+  return dur > Number(divs[k].d.time) ? dur : null;
+}
+// 仕切りの右側（v52.957・オーナー決定 mock-bm-fold-time.html の B）: 「28:40–47:50 · 19分 · 5件」。
+// 時刻は分で数える（オーナーの例「67:00 - 72:12」）。区切りの長さは 時間・分（1分未満は秒）
+function _mmss(sec) { const s = Math.max(0, Math.floor(Number(sec) || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function _durShort(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h}時間${m}分` : m ? `${m}分` : `${s}秒`;
+}
+function _divMetaHTML(f) {
+  const parts = [`<span class="vp-bm-div-range">${_mmss(f.start)}–${f.end != null ? _mmss(f.end) : ''}</span>`];
+  if (f.end != null) parts.push(`<span>${_durShort(f.end - f.start)}</span>`);
+  parts.push(`<span>${f.n}件</span>`);
+  return `<span class="vp-bm-div-n">${parts.join(' · ')}</span>`;
+}
+// 再生中のチャプターを目立たせる（v52.957・mock-bm-fold-time.html の ①）。0.5秒ごとの時刻表示と一緒に呼び、
+// 変わったときだけ印を付け替える（一覧を作り直さない）。閉じた区切りの中なら、その仕切りに印を付ける。
+// 印は画面の中だけ（動画のデータに書かない）
+let _bmNowKey = '';
+function _bmNowSync(force) {
+  const id = window.openVPanelId; if (!id) return;
+  const el = document.getElementById('vp-bm-list-' + id); if (!el) return;
+  const t = _getCurrentTime();
+  const bms = _getBookmarks(id);
+  let bi = -1;
+  if (t != null) bms.forEach((b, i) => { if (Number(b.time) <= t && (bi < 0 || Number(b.time) >= Number(bms[bi].time))) bi = i; });
+  const divs = _divSorted(id), k = t != null ? _divSecOf(divs, t) : -1, sdi = k >= 0 ? divs[k].di : -1;
+  const key = `${id}|${bi}|${sdi}`;
+  if (!force && key === _bmNowKey) return;
+  _bmNowKey = key;
+  el.querySelectorAll('.vp-bm-now').forEach(e => e.classList.remove('vp-bm-now'));
+  el.querySelectorAll('.vp-bm-div-now').forEach(e => e.classList.remove('vp-bm-div-now'));
+  if (bi >= 0) el.querySelector(`[data-bm-idx="${bi}"]`)?.classList.add('vp-bm-now');
+  if (sdi >= 0) el.querySelector(`.vp-bm-div-fold[data-div-idx="${sdi}"]`)?.classList.add('vp-bm-div-now');
 }
 window.vpDivFold = function(id, di) {
   const v = (window.videos || []).find(x => x.id === id);
@@ -1666,6 +1706,7 @@ function _refreshBmList(id, flashIdx) {
     _bmNoteAllSync(id);
     _divBtnSync(id);
     _divFoldBtnSync(id);
+    _bmNowSync(true);
     if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
     // スライダーのmax値（長さが分かったら反映。分からなければ描画時の余裕値のまま）
     const dur = _getDurationSec(id);
@@ -9614,4 +9655,4 @@ function _vpGoSearchFree() {
 }
 
 // 検査（tools/bm-divider-check.mjs）が自動チャプターの確認画面と書き込みを直接踏むための入口。画面からは使わない
-export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections, indexed: _divFromIndexed, refresh: _refreshBmList };
+export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections, indexed: _divFromIndexed, refresh: _refreshBmList, nowSync: _bmNowSync };

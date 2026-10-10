@@ -48,14 +48,14 @@ await page.evaluate(()=>{
 });
 await page.waitForSelector('#vp-bm-list-dv1',{timeout:8000}); await page.waitForTimeout(400);
 const order=()=>page.evaluate(()=>[...document.querySelectorAll('#vp-bm-list-dv1 > *')].map(e=>
-  e.classList.contains('vp-bm-div')?('|'+(e.querySelector('.vp-bm-div-t')?.textContent||'')):e.hasAttribute('data-bm-idx')?(e.textContent.match(/\d+:\d\d/)||[''])[0]:null).filter(Boolean));
+  e.classList.contains('vp-bm-div')?('|'+(e.querySelector('.vp-bm-div-t')?.childNodes[0]?.textContent||'')):e.hasAttribute('data-bm-idx')?(e.textContent.match(/\d+:\d\d/)||[''])[0]:null).filter(Boolean));
 const data=()=>page.evaluate(()=>JSON.parse(JSON.stringify(window.videos[0])));
 const bmSame=async()=>{const v=await data(); return JSON.stringify(v.bookmarks)===await page.evaluate(()=>JSON.stringify(window.__BM));};
 
 // ⑪ 仕切りで開閉（v52.956）: 最初は閉じていて、仕切りより前のブックマークだけが出る
 let o=await order();
 const fold=()=>page.evaluate(()=>({btn:document.querySelector('[data-div-foldall="dv1"]')?.textContent, hidden:document.querySelector('[data-div-foldall="dv1"]')?.hidden,
-  n:[...document.querySelectorAll('#vp-bm-list-dv1 .vp-bm-div-n')].map(e=>e.textContent), saved:JSON.stringify(window.videos[0])}));
+  n:[...document.querySelectorAll('#vp-bm-list-dv1 .vp-bm-div-n')].map(e=>(e.textContent.match(/(\d+)件/)||[])[0]), saved:JSON.stringify(window.videos[0])}));
 let f0=await fold();
 ck('⑪ 最初は区切りが閉じていて、最初の仕切りより前のブックマークと仕切りだけが出る・仕切りに中の本数',
   JSON.stringify(o)===JSON.stringify(['0:00','|クローズドガード','|デラヒーバ編']) && JSON.stringify(f0.n)==='["2件","3件"]', {o,f0});
@@ -250,6 +250,38 @@ ck('⑩ ブックマークは1文字も変わらない', JSON.stringify(av.bookm
 await page.evaluate(()=>{window.__reply={sections:[]};}); await page.evaluate(()=>window.vpDivAuto('ai1'));
 const av2=await page.evaluate(()=>JSON.parse(JSON.stringify(window.videos[0])));
 ck('⑩ 見つからなければ確かめる画面を出さず、仕切りには何も書かない', JSON.stringify(av2.bmDividers)===JSON.stringify(av.bmDividers) && !(await page.$('#vp-divai-bg')), av2.bmDividers);
+
+// ⑫ 仕切りの右側に 範囲 · 長さ · 件数（v52.957・mock-bm-fold-time.html の B）／再生中のハイライト（①）
+await page.evaluate(()=>{
+  window.videos=[{id:'tm1',title:'t',pt:'youtube',ytId:'dQw4w9WgXcQ',memo:'',duration:7395,
+    bookmarks:[{time:0,label:'イントロ'},{time:95,label:'a'},{time:300,label:'b'},{time:1720,label:'c'},{time:2629,label:'d'},{time:4020,label:'e'}],
+    bmDividers:[{time:95,label:'基本'},{time:1720,label:'脆弱性'},{time:4020,label:'動作'}]}];
+  window._vpDivOpen={};
+  window.__vp._openPanel('tm1','https://www.youtube.com/embed/x',null,'youtube');
+  window.openVPanelId='tm1';   // 本番は openVPanel がここで入れる（検査は下の _openPanel を直接呼ぶため）
+});
+await page.waitForSelector('#vp-bm-list-tm1'); await page.waitForTimeout(300);
+const meta=await page.evaluate(()=>[...document.querySelectorAll('#vp-bm-list-tm1 .vp-bm-div-n')].map(e=>e.textContent.replace(/\s+/g,' ').trim()));
+ck('⑫ 仕切りの右に「範囲 · 長さ · 件数」（分で数える・最後の区切りは動画の終わりまで）',
+  JSON.stringify(meta)===JSON.stringify(['1:35–28:40 · 27分 · 2件','28:40–67:00 · 38分 · 2件','67:00–123:15 · 56分 · 1件']), meta);
+await page.evaluate(()=>{ window.videos[0].duration=0; window.__vp._chapDivTest.refresh('tm1'); });
+const meta2=await page.evaluate(()=>[...document.querySelectorAll('#vp-bm-list-tm1 .vp-bm-div-n')].map(e=>e.textContent.replace(/\s+/g,' ').trim()).pop());
+ck('⑫ 動画の長さが分からなければ、最後の区切りは終わりと長さを書かない', meta2==='67:00– · 1件', meta2);
+// 再生中: 閉じた区切りの中なら仕切りに印、開けば行に印
+const hl=async t=>{ await page.evaluate(t=>{ window._srYtGetCurrentTime=()=>t; window.__vp._chapDivTest.nowSync(true); },t);
+  return page.evaluate(()=>({rows:[...document.querySelectorAll('#vp-bm-list-tm1 .vp-bm-now')].map(e=>e.textContent.match(/\d+:\d\d/)?.[0]),
+    div:[...document.querySelectorAll('#vp-bm-list-tm1 .vp-bm-div-now .vp-bm-div-t')].map(e=>e.childNodes[0].textContent),
+    tag:!!document.querySelector('#vp-bm-list-tm1 .vp-bm-div-now .vp-bm-div-nowtag')})); };
+let h1=await hl(2700);
+ck('⑫ 閉じた区切りの中を再生中なら、その仕切りに印（文字の色・「再生中」）が付く', JSON.stringify(h1.div)==='["脆弱性"]' && h1.tag && h1.rows.length===0, h1);
+await page.evaluate(()=>window.vpDivFold('tm1',1));
+let h2=await hl(2700);
+ck('⑫ 区切りを開くと、再生中のチャプターの行に印が付く（その時刻を過ぎた最後のブックマーク）', JSON.stringify(h2.rows)==='["43:49"]' && JSON.stringify(h2.div)==='["脆弱性"]', h2);
+let h3=await hl(30);
+ck('⑫ 再生位置が動くと印も移る（最初の仕切りより前なら行だけ）', JSON.stringify(h3.rows)==='["0:00"]' && h3.div.length===0, h3);
+const keep=await page.evaluate(()=>JSON.stringify(window.videos[0]));
+ck('⑫ 印は画面の中だけで、動画のデータに書かない', !/now/i.test(keep), keep.slice(0,200));
+await page.evaluate(()=>{ delete window._srYtGetCurrentTime; });
 
 const bad=errs.filter(e=>/Error/.test(e)); let f=0;
 for(const [n,ok] of C){console.log((ok?'✓ ':'✗ ')+n);if(!ok)f++}

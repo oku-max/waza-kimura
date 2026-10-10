@@ -194,6 +194,7 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    '再生中':'Playing',
     // 仕切りで開閉（v52.956）
     '仕切りを全部開く':'Expand all dividers','仕切りを全部閉じる':'Collapse all dividers','この区切りを開く':'Expand this section','この区切りを閉じる':'Collapse this section',
     // 自動チャプターの窓（v52.955）
@@ -1997,6 +1998,7 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     '大きな区切りに仕切りを入れる（#本）':'Add dividers at major breaks (#)',
+    '#時間#分':'#h #m','#分':'# min','#秒':'# sec',
     '前に自動で入れた仕切り#本は置き換えます。':'The # dividers added automatically before will be replaced. ',
     '手で入れた・直した仕切り#本はそのまま残します。':'The # dividers you added or edited will be kept.',
     'ブックマークが#本以上あるときに使えます':'Available when there are # or more bookmarks',
