@@ -1043,7 +1043,7 @@ function _divRowHTML(id, x, fold) {
   if (fold) return `<div class="vp-bm-div vp-bm-div-fold${fold.open ? ' open' : ''}" data-div-idx="${di}" role="button" tabindex="0"
       aria-expanded="${fold.open}" onclick="vpDivFold('${id}',${di})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();vpDivFold('${id}',${di})}"
       title="${fold.open ? 'この区切りを閉じる' : 'この区切りを開く'}">
-    <span class="vp-bm-div-car">▶</span><span class="vp-bm-div-t">${_vpEsc(d.label || '')}<span class="vp-bm-div-nowtag">再生中</span></span>${_divMetaHTML(fold)}
+    <span class="vp-bm-div-car">▶</span><span class="vp-bm-div-t">${_vpEsc(d.label || '')}</span>${_divMetaHTML(fold)}
   </div>`;
   const editing = _divEditing(id);
   const btn = (fn, label, title) =>
@@ -1090,7 +1090,7 @@ function _divMetaHTML(f) {
   return `<span class="vp-bm-div-n">${parts.join(' · ')}</span>`;
 }
 // 再生中のチャプターを目立たせる（v52.957・mock-bm-fold-time.html の ①）。0.5秒ごとの時刻表示と一緒に呼び、
-// 変わったときだけ印を付け替える（一覧を作り直さない）。閉じた区切りの中なら、その仕切りに印を付ける。
+// 変わったときだけ印を付け替える（一覧を作り直さない）。閉じた区切りの中なら、その仕切りの文字を同じ色にする（「再生中」の文字は出さない。v52.958 オーナー「いらん」）。
 // 印は画面の中だけ（動画のデータに書かない）
 let _bmNowKey = '';
 function _bmNowSync(force) {

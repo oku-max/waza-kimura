@@ -194,7 +194,6 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
-    '再生中':'Playing',
     // 仕切りで開閉（v52.956）
     '仕切りを全部開く':'Expand all dividers','仕切りを全部閉じる':'Collapse all dividers','この区切りを開く':'Expand this section','この区切りを閉じる':'Collapse this section',
     // 自動チャプターの窓（v52.955）

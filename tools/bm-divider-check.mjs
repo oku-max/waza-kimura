@@ -271,9 +271,9 @@ ck('⑫ 動画の長さが分からなければ、最後の区切りは終わり
 const hl=async t=>{ await page.evaluate(t=>{ window._srYtGetCurrentTime=()=>t; window.__vp._chapDivTest.nowSync(true); },t);
   return page.evaluate(()=>({rows:[...document.querySelectorAll('#vp-bm-list-tm1 .vp-bm-now')].map(e=>e.textContent.match(/\d+:\d\d/)?.[0]),
     div:[...document.querySelectorAll('#vp-bm-list-tm1 .vp-bm-div-now .vp-bm-div-t')].map(e=>e.childNodes[0].textContent),
-    tag:!!document.querySelector('#vp-bm-list-tm1 .vp-bm-div-now .vp-bm-div-nowtag')})); };
+    tag:!!document.querySelector('#vp-bm-list-tm1 .vp-bm-div-nowtag') || /再生中/.test(document.getElementById('vp-bm-list-tm1').textContent)})); };
 let h1=await hl(2700);
-ck('⑫ 閉じた区切りの中を再生中なら、その仕切りに印（文字の色・「再生中」）が付く', JSON.stringify(h1.div)==='["脆弱性"]' && h1.tag && h1.rows.length===0, h1);
+ck('⑫ 閉じた区切りの中を再生中なら、その仕切りの文字が同じ色になる（「再生中」の文字は出さない。v52.958）', JSON.stringify(h1.div)==='["脆弱性"]' && !h1.tag && h1.rows.length===0, h1);
 await page.evaluate(()=>window.vpDivFold('tm1',1));
 let h2=await hl(2700);
 ck('⑫ 区切りを開くと、再生中のチャプターの行に印が付く（その時刻を過ぎた最後のブックマーク）', JSON.stringify(h2.rows)==='["43:49"]' && JSON.stringify(h2.div)==='["脆弱性"]', h2);
