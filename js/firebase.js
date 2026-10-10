@@ -133,6 +133,7 @@ auth.onAuthStateChanged(async (user) => {
     // この端末の控えを先に出す（待たない。クラウドの読み込みと並んで走る）
     _vcSettled = false; _vcShown = false; _vcDirty = false;
     _vcShow(user.uid);
+    _cvFiltStart(user.uid);           // リストごとの絞り込み（小さい文書）。待たない＝動画の読み込みと並んで走る
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     window.__pmark?.('cv_startup');
@@ -147,6 +148,9 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     window._notesClear?.();
     window._murmursClear?.();
+    // 絞り込みの見張りを止めて、以後クラウドへ書かない（この端末の控えは消さない）
+    if (_cvFiltUnsub) { _cvFiltUnsub(); _cvFiltUnsub = null; }
+    _cvFiltReady = false; _cvFiltUid = null;
   }
 });
 
@@ -871,6 +875,63 @@ function _cvWatch(uid) {
       _cvLog(`${tag}→失敗: ${String(e?.message || e).slice(0, 60)}`);
     }
   }, e => { console.error('[cvWatch] onSnapshot:', e); _cvLog(`見張りエラー: ${e?.code || e?.message || e}`); });
+}
+
+// ── リストごとの絞り込みを端末をまたいで覚える（v52.959）────────────
+// 文書 users/{uid}/data/cvFilters = { snaps: { [リストid|'master']: { snap, at } }, savedBy, updatedAt }。
+// リストの本体（cv_* 文書・settings.customViews）とは別の文書。中身の判断は custom-view.js（_cvFiltRecord / _cvFiltApplyRemote）。
+// 【安全側の決まり】
+//   ・クラウドを読み終えるまで書かない（_cvFiltReady）。読めなかったら書かない
+//   ・書くのは変えたリストの分だけ（update で snaps.{key} の1つだけを置き換える。ほかのリストの分には触らない）
+//   ・自分が書いた変更の知らせは受け取らない（savedBy）
+//   ・リストを消しても、その分は消さない（小さな記録が残るだけ。消す操作を増やさない）
+let _cvFiltReady = false, _cvFiltUid = null, _cvFiltUnsub = null;
+const _cvFiltRef = uid => _dataDoc(uid, 'cvFilters');
+const _CVF_KEY_OK = k => typeof k === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(k);
+async function _cvFiltWrite(uid, key, entry) {
+  if (!_CVF_KEY_OK(key) || !entry || !entry.snap) return;
+  const payload = JSON.parse(JSON.stringify({ snap: entry.snap, at: Number(entry.at) || Date.now() }));
+  try {
+    await _cvFiltRef(uid).update({ ['snaps.' + key]: payload, savedBy: _sessionId, updatedAt: new Date().toISOString() });
+  } catch (e) {
+    // 文書がまだ無いときだけ作る（作るときは、ほかのリストの分はまだ無い）
+    if (e && (e.code === 'not-found' || /No document to update/i.test(String(e.message)))) {
+      try { await _cvFiltRef(uid).set({ snaps: { [key]: payload }, savedBy: _sessionId, updatedAt: new Date().toISOString() }, { merge: true }); }
+      catch (e2) { console.warn('[cvFilters] 保存に失敗', e2); }
+    } else console.warn('[cvFilters] 保存に失敗', e);
+  }
+}
+window._cvFiltPush = function(key, entry) {
+  if (!_cvFiltReady || !currentUser || currentUser.uid !== _cvFiltUid) return;   // 読み終えるまでは書かない（読んだ後に送る）
+  _cvFiltWrite(currentUser.uid, key, entry);
+};
+async function _cvFiltStart(uid) {
+  _cvFiltReady = false; _cvFiltUid = uid;
+  if (_cvFiltUnsub) { _cvFiltUnsub(); _cvFiltUnsub = null; }
+  let cloud = {};
+  try {
+    const snap = await _cvFiltRef(uid).get();
+    if (currentUser?.uid !== uid) return;
+    cloud = (snap.exists && snap.data()?.snaps && typeof snap.data().snaps === 'object') ? snap.data().snaps : {};
+  } catch (e) { console.warn('[cvFilters] 読み込みに失敗（この端末の分だけ使う・クラウドへは書かない）', e); return; }
+  window._cvFiltApplyRemote?.(cloud);
+  _cvFiltReady = true;
+  // この端末にだけある分・この端末の方が新しい分を送る（クラウドを読んだ後なので、古い分で上書きしない）
+  const local = window._cvFiltLocalEntries?.() || {};
+  Object.keys(local).forEach(k => {
+    const c = cloud[k];
+    if (!c || !(Number(c.at) >= Number(local[k].at))) _cvFiltWrite(uid, k, local[k]);
+  });
+  // ほかの端末の変更を受け取る（読むだけ）
+  _cvFiltUnsub = _cvFiltRef(uid).onSnapshot(s => {
+    try {
+      if (currentUser?.uid !== uid || !s.exists) return;
+      if (s.metadata?.hasPendingWrites) return;
+      const d = s.data() || {};
+      if (d.savedBy === _sessionId) return;
+      window._cvFiltApplyRemote?.(d.snaps || {});
+    } catch (e) { console.warn('[cvFilters] 受け取りに失敗（現状維持）', e); }
+  }, e => console.warn('[cvFilters] onSnapshot:', e));
 }
 
 // ── カスタムビューの同期状態を出す（読むだけ・何も書かない）──────

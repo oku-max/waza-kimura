@@ -106,6 +106,95 @@ let _cvSavedOrgSavePrefs = null;
 // ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
 const _viewFilterSnapshots = {};
 
+// ── リストごとの絞り込みを端末をまたいで覚える（v52.959・オーナー「毎回リセットされてる」「検索語も含む」「端末横断」）──
+// 以前は上の _viewFilterSnapshots（開いている間だけのメモ）にしか覚えず、開き直すたびに消えていた。
+// 【データ経路】
+//   この端末: localStorage wk_cvFilterSnaps = { [key]: { snap, at } }（起動直後にすぐ戻すための控え）
+//   クラウド: users/{uid}/data/cvFilters の snaps.{key}（js/firebase.js の _cvFiltPush / _cvFiltStart）→ 全端末
+//   リストの本体（_views・cv_* 文書・view.searchQuery）には書かない（v52.872 の焼き付きはリストの本体に保存して起きた）。
+// 【安全側の決まり】
+//   ・記録するのは「覚えていた中身と違う」ときだけ。何も覚えていないリストが空のままなら記録しない
+//     （開いただけの端末が、ほかの端末で覚えた絞り込みを空で上書きしない）
+//   ・リストごとに時刻（at）の新しい方を採る。書くのは変えたリストの分だけ
+//   ・クラウドを読み終えるまではクラウドへ書かない（firebase.js 側で止める）
+const _CVF_KEY = 'wk_cvFilterSnaps';
+const _cvFiltAt = {};   // key -> at（覚えた時刻）
+// 比べるための形（配列は並びを揃える・鍵の順を揃える・空の欄は無いのと同じ）。
+// クラウドから来た短い形（検索語だけ等）と、画面から取り直した全部の欄の形を、同じ中身なら同じとみなす
+// （でないと、開いて離れるだけで同じ中身を記録し直して書き込んでいた）
+function _cvFiltNorm(snap) {
+  const o = {};
+  Object.keys(snap || {}).sort().forEach(k => {
+    const v = snap[k];
+    if (Array.isArray(v) ? !v.length : (v && typeof v === 'object') ? _cvFiltIsEmpty(v) : !v) return;
+    o[k] = Array.isArray(v) ? v.map(String).sort() : (v && typeof v === 'object' ? _cvFiltNorm(v) : v);
+  });
+  return JSON.stringify(o);
+}
+function _cvFiltIsEmpty(snap) {
+  return Object.values(snap || {}).every(v =>
+    Array.isArray(v) ? v.length === 0 : (v && typeof v === 'object') ? _cvFiltIsEmpty(v) : !v);
+}
+function _cvFiltCacheSave() {
+  try {
+    const o = {};
+    Object.keys(_cvFiltAt).forEach(k => { if (_viewFilterSnapshots[k]) o[k] = { snap: _viewFilterSnapshots[k], at: _cvFiltAt[k] }; });
+    localStorage.setItem(_CVF_KEY, JSON.stringify(o));
+  } catch (e) {}
+}
+(function _cvFiltCacheLoad() {
+  try {
+    const o = JSON.parse(localStorage.getItem(_CVF_KEY) || '{}') || {};
+    Object.keys(o).forEach(k => {
+      const e = o[k];
+      if (e && e.snap && typeof e.snap === 'object' && Number(e.at) > 0) { _viewFilterSnapshots[k] = e.snap; _cvFiltAt[k] = Number(e.at); }
+    });
+  } catch (e) {}
+})();
+// 今の絞り込みを、そのリストの分として覚える（変わっていれば）。クラウドへは firebase.js が送る
+function _cvFiltRecord(key, snap) {
+  const prev = _viewFilterSnapshots[key];
+  if (!prev && _cvFiltIsEmpty(snap)) return;             // 覚えていないリストが空のまま＝記録しない
+  if (prev && _cvFiltNorm(prev) === _cvFiltNorm(snap)) return;
+  _viewFilterSnapshots[key] = snap;
+  _cvFiltAt[key] = Date.now();
+  _cvFiltCacheSave();
+  window._cvFiltPush?.(key, { snap, at: _cvFiltAt[key] });
+}
+let _cvFiltT = null;
+function _cvFiltRecordSoon() {
+  clearTimeout(_cvFiltT);
+  _cvFiltT = setTimeout(() => { if (window._uniSnapshotFilters) _cvFiltRecord(_curId || 'master', _cvFiltCurrent()); }, 600);
+}
+function _cvFiltCurrent() {
+  const snap = window._uniSnapshotFilters();   // window.filters + boolean + titleQ
+  // そのリストの検索ワードも覚える（カード/テーブルの検索を1つにまとめる）。_uniVideoQ は別物なので混ぜない
+  snap._search = (window.wkSearchWord ? window.wkSearchWord() : '') || _cvSrchQ || '';
+  return snap;
+}
+// クラウドから来た分を入れる。リストごとに新しい方を採り、今開いているリストが変わったら画面にも戻す
+window._cvFiltApplyRemote = function(snaps) {
+  if (!snaps || typeof snaps !== 'object') return;
+  const cur = _curId || 'master';
+  let changed = false, curChanged = false;
+  Object.keys(snaps).forEach(k => {
+    const e = snaps[k];
+    if (!e || !e.snap || typeof e.snap !== 'object' || !(Number(e.at) > 0)) return;
+    if (_cvFiltAt[k] && _cvFiltAt[k] >= Number(e.at)) return;
+    _viewFilterSnapshots[k] = e.snap; _cvFiltAt[k] = Number(e.at); changed = true;
+    if (k === cur) curChanged = true;
+  });
+  if (!changed) return;
+  _cvFiltCacheSave();
+  if (curChanged) { clearTimeout(_cvFiltT); _restoreFilterSnapshot(cur); }
+};
+// クラウドを読み終えたとき、この端末にだけある（または新しい）分を送るために渡す
+window._cvFiltLocalEntries = function() {
+  const o = {};
+  Object.keys(_cvFiltAt).forEach(k => { if (_viewFilterSnapshots[k]) o[k] = { snap: _viewFilterSnapshots[k], at: _cvFiltAt[k] }; });
+  return o;
+};
+
 // カスタムビューの検索ワード等を localStorage/Firestore に遅延保存（キー入力ごとの
 // Firestore 書き込みを避けるためデバウンス）。永続対象は追加フィールドのみ・非破壊。
 let _cvPersistT = null;
@@ -113,18 +202,12 @@ function _cvPersistSoon() { clearTimeout(_cvPersistT); _cvPersistT = setTimeout(
 
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
-  const key = _curId || 'master';
-  const snap = window._uniSnapshotFilters(); // window.filters + boolean + titleQ
-  // そのリストの検索ワードも記憶（カード/テーブルの検索を1つにまとめる）
-  // _uniVideoQ（統合フィルターの「動画を探す」欄）は別物なので混ぜない
-  snap._search = (window.wkSearchWord ? window.wkSearchWord() : '') || _cvSrchQ || '';
-  _viewFilterSnapshots[key] = snap;
-  // 打った語は、そのセッションの中だけで覚える（上の _viewFilterSnapshots）。
+  clearTimeout(_cvFiltT);
+  _cvFiltRecord(_curId || 'master', _cvFiltCurrent());
   // リストの持ち物（view.searchQuery）としては保存しない（v52.872）。
   // 一度テストで打った「-quick」がリストに焼き付き、リロードのたびに復活して
-  // 「何度直しても0本のまま」になっていた。検索は一時的な操作であって、
-  // 手で選んだリストの中身の定義ではない。
-  // 保存済みの searchQuery は消さない（読まなくなるだけ）。
+  // 「何度直しても0本のまま」になっていた。覚えるのは上の _cvFiltRecord（端末の控えと
+  // クラウドの cvFilters。リストの本体とは別の場所）。保存済みの searchQuery は消さない（読まなくなるだけ）。
 }
 
 function _restoreFilterSnapshot(key) {
@@ -813,9 +896,8 @@ window._cvClearSelection = function() {
   window._cvCardVideoIds = null;
   window._cvOnViewChange?.();
   _restoreFilterSnapshot('master');
-  // リスト切替時は検索ボックスと残存バックアップを必ずクリア（独立保証）
-  ['si-lib-pc','si-org','si-org-pc','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
-  _cvSrchQ = '';
+  // 検索語は上の復元がマスターで覚えていた語を入れている（v52.959。以前はここで消していたので、マスターの語が毎回消えた）。
+  // 残存バックアップと「動画を探す」欄だけ消す
   window._uniVideoQ = '';
   window._cvFilterBackup = null;
   // マスターの表示形式を記憶から復元
@@ -3929,6 +4011,7 @@ window._cvClearFilters = function() {
 
 // AF() 実行後にテーブルビューも更新（window.AF ラッパーから呼ばれる）
 window._cvOnAfCalled = function() {
+  _cvFiltRecordSoon();   // 絞り込み・検索語が変わったら、そのリストの分として覚える（v52.959）
   if (!_curId || window._cvCardVideoIds) return; // テーブルビュー以外は無視
   const view = _views.find(v => v.id === _curId);
   if (view) _cvUpdateSearch(view);
