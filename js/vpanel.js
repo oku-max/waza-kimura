@@ -43,36 +43,21 @@ function _vpGetRate() {
   if (_gdVideoEl && isFinite(_gdVideoEl.playbackRate) && _gdVideoEl.playbackRate > 0) return _gdVideoEl.playbackRate;
   return (isFinite(_vpPlaybackRate) && _vpPlaybackRate > 0) ? _vpPlaybackRate : 1;
 }
-// YouTube で使える速さの一覧（動画ごとにプレイヤーが返す）。取れなければ null
-function _ytAvailRates() {
-  try {
-    const a = _ytPlayer?.getAvailablePlaybackRates?.();
-    return Array.isArray(a) && a.length ? a.map(Number).filter(x => isFinite(x) && x > 0).sort((x, y) => x - y) : null;
-  } catch(e) { return null; }
-}
-// YouTube は使える速さが決まっているので、一番近い値に寄せる（一覧が取れなければそのまま）
-function _ytSnapRate(r) {
-  const avail = _ytAvailRates();
-  return avail ? avail.reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a), avail[0]) : r;
-}
-// 今のプレイヤーで打ち込める速さの範囲（v52.960・オーナー「任意の速度に自由に」）。
-// Drive（ブラウザの <video>）は自由に変えられる。Chrome は4倍を超えると音が消えるので4倍まで。
-// YouTube は一覧の端から端まで（中の値は一覧に寄せる）。Vimeo は 0.5〜2 倍。
-function _vpRateLimits() {
-  if (_ytPlayer && _ytPlayerReady) { const a = _ytAvailRates(); return a ? { min: a[0], max: a[a.length - 1], yt: true } : { min: 0.25, max: 2, yt: true }; }
-  if (_vmPlayer) return { min: 0.5, max: 2 };
-  if (_gdVideoEl) return { min: 0.25, max: 4 };
-  return { min: 0.25, max: 2 };
-}
 // 再生速度を変更（現在のプレイヤーへ適用し、次の動画にも引き継ぐ）
 window.vpSetRate = function(rate) {
   let r = Number(rate);
   if (!isFinite(r) || r <= 0) r = 1;
-  const lim = _vpRateLimits();
-  r = Math.round(Math.max(lim.min, Math.min(lim.max, r)) * 100) / 100;
+  r = Math.max(0.25, Math.min(2, r));
   try {
     if (_ytPlayer && _ytPlayerReady && typeof _ytPlayer.setPlaybackRate === 'function') {
-      const target = _ytSnapRate(r);
+      // YouTube は端末ごとに選べる速度が決まっているので、一番近い値に寄せる
+      let target = r;
+      try {
+        const avail = _ytPlayer.getAvailablePlaybackRates?.();
+        if (Array.isArray(avail) && avail.length) {
+          target = avail.reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a), avail[0]);
+        }
+      } catch(e) {}
       _ytPlayer.setPlaybackRate(target);
       r = target;
     }
@@ -175,7 +160,7 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
       events: {
         onReady: (e) => {
           _ytPlayerReady = true;
-          if (_vpPlaybackRate !== 1) { try { _ytPlayer.setPlaybackRate(_ytSnapRate(_vpPlaybackRate)); } catch(e2) {} }
+          if (_vpPlaybackRate !== 1) { try { _ytPlayer.setPlaybackRate(_vpPlaybackRate); } catch(e2) {} }
           // autoplay:1 がブラウザにブロックされた場合の明示フォールバック
           if (autoplay) { try { _ytPlayer.playVideo(); } catch(e2) {} }
           _startTimeDisplay();
@@ -2064,7 +2049,7 @@ export function openVPanel(id) {
       if (isYTtoYT) {
         // プレイヤー再利用: loadVideoById は autoplay が保証される
         try {
-          if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1) _ytPlayer.setPlaybackRate(_ytSnapRate(_vpPlaybackRate));
+          if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1) _ytPlayer.setPlaybackRate(_vpPlaybackRate);
           _ytPlayer.loadVideoById(ytId, resumeAt);
           _startTimeDisplay();
         } catch(e) {
@@ -9570,59 +9555,17 @@ window.vpTogMoreMenu = function(e, id) {
       });
       spiSub.textContent = _vpRateLabel(cur);
       spi.classList.toggle('vp-smenu-on', Math.abs(cur - 1) > 0.001);
-      const fi = spi.querySelector('.vp-rate-in');
-      if (fi && document.activeElement !== fi) fi.value = String(Math.round(cur * 100) / 100);
     };
-    // 自由に打ち込む欄（v52.960・オーナー「任意の速度に自由に」）。− / ＋ は 0.05 ずつ。
-    // YouTube は使える速さが決まっているので、打った値が無ければ一番近い速さにして、そのことを書く
-    const freeRow = document.createElement('div');
-    freeRow.className = 'vp-rate-free';
-    const lim0 = _vpRateLimits();
-    freeRow.innerHTML = `<button type="button" class="vp-rate-step" data-d="-0.05" title="0.05 遅く">−</button>
-      <input type="number" class="vp-rate-in" inputmode="decimal" step="0.05" min="${lim0.min}" max="${lim0.max}" aria-label="再生速度">
-      <span class="vp-rate-x">×</span>
-      <button type="button" class="vp-rate-step" data-d="0.05" title="0.05 速く">＋</button>
-      <span class="vp-rate-range">${lim0.min}〜${lim0.max}×</span>`;
-    const note = document.createElement('div');
-    note.className = 'vp-rate-note';
-    const inp = freeRow.querySelector('.vp-rate-in');
-    const apply = (want) => {
-      const got = window.vpSetRate(want);
-      syncChips(); animItem(spi);
-      const w = Math.round(Number(want) * 100) / 100;
-      note.textContent = (isFinite(w) && Math.abs(got - w) > 0.001)
-        ? (_vpRateLimits().yt && w >= _vpRateLimits().min && w <= _vpRateLimits().max
-            ? `YouTubeの動画は決まった速さしか使えないので、${_vpRateLabel(got)}にしました（${(_ytAvailRates() || []).join(' / ')}）`
-            : `この動画で使える速さは ${_vpRateLimits().min}〜${_vpRateLimits().max}× なので、${_vpRateLabel(got)}にしました`)
-        : '';
-    };
-    freeRow.querySelectorAll('.vp-rate-step').forEach(b => {
-      b.onclick = (ev) => {
-        ev.stopPropagation();
-        const d = Number(b.dataset.d), cur = _vpGetRate();
-        let next = Math.round((cur + d) * 100) / 100;
-        // YouTube は一覧の隣の速さへ（0.05 ずつ押しても同じ速さに寄るだけで進まないため）
-        const avail = _vpRateLimits().yt ? _ytAvailRates() : null;
-        if (avail) next = d > 0 ? (avail.find(x => x > cur + 0.001) ?? cur) : ([...avail].reverse().find(x => x < cur - 0.001) ?? cur);
-        apply(next);
-      };
-    });
-    inp.addEventListener('click', ev => ev.stopPropagation());
-    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } });
-    inp.addEventListener('change', () => { if (inp.value !== '') apply(Number(inp.value)); });
     VP_RATES.forEach(r => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'vp-rate-chip';
       b.dataset.rate = String(r);
       b.textContent = _vpRateLabel(r);
-      b.onclick = (ev) => { ev.stopPropagation(); window.vpSetRate(r); note.textContent = ''; syncChips(); animItem(spi); };
+      b.onclick = (ev) => { ev.stopPropagation(); window.vpSetRate(r); syncChips(); animItem(spi); };
       chipBox.appendChild(b);
     });
-    const texts = spi.querySelector('.vp-smenu-texts');
-    texts.appendChild(chipBox);
-    texts.appendChild(freeRow);
-    texts.appendChild(note);
+    spi.querySelector('.vp-smenu-texts').appendChild(chipBox);
     syncChips();
     menu.appendChild(spi);
   }
@@ -9713,6 +9656,3 @@ function _vpGoSearchFree() {
 
 // 検査（tools/bm-divider-check.mjs）が自動チャプターの確認画面と書き込みを直接踏むための入口。画面からは使わない
 export const _chapDivTest = { review: _chapReviewDialog, apply: _applyChapters, sections: _chapSections, indexed: _divFromIndexed, refresh: _refreshBmList, nowSync: _bmNowSync };
-
-// 検査（tools/rate-free-check.mjs）が、YouTube の「決まった速さ」の動きを確かめるために偽のプレイヤーを差し込む入口。画面からは使わない
-export function _rateTestSetYt(p) { _ytPlayer = p; _ytPlayerReady = !!p; }

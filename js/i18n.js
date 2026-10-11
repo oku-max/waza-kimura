@@ -1998,7 +1998,6 @@
   const TEMPLATE_AUTO = {
     '大きな区切りに仕切りを入れる（#本）':'Add dividers at major breaks (#)',
     '#時間#分':'#h #m','#分':'# min','#秒':'# sec',
-    '#.# 遅く':'#.# slower','#.# 速く':'#.# faster',
     '前に自動で入れた仕切り#本は置き換えます。':'The # dividers added automatically before will be replaced. ',
     '手で入れた・直した仕切り#本はそのまま残します。':'The # dividers you added or edited will be kept.',
     'ブックマークが#本以上あるときに使えます':'Available when there are # or more bookmarks',
@@ -2348,9 +2347,6 @@
       const en = _autoMap.get(head);
       return en != null ? `${en} · ${cost}` : null;   // 知らない見出しは他のパターンに任せる
     }],
-    // 再生速度を打ち込んだとき（v52.960）
-    [/^YouTubeの動画は決まった速さしか使えないので、(.+?)にしました（(.+)）$/, 'YouTube videos only allow set speeds, so it was set to $1 ($2)'],
-    [/^この動画で使える速さは (.+?) なので、(.+?)にしました$/, 'This video allows $1, so it was set to $2'],
     [/^⚠️ 仕切りを探せませんでした: (.+)$/,
       (m, d) => `⚠️ Could not find dividers: ${_autoMap.get(d) || d}`],
     [/^⚠️ チャプターの検出に失敗: (.+)$/,
