@@ -121,7 +121,6 @@ window._notesLoadFromRemote = function(payload) {
 let _data = [];   // フォルダ配列
 let _root = [];   // フォルダなしノート配列
 let _activeId = null;
-window._notesActiveId = () => _activeId;   // アプリを切り替えて戻ったとき用（js/resume-state.js）
 let _recentIds = [];
 let _dragSrcNoteId = null;
 let _dragSrcIdx = null;
