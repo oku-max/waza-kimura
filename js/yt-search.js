@@ -59,6 +59,31 @@ window.ytSrSetQuery = function(q) {
   window.ytSrSearch?.();
 };
 
+// ── アプリを切り替えて戻ったとき用（js/resume-state.js が使う）──
+// スマホが裏のページを終わらせて起動し直しても、検索結果をそのまま出す。
+// もう一度 YouTube に問い合わせない（結果をそのまま控える）。控えるのはこの端末の中だけ。
+window.ytSrResumeGet = function() {
+  if (!_srItems.length) return null;
+  return { q: document.getElementById('yt-sr-input')?.value || '', mode: _srMode,
+           items: _srItems, next: _srNextToken, key: _srSortKey, dir: _srSortDir };
+};
+window.ytSrResumeSet = function(s) {
+  if (!s || !Array.isArray(s.items) || !s.items.length) return false;
+  const inp = document.getElementById('yt-sr-input');
+  if (inp) inp.value = s.q || '';
+  _srMode = s.mode === 'playlist' ? 'playlist' : 'video';
+  document.getElementById('yt-sr-tab-video')?.classList.toggle('on', _srMode === 'video');
+  document.getElementById('yt-sr-tab-playlist')?.classList.toggle('on', _srMode === 'playlist');
+  _srItems = s.items; _srNextToken = s.next || '';
+  _srSortKey = ['relevance', 'publishedAt', 'duration'].includes(s.key) ? s.key : 'relevance';
+  _srSortDir = s.dir === 'asc' ? 'asc' : 'desc';
+  const sel = document.getElementById('yt-sr-sort-sel'); if (sel) sel.value = _srSortKey;
+  const dirBtn = document.getElementById('yt-sr-sort-dir'); if (dirBtn) dirBtn.textContent = _srSortDir === 'asc' ? '↑' : '↓';
+  _renderCards(_sortedItems());
+  _updateHdr(_srItems.length);
+  return true;
+};
+
 // ── YT.Player（スキップ対応）──
 let _srYtPlayer  = null;
 let _srYtReady   = false;
