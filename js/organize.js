@@ -138,6 +138,13 @@ export function orgColLabel(col) {
   return ORG_COL_LABELS[col] || col;
 }
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
+// タイトル列の幅。ほかの列と同じ控え（wk_orgColWidths の title・この端末だけ）に入れる。
+// 以前はドラッグで広げても見た目だけで保存しておらず、描き直すたびに 180 に戻っていた（v52.963）
+function _orgTitleW() {
+  const n = parseInt(ORG_COL_WIDTHS.title, 10);
+  return n >= 80 && n <= 1200 ? n : 180;
+}
+window.orgTitleW = _orgTitleW;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
 let _orgThumbVisible = localStorage.getItem('wk_orgThumbVis') !== '0';
@@ -169,7 +176,7 @@ export function initOrgFixedHeaders() {
   const fixedDefs = [
     {key:'chk',   w:chkW,   label:''},
     {key:'thumb', w:thumbW, label:''},
-    {key:'title', w:180, label:'Title', sep:true, sortKey:'title'},
+    {key:'title', w:_orgTitleW(), label:'Title', sep:true, sortKey:'title'},
   ];
   let left = 0;
   fixedDefs.forEach(def => {
@@ -806,6 +813,7 @@ export function renderOrg() {
   const _chkW   = bulkOrg ? 40 : 0;
   const _thumbW = _orgThumbVisible ? 76 : 0;
   const _titleL = _chkW + _thumbW;
+  const _titleW = _orgTitleW();
   const tbody = document.getElementById('orgList');
   if (!tbody) return;
 
@@ -860,7 +868,7 @@ export function renderOrg() {
       <td class="org-td org-td-fixed org-td-fixed-thumb" style="left:${_chkW}px;width:${_thumbW}px;min-width:${_thumbW}px;${_orgThumbVisible?'padding:6px 8px':'display:none'}">
         ${_orgThumbVisible ? `<img class="org-thumb" src="${thumb}" onerror="this.style.background='var(--surface3)'" onclick="openVPanel('${v.id}')">` : ''}
       </td>
-      <td class="org-td org-td-fixed org-td-fixed-title org-col-sep" style="left:${_titleL}px" onclick="openVPanel('${v.id}')">
+      <td class="org-td org-td-fixed org-td-fixed-title org-col-sep" style="left:${_titleL}px;width:${_titleW}px;min-width:${_titleW}px;max-width:${_titleW}px" onclick="openVPanel('${v.id}')">
         <div class="org-title-text">${v.title}</div>
       </td>
       ${scrollCells}
@@ -972,7 +980,7 @@ export function syncOrgColHeaders() {
   // テーブル幅を全列の合計に明示設定（width:max-contentによる列幅の再分配を防止）
   const table = thead.closest('table');
   if (table) {
-    const fixedW = (!!(window.bulkMode && window.bulkCtx === 'organize') ? 40 : 0) + (_orgThumbVisible ? 76 : 0) + 180; // chk + thumb + title
+    const fixedW = (!!(window.bulkMode && window.bulkCtx === 'organize') ? 40 : 0) + (_orgThumbVisible ? 76 : 0) + _orgTitleW(); // chk + thumb + title
     let scrollW = 0;
     thead.querySelectorAll('th[data-col]').forEach(th => {
       scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
@@ -1026,6 +1034,7 @@ export function initOrgResize() {
       addResizeHandle(titleTh, () => {
         // CSS変数で固定列幅を更新
         const w = titleTh.offsetWidth;
+        ORG_COL_WIDTHS.title = w + 'px';
         titleTh.style.width = w + 'px';
         titleTh.style.minWidth = w + 'px';
         // tdも更新
@@ -1034,6 +1043,8 @@ export function initOrgResize() {
           td.style.minWidth = w + 'px';
           td.style.maxWidth = w + 'px';
         });
+      }, () => {
+        _saveOrgColPrefs();   // 離したときに保存（ほかの列と同じ）
       });
     }
   } catch(e) { console.error('initOrgResize error:', e); }
@@ -1095,7 +1106,7 @@ function _resizeEnd() {
   if (_resizeTh) {
     const table = _resizeTh.closest('table');
     if (table) {
-      const fixedW = 40 + 76 + 180;
+      const fixedW = 40 + 76 + _orgTitleW();
       let scrollW = 0;
       table.querySelectorAll('th[data-col]').forEach(th => {
         scrollW += th.offsetWidth || parseInt(th.style.width) || 120;

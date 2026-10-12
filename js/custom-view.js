@@ -1473,7 +1473,7 @@ function _addCvCols(view) {
 
     // 標準列のみの幅を計算（カスタム列削除後＝標準列のみの状態で計算）
     const table = theadRow.closest('table');
-    const fixedW = 40 + 76 + 180;
+    const fixedW = 40 + 76 + (window.orgTitleW?.() || 180);
     let scrollW = 0;
     theadRow.querySelectorAll('th[data-col]').forEach(th => {
       scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
@@ -1574,7 +1574,7 @@ function _addCvCols(view) {
         _save();
         const tbl = theadRow.closest('table');
         if (!tbl) return;
-        const fW = 40 + 76 + 180;
+        const fW = 40 + 76 + (window.orgTitleW?.() || 180);
         let sW = 0;
         tbl.querySelectorAll('thead tr th[data-col]').forEach(t => sW += t.offsetWidth || parseInt(t.style.width) || 120);
         tbl.style.width = (fW + sW) + 'px';
