@@ -60,7 +60,6 @@ const KNOWN = new Set([
   'tag-visibility-btns',                                         // 旧タグ表示切替
   'usm-input',                                                   // 絞り込みの入力
   'vp-ab-add-bm-row',                                            // VPanelのブックマーク行
-  'yt-sr-history-list',                                          // YouTube検索の履歴
 ]);
 
 const missing = [];

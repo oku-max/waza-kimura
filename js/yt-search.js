@@ -39,12 +39,8 @@ function _addToHistory(q) {
   _renderHistory();
 }
 function _renderHistory() {
-  const el = document.getElementById('yt-sr-history-list');
-  if (!el) return;
-  if (!_srHistory.length) {
-    el.innerHTML = '<div class="yt-sr-hist-empty">まだ検索していません</div>';
-    return;
-  }
+  // 描画先は index.html の #yt-sr-history-chips だけ。以前は無い #yt-sr-history-list を
+  // 先に探して黙って抜けていたので、履歴は保存されても一度も出ていなかった（v52.962）
   const chips = document.getElementById('yt-sr-history-chips');
   if (!chips) return;
   if (!_srHistory.length) { chips.style.display = 'none'; return; }
