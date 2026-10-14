@@ -65,6 +65,13 @@
     if (on) _autoAddOption(g, String(val), v);
     return true;
   };
+  // 動画を追加する画面（index.html の itagGetTagsFor）からも同じ決まりで選択肢に足す（v52.964）。
+  // 追加する瞬間に呼ぶ（打っただけ・追加をやめたときは足さない）。
+  window.wkAddTagOptionIfNew = function (gid, val) {
+    const g = _group(gid);
+    if (!g || val == null || val === '') return;
+    _autoAddOption(g, String(val), null);
+  };
   // 新しく打ち込んだ値は、選択肢にも足す（段階4）。
   // 「新しい」＝選択肢に無く、ほかのどの動画にも付いていない値。
   // 選択肢に無いのにほかの動画に付いている値（設定の「重複している可能性のあるタグ」に出るもの）は、勝手に足さない（設定で決める）。

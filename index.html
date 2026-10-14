@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.963</title>
+<title>WAZA KIMURA v52.964</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3112,6 +3112,8 @@ window.itagGetTagsFor = function (id, title, pl, ch) {
     const vals = (o[gid] || []).filter(Boolean); if (!vals.length) return;
     const g = R ? R.group(gid) : { store: gid.replace(/^f_/, '') };
     if (!g) return;
+    // 打ち込んだ新しい値は、動画パネルと同じ決まりで選択肢にも足す（追加する瞬間だけ。v52.964）
+    vals.forEach(val => window.wkAddTagOptionIfNew?.(gid, val));
     if (_ITAG_FIELDS.includes(g.store)) out[g.store] = [...new Set([...out[g.store], ...vals])];
     else if (g.store === 'map') (out.tg || (out.tg = {}))[gid] = [...new Set(vals)];
   });
@@ -3154,7 +3156,8 @@ const _itagArr = gid => { const t = itagCurrent(); return t[gid] || (t[gid] = []
 
 // ── タグ編集UI（Vパネル vpanel-v4.js と同一の .vp-chip / .vp-dd）──
 // タグ1〜4の枠に入っているグループを並べる（段階3c-2。新しいタググループも出る。マーク・習得は段階5）。
-// 見せ方は動画パネルと同じ: 選択肢が少なければ並べて押す、多ければプルダウン。新しい値を打ち込めるのはテクニック（tags）だけ。
+// 見せ方は動画パネルと同じ: 選択肢が少なければ並べて押す、多ければプルダウン。
+// 新しい値はどのグループでも打ち込める（動画パネルの v52.947 と同じ。以前はテクニックだけで、ほかは既存から選ぶしかなかった v52.964）。
 // 値は onclick の文字列に埋め込まず data 属性で渡す（' を含む値でボタンが壊れていた）。
 function _itagGroups() {
   const R = window.tagRegistry; if (!R) return [];
@@ -3187,23 +3190,18 @@ function itagRenderFields() {
   if (!c) return;
   const T = (k, fb) => window.t ? window.t(k, fb) : fb;
   const R = window.tagRegistry;
-  // 選択肢が1つも無いときに行が黙って空になると「選べなくなった」ようにしか見えない。
-  // 空なら理由と行き先を出す（CLAUDE.md: 直せないもの・無いものは、そう書く）。
-  const emptyNote = `<span style="font-size:11px;color:var(--text3)">${T('itag.noopts','選択肢がありません（設定 → タグ から追加できます）')}</span>`;
+  // 選択肢が1つも無いグループでも「＋ グループ名」が出るので、行が黙って空になることはない（その場で打ち込める）。
   const rows = _itagGroups().map(g => {
     const sel = _itagArr(g.id), cls = _itagCls(g), da = v => `data-gid="${_itagEsc(g.id)}"` + (v != null ? ` data-val="${_itagEsc(v)}"` : '');
-    const allowNew = g.store === 'tags';
+    const ph = g.store === 'tags' ? T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）') : T('itag.dd.new','検索・新規追加（Enterで追加）');
+    const dd = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" ${da()} onclick="itagOpenDd(this)" data-user-text="1">＋ ${_itagEsc(g.name)}</span>`
+      + `<div class="vp-dd" style="display:none"><input class="vp-dd-search" ${da()} placeholder="${_itagEsc(ph)}" oninput="itagDdFilter(this)" onkeydown="itagDdKey(event,this)"><div class="vp-dd-list"></div></div></div>`;
     let inner;
-    if (!allowNew && R.displayMode((g.options || []).length) === 'chips') {
+    if (R.displayMode((g.options || []).length) === 'chips') {
       const shown = (g.options || []).concat(sel.filter(v => !(g.options || []).includes(v)));
-      inner = shown.length
-        ? shown.map(v => `<span class="vp-chip${sel.includes(v) ? ' ' + cls : ''}" style="cursor:pointer" ${da(v)} onclick="itagChip(this)">${_itagEsc(_itagLbl(g, v))}</span>`).join('')
-        : emptyNote;
+      inner = shown.map(v => `<span class="vp-chip${sel.includes(v) ? ' ' + cls : ''}" style="cursor:pointer" ${da(v)} onclick="itagChip(this)">${_itagEsc(_itagLbl(g, v))}</span>`).join('') + dd;
     } else {
-      const ph = allowNew ? T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）') : T('itag.dd.filter','絞り込み...');
-      inner = sel.map(v => `<span class="vp-chip ${cls}" style="cursor:pointer" ${da(v)} onclick="itagChip(this)">${_itagEsc(_itagLbl(g, v))} ×</span>`).join('')
-        + `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" ${da()} onclick="itagOpenDd(this)">＋</span>`
-        + `<div class="vp-dd" style="display:none"><input class="vp-dd-search" ${da()} placeholder="${_itagEsc(ph)}" oninput="itagDdFilter(this)" onkeydown="itagDdKey(event,this)"><div class="vp-dd-list"></div></div></div>`;
+      inner = sel.map(v => `<span class="vp-chip ${cls}" style="cursor:pointer" ${da(v)} onclick="itagChip(this)">${_itagEsc(_itagLbl(g, v))} ×</span>`).join('') + dd;
     }
     return `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_itagEsc(g.name)}</span><div class="vp-chips">${inner}</div></div>`;
   }).join('');
@@ -3236,7 +3234,7 @@ function _itagDdList(inp) {
   const sel = _itagArr(g.id), ql = inp.value.trim().toLowerCase();
   const all = _itagCands(g).filter(v => !sel.includes(v))
     .filter(v => !ql || String(v).toLowerCase().includes(ql) || String(_itagLbl(g, v)).toLowerCase().includes(ql));
-  const none = g.store === 'tags' ? (window.t?.('itag.dd.tech.none','候補なし（Enterで新規追加）')) : (window.t?.('itag.dd.none','候補なし'));
+  const none = window.t ? window.t('itag.dd.tech.none','候補なし（Enterで新規追加）') : '候補なし（Enterで新規追加）';
   list.innerHTML = all.length
     ? all.map(v => `<div class="vp-dd-item" data-gid="${_itagEsc(g.id)}" data-val="${_itagEsc(v)}" onmousedown="itagDdPick(this)">${_itagEsc(_itagLbl(g, v))}</div>`).join('')
     : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${none}</div>`;
@@ -3252,9 +3250,8 @@ function itagDdKey(ev, inp) {
   ev.preventDefault();
   const R = window.tagRegistry, g = R && R.group(inp.dataset.gid); if (!g) return;
   const val = inp.value.trim(); if (!val) return;
-  // 新しい値を打ち込めるのはテクニックだけ。ほかは候補にあるものだけ（今までどおり）
-  const ok = g.store === 'tags' ? val : _itagCands(g).find(v => v === val || String(_itagLbl(g, v)) === val);
-  if (!ok) return;
+  // どのグループでも新しい値を打ち込める。候補の表示名（英語表示の訳）で打ったときは元の値を使う
+  const ok = _itagCands(g).find(v => v === val || String(_itagLbl(g, v)) === val) || val;
   const a = _itagArr(g.id); if (!a.includes(ok)) a.push(ok);
   itagRenderFields();
 }
