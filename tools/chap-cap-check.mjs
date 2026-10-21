@@ -35,8 +35,9 @@ const M = new Function(env + '\nreturn { CHAP_GRAINS, CHAP_GRAIN_KEYS, _chapGrai
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const D53 = 53 * 60 + 12;
 
-console.log('── ① 選ぶのは件数（10・20・30）──');
-ck('選べるのは 10件・20件・30件', JSON.stringify(M.CHAP_GRAIN_KEYS.map(k => M.CHAP_GRAINS[k].label)) === '["10件","20件","30件"]');
+console.log('── ① 選ぶのは件数（10〜60）──');
+ck('選べるのは 10件〜60件（10件刻み）', JSON.stringify(M.CHAP_GRAIN_KEYS.map(k => M.CHAP_GRAINS[k].label)) === '["10件","20件","30件","40件","50件","60件"]');
+ck('サーバーも60件まで受け取る', /Math\.min\(60, Math\.round\(Number\(o\.count\)\)\)/.test(wk));
 ck('既定は20件', M._chapGrainKey() === '20' && M._chapGrainKey('xx') === '20');
 ck('前の版の呼び方（細かめ・ふつう・大きめ）は近い件数に読む', M._chapGrainKey('fine') === '30' && M._chapGrainKey('normal') === '20' && M._chapGrainKey('coarse') === '10');
 ck('画面に 細かめ／ふつう／大きめ・「最大◯個」が残っていない', !/'細かめ'|'大きめ'|短めに区切る|ほどよく区切る|この動画なら最大/.test(vp));

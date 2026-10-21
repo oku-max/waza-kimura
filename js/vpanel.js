@@ -5120,8 +5120,11 @@ const CHAP_GRAINS = {
   '10': { count: 10, titleLen: 20, label: '10件' },
   '20': { count: 20, titleLen: 18, label: '20件' },
   '30': { count: 30, titleLen: 18, label: '30件' },
+  '40': { count: 40, titleLen: 18, label: '40件' },
+  '50': { count: 50, titleLen: 16, label: '50件' },
+  '60': { count: 60, titleLen: 16, label: '60件' },
 };
-const CHAP_GRAIN_KEYS = ['10', '20', '30'];
+const CHAP_GRAIN_KEYS = ['10', '20', '30', '40', '50', '60'];   // 60まで（v52.967・オーナー「60までにしろ」）
 const CHAP_GRAIN_OLD = { fine: '30', normal: '20', coarse: '10' };
 function _chapGrainKey(k) {
   k = CHAP_GRAIN_OLD[k] || (k == null ? k : String(k));
@@ -5538,7 +5541,7 @@ window.addEventListener('beforeunload', e => {
 // 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
 // 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
-// resolve は '10' | '20' | '30' / 戻る 'back' / キャンセルは null
+// resolve は '10'〜'60' / 戻る 'back' / キャンセルは null
 function _chapGrainDialog(via, duration) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-grain-bg')?.remove();
