@@ -461,7 +461,8 @@ function _genOptsFor(mode) {
   if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.3, what: '字幕', mediaResolution: 'MEDIA_RESOLUTION_LOW' };
   // チャプターは出力そのものは短いが「どこで話題が変わるか」の判断に思考を使わせたい。
   // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
-  if (mode === 'chapters') return { json: true, maxOutputTokens: 16384, thinkingBudget: 4096, temperature: 0.2, what: 'チャプター' };
+  // 長い動画を細かく区切ると100件を超える。16384 では思考ぶんを引くと足りず途中で切れるので広げる（v52.965。課金は実際に出た分だけ）
+  if (mode === 'chapters') return { json: true, maxOutputTokens: 32768, thinkingBudget: 4096, temperature: 0.2, what: 'チャプター' };
   // 要約は既定(8192)だと「細かめ」で足りず、途中で切れた本文がそのまま保存されていた。
   // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
   if (mode === 'summary') return { maxOutputTokens: 16384, thinkingBudget: 2048, what: '要約' };
@@ -542,7 +543,7 @@ const CHAP_TRANSCRIPT_MAX = 400000;  // 送られてくる字幕テキストの�
 function _aiChaptersPrompt(ctx, chapOpts, transcript) {
   const o = chapOpts || {};
   const minSec = Math.max(10, Math.min(600, Number(o.minSec) || CHAP_MIN_SEC));
-  const maxCount = Math.max(2, Math.min(80, Number(o.maxCount) || CHAP_MAX_COUNT));
+  const maxCount = Math.max(2, Math.min(200, Number(o.maxCount) || CHAP_MAX_COUNT));   // 上限は画面が動画の長さから出す（v52.965。以前は80で頭打ち）
   const titleLen = Math.max(6, Math.min(40, Number(o.titleLen) || 18));
 
   // チャプター一覧が渡された時は「位置合わせ」に切り替える。
@@ -585,6 +586,7 @@ ${source}
 - 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
 - start は時刻の早い順に並べ、同じ時刻を2回出さない
 - チャプターは最大${maxCount}件まで。迷ったら刻む（多い分は後から削れる）
+- 動画（字幕）の最後まで区切る。途中で打ち切らない
 - 実際に動画（字幕）に無い内容を推測で足さない
 
 {"items":[{"start":"M:SS または H:MM:SS","title":"短い日本語のタイトル","summary":"1文の補足（省略可）"}],"sections":[{"start":"items のどれかの start と同じ値","title":"まとまりの短い見出し"}]}`;

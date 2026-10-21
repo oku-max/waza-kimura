@@ -2291,6 +2291,9 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── 自動チャプターが動画の終わりより手前で止まったとき（時刻が入る・v52.965）──
+    [/^最後のチャプターが ([\d:]+) です（動画は ([\d:]+)）。後半が検出できていない可能性があります$/,
+      (m, last, dur) => `The last chapter starts at ${last} (the video is ${dur}). The later part may not have been detected`],
     // ── タググループの名前を変えたとき（名前が入る・Notion 項目03）──
     [/^グループ名を「(.+?)」にしました$/, (m, name) => `Renamed the group to "${name}"`],
     // ── タグの一括削除（グループ名と本数が入る・Notion 項目12）──
