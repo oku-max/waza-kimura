@@ -545,6 +545,8 @@ function _aiChaptersPrompt(ctx, chapOpts, transcript) {
   const minSec = Math.max(10, Math.min(600, Number(o.minSec) || CHAP_MIN_SEC));
   const maxCount = Math.max(2, Math.min(200, Number(o.maxCount) || CHAP_MAX_COUNT));   // 上限は画面が動画の長さから出す（v52.965。以前は80で頭打ち）
   const titleLen = Math.max(6, Math.min(40, Number(o.titleLen) || 18));
+  // 画面で選んだ件数（10・20・30。v52.966）。来ていなければ前の版の「最大◯件」で頼む
+  const count = Number(o.count) > 0 ? Math.max(2, Math.min(60, Math.round(Number(o.count)))) : 0;
 
   // チャプター一覧が渡された時は「位置合わせ」に切り替える。
   // 何が何件あるかは確定しているので、探すのは各章の開始時刻だけ。
@@ -585,7 +587,11 @@ ${source}
 【厳守】
 - 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
 - start は時刻の早い順に並べ、同じ時刻を2回出さない
-- チャプターは最大${maxCount}件まで。迷ったら刻む（多い分は後から削れる）
+${count
+  ? `- チャプターは${count}件前後（${Math.max(2, count - 2)}〜${count + 2}件）にする。
+- 先に動画（字幕）の最初から最後までを見渡し、話の量に合わせて${count}件を全体にまんべんなく配分してから区切る。頭から順に刻んでいって、後半を少なくしたり省いたりしない
+- 区切りの長さは内容に合わせてよいが、前半だけ細かく後半が粗い、のような偏りは作らない`
+  : `- チャプターは最大${maxCount}件まで。迷ったら刻む（多い分は後から削れる）`}
 - 動画（字幕）の最後まで区切る。途中で打ち切らない
 - 実際に動画（字幕）に無い内容を推測で足さない
 

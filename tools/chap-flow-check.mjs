@@ -101,8 +101,8 @@ ck('① 押すと真ん中に窓が1つ出て、作り方の選択肢がその�
 ck('② 「おすすめ」を付けない', !s1.opts.some(t => /おすすめ/.test(t)), s1.opts);
 ck('④ 字幕が無い動画では、字幕から検出の説明に「先に字幕を作ってから」と出る', s1.opts.some(t => /字幕から検出/.test(t) && /先に字幕を作ってから/.test(t)), s1.opts);
 await pg.click('#vp-flow-win .vp-flow-opt[data-v="sub"]');
-let s2 = await until(r => /細かめ/.test(r.body));
-ck('① 細かさが同じ窓・同じ位置・同じ大きさで出る（別の窓を出さない）', s2.visible && JSON.stringify(s2.rect) === JSON.stringify(s1.rect) && !s2.outside.length && /細かさ/.test(s2.crumbs) && /字幕の言語/.test(s2.crumbs), { s1: s1.rect, s2: s2.rect, out: s2.outside, c: s2.crumbs });
+let s2 = await until(r => /チャプターの数/.test(r.body));
+ck('① チャプターの数が同じ窓・同じ位置・同じ大きさで出る（別の窓を出さない）', s2.visible && JSON.stringify(s2.rect) === JSON.stringify(s1.rect) && !s2.outside.length && /件数/.test(s2.crumbs) && /字幕の言語/.test(s2.crumbs), { s1: s1.rect, s2: s2.rect, out: s2.outside, c: s2.crumbs });
 // ③
 await pg.click('#vp-chap-grain-back');
 let s3 = await until(r => r.opts.length >= 3);
@@ -110,8 +110,8 @@ ck('③ 「← 戻る」で作り方に戻る', s3.opts.length === 3 && JSON.str
 // ④ 字幕の言語も同じ窓
 await pg.evaluate(() => { window.__ai.hang = true; });
 await pg.click('#vp-flow-win .vp-flow-opt[data-v="sub"]');
-await until(r => /細かめ/.test(r.body));
-await pg.click('#vp-flow-win .vp-chap-grain-opt[data-g="normal"]');
+await until(r => /チャプターの数/.test(r.body));
+await pg.click('#vp-flow-win .vp-chap-grain-opt[data-g="20"]');
 let s4 = await until(r => r.opts.some(t => /原語のまま/.test(t)));
 ck('④ 字幕の言語が同じ窓・同じ位置に出る（字幕ボタンの下のメニューは出ない）', s4.opts.some(t => /日本語/.test(t)) && s4.opts.some(t => /原語のまま/.test(t)) && !s4.outside.length && JSON.stringify(s4.rect) === JSON.stringify(s1.rect) && /字幕がまだありません/.test(await pg.evaluate(() => document.querySelector('#vp-flow-win .vp-flow-note')?.textContent || '')), s4);
 await pg.click('#vp-flow-win .vp-flow-opt[data-v="ja"]');

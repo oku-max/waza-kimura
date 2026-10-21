@@ -1962,6 +1962,10 @@
       "How finely “📑 Auto chapters” splits a Google Drive video",
     "貼り付けた一覧から作る時は、その通りに区切るのでこの設定は使いません":
       "Not used when building from a list you entered — that follows the list exactly",
+    "チャプターの数": "Number of chapters",
+    "件数を変えて検出し直せます": "Pick another count to detect again",
+    "件数": "Count",
+    "動画全体にまんべんなく": "Spread evenly over the whole video",
     "刻みすぎ・粗すぎる時は粒度を変えて検出し直せます":
       "Too many or too few? Pick another granularity to detect again",
     "細かめ": "Finer",
@@ -2291,6 +2295,9 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── チャプターの数の説明（平均の長さが入る・v52.966）──
+    [/^動画全体にまんべんなく（平均 約(\d+)(分|秒)ごと）$/,
+      (m, n, u) => `Spread evenly over the whole video (about every ${n} ${u === '分' ? 'min' : 'sec'})`],
     // ── 自動チャプターが動画の終わりより手前で止まったとき（時刻が入る・v52.965）──
     [/^最後のチャプターが ([\d:]+) です（動画は ([\d:]+)）。後半が検出できていない可能性があります$/,
       (m, last, dur) => `The last chapter starts at ${last} (the video is ${dur}). The later part may not have been detected`],

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-// ═══ 自動チャプターが、動画の最後まで区切られること（v52.965）═══
+// ═══ 自動チャプター: 件数を選び、動画全体にまんべんなく区切ること（v52.965〜966）═══
 // 使い方: node tools/chap-cap-check.mjs
 //
-// なぜ要るか（2026-10-21 オーナー「53分ある動画なのに、39分とか途中で止まっちゃってん。MAX60しかできないように設定しちゃってんの？」）:
-//   件数の上限が粒度ごとの固定値（細かめ60・ふつう40・大きめ20）だった。AIには「最大60件」と頼み、
-//   多く返っても _normalizeChapters が早い順に60件だけ残す（slice(0, maxCount)）ので、後ろが黙って消えた。
-//   いまは上限を動画の長さから出す（_chapCap: 長さ ÷ 1つの最短の長さ。歯止め200）。
-//   サーバーも80で頭打ちにしていたので200まで通し、AIの返しの枠を 16384 → 32768 に広げた。
-//   それでも最後のチャプターが動画の8割より手前なら、確認画面に「後半が検出できていない可能性」と出す。
+// なぜ要るか:
+//   v52.965（オーナー「53分ある動画なのに、39分とか途中で止まっちゃってん」）: 件数の上限で、早い順に残して後ろを捨てていた。
+//   v52.966（オーナー「多すぎる。ユーザーに決めさせろ」「頭から決めていくんじゃなくて、全体を見てまんべんなく」
+//            「細かい／粗いは分かりにくいから数字にしろ。10、20、30」「最後の方が尻切れトンボにならないように」）:
+//   選ぶのは件数（10・20・30）。AIには全体を見渡してその件数でまんべんなく、と頼む。
+//   多く返ってきたら _chapThin が、いちばん詰まっている所から外して件数に合わせる（頭から切らない）。
+//   それでも最後が動画の8割より手前なら、確認画面に知らせる。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +19,7 @@ let ng = 0;
 const ck = (m, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') + m + (!ok && d !== undefined ? '  → ' + JSON.stringify(d).slice(0, 300) : '')); if (!ok) ng++; };
 const grab = (src, name) => {
   const i = src.search(new RegExp(`(?:export )?(?:async )?function ${name}\\(`));
-  if (i < 0) return '';
+  if (i < 0) throw new Error(name + ' が見つからない');
   let d = 0;
   for (let k = src.indexOf('{', i); k < src.length; k++) {
     if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (!d) return src.slice(i, k + 1); }
@@ -26,39 +27,47 @@ const grab = (src, name) => {
   return '';
 };
 const constLine = (src, name) => (src.match(new RegExp(`^const ${name}\\s*=.*$`, 'm')) || [''])[0];
-const grainsBlock = vp.slice(vp.indexOf('const CHAP_GRAINS = {'), vp.indexOf('};', vp.indexOf('const CHAP_GRAINS = {')) + 2);
-const env = [constLine(vp, 'CHAP_MIN_SEC'), constLine(vp, 'CHAP_MAX_COUNT'), constLine(vp, 'CHAP_LABEL_MAX'), constLine(vp, 'CHAP_CAP_MAX'),
-  grainsBlock, grab(vp, '_chapSec'), grab(vp, '_chapCap'), grab(vp, '_normalizeChapters')].join('\n');
-const M = new Function(env + '\nreturn { CHAP_GRAINS, _chapCap, _normalizeChapters };')();
+const block = (start) => vp.slice(vp.indexOf(start), vp.indexOf('};', vp.indexOf(start)) + 2);
+const env = [constLine(vp, 'CHAP_MIN_SEC'), constLine(vp, 'CHAP_MAX_COUNT'), constLine(vp, 'CHAP_LABEL_MAX'),
+  block('const CHAP_GRAINS = {'), constLine(vp, 'CHAP_GRAIN_KEYS'), constLine(vp, 'CHAP_GRAIN_OLD'),
+  ...['_chapGrainKey', '_chapGrain', '_chapMinSec', '_chapThin', '_chapSec', '_normalizeChapters'].map(n => grab(vp, n))].join('\n');
+const M = new Function(env + '\nreturn { CHAP_GRAINS, CHAP_GRAIN_KEYS, _chapGrainKey, _chapGrain, _chapMinSec, _chapThin, _normalizeChapters };')();
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
-console.log('── ① 上限は動画の長さから ──');
 const D53 = 53 * 60 + 12;
-ck('細かめ・53分12秒なら 127 件まで（固定の60ではない）', M._chapCap(M.CHAP_GRAINS.fine, D53) === 127, M._chapCap(M.CHAP_GRAINS.fine, D53));
-ck('ふつう・53分12秒なら 70 件まで', M._chapCap(M.CHAP_GRAINS.normal, D53) === 70, M._chapCap(M.CHAP_GRAINS.normal, D53));
-ck('長さが分からないときは今までの値（細かめ60）', M._chapCap(M.CHAP_GRAINS.fine, 0) === 60);
-ck('とても長い動画でも 200 で止める（暴走の歯止め）', M._chapCap(M.CHAP_GRAINS.fine, 4 * 3600) === 200);
 
-console.log('── ② 53分の動画に30秒おきの返し（106件）→ 最後まで残る ──');
-const items = []; for (let t = 0; t < D53 - 30; t += 30) items.push({ start: fmt(t), title: 't' + t });
-const kept = M._normalizeChapters(items, { duration: D53, minSec: 25, maxCount: M._chapCap(M.CHAP_GRAINS.fine, D53) });
-ck(`106件すべて残る（${kept.length}件・最後 ${fmt(kept.at(-1).time)}）`, kept.length === items.length && kept.at(-1).time > 50 * 60, { n: kept.length, last: kept.at(-1)?.time });
-const old = M._normalizeChapters(items, { duration: D53, minSec: 25, maxCount: 60 });
-ck(`（前の固定60だと ${fmt(old.at(-1).time)} で止まる＝報告と同じ形）`, old.length === 60 && old.at(-1).time < 40 * 60, { last: old.at(-1)?.time });
+console.log('── ① 選ぶのは件数（10・20・30）──');
+ck('選べるのは 10件・20件・30件', JSON.stringify(M.CHAP_GRAIN_KEYS.map(k => M.CHAP_GRAINS[k].label)) === '["10件","20件","30件"]');
+ck('既定は20件', M._chapGrainKey() === '20' && M._chapGrainKey('xx') === '20');
+ck('前の版の呼び方（細かめ・ふつう・大きめ）は近い件数に読む', M._chapGrainKey('fine') === '30' && M._chapGrainKey('normal') === '20' && M._chapGrainKey('coarse') === '10');
+ck('画面に 細かめ／ふつう／大きめ・「最大◯個」が残っていない', !/'細かめ'|'大きめ'|短めに区切る|ほどよく区切る|この動画なら最大/.test(vp));
+ck('AIへは選んだ件数（count）を渡す', /const freeOpts = \{ count: grain\.count,/.test(vp));
 
-console.log('── ③ 呼び出し側が固定値を使っていない ──');
-ck('検出の呼び出しは全部 _chapCap(grain, duration)', !/maxCount:\s*grain\.maxCount/.test(vp) && (vp.match(/maxCount: _chapCap\(grain, duration\)/g) || []).length === 3);
-ck('細かさを選ぶ画面の「最大◯個」も同じ関数から', /const capOf = g => _chapCap\(g, dur\);/.test(vp));
+console.log('── ② 多く返ってきても、頭から切らない（全体にまんべんなく減らす）──');
+// 前半30分に50件・後半23分に10件（前半に偏った返し）→ 20件に
+const items = [];
+for (let i = 0; i < 50; i++) items.push({ start: fmt(i * 36), title: 'a' + i });
+for (let i = 0; i < 10; i++) items.push({ start: fmt(1800 + i * 135), title: 'b' + i });
+const g20 = M._chapGrain('20');
+const kept = M._normalizeChapters(items, { duration: D53, minSec: M._chapMinSec(g20, D53), maxCount: g20.count });
+const late = kept.filter(c => c.time >= 1800).length;
+ck(`20件になる（${kept.length}件）`, kept.length === 20, kept.length);
+ck(`最後まで残る（最後 ${fmt(kept.at(-1).time)}）`, kept.at(-1).time >= 50 * 60, kept.at(-1).time);
+ck(`後半23分にも区切りが残る（${late}件）`, late >= 6, late);
+const gaps = kept.map((c, i) => (i + 1 < kept.length ? kept[i + 1].time : D53) - c.time);
+ck(`いちばん長い区切りが平均の3倍を超えない（最大 ${fmt(Math.max(...gaps))}・平均 ${fmt(Math.floor(D53 / 20))}）`, Math.max(...gaps) <= 3 * D53 / 20, gaps);
+ck('先頭（0:00）は残す', kept[0].time === 0);
+ck('少ないときは減らさない（12件 → 12件）', M._chapThin(kept.slice(0, 12), 20, D53).length === 12);
 
-console.log('── ④ サーバー（_worker.js）──');
-ck('サーバーは200まで通す（80で頭打ちにしない）', /Math\.min\(200, Number\(o\.maxCount\)/.test(wk) && !/Math\.min\(80, Number\(o\.maxCount\)/.test(wk));
-ck('チャプターのAIの返しの枠は 32768', /mode === 'chapters'\) return \{ json: true, maxOutputTokens: 32768/.test(wk));
-ck('AIに「最後まで区切る。途中で打ち切らない」と頼む', /動画（字幕）の最後まで区切る。途中で打ち切らない/.test(wk));
+console.log('── ③ サーバー（_worker.js）──');
+ck('件数（count）を受け取り、全体を見渡してまんべんなく配分するよう頼む', /const count = Number\(o\.count\) > 0/.test(wk)
+   && /最初から最後までを見渡し、話の量に合わせて\$\{count\}件を全体にまんべんなく配分/.test(wk) && /後半を少なくしたり省いたりしない/.test(wk));
+ck('前の版（count が無い）からの呼び出しは今までどおり', /: `- チャプターは最大\$\{maxCount\}件まで/.test(wk));
+ck('動画（字幕）の最後まで区切る・返しの枠 32768', /動画（字幕）の最後まで区切る。途中で打ち切らない/.test(wk) && /mode === 'chapters'\) return \{ json: true, maxOutputTokens: 32768/.test(wk));
 
-console.log('── ⑤ それでも途中で止まったら、黙って出さない ──');
+console.log('── ④ それでも途中で止まったら、黙って出さない ──');
 ck('最後のチャプターが動画の8割より手前なら、確認画面に知らせる', /lastT < duration \* 0\.8 && !warn\) warn = `最後のチャプターが/.test(vp));
 const i18n = fs.readFileSync(path.join(ROOT, 'js/i18n.js'), 'utf8');
-ck('その知らせは英語表示でも訳される', /最後のチャプターが \(\[\\\\d:\]\+\) です/.test(i18n) || i18n.includes('最後のチャプターが ([\\d:]+) です'));
+ck('新しい文言は英語表示でも訳される', ['"チャプターの数"', '"件数を変えて検出し直せます"', '"件数"', '"動画全体にまんべんなく"', '動画全体にまんべんなく（平均 約', '最後のチャプターが ('].every(k => i18n.includes(k)));
 
-console.log(ng ? `\n✗ ${ng}件の問題` : '\n✓ 自動チャプターは動画の最後まで区切る');
+console.log(ng ? `\n✗ ${ng}件の問題` : '\n✓ 自動チャプター: 件数を選び、動画全体にまんべんなく');
 process.exit(ng ? 1 : 0);

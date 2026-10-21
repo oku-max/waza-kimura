@@ -5104,36 +5104,52 @@ window.vpGenSubtitle = async function(id, preset) {
 //           おまけに検出時刻を字幕キューの頭にスナップできるので、発話の途中で切れない。
 //   video … 字幕が無い動画向け。字幕生成と同じ経路で動画本体をGeminiに読ませる（遅い・高い）。
 // 書き込みは必ず確認ダイアログを通す。既存のブックマークは消さず追加のみ（データ保護）。
-const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（'ふつう'の値）
-const CHAP_MAX_COUNT = 40;    // 検出件数の上限（'ふつう'の値）
+const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（呼び出し側が指定しないときの既定）
+const CHAP_MAX_COUNT = 40;    // 件数の上限（呼び出し側が指定しないときの既定）
 const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
 const CHAP_LABEL_MAX = 300;   // チャプター名の上限（暴走した返しへの歯止め。実在の名前は届かない長さ）
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
 
-// 検出の粒度。既定はふつう。確認ダイアログで選ぶ（設定画面の粒度は v52.882 で廃止）。
-// minSec は「これより短い区切りは作らない」、maxCount は動画の長さが分からないときだけの件数の上限（_chapCap）。
+// 検出の件数（v52.966・オーナー「細かい／粗いは分かりにくいから数字にしろ。10、20、30」「ユーザーに決めさせろ」）。
+// 以前は 細かめ／ふつう／大きめ（1つの最短の長さと件数の上限）で、上限で頭から切っていたので後ろが消えた。
+// いまは「何件に区切るか」を選び、AIには全体を見渡してその件数でまんべんなく区切ってもらう。
+// 多く返ってきたら、いちばん詰まっている所から減らして件数に合わせる（_chapThin。頭から切らない）。
+// 既定は20件。前の版の呼び出し（fine/normal/coarse）は近い件数に読み替える。
 const CHAP_GRAINS = {
-  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, label: '細かめ' },
-  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, label: 'ふつう' },
-  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, label: '大きめ' },
+  '10': { count: 10, titleLen: 20, label: '10件' },
+  '20': { count: 20, titleLen: 18, label: '20件' },
+  '30': { count: 30, titleLen: 18, label: '30件' },
 };
-const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
-
-// 既定はふつう。設定画面の粒度（aiSettings.chapterGrain）は v52.882 で画面ごと廃止したので読まない
-// （見えない保存値が既定になって、選んだ覚えのない粒度で区切られないように）。確認ダイアログで選ぶ
+const CHAP_GRAIN_KEYS = ['10', '20', '30'];
+const CHAP_GRAIN_OLD = { fine: '30', normal: '20', coarse: '10' };
 function _chapGrainKey(k) {
-  return CHAP_GRAINS[k] ? k : 'normal';
+  k = CHAP_GRAIN_OLD[k] || (k == null ? k : String(k));
+  return CHAP_GRAINS[k] ? k : '20';
 }
 function _chapGrain(k) { return CHAP_GRAINS[_chapGrainKey(k)]; }
-// 件数の上限は動画の長さから出す（1つ minSec 以上なので、それ以上は作れない）。
-// 以前は粒度ごとの固定値（細かめ60・ふつう40・大きめ20）で、53分の動画を細かめで作ると
-// AIには「最大60件」と頼み、多く返っても早い順に60件だけ残したので、39分で止まって後ろが消えていた（v52.965）。
-// 長さが分からないときだけ固定値を使う。CHAP_CAP_MAX は暴走した返しへの歯止め。
-const CHAP_CAP_MAX = 200;
-function _chapCap(g, dur) {
+// これより短い区切りは作らない（言い直し・同じ時刻の重なりを落とすため）。件数から決める:
+// 平均の長さの4分の1（10〜120秒）。長さが分からなければ30秒
+function _chapMinSec(g, dur) {
   const d = Number(dur) || 0;
-  return d > 0 ? Math.max(2, Math.min(CHAP_CAP_MAX, Math.floor(d / g.minSec))) : g.maxCount;
+  return d > 0 ? Math.max(10, Math.min(120, Math.floor(d / g.count / 4))) : 30;
+}
+// 件数より多いときは、いちばん詰まっている所（外したときにできる区切りがいちばん短くなる所）から1つずつ外す。
+// 先頭の区切りは残す。頭から n 件だけ残す（＝後ろを捨てる）ことはしない。
+function _chapThin(list, n, dur) {
+  const a = list.slice();
+  const end = Number(dur) > 0 ? Number(dur) : (a.length ? a[a.length - 1].time + 1 : 0);
+  while (a.length > Math.max(1, n)) {
+    let best = -1, bestLen = Infinity;
+    for (let i = 1; i < a.length; i++) {
+      const next = i + 1 < a.length ? a[i + 1].time : end;
+      const len = next - a[i - 1].time;
+      if (len < bestLen) { bestLen = len; best = i; }
+    }
+    if (best < 0) break;
+    a.splice(best, 1);
+  }
+  return a;
 }
 
 // チャプター用の時刻表記。_formatTime は 95:30 のように分が膨らむので、
@@ -5231,7 +5247,8 @@ function _normalizeChapters(items, opts) {
     }
     kept.push(c);
   }
-  return kept.slice(0, maxCount);
+  // 多いときは頭から切らず、詰まっている所から減らす（後ろを消さない v52.966）
+  return kept.length > maxCount ? _chapThin(kept, maxCount, dur) : kept;
 }
 
 // 検出時刻を字幕キューの先頭へ寄せる（発話の途中から始まるチャプターを防ぐ）
@@ -5521,16 +5538,12 @@ window.addEventListener('beforeunload', e => {
 // 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
 // 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
-// resolve は 'fine' | 'normal' | 'coarse' / キャンセルは null
+// resolve は '10' | '20' | '30' / 戻る 'back' / キャンセルは null
 function _chapGrainDialog(via, duration) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-grain-bg')?.remove();
     const cur = _chapGrainKey();
-    // 実際に作れる数は動画の長さで決まる。maxCount は安全弁にすぎないので、
-    // 尺と無関係に「最大◯個」とだけ書くと、短い動画では嘘になる
-    // （5分の動画に「最大60個」など）。長さが分かる時はそちらから上限を出す。
     const dur = Number(duration) || 0;
-    const capOf = g => _chapCap(g, dur);
     // 尺も切り上げない（54分33秒を「55分」と書かない）
     const durLabel = dur > 0
       ? (dur >= 3600 ? `${Math.floor(dur / 3600)}時間${Math.floor((dur % 3600) / 60)}分` : `${Math.floor(dur / 60)}分`)
@@ -5538,19 +5551,14 @@ function _chapGrainDialog(via, duration) {
     let bg = document.createElement('div');
     bg.id = 'vp-chap-grain-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
-    const word = { fine: '短めに区切る', normal: 'ほどよく区切る', coarse: '大きく区切る' };
-    // 150秒を「3分」と丸めると嘘になる。割り切れる時だけ分で書く。
-    const secLabel = s => s < 60 ? `${s}秒`
-      : (s % 60 === 0 ? `${s / 60}分` : `${Math.floor(s / 60)}分${s % 60}秒`);
-    const desc = k => {
-      const g = CHAP_GRAINS[k];
-      return `${word[k]}（1つ${secLabel(g.minSec)}以上）` + (dur > 0 ? ` · この動画なら最大${capOf(g)}個` : '');
-    };
+    // 平均の長さ。切り捨てて分で書く（1分未満は秒）
+    const avgLabel = g => { const a = Math.floor(dur / g.count); return a >= 60 ? `約${Math.floor(a / 60)}分` : `約${a}秒`; };
+    const desc = k => dur > 0 ? `動画全体にまんべんなく（平均 ${avgLabel(CHAP_GRAINS[k])}ごと）` : '動画全体にまんべんなく';
     bg.innerHTML = `
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの細かさ</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの数</div>
           <div id="vp-chap-grain-sub" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
             via === 'sub' ? `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}` : `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
         </div>
@@ -5560,8 +5568,7 @@ function _chapGrainDialog(via, duration) {
               style="display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;cursor:pointer;font-family:inherit;
                      border:1.5px solid ${k === cur ? 'var(--accent)' : 'var(--border)'};
                      background:${k === cur ? 'var(--gold-soft)' : 'transparent'};">
-              <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}${
-                k === cur ? '<span style="font-size:9.5px;font-weight:600;color:var(--text3,#999);margin-left:6px">前回と同じ</span>' : ''}</div>
+              <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}</div>
               <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc(k)}</div>
             </button>`).join('')}
         </div>
@@ -5874,7 +5881,7 @@ function _chapReviewDialog(chaps, info) {
         </div>
         ${info?.canRedo ? `
         <div style="padding:8px 14px 0">
-          <div style="font-size:10.5px;color:var(--text3,#999);margin-bottom:4px">刻みすぎ・粗すぎる時は粒度を変えて検出し直せます</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-bottom:4px">件数を変えて検出し直せます</div>
           <div style="display:flex;gap:5px">
             ${CHAP_GRAIN_KEYS.map(k => {
               const on = k === info.grain;
@@ -6212,7 +6219,7 @@ window.vpGenChapters = async function(id, preset) {
   const head = (sub, name) => {
     if (!job) return;
     const list = ['作り方',
-      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['細かさ', ...(subs.length ? [] : ['字幕の言語'])] : []),
+      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['件数', ...(subs.length ? [] : ['字幕の言語'])] : []),
       '作成中', '確認'];
     _flowWinHead(sub, list, Math.max(0, list.indexOf(name)));
   };
@@ -6356,7 +6363,8 @@ window.vpGenChapters = async function(id, preset) {
 
     for (;;) {
       const grain    = _chapGrain(grainKey);
-      const freeOpts = { minSec: grain.minSec, maxCount: _chapCap(grain, duration), titleLen: grain.titleLen };
+      // count＝選んだ件数（全体にまんべんなく）。maxCount は前の版のサーバー向けの写し
+      const freeOpts = { count: grain.count, minSec: _chapMinSec(grain, duration), maxCount: grain.count, titleLen: grain.titleLen };
       let chaps = [], cost = 0, noteSrc = '', warn = '', divs = [];
 
       if (via === 'yt') {
@@ -6412,7 +6420,7 @@ window.vpGenChapters = async function(id, preset) {
         const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: _chapCap(grain, duration) }), cues);
+        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: _chapMinSec(grain, duration), maxCount: grain.count }), cues);
         divs    = _chapSections(r.parsed?.sections, chaps);
         noteSrc = '字幕から検出';
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
@@ -6420,7 +6428,7 @@ window.vpGenChapters = async function(id, preset) {
       } else {
         const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: _chapCap(grain, duration) });
+        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: _chapMinSec(grain, duration), maxCount: grain.count });
         divs    = _chapSections(r.parsed?.sections, chaps);
         noteSrc = '動画から検出';
       }
