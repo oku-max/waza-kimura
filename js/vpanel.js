@@ -3208,7 +3208,23 @@ function _gdSubLabelOf(rem) {
   return { lang: rem, label: rem.toUpperCase() };
 }
 
-// 動画と同じフォルダから「動画名で始まる .srt / .vtt」をすべて探す
+// 字幕ファイルに「どの動画のものか」の印を付ける（v52.968・オーナー「Googleドライブ動画のファイル名かえると字幕ファイル見失う」）。
+// 以前は名前だけで突き合わせていたので、動画を短い名前（例「2」）に変えた瞬間に字幕が行方不明になった。
+// 印は Drive のファイルの appProperties（画面に出ない・中身と名前は変えない）。印があれば名前に関係なく見つかる。
+const GD_SUB_PROP = 'wkVideo';
+async function _gdSubTag(token, subId, videoFileId) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(subId)}?fields=id`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appProperties: { [GD_SUB_PROP]: videoFileId } }),
+  });
+  if (!res.ok) throw new Error(`Drive API ${res.status}`);
+}
+
+// 動画と同じフォルダから、この動画の .srt / .vtt をすべて探す。
+// ① 印（appProperties.wkVideo）がこの動画のもの ② 印が無く、名前が動画名と合うもの。
+// 印がほかの動画を指しているものは、名前が合っても拾わない（別の動画の字幕を出さない）。
+// ②で見つかったものには印を付けておく（次に動画の名前を変えても見失わない）。
 async function _gdFindSubtitleFiles(fileId, token) {
   if (_gdSubLookup.has(fileId)) return _gdSubLookup.get(fileId);
   let found = [];
@@ -3220,16 +3236,22 @@ async function _gdFindSubtitleFiles(fileId, token) {
     if (parent && base) {
       const nbase = _gdSubNorm(base);
       const q     = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
-      const list  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
+      const list  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name,appProperties)&pageSize=1000`, token);
+      const toTag = [];
       for (const f of (list?.files || [])) {
         if (!GD_SUB_EXT_RE.test(f.name)) continue;
+        const owner = f.appProperties?.[GD_SUB_PROP] || '';
+        if (owner && owner !== fileId) continue;            // ほかの動画の字幕
         const { stem, lang } = _gdSubStem(f.name.replace(GD_SUB_EXT_RE, ''));
-        const hit = _gdSubMatch(_gdSubNorm(stem), nbase);
+        const hit = owner === fileId ? { rem: '' } : _gdSubMatch(_gdSubNorm(stem), nbase);
         if (!hit) continue;
+        if (!owner) toTag.push(f.id);
         // 言語は末尾の .ja / .en から取る。無ければ残り文字から推測する（従来どおり）
         const info = lang ? _gdSubLabelOf(lang) : _gdSubLabelOf(hit.rem);
         found.push({ id: f.id, name: f.name, ...info });
       }
+      // 印付けは待たない・失敗しても字幕は出す（次に見つけたときにまた付ける）
+      for (const id of toTag) _gdSubTag(token, id, fileId).catch(e => console.warn('[字幕] 印を付けられませんでした:', e?.message || e));
       // 日本語 → 言語指定なし → その他 の順に並べる
       const rank = x => x.lang === 'ja' ? 0 : x.lang === '' ? 1 : 2;
       found.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
@@ -3246,6 +3268,43 @@ async function _gdFindSubtitleFiles(fileId, token) {
   if (!failed) _gdSubLookup.set(fileId, found);
   return found;
 }
+
+// 同じフォルダにある、どの動画のものでもない字幕（v52.968）。
+// 印が無く、フォルダのどの動画の名前とも合わないもの・印の動画がフォルダに無いもの。
+// 名前を変えたせいで見失った字幕を、ここから「この動画の字幕にする」で結び直す（印を付けるだけ・名前と中身は変えない）。
+async function _gdOrphanSubs(fileId, token) {
+  const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=parents`, token);
+  const parent = meta?.parents?.[0];
+  if (!parent) return [];
+  const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
+  const list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name,appProperties)&pageSize=1000`, token);
+  const files  = list?.files || [];
+  const others = files.filter(f => !GD_SUB_EXT_RE.test(f.name));
+  const ids    = new Set(others.map(f => f.id));
+  const bases  = others.map(f => _gdSubNorm(String(f.name).replace(/\.[^.]+$/, '')));
+  return files.filter(f => {
+    if (!GD_SUB_EXT_RE.test(f.name)) return false;
+    const owner = f.appProperties?.[GD_SUB_PROP] || '';
+    if (owner) return !ids.has(owner);
+    const nstem = _gdSubNorm(_gdSubStem(f.name.replace(GD_SUB_EXT_RE, '')).stem);
+    return !bases.some(b => _gdSubMatch(nstem, b));
+  }).map(f => ({ id: f.id, name: f.name }));
+}
+window.wkSubLinkOrphan = async function (subId) {
+  const token = window.getDriveTokenIfAvailable?.();
+  const fileId = _gdFileId;
+  if (!token || !fileId) { window.toast?.('動画を再生してから押してください'); return false; }
+  try {
+    await _gdSubTag(token, subId, fileId);
+    _gdSubLookup.delete(fileId);
+    await _gdSubReload(fileId, token);
+    window.toast?.('✅ この動画の字幕にしました');
+    return true;
+  } catch (e) {
+    window.toast?.('字幕を結びつけられませんでした: ' + (e?.message || e));
+    return false;
+  }
+};
 
 // ── 字幕が出ない時に、どこで止まっているかを見るための診断 ──
 // 「字幕が出ない」には、トークン切れ・フォルダが読めない・名前が合わない・
@@ -4436,9 +4495,11 @@ function _cleanSrt(t) {
   return s + '\n';
 }
 
-async function _driveUploadText(token, { name, parentId, text, existingId }) {
+async function _driveUploadText(token, { name, parentId, text, existingId, videoId }) {
   const boundary = 'wkbnd' + Math.random().toString(36).slice(2);
   const meta = existingId ? {} : { name, parents: [parentId] };
+  // どの動画の字幕かの印（v52.968）。動画の名前が変わっても見失わないように
+  if (videoId) meta.appProperties = { [GD_SUB_PROP]: videoId };
   const body = new Blob([
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
     `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n`, text, `\r\n`,
@@ -4874,7 +4935,7 @@ async function _asrGenerateAndSave(ctx) {
     }
     // 最後の砦: 字幕として成立していないものは、既存ファイルの上に絶対に書かない
     if (!_looksLikeSrt(text)) throw new Error('保存しようとした字幕が壊れています（保存を中止しました）');
-    await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id });
+    await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id, videoId: fileId });
     return { saved: true };
   };
 
@@ -5074,7 +5135,7 @@ window.vpGenSubtitle = async function(id, preset) {
     // 3. Driveへ保存（既存があればその中身だけ差し替え）
     setBtn('⏳ 保存中…');
     // 同名があればその中身だけ差し替える。別名の字幕しか無い場合は新規作成（既存には触れない）
-    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id });
+    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id, videoId: fileId });
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
@@ -6808,7 +6869,7 @@ async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want,
   setBtn?.('⏳ 保存中…');
   const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
   const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
-  await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id });
+  await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id, videoId: videoFileId });
   _gdSubLookup.delete(videoFileId);
   return { target, cost: r.cost, cues: r.cues, missing: r.missing };
 }
@@ -7937,7 +7998,20 @@ export async function vpSaveTitle(id) {
   if (v.pt === 'gdrive') {
     const fileId = v.id.replace('gd-', '');
     try {
-      await window.renameGdFile?.(fileId, newTitle);
+      // 名前を変える前に、今の名前で見つかる字幕へ「この動画のもの」の印を付ける（v52.968）。
+      // 変えた後は名前で突き合わせられなくなるため。拡張子（.mp4 等）も残す（以前は「2」だけになっていた）
+      let driveName = newTitle;
+      const token = window.getDriveTokenIfAvailable?.();
+      if (token) {
+        const meta = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name`, token).catch(() => null);
+        const ext = (/(\.(?:mp4|m4v|mov|webm|mkv|avi|wmv|mpg|mpeg|3gp))$/i.exec(String(meta?.name || '')) || [])[1] || '';
+        if (ext && !newTitle.toLowerCase().endsWith(ext.toLowerCase())) driveName = newTitle + ext;
+        _gdSubLookup.delete(fileId);
+        const subs = await _gdFindSubtitleFiles(fileId, token).catch(() => []);
+        await Promise.all(subs.map(f => _gdSubTag(token, f.id, fileId).catch(() => {})));
+      }
+      await window.renameGdFile?.(fileId, driveName);
+      _gdSubLookup.delete(fileId);
       window.toast?.('✅ タイトルを変更しました（Drive上のファイル名も更新）');
     } catch(e) {
       console.warn('Drive rename failed:', e);
@@ -9354,6 +9428,51 @@ function _subMenuBlock(box, closeMenu) {
     none.className = 'vp-sub-none';
     none.textContent = 'まだこの動画の字幕はありません';
     mine.appendChild(none);
+    // Drive の動画: 名前を変えて見失った字幕を、同じフォルダから選び直せる（v52.968）
+    if (_gdFileId) {
+      const orph = document.createElement('div');
+      orph.className = 'vp-sub-orphans';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vp-sub-orph-btn';
+      btn.textContent = '同じフォルダの字幕ファイルから選ぶ';
+      btn.onclick = async (ev) => {
+        ev.stopPropagation();
+        const token = window.getDriveTokenIfAvailable?.();
+        if (!token) { window.toast?.('Driveにログインしてから押してください'); return; }
+        btn.disabled = true; btn.textContent = '⏳ 探しています…';
+        let list = [];
+        try { list = await _gdOrphanSubs(_gdFileId, token); }
+        catch (e) { btn.disabled = false; btn.textContent = '同じフォルダの字幕ファイルから選ぶ'; window.toast?.('フォルダを読めませんでした: ' + (e?.message || e)); return; }
+        btn.remove();
+        if (!list.length) {
+          const n = document.createElement('div');
+          n.className = 'vp-sub-orph-note';
+          n.textContent = 'どの動画のものでもない字幕ファイルは、このフォルダにありません';
+          orph.appendChild(n);
+          return;
+        }
+        const n = document.createElement('div');
+        n.className = 'vp-sub-orph-note';
+        n.textContent = 'どの動画のものでもない字幕ファイル。押すとこの動画の字幕になります（ファイル名・中身は変えません）';
+        orph.appendChild(n);
+        for (const f of list) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'vp-sub-orph-pick';
+          b.textContent = f.name;
+          b.onclick = async (e2) => {
+            e2.stopPropagation();
+            b.disabled = true;
+            if (await window.wkSubLinkOrphan(f.id)) { b.textContent = '✓ ' + f.name; }
+            else b.disabled = false;
+          };
+          orph.appendChild(b);
+        }
+      };
+      orph.appendChild(btn);
+      mine.appendChild(orph);
+    }
   } else {
     // 出ているものは番号の丸が塗られる＝選択の印も兼ねる。
     for (const c of list) {

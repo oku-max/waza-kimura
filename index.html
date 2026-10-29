@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.967</title>
+<title>WAZA KIMURA v52.968</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -898,6 +898,10 @@
 .vp-sub-state { font-size: 9px; line-height: 1.5; color: var(--text3, #888);
   font-family: 'DM Mono', monospace; padding: 5px 4px 0; word-break: break-all; }
 .vp-sub-none { font-size: 10.5px; color: var(--text3, #888); padding: 2px 4px 4px; line-height: 1.6; }
+.vp-sub-orphans { display:flex; flex-direction:column; gap:4px; padding:0 4px 6px; }
+.vp-sub-orph-btn, .vp-sub-orph-pick { text-align:left; font-size:11px; padding:6px 9px; border-radius:7px; border:1px solid var(--border,#444); background:var(--surface2,#2a2a2a); color:var(--text2,#bbb); cursor:pointer; font-family:inherit; word-break:break-all; }
+.vp-sub-orph-btn:disabled, .vp-sub-orph-pick:disabled { opacity:.6; cursor:default; }
+.vp-sub-orph-note { font-size:10px; color:var(--text3,#888); line-height:1.5; }
 
 /* ── ••• メニュー: 再生速度チップ ── */
 .vp-rate-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }

@@ -1962,6 +1962,12 @@
       "How finely “📑 Auto chapters” splits a Google Drive video",
     "貼り付けた一覧から作る時は、その通りに区切るのでこの設定は使いません":
       "Not used when building from a list you entered — that follows the list exactly",
+    "同じフォルダの字幕ファイルから選ぶ": "Pick from subtitle files in the same folder",
+    "⏳ 探しています…": "⏳ Searching...",
+    "どの動画のものでもない字幕ファイルは、このフォルダにありません": "This folder has no subtitle files that are not tied to a video",
+    "どの動画のものでもない字幕ファイル。押すとこの動画の字幕になります（ファイル名・中身は変えません）": "Subtitle files not tied to any video. Tap one to use it for this video (its name and content stay as they are)",
+    "✅ この動画の字幕にしました": "✅ Now used as this video's subtitles",
+    "Driveにログインしてから押してください": "Sign in to Drive first",
     "チャプターの数": "Number of chapters",
     "件数を変えて検出し直せます": "Pick another count to detect again",
     "件数": "Count",
@@ -2295,6 +2301,9 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── Drive の字幕を結び直すとき（v52.968）──
+    [/^字幕を結びつけられませんでした: (.+)$/, (m, e) => `Could not link the subtitles: ${e}`],
+    [/^フォルダを読めませんでした: (.+)$/, (m, e) => `Could not read the folder: ${e}`],
     // ── チャプターの数の説明（平均の長さが入る・v52.966）──
     [/^動画全体にまんべんなく（平均 約(\d+)(分|秒)ごと）$/,
       (m, n, u) => `Spread evenly over the whole video (about every ${n} ${u === '分' ? 'min' : 'sec'})`],
