@@ -1541,6 +1541,9 @@ body.hide-tags .bb-bgrp-tags { display: none !important; }
 .ab-skip-minus{color:#2266aa;border-color:#2266aa}
 .ab-skip-plus{color:#c47a20;border-color:#c47a20}
 .ab-skip-nav{color:var(--text2);border-color:var(--border);flex:none}
+/* 前/次の動画（⏮⏭）はスマホだと時刻スキップに押されて約19pxまで縮んでいた。2倍の40pxに固定し、
+   そのぶん列のすき間とボタンの左右の余白を詰める（v52.969・オーナー「スマホだとスキップボタンが狭い。2倍にして」） */
+@media(max-width:767px){#vpanel-ctrl-row2{gap:2px!important}#vpanel-ctrl-row2 .ab-skip-btn{padding:3px 2px;letter-spacing:0}#vpanel-ctrl-row2 .ab-skip-btn.ab-skip-vnav{flex:0 0 40px}}
 body.dark .ab-skip-minus{color:#7ec8f5;border-color:#2d4a6e;background:#1c2e42}
 body.dark .ab-skip-plus{color:#f5b86e;border-color:#5c3a10;background:#3a2010}
 .ab-skip-arrow{font-size:8px;opacity:.75;line-height:1}
