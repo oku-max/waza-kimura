@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.969</title>
+<title>WAZA KIMURA v52.970</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -324,7 +324,13 @@
     window.bulkCtx = toMode === 'card' ? 'home' : 'organize';
   }
 
+  // 絞り込みを写すのは、カード⇔テーブルを本当に切り替えたときだけ（v52.970）。
+  // 以前は同じ表示のまま呼ばれても（ライブラリに戻る・チップで絞る等）、使っていない方の古い絞り込みで
+  // いま使っている方を上書きしていた。テーブル用に残っていたチャンネルが、リセット後のカードに戻ってきて0本になった。
+  let _libShown = null;   // 最後に実際に出した表示（'card' | 'org'）。最初の1回は今までどおり写す
   window._libView = function(mode) {
+    const _prevShown = _libShown;
+    _libShown = mode === 'card' ? 'card' : 'org';
     window._libViewMode = mode;
     const cardHost = document.getElementById('lib-card-host');
     const orgHost  = document.getElementById('lib-org-host');
@@ -337,7 +343,7 @@
     if (mode === 'card') {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
-      _syncLibFilters('org');
+      if (_prevShown !== 'card') _syncLibFilters('org');
       window.wkSetSearchWord?.(window.wkSearchWord?.() || '');   // 検索語を4つの欄にそろえる
       _transferLibBulk('card');
       if (cardHost)   cardHost.style.display   = '';
@@ -351,7 +357,7 @@
     } else {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
-      _syncLibFilters('lib');
+      if (_prevShown !== 'org') _syncLibFilters('lib');
       window.wkSetSearchWord?.(window.wkSearchWord?.() || '');   // 検索語を4つの欄にそろえる
       _transferLibBulk('org');
       if (cardHost)   cardHost.style.display   = 'none';
