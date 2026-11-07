@@ -206,6 +206,16 @@ ck('⑧ 新しい仕切りが無ければ、仕切りの列には何も触らな
   JSON.stringify(ap.v2.bmDividers)===JSON.stringify([{time:0,label:'前の自動',auto:true},{time:100,label:'手の仕切り'},'壊れた値']) && ap.r2.divs===0, ap.v2.bmDividers);
 ck('⑨ チャプターが全部入っていても、仕切りだけは入れられる（チャプターは二重に足さない）',
   ap.r3.added===0 && ap.r3.divs===1 && JSON.stringify(ap.v3.bookmarks)===ap.bm0, ap);
+// v52.971: 自動チャプターを足すと、足したチャプターの区切りが開いている（閉じた中に隠れて「保存されていない」に見えた）
+const op=await page.evaluate(()=>{
+  const T=window.__vp._chapDivTest; window._vpDivOpen={};
+  window.videos=[{id:'op1',bookmarks:[],bmDividers:[{time:900,label:'手の後半'}]}];
+  T.apply('op1',{chaps:[{time:0,label:'a'},{time:300,label:'b'},{time:600,label:'c'}],divs:[{time:0,label:'前半'},{time:600,label:'中盤'}]},0);
+  const keys=[...(window._vpDivOpen.op1||[])].sort();
+  return {keys, stored:JSON.stringify(window.videos[0]).includes('_vpDivOpen')||JSON.stringify(window.videos[0]).includes('open')};
+});
+ck('⑨ 自動チャプターを足すと、足したチャプターの区切りが開く（ほかの区切りは閉じたまま・開閉は動画に書かない）',
+  JSON.stringify(op.keys)===JSON.stringify(['0|前半','600|中盤']) && !op.stored, op);
 
 // ⑩ 後からAIで入れる
 const idx=await page.evaluate(()=>window.__vp._chapDivTest.indexed([{at:2,title:'1. A'},{at:2,title:'重複'},{at:0,title:'範囲外'},{at:9,title:'範囲外'},{at:5,title:''},{at:4,title:'B'}],6));
