@@ -3208,23 +3208,7 @@ function _gdSubLabelOf(rem) {
   return { lang: rem, label: rem.toUpperCase() };
 }
 
-// 字幕ファイルに「どの動画のものか」の印を付ける（v52.968・オーナー「Googleドライブ動画のファイル名かえると字幕ファイル見失う」）。
-// 以前は名前だけで突き合わせていたので、動画を短い名前（例「2」）に変えた瞬間に字幕が行方不明になった。
-// 印は Drive のファイルの appProperties（画面に出ない・中身と名前は変えない）。印があれば名前に関係なく見つかる。
-const GD_SUB_PROP = 'wkVideo';
-async function _gdSubTag(token, subId, videoFileId) {
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(subId)}?fields=id`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ appProperties: { [GD_SUB_PROP]: videoFileId } }),
-  });
-  if (!res.ok) throw new Error(`Drive API ${res.status}`);
-}
-
-// 動画と同じフォルダから、この動画の .srt / .vtt をすべて探す。
-// ① 印（appProperties.wkVideo）がこの動画のもの ② 印が無く、名前が動画名と合うもの。
-// 印がほかの動画を指しているものは、名前が合っても拾わない（別の動画の字幕を出さない）。
-// ②で見つかったものには印を付けておく（次に動画の名前を変えても見失わない）。
+// 動画と同じフォルダから「動画名で始まる .srt / .vtt」をすべて探す
 async function _gdFindSubtitleFiles(fileId, token) {
   if (_gdSubLookup.has(fileId)) return _gdSubLookup.get(fileId);
   let found = [];
@@ -3236,22 +3220,16 @@ async function _gdFindSubtitleFiles(fileId, token) {
     if (parent && base) {
       const nbase = _gdSubNorm(base);
       const q     = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
-      const list  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name,appProperties)&pageSize=1000`, token);
-      const toTag = [];
+      const list  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
       for (const f of (list?.files || [])) {
         if (!GD_SUB_EXT_RE.test(f.name)) continue;
-        const owner = f.appProperties?.[GD_SUB_PROP] || '';
-        if (owner && owner !== fileId) continue;            // ほかの動画の字幕
         const { stem, lang } = _gdSubStem(f.name.replace(GD_SUB_EXT_RE, ''));
-        const hit = owner === fileId ? { rem: '' } : _gdSubMatch(_gdSubNorm(stem), nbase);
+        const hit = _gdSubMatch(_gdSubNorm(stem), nbase);
         if (!hit) continue;
-        if (!owner) toTag.push(f.id);
         // 言語は末尾の .ja / .en から取る。無ければ残り文字から推測する（従来どおり）
         const info = lang ? _gdSubLabelOf(lang) : _gdSubLabelOf(hit.rem);
         found.push({ id: f.id, name: f.name, ...info });
       }
-      // 印付けは待たない・失敗しても字幕は出す（次に見つけたときにまた付ける）
-      for (const id of toTag) _gdSubTag(token, id, fileId).catch(e => console.warn('[字幕] 印を付けられませんでした:', e?.message || e));
       // 日本語 → 言語指定なし → その他 の順に並べる
       const rank = x => x.lang === 'ja' ? 0 : x.lang === '' ? 1 : 2;
       found.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
@@ -3268,43 +3246,6 @@ async function _gdFindSubtitleFiles(fileId, token) {
   if (!failed) _gdSubLookup.set(fileId, found);
   return found;
 }
-
-// 同じフォルダにある、どの動画のものでもない字幕（v52.968）。
-// 印が無く、フォルダのどの動画の名前とも合わないもの・印の動画がフォルダに無いもの。
-// 名前を変えたせいで見失った字幕を、ここから「この動画の字幕にする」で結び直す（印を付けるだけ・名前と中身は変えない）。
-async function _gdOrphanSubs(fileId, token) {
-  const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=parents`, token);
-  const parent = meta?.parents?.[0];
-  if (!parent) return [];
-  const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
-  const list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name,appProperties)&pageSize=1000`, token);
-  const files  = list?.files || [];
-  const others = files.filter(f => !GD_SUB_EXT_RE.test(f.name));
-  const ids    = new Set(others.map(f => f.id));
-  const bases  = others.map(f => _gdSubNorm(String(f.name).replace(/\.[^.]+$/, '')));
-  return files.filter(f => {
-    if (!GD_SUB_EXT_RE.test(f.name)) return false;
-    const owner = f.appProperties?.[GD_SUB_PROP] || '';
-    if (owner) return !ids.has(owner);
-    const nstem = _gdSubNorm(_gdSubStem(f.name.replace(GD_SUB_EXT_RE, '')).stem);
-    return !bases.some(b => _gdSubMatch(nstem, b));
-  }).map(f => ({ id: f.id, name: f.name }));
-}
-window.wkSubLinkOrphan = async function (subId) {
-  const token = window.getDriveTokenIfAvailable?.();
-  const fileId = _gdFileId;
-  if (!token || !fileId) { window.toast?.('動画を再生してから押してください'); return false; }
-  try {
-    await _gdSubTag(token, subId, fileId);
-    _gdSubLookup.delete(fileId);
-    await _gdSubReload(fileId, token);
-    window.toast?.('✅ この動画の字幕にしました');
-    return true;
-  } catch (e) {
-    window.toast?.('字幕を結びつけられませんでした: ' + (e?.message || e));
-    return false;
-  }
-};
 
 // ── 字幕が出ない時に、どこで止まっているかを見るための診断 ──
 // 「字幕が出ない」には、トークン切れ・フォルダが読めない・名前が合わない・
@@ -4495,11 +4436,9 @@ function _cleanSrt(t) {
   return s + '\n';
 }
 
-async function _driveUploadText(token, { name, parentId, text, existingId, videoId }) {
+async function _driveUploadText(token, { name, parentId, text, existingId }) {
   const boundary = 'wkbnd' + Math.random().toString(36).slice(2);
   const meta = existingId ? {} : { name, parents: [parentId] };
-  // どの動画の字幕かの印（v52.968）。動画の名前が変わっても見失わないように
-  if (videoId) meta.appProperties = { [GD_SUB_PROP]: videoId };
   const body = new Blob([
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
     `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n`, text, `\r\n`,
@@ -4935,7 +4874,7 @@ async function _asrGenerateAndSave(ctx) {
     }
     // 最後の砦: 字幕として成立していないものは、既存ファイルの上に絶対に書かない
     if (!_looksLikeSrt(text)) throw new Error('保存しようとした字幕が壊れています（保存を中止しました）');
-    await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id, videoId: fileId });
+    await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id });
     return { saved: true };
   };
 
@@ -5135,7 +5074,7 @@ window.vpGenSubtitle = async function(id, preset) {
     // 3. Driveへ保存（既存があればその中身だけ差し替え）
     setBtn('⏳ 保存中…');
     // 同名があればその中身だけ差し替える。別名の字幕しか無い場合は新規作成（既存には触れない）
-    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id, videoId: fileId });
+    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id });
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
@@ -5165,56 +5104,28 @@ window.vpGenSubtitle = async function(id, preset) {
 //           おまけに検出時刻を字幕キューの頭にスナップできるので、発話の途中で切れない。
 //   video … 字幕が無い動画向け。字幕生成と同じ経路で動画本体をGeminiに読ませる（遅い・高い）。
 // 書き込みは必ず確認ダイアログを通す。既存のブックマークは消さず追加のみ（データ保護）。
-const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（呼び出し側が指定しないときの既定）
-const CHAP_MAX_COUNT = 40;    // 件数の上限（呼び出し側が指定しないときの既定）
+const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（'ふつう'の値）
+const CHAP_MAX_COUNT = 40;    // 検出件数の上限（'ふつう'の値）
 const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
 const CHAP_LABEL_MAX = 300;   // チャプター名の上限（暴走した返しへの歯止め。実在の名前は届かない長さ）
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
 
-// 検出の件数（v52.966・オーナー「細かい／粗いは分かりにくいから数字にしろ。10、20、30」「ユーザーに決めさせろ」）。
-// 以前は 細かめ／ふつう／大きめ（1つの最短の長さと件数の上限）で、上限で頭から切っていたので後ろが消えた。
-// いまは「何件に区切るか」を選び、AIには全体を見渡してその件数でまんべんなく区切ってもらう。
-// 多く返ってきたら、いちばん詰まっている所から減らして件数に合わせる（_chapThin。頭から切らない）。
-// 既定は20件。前の版の呼び出し（fine/normal/coarse）は近い件数に読み替える。
+// 検出の粒度。既定はふつう。確認ダイアログで選ぶ（設定画面の粒度は v52.882 で廃止）。
+// minSec は「これより短い区切りは作らない」、maxCount は件数の上限。
 const CHAP_GRAINS = {
-  '10': { count: 10, titleLen: 20, label: '10件' },
-  '20': { count: 20, titleLen: 18, label: '20件' },
-  '30': { count: 30, titleLen: 18, label: '30件' },
-  '40': { count: 40, titleLen: 18, label: '40件' },
-  '50': { count: 50, titleLen: 16, label: '50件' },
-  '60': { count: 60, titleLen: 16, label: '60件' },
+  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, label: '細かめ' },
+  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, label: 'ふつう' },
+  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, label: '大きめ' },
 };
-const CHAP_GRAIN_KEYS = ['10', '20', '30', '40', '50', '60'];   // 60まで（v52.967・オーナー「60までにしろ」）
-const CHAP_GRAIN_OLD = { fine: '30', normal: '20', coarse: '10' };
+const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
+
+// 既定はふつう。設定画面の粒度（aiSettings.chapterGrain）は v52.882 で画面ごと廃止したので読まない
+// （見えない保存値が既定になって、選んだ覚えのない粒度で区切られないように）。確認ダイアログで選ぶ
 function _chapGrainKey(k) {
-  k = CHAP_GRAIN_OLD[k] || (k == null ? k : String(k));
-  return CHAP_GRAINS[k] ? k : '20';
+  return CHAP_GRAINS[k] ? k : 'normal';
 }
 function _chapGrain(k) { return CHAP_GRAINS[_chapGrainKey(k)]; }
-// これより短い区切りは作らない（言い直し・同じ時刻の重なりを落とすため）。件数から決める:
-// 平均の長さの4分の1（10〜120秒）。長さが分からなければ30秒
-function _chapMinSec(g, dur) {
-  const d = Number(dur) || 0;
-  return d > 0 ? Math.max(10, Math.min(120, Math.floor(d / g.count / 4))) : 30;
-}
-// 件数より多いときは、いちばん詰まっている所（外したときにできる区切りがいちばん短くなる所）から1つずつ外す。
-// 先頭の区切りは残す。頭から n 件だけ残す（＝後ろを捨てる）ことはしない。
-function _chapThin(list, n, dur) {
-  const a = list.slice();
-  const end = Number(dur) > 0 ? Number(dur) : (a.length ? a[a.length - 1].time + 1 : 0);
-  while (a.length > Math.max(1, n)) {
-    let best = -1, bestLen = Infinity;
-    for (let i = 1; i < a.length; i++) {
-      const next = i + 1 < a.length ? a[i + 1].time : end;
-      const len = next - a[i - 1].time;
-      if (len < bestLen) { bestLen = len; best = i; }
-    }
-    if (best < 0) break;
-    a.splice(best, 1);
-  }
-  return a;
-}
 
 // チャプター用の時刻表記。_formatTime は 95:30 のように分が膨らむので、
 // 1時間を超える動画では H:MM:SS にしてAIが誤読しないようにする。
@@ -5311,8 +5222,7 @@ function _normalizeChapters(items, opts) {
     }
     kept.push(c);
   }
-  // 多いときは頭から切らず、詰まっている所から減らす（後ろを消さない v52.966）
-  return kept.length > maxCount ? _chapThin(kept, maxCount, dur) : kept;
+  return kept.slice(0, maxCount);
 }
 
 // 検出時刻を字幕キューの先頭へ寄せる（発話の途中から始まるチャプターを防ぐ）
@@ -5602,12 +5512,16 @@ window.addEventListener('beforeunload', e => {
 // 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
 // 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
-// resolve は '10'〜'60' / 戻る 'back' / キャンセルは null
+// resolve は 'fine' | 'normal' | 'coarse' / キャンセルは null
 function _chapGrainDialog(via, duration) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-grain-bg')?.remove();
     const cur = _chapGrainKey();
+    // 実際に作れる数は動画の長さで決まる。maxCount は安全弁にすぎないので、
+    // 尺と無関係に「最大◯個」とだけ書くと、短い動画では嘘になる
+    // （5分の動画に「最大60個」など）。長さが分かる時はそちらから上限を出す。
     const dur = Number(duration) || 0;
+    const capOf = g => (dur > 0 ? Math.max(1, Math.min(g.maxCount, Math.floor(dur / g.minSec))) : g.maxCount);
     // 尺も切り上げない（54分33秒を「55分」と書かない）
     const durLabel = dur > 0
       ? (dur >= 3600 ? `${Math.floor(dur / 3600)}時間${Math.floor((dur % 3600) / 60)}分` : `${Math.floor(dur / 60)}分`)
@@ -5615,14 +5529,19 @@ function _chapGrainDialog(via, duration) {
     let bg = document.createElement('div');
     bg.id = 'vp-chap-grain-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
-    // 平均の長さ。切り捨てて分で書く（1分未満は秒）
-    const avgLabel = g => { const a = Math.floor(dur / g.count); return a >= 60 ? `約${Math.floor(a / 60)}分` : `約${a}秒`; };
-    const desc = k => dur > 0 ? `動画全体にまんべんなく（平均 ${avgLabel(CHAP_GRAINS[k])}ごと）` : '動画全体にまんべんなく';
+    const word = { fine: '短めに区切る', normal: 'ほどよく区切る', coarse: '大きく区切る' };
+    // 150秒を「3分」と丸めると嘘になる。割り切れる時だけ分で書く。
+    const secLabel = s => s < 60 ? `${s}秒`
+      : (s % 60 === 0 ? `${s / 60}分` : `${Math.floor(s / 60)}分${s % 60}秒`);
+    const desc = k => {
+      const g = CHAP_GRAINS[k];
+      return `${word[k]}（1つ${secLabel(g.minSec)}以上）` + (dur > 0 ? ` · この動画なら最大${capOf(g)}個` : '');
+    };
     bg.innerHTML = `
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの数</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの細かさ</div>
           <div id="vp-chap-grain-sub" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
             via === 'sub' ? `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}` : `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
         </div>
@@ -5632,7 +5551,8 @@ function _chapGrainDialog(via, duration) {
               style="display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;cursor:pointer;font-family:inherit;
                      border:1.5px solid ${k === cur ? 'var(--accent)' : 'var(--border)'};
                      background:${k === cur ? 'var(--gold-soft)' : 'transparent'};">
-              <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}</div>
+              <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}${
+                k === cur ? '<span style="font-size:9.5px;font-weight:600;color:var(--text3,#999);margin-left:6px">前回と同じ</span>' : ''}</div>
               <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc(k)}</div>
             </button>`).join('')}
         </div>
@@ -5945,7 +5865,7 @@ function _chapReviewDialog(chaps, info) {
         </div>
         ${info?.canRedo ? `
         <div style="padding:8px 14px 0">
-          <div style="font-size:10.5px;color:var(--text3,#999);margin-bottom:4px">件数を変えて検出し直せます</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-bottom:4px">刻みすぎ・粗すぎる時は粒度を変えて検出し直せます</div>
           <div style="display:flex;gap:5px">
             ${CHAP_GRAIN_KEYS.map(k => {
               const on = k === info.grain;
@@ -6283,7 +6203,7 @@ window.vpGenChapters = async function(id, preset) {
   const head = (sub, name) => {
     if (!job) return;
     const list = ['作り方',
-      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['件数', ...(subs.length ? [] : ['字幕の言語'])] : []),
+      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['細かさ', ...(subs.length ? [] : ['字幕の言語'])] : []),
       '作成中', '確認'];
     _flowWinHead(sub, list, Math.max(0, list.indexOf(name)));
   };
@@ -6427,8 +6347,7 @@ window.vpGenChapters = async function(id, preset) {
 
     for (;;) {
       const grain    = _chapGrain(grainKey);
-      // count＝選んだ件数（全体にまんべんなく）。maxCount は前の版のサーバー向けの写し
-      const freeOpts = { count: grain.count, minSec: _chapMinSec(grain, duration), maxCount: grain.count, titleLen: grain.titleLen };
+      const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen };
       let chaps = [], cost = 0, noteSrc = '', warn = '', divs = [];
 
       if (via === 'yt') {
@@ -6484,7 +6403,7 @@ window.vpGenChapters = async function(id, preset) {
         const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: _chapMinSec(grain, duration), maxCount: grain.count }), cues);
+        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }), cues);
         divs    = _chapSections(r.parsed?.sections, chaps);
         noteSrc = '字幕から検出';
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
@@ -6492,18 +6411,13 @@ window.vpGenChapters = async function(id, preset) {
       } else {
         const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: _chapMinSec(grain, duration), maxCount: grain.count });
+        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
         divs    = _chapSections(r.parsed?.sections, chaps);
         noteSrc = '動画から検出';
       }
 
       totalCost += cost;
       if (!chaps.length) return fail('チャプターを検出できませんでした');
-      // 検出したチャプターが動画の終わりよりずっと手前で止まっていたら、黙って出さずにそう書く（v52.965）
-      if (via !== 'list' && via !== 'yt' && duration >= 600) {
-        const lastT = chaps[chaps.length - 1].time;
-        if (lastT < duration * 0.8 && !warn) warn = `最後のチャプターが ${_formatTime(lastT)} です（動画は ${_formatTime(duration)}）。後半が検出できていない可能性があります`;
-      }
       endBtn();
 
       // 3. 確認してから書き込む（粒度を変えられたら検出からやり直す）
@@ -6869,7 +6783,7 @@ async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want,
   setBtn?.('⏳ 保存中…');
   const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
   const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
-  await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id, videoId: videoFileId });
+  await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id });
   _gdSubLookup.delete(videoFileId);
   return { target, cost: r.cost, cues: r.cues, missing: r.missing };
 }
@@ -7998,20 +7912,7 @@ export async function vpSaveTitle(id) {
   if (v.pt === 'gdrive') {
     const fileId = v.id.replace('gd-', '');
     try {
-      // 名前を変える前に、今の名前で見つかる字幕へ「この動画のもの」の印を付ける（v52.968）。
-      // 変えた後は名前で突き合わせられなくなるため。拡張子（.mp4 等）も残す（以前は「2」だけになっていた）
-      let driveName = newTitle;
-      const token = window.getDriveTokenIfAvailable?.();
-      if (token) {
-        const meta = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name`, token).catch(() => null);
-        const ext = (/(\.(?:mp4|m4v|mov|webm|mkv|avi|wmv|mpg|mpeg|3gp))$/i.exec(String(meta?.name || '')) || [])[1] || '';
-        if (ext && !newTitle.toLowerCase().endsWith(ext.toLowerCase())) driveName = newTitle + ext;
-        _gdSubLookup.delete(fileId);
-        const subs = await _gdFindSubtitleFiles(fileId, token).catch(() => []);
-        await Promise.all(subs.map(f => _gdSubTag(token, f.id, fileId).catch(() => {})));
-      }
-      await window.renameGdFile?.(fileId, driveName);
-      _gdSubLookup.delete(fileId);
+      await window.renameGdFile?.(fileId, newTitle);
       window.toast?.('✅ タイトルを変更しました（Drive上のファイル名も更新）');
     } catch(e) {
       console.warn('Drive rename failed:', e);
@@ -9428,51 +9329,6 @@ function _subMenuBlock(box, closeMenu) {
     none.className = 'vp-sub-none';
     none.textContent = 'まだこの動画の字幕はありません';
     mine.appendChild(none);
-    // Drive の動画: 名前を変えて見失った字幕を、同じフォルダから選び直せる（v52.968）
-    if (_gdFileId) {
-      const orph = document.createElement('div');
-      orph.className = 'vp-sub-orphans';
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'vp-sub-orph-btn';
-      btn.textContent = '同じフォルダの字幕ファイルから選ぶ';
-      btn.onclick = async (ev) => {
-        ev.stopPropagation();
-        const token = window.getDriveTokenIfAvailable?.();
-        if (!token) { window.toast?.('Driveにログインしてから押してください'); return; }
-        btn.disabled = true; btn.textContent = '⏳ 探しています…';
-        let list = [];
-        try { list = await _gdOrphanSubs(_gdFileId, token); }
-        catch (e) { btn.disabled = false; btn.textContent = '同じフォルダの字幕ファイルから選ぶ'; window.toast?.('フォルダを読めませんでした: ' + (e?.message || e)); return; }
-        btn.remove();
-        if (!list.length) {
-          const n = document.createElement('div');
-          n.className = 'vp-sub-orph-note';
-          n.textContent = 'どの動画のものでもない字幕ファイルは、このフォルダにありません';
-          orph.appendChild(n);
-          return;
-        }
-        const n = document.createElement('div');
-        n.className = 'vp-sub-orph-note';
-        n.textContent = 'どの動画のものでもない字幕ファイル。押すとこの動画の字幕になります（ファイル名・中身は変えません）';
-        orph.appendChild(n);
-        for (const f of list) {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'vp-sub-orph-pick';
-          b.textContent = f.name;
-          b.onclick = async (e2) => {
-            e2.stopPropagation();
-            b.disabled = true;
-            if (await window.wkSubLinkOrphan(f.id)) { b.textContent = '✓ ' + f.name; }
-            else b.disabled = false;
-          };
-          orph.appendChild(b);
-        }
-      };
-      orph.appendChild(btn);
-      mine.appendChild(orph);
-    }
   } else {
     // 出ているものは番号の丸が塗られる＝選択の印も兼ねる。
     for (const c of list) {
