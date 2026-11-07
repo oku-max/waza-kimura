@@ -188,6 +188,99 @@ let _notesUnsubscribe = null;
 let _murmursUnsubscribe = null;
 let _videosUnsubscribe = null;
 let _videosLoadedAt = '';
+// この端末が最後に「クラウドと同じ」だと確かめた中身（読んだ／書いた videos.json の文字列そのもの）。
+// ほかの端末が後から保存していたとき、この端末で何を変えたかを、これとの差で知る（v52.972）。
+let _videosBaseText = '';
+
+// ── ほかの端末の保存と、この端末の変更を合わせる（v52.972）─────────────────
+// 以前は、ほかの端末が後から1回でも保存していると、この端末の保存を全部止めていた（トースト1回だけ）。
+// 変更は画面の中にしか残らず、再読み込みでほかの端末の版に入れ替わって消えた
+// （オーナー「自動チャプター作成しても保存されない」「今開いている端末が一番最新だろう」）。
+// ほかの端末の保存は、操作しなくても起きる（読み込み時の変換・長さの補完・サムネ）。
+// いまは、クラウドの最新を読み直し、前に読んだ版(base)との差で決める:
+//   ・この端末で変えた項目 → この端末の値（同じ項目をほかの端末も変えていたら、この端末が勝つ）
+//   ・この端末で変えていない項目 → クラウドの値（ほかの端末の変更を残す）
+//   ・ほかの端末で足した動画 → 足す / この端末で足した動画 → 残す
+//   ・この端末で消した動画 → 消す / ほかの端末で消した動画 → この端末で変えていなければ消す、変えていれば残す（消える側に倒さない）
+// 純粋な関数。何も書かない。
+function _mergeVideos(base, local, server) {
+  const J = x => JSON.stringify(x === undefined ? null : x);
+  const byId = arr => { const m = new Map(); for (const v of (arr || [])) if (v && v.id != null) m.set(v.id, v); return m; };
+  const B = byId(base), L = byId(local), S = byId(server);
+  const out = [];
+  const st = { mine: 0, theirs: 0, both: 0, addedHere: 0, addedThere: 0, keptDeletedThere: 0 };
+  const mergeOne = (b, l, s) => {
+    const m = {};
+    const keys = new Set([...Object.keys(s), ...Object.keys(l), ...Object.keys(b)]);
+    for (const k of keys) {
+      const changedHere = J(l[k]) !== J(b[k]);
+      const v = changedHere ? l[k] : s[k];
+      if (v !== undefined) m[k] = v;
+    }
+    return m;
+  };
+  for (const l of (local || [])) {
+    if (!l || l.id == null) continue;
+    const b = B.get(l.id), s = S.get(l.id);
+    if (!b) { out.push(s ? mergeOne({}, l, s) : l); st.addedHere++; continue; }   // この端末で足した
+    const here = J(l) !== J(b);
+    if (!s) { if (here) { out.push(l); st.keptDeletedThere++; } continue; }       // ほかの端末で消した
+    const there = J(s) !== J(b);
+    if (here && there) { out.push(mergeOne(b, l, s)); st.both++; }
+    else if (here) { out.push(l); st.mine++; }
+    else { out.push(s); if (there) st.theirs++; }
+  }
+  for (const s of (server || [])) {
+    if (!s || s.id == null || L.has(s.id)) continue;
+    if (B.has(s.id)) continue;            // この端末で消した
+    out.push(s); st.addedThere++;         // ほかの端末で足した
+  }
+  return { videos: out, stats: st };
+}
+window._wkMergeVideos = _mergeVideos;   // 検査用（読むだけ）
+
+// 合わせた結果を画面の動画に入れる。開いている動画パネルが持つ参照を切らないよう、同じ id の動画は中身だけ差し替える
+function _applyMerged(merged) {
+  const cur = new Map((window.videos || []).map(v => [v?.id, v]));
+  const temp = (window.videos || []).filter(v => v && v._srTemp);
+  const next = merged.map(m => {
+    const o = cur.get(m.id);
+    if (!o || o === m) return m;
+    for (const k of Object.keys(o)) if (!(k in m)) delete o[k];
+    Object.assign(o, m);
+    return o;
+  });
+  window.videos = next.concat(temp);
+}
+
+// クラウドの最新を読み直して合わせる。成功したら合わせた後の版の時刻を返す。読めなければ null（保存しない）
+async function _mergeWithServer(ref) {
+  if (!_videosBaseText) return null;
+  let base, server;
+  try { base = JSON.parse(_videosBaseText); } catch (e) { return null; }
+  const resp = await fetch(await ref.getDownloadURL(), { cache: 'no-store' });
+  if (!resp.ok) return null;
+  const text = await resp.text();
+  try { server = JSON.parse(text); } catch (e) { return null; }
+  if (!Array.isArray(server?.videos) || !Array.isArray(base?.videos)) return null;
+  // 手元の動画は読み込み時の変換（_applyVideosData）を通っている。基準とクラウドにも同じ変換をかけてから比べる
+  // （かけないと、変換で変わった項目を「この端末で変えた」と取り違え、ほかの端末の変更を古い値で潰す）
+  const conv = arr => {
+    let a = arr;
+    if (window.migrateAllVideos) a = window.migrateAllVideos(a);
+    a.forEach(v => { if (v.status === '把握' || v.status === '習得中') v.status = window.normStatus?.(v.status) ?? v.status; });
+    try { window.tagRegistry?.migrateMarkStatus?.(a); } catch (e) {}
+    return a;
+  };
+  const local = (window.videos || []).filter(v => !v._srTemp);
+  const r = _mergeVideos(conv(base.videos), local, conv(server.videos));
+  _applyMerged(r.videos);
+  _videosBaseText = text;
+  _videosCloudCount = server.videos.length;   // 本数の歯止めは、いまのクラウドの本数と比べる
+  console.log('[saveUserData] ほかの端末の変更と合わせました:', r.stats, server.updatedAt);
+  try { window.AF?.(); } catch (e) {}
+  return { at: server.updatedAt || '', stats: r.stats };
+}
 // ── 保存ガード用フラグ（v52.558）──
 // クラウドの状態を「確実に把握できた」ときだけ true。読み込み失敗時は false のままにして、
 // 空/部分データでクラウドを上書きする事故（cf. v52.541 カスタムビュー消失）を防ぐ。
@@ -452,6 +545,8 @@ export async function loadUserData(uid) {
         }
         window.__pmark?.('v_apply');
         _videosLoadedAt = json.updatedAt || '';
+        // 合わせるときの基準。控えと同じ版で、控えを出している間に変更していたら、変更前＝読んだ中身
+        _videosBaseText = rawText;
         _videosSource = 'storage';
         loaded = true;
         if (!needsSave) _vcWrite(uid, rawText, json.updatedAt);   // 読んだものをそのまま控える（保存するなら保存の後で控える）
@@ -573,9 +668,16 @@ export async function saveUserData() {
         return false;
       }
       if (serverUpdatedAt && _videosLoadedAt && serverUpdatedAt > _videosLoadedAt) {
-        console.warn('[saveUserData] 競合検出 — サーバー:', serverUpdatedAt, '自分がロードした時刻:', _videosLoadedAt);
-        showToast('⚠️ 別の端末で更新されています。ページを更新してから再操作してください', 7000);
-        return false;
+        // ほかの端末が後から保存していた。止めずに、クラウドの最新にこの端末の変更を重ねて保存する（v52.972）
+        console.warn('[saveUserData] ほかの端末の保存あり — サーバー:', serverUpdatedAt, '自分が読んだ版:', _videosLoadedAt);
+        let mg = null;
+        try { mg = await _mergeWithServer(ref); } catch (e) { console.warn('[saveUserData] 合わせられませんでした:', e?.message || e); }
+        if (!mg) {
+          // 最新を読めなかった・前に読んだ版が無い → 書かない（ほかの端末の変更を潰さない）。変更は画面に残っている
+          showToast('⚠️ 別の端末で更新されています。最新を読めなかったので保存していません（通信を確認してもう一度操作してください）', 8000);
+          return false;
+        }
+        _videosLoadedAt = mg.at || serverUpdatedAt;
       }
     } catch (metaErr) {
       if (metaErr.code === 'storage/object-not-found') {
@@ -619,6 +721,7 @@ export async function saveUserData() {
     });
     // 書き終えた内容＝いま手元の内容なので、この時点で「Storage由来」になる
     _videosSource = 'storage';
+    _videosBaseText = _text;
     _vcWrite(uid, _text, updatedAt);   // クラウドに書いたものと同じ文字列を控える
     _videosCloudCount = videos.length;
     _deleteIntent = 0;
