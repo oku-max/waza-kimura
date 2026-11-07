@@ -1254,7 +1254,6 @@
     "⚠️ 保存中です。しばらくしてから再試行してください": "⚠️ Saving. Please try again in a moment.",
     "⚠️ 先にGoogleでログインしてください": "⚠️ Please sign in with Google first",
     "⚠️ 別の端末で更新されています。ページを更新してから再操作してください": "⚠️ Updated on another device. Please refresh the page and try again.",
-    "⚠️ 別の端末で更新されています。最新を読めなかったので保存していません（通信を確認してもう一度操作してください）": "⚠️ Updated on another device. Could not read the latest version, so nothing was saved (check your connection and try again).",
     "⚠️ 取得エラー:": "⚠️ Fetch error:",
     "⚠️ 同期に失敗しました:": "⚠️ Sync failed:",
     "⚠️ 同期エラー:": "⚠️ Sync error:",

@@ -6129,10 +6129,6 @@ function _applyChapters(id, sel, duration) {
   v.bookmarks.sort((a, b) => a.time - b.time);
   // 仕切りは、もう全部入っているチャプターに対してだけでも入れられる（再実行で仕切りだけ欲しい時）
   const divs = _applyChapterDividers(v, sel.divs);
-  // 足したチャプターの区切りは開いて見せる（v52.971）。仕切りの区切りは最初は閉じている（v52.956）ので、
-  // 自動チャプターは仕切りも一緒に入ると全部が閉じた中に入り、仕切りの行しか見えず「保存されていない」に見えた。
-  // 1件ずつ足すときと同じ _divOpenFor。開閉は画面の中だけ（動画のデータに書かない）
-  for (const c of list) _divOpenFor(id, c.time);
   if (list.length || divs || sel.replaceAll || sel.replaceAuto) {
     window.debounceSave?.();
     _refreshBmList(id);
