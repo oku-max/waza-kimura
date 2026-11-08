@@ -2000,6 +2000,9 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '✅ タイトルを変更しました（Drive上のファイル名も更新）／字幕#件の名前も変更':'✅ Title updated (Drive filename too) / renamed # subtitle files',
+    '✅ タイトルを変更しました（Drive上のファイル名も更新）／字幕#件は名前を変えられませんでした':'✅ Title updated (Drive filename too) / could not rename # subtitle files',
+    '✅ タイトルを変更しました（Drive上のファイル名も更新）／字幕#件の名前も変更／字幕#件は名前を変えられませんでした':'✅ Title updated (Drive filename too) / renamed # subtitle files / could not rename #',
     '大きな区切りに仕切りを入れる（#本）':'Add dividers at major breaks (#)',
     '#時間#分':'#h #m','#分':'# min','#秒':'# sec',
     '前に自動で入れた仕切り#本は置き換えます。':'The # dividers added automatically before will be replaced. ',

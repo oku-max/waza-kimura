@@ -7915,6 +7915,57 @@ export function vpEditTitle(id) {
   inp.focus({ preventScroll: true }); inp.select();
 }
 
+// ── タイトル編集で、字幕ファイルの名前も一緒に変える（v52.976・オーナー決定 B）──
+// 字幕は「動画と同じフォルダの、動画と同じ名前の .srt/.vtt」で探している（_gdFindSubtitleFiles）。
+// 動画の名前だけ変えると探せなくなる（2026-11-08 実物: 動画「05 ダックアンダーからのフィニッシュ」/ 字幕「05.ja.srt」）。
+// 名前を変える前に今の名前で字幕を探し、動画の名前を変えた後で、見つかった字幕の名前を新しい名前に合わせる。
+// 【データ】Drive に書くのは字幕ファイルの「名前」だけ。中身・印・ほかのファイルには触らない。
+//   ・この動画の字幕として見つかったもの（画面に出るのと同じ探し方）だけ
+//   ・字幕の名前が動画の名前と同じ（か、その頭）のものだけ。後ろに別の文字が付いた字幕（05-part2 等）は触らない
+//   ・同じフォルダに同じ名前のファイルがあれば変えない（ほかのファイルと名前が重ならない）
+//   ・動画の名前の変更に失敗したら、字幕の名前も変えない
+async function _gdSubRenamePlan(fileId) {
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) return null;
+  const meta    = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, token);
+  const parent  = meta?.parents?.[0];
+  const oldBase = String(meta?.name || '').replace(/\.[^.]+$/, '');
+  if (!parent || !oldBase) return null;
+  _gdSubLookup.delete(fileId);
+  const subs  = await _gdFindSubtitleFiles(fileId, token);
+  const nbase = _gdSubNorm(oldBase);
+  const items = [];
+  for (const f of subs) {
+    const ext   = (GD_SUB_EXT_RE.exec(f.name) || [''])[0];
+    const { stem } = _gdSubStem(f.name.slice(0, f.name.length - ext.length));
+    const ns = _gdSubNorm(stem);
+    if (!ns || !(ns === nbase || nbase.startsWith(ns))) continue;
+    items.push({ id: f.id, name: f.name, suffix: f.name.slice(stem.length) });   // 例: 「.ja.srt」「.srt」
+  }
+  return { parent, items };
+}
+async function _gdSubRenameApply(plan, newTitle) {
+  const out = { done: 0, skipped: 0, failed: 0 };
+  const token = window.getDriveTokenIfAvailable?.();
+  // 探すときと同じ形（拡張子らしい末尾を除いたもの）に揃える＝変えた後もこの名前で見つかる
+  const newBase = String(newTitle).replace(/\.[^.]+$/, '');
+  for (const it of (plan?.items || [])) {
+    const target = newBase + it.suffix;
+    if (!newBase || target === it.name) continue;
+    try {
+      const q = `'${plan.parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+      const dup = token ? await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`, token) : null;
+      if (!dup || (dup.files || []).length) { out.skipped++; continue; }   // 確かめられない・同じ名前がある → 変えない
+      await window.renameGdFile(it.id, target);
+      out.done++;
+    } catch (e) {
+      console.warn('[字幕の名前] 変えられませんでした:', it.name, e?.message || e);
+      out.failed++;
+    }
+  }
+  return out;
+}
+
 export async function vpSaveTitle(id) {
   const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
   const inp = document.getElementById('vp-title-inp-' + id); if (!inp) return;
@@ -7936,13 +7987,25 @@ export async function vpSaveTitle(id) {
   // GDrive API でファイル名を変更
   if (v.pt === 'gdrive') {
     const fileId = v.id.replace('gd-', '');
+    // 字幕は「動画と同じ名前」で探すので、名前を変える前に今の名前で探しておく（v52.976・オーナー決定 B）
+    const subPlan = await _gdSubRenamePlan(fileId).catch(e => { console.warn('[字幕の名前] 探せませんでした:', e?.message || e); return null; });
     try {
       await window.renameGdFile?.(fileId, newTitle);
-      window.toast?.('✅ タイトルを変更しました（Drive上のファイル名も更新）');
     } catch(e) {
       console.warn('Drive rename failed:', e);
       window.toast?.('✅ タイトルを変更しました（Drive上のファイル名は未変更: ' + e.message + '）');
+      return;   // 動画の名前が変わっていなければ、字幕の名前も変えない
     }
+    const sub = subPlan ? await _gdSubRenameApply(subPlan, newTitle) : { done: 0, skipped: 0, failed: 0 };
+    _gdSubLookup.delete(fileId);
+    if (sub.done && _gdFileId === fileId) {
+      const token = window.getDriveTokenIfAvailable?.();
+      if (token) _gdSubReload(fileId, token).catch(() => {});
+    }
+    window.toast?.('✅ タイトルを変更しました（Drive上のファイル名も更新）'
+      + (sub.done ? `／字幕${sub.done}件の名前も変更` : '')
+      + (sub.failed || sub.skipped ? `／字幕${sub.failed + sub.skipped}件は名前を変えられませんでした` : ''),
+      (sub.failed || sub.skipped) ? 7000 : undefined);
   } else {
     window.toast?.('✅ タイトルを変更しました');
   }
