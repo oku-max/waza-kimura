@@ -1408,7 +1408,9 @@
     if(!v) return;
     const bms=_getAb(nid).bookmarks;
     // Save in VPanel format: {time, endTime, label, note}
-    v.bookmarks=bms.map(b=>{ const o={time:b.a??0, label:b.label||'', note:b.note||''}; if(b.b!=null) o.endTime=b.b; return o; });
+    // 4項目だけで書き直すと星（star）・自動チャプターの印（auto）が消えるので、同じブックマークのものを引き継ぐ（v52.981）
+    const fresh=bms.map(b=>{ const o={time:b.a??0, label:b.label||'', note:b.note||''}; if(b.b!=null) o.endTime=b.b; return o; });
+    v.bookmarks=window.wkBmKeepExtra ? window.wkBmKeepExtra(v.bookmarks, fresh) : fresh;
     window.debounceSave?.();
   }
 

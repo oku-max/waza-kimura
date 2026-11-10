@@ -1967,6 +1967,10 @@
     "件数": "Count",
     "動画全体にまんべんなく": "Spread evenly over the whole video",
     "自分で決める": "Choose your own",
+    "★だけ表示": "★ only",
+    "星を付ける": "Star",
+    "星を外す": "Unstar",
+    "★を付けたブックマークはありません": "No starred bookmarks",
     "この件数で作る": "Create with this count",
     "件で": "chapters:",
     "作り直す": "Redo",
@@ -2004,6 +2008,8 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '（★を付けた#件も残します）':' (the # starred ones are kept too)',
+    '★#':'★#',
     '#〜#件で入れられます':'Enter #–#',
     '#〜#の数字で入れてください':'Enter a number from # to #',
     '#〜#件':'#–#',

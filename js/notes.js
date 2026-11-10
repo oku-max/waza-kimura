@@ -195,11 +195,13 @@ function _nBviSyncBmsToLib(k, noteId, idx) {
   const v = _nBviGetLibV(noteId, idx);
   if (!v) return;
   const bms = _nBviGetAb(k).bookmarks || [];
-  v.bookmarks = bms.map(b => {
+  // 4項目だけで書き直すと、星（star）や自動チャプターの印（auto）が消えるので、同じブックマークのものを引き継ぐ（v52.981）
+  const fresh = bms.map(b => {
     const o = { time: b.a ?? 0, label: b.label || '', note: b.note || '' };
     if (b.b != null) o.endTime = b.b;
     return o;
   });
+  v.bookmarks = window.wkBmKeepExtra ? window.wkBmKeepExtra(v.bookmarks, fresh) : fresh;
   window.debounceSave?.();
 }
 

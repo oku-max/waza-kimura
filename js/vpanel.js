@@ -799,6 +799,56 @@ function _getBookmarks(id) {
   return v.bookmarks || [];
 }
 
+// ── ブックマークの星（v52.981・オーナー決定 mock-bm-star.html の B「右（編集の前）」）──
+// 【データ】星はそのブックマークの star:true（動画のデータ＝videos.json に保存・全端末で同じ）。外すと star の欄を消す。
+// ノートの埋め込みプレーヤー（notes.js）とフローチャート（flowchart.js）は、ブックマークを
+// time/label/note/endTime の4項目だけで丸ごと書き直すので、そのままだと星（と自動チャプターの印 auto）が消える。
+// 書き直すときは _bmKeepExtra で、同じブックマーク（時刻と題名が同じ・無ければ時刻が同じもの）の4項目以外の欄を引き継ぐ。
+// 「★だけ表示」は画面の中だけ（window._vpBmStarOnly。動画のデータに書かない）。
+const _BM_BASE_KEYS = ['time', 'label', 'note', 'endTime'];
+function _bmKeepExtra(oldList, newList) {
+  const old = (Array.isArray(oldList) ? oldList : []).filter(b => b && typeof b === 'object');
+  const used = new Set();
+  const find = o => {
+    let k = old.findIndex((b, i) => !used.has(i) && Number(b.time) === Number(o.time) && (b.label || '') === (o.label || ''));
+    if (k < 0) k = old.findIndex((b, i) => !used.has(i) && Number(b.time) === Number(o.time));
+    return k;
+  };
+  return (Array.isArray(newList) ? newList : []).map(o => {
+    const k = find(o); if (k < 0) return o;
+    used.add(k);
+    const out = {};
+    for (const [key, val] of Object.entries(old[k])) if (!_BM_BASE_KEYS.includes(key)) out[key] = val;
+    return Object.assign(out, o);
+  });
+}
+window.wkBmKeepExtra = _bmKeepExtra;
+function _bmStarOnly(id) { return !!window._vpBmStarOnly?.[id]; }
+window.vpBmStar = function(id, i) {
+  const v = (window.videos || []).find(x => x.id === id);
+  const bm = v?.bookmarks?.[i]; if (!bm) return;
+  if (bm.star) delete bm.star; else bm.star = true;
+  // 編集中に押したなら、「閉じる」で戻す控えにも同じ星を入れる（閉じたら星だけ戻る、を防ぐ）
+  const snap = window._vpBmSnapshot?.[id + '-' + i];
+  if (snap) { if (bm.star) snap.star = true; else delete snap.star; }
+  window.debounceSave?.();
+  _refreshBmList(id);
+};
+function _bmStarOnlyBtnHTML(id) {
+  const on = _bmStarOnly(id), any = _getBookmarks(id).some(b => b.star);
+  return `<button data-bm-staronly="${id}" onclick="vpBmStarOnly('${id}')" ${any || on ? '' : 'hidden'} class="vp-bm-staronly${on ? ' on' : ''}"
+    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">★だけ表示</button>`;
+}
+function _bmStarOnlySync(id) {
+  const on = _bmStarOnly(id), any = _getBookmarks(id).some(b => b.star);
+  document.querySelectorAll(`[data-bm-staronly="${id}"]`).forEach(b => { b.hidden = !(any || on); b.classList.toggle('on', on); });
+}
+window.vpBmStarOnly = function(id) {
+  const all = (window._vpBmStarOnly ||= {});
+  all[id] = !all[id];
+  _refreshBmList(id);
+};
+
 // ── ブックマークの説明（note）の開閉 ──
 // 説明は既定で閉じ、題名の横の ⌄ で開く。見出しの1つのボタンで全部を開く／閉じる。
 // 開いているかどうかは画面の中だけで持つ（保存しない。動画のデータには書かない）。
@@ -857,21 +907,26 @@ function _bookmarkListHTML(id) {
   }
   const openSet = _divOpenSet(id);
   const vDur = folds ? _getDurationSec(id) : 0;
-  const foldOf = (k, isOpen) => ({ open: isOpen, n: counts[k], start: Number(divs[k].d.time), end: _divEnd(divs, k, vDur) });
+  // ★だけ表示（v52.981）: 星の付いた行だけ。その行がある区切りは開いて出し、星の無い区切りの仕切りは出さない。仕切りの編集中は全部出す
+  const starOnly = !editing && _bmStarOnly(id);
+  const stars = divs.map(() => 0);
+  bms.forEach(b => { if (b.star) { const k = _divSecOf(divs, Number(b.time)); if (k >= 0) stars[k]++; } });
+  const foldOf = (k, isOpen) => ({ open: isOpen, n: counts[k], stars: stars[k], start: Number(divs[k].d.time), end: _divEnd(divs, k, vDur) });
   let di = 0, curOpen = true;
   const head = editing ? _divAiBarHTML(id, bms.length) : '';
   const rows = bms.map((bm, i) => {
     let pre = editing ? _divSlotHTML(id, i) : '';
     while (di < divs.length && Number(divs[di].d.time) <= Number(bm.time)) {
       const k = di, x = divs[di++];
-      curOpen = !folds || openSet.has(_divKey(x.d));
-      pre += _divRowHTML(id, x, folds ? foldOf(k, curOpen) : null);
+      curOpen = starOnly || !folds || openSet.has(_divKey(x.d));
+      if (!starOnly || stars[k]) pre += _divRowHTML(id, x, folds ? foldOf(k, curOpen) : null);
     }
     if (_divUi.draft?.id === id && _divUi.draft.at === i) pre += _divInputHTML(id, 'draft', -1, '');
-    return pre + (curOpen ? _bmRowHTML(id, bm, i) : '');
+    return pre + (curOpen && (!starOnly || bm.star) ? _bmRowHTML(id, bm, i) : '');
   });
   let tail = '';
-  while (di < divs.length) { const k = di, x = divs[di++]; tail += _divRowHTML(id, x, folds ? foldOf(k, openSet.has(_divKey(x.d))) : null); }
+  while (di < divs.length) { const k = di, x = divs[di++]; if (!starOnly) tail += _divRowHTML(id, x, folds ? foldOf(k, openSet.has(_divKey(x.d))) : null); }
+  if (starOnly && bms.length && !bms.some(b => b.star)) tail += '<div style="font-size:11px;color:var(--text3);padding:6px 0">★を付けたブックマークはありません</div>';
   if (_divUi.draft?.id === id && _divUi.draft.at === bms.length) tail += _divInputHTML(id, 'draft', -1, '');
   if (editing) tail += _divSlotHTML(id, bms.length);
   if (!bms.length) tail += '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
@@ -977,12 +1032,13 @@ function _bmRowHTML(id, bm, i) {
     const rowStyle = isExpanded
       ? 'border-bottom:1px solid var(--border);padding:6px 8px;background:var(--gold-soft);border-left:3px solid var(--accent);margin:2px 0;border-radius:4px'
       : 'border-bottom:1px solid var(--border);padding:6px 8px;';
-    return `<div data-bm-idx="${i}" style="${rowStyle}">
+    return `<div data-bm-idx="${i}" class="vp-bm-rowwrap${bm.star && !isExpanded ? ' starred' : ''}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button class="vp-bm-tbtn" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
         <span style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
         ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
         <span style="flex:1"></span>
+        <button class="vp-bm-star${bm.star ? ' on' : ''}" onclick="event.stopPropagation();vpBmStar('${id}',${i})" aria-pressed="${bm.star ? 'true' : 'false'}" title="${bm.star ? '星を外す' : '星を付ける'}">${bm.star ? '★' : '☆'}</button>
         <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
       ${bm.note && !isExpanded && noteOpen ? `<div class="vp-bm-note">${_vpEsc(bm.note)}</div>` : ''}
@@ -1087,7 +1143,7 @@ function _divMetaHTML(f) {
   const parts = [`<span class="vp-bm-div-range">${_mmss(f.start)}–${f.end != null ? _mmss(f.end) : ''}</span>`];
   if (f.end != null) parts.push(`<span>${_durShort(f.end - f.start)}</span>`);
   parts.push(`<span>${f.n}件</span>`);
-  return `<span class="vp-bm-div-n">${parts.join(' · ')}</span>`;
+  return `<span class="vp-bm-div-n">${parts.join(' · ')}${f.stars ? `<span class="vp-bm-div-star">★${f.stars}</span>` : ''}</span>`;
 }
 // 再生中のチャプターを目立たせる（v52.957・mock-bm-fold-time.html の ①）。0.5秒ごとの時刻表示と一緒に呼び、
 // 変わったときだけ印を付け替える（一覧を作り直さない）。閉じた区切りの中なら、その仕切りの文字を同じ色にする（「再生中」の文字は出さない。v52.958 オーナー「いらん」）。
@@ -1473,6 +1529,7 @@ function _bookmarkSectionHTML(id) {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;margin-bottom:4px;flex-wrap:wrap">
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
+          ${_bmStarOnlyBtnHTML(id)}
           ${_bmNoteAllBtnHTML(id)}
           ${_divFoldBtnHTML(id)}
           ${_divBtnHTML(id)}
@@ -1704,6 +1761,7 @@ function _refreshBmList(id, flashIdx) {
     if (flashIdx != null) { const b = _getBookmarks(id)[flashIdx]; if (b) _divOpenFor(id, b.time); }
     el.innerHTML = _bookmarkListHTML(id);
     _bmNoteAllSync(id);
+    _bmStarOnlySync(id);
     _divBtnSync(id);
     _divFoldBtnSync(id);
     _bmNowSync(true);
@@ -5877,7 +5935,8 @@ function _chapReviewDialog(chaps, info) {
     document.getElementById('vp-chap-rv-bg')?.remove();
     const autoCount = Number(info?.autoCount) || 0;
     const handCount = Number(info?.handCount) || 0;
-    const bmCount   = autoCount + handCount;
+    const starAuto  = Number(info?.starAuto) || 0;   // ★を付けた自動チャプター（入れ替えでも残す v52.981）
+    const bmCount   = autoCount + handCount + starAuto;
     let bg = document.createElement('div');
     bg.id = 'vp-chap-rv-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
@@ -6018,7 +6077,7 @@ function _chapReviewDialog(chaps, info) {
     let _chapMode = 'add';
     const MODE_NOTE = {
       add:  `いまの${bmCount}件はそのまま残します`,
-      auto: `自動で作った${autoCount}件を消してから入れます。手で作った${handCount}件は残ります`,
+      auto: `自動で作った${autoCount}件を消してから入れます。手で作った${handCount}件は残ります` + (starAuto ? `（★を付けた${starAuto}件も残します）` : ''),
       all:  `いまの${bmCount}件を全部消してから入れます（手で作った${handCount}件も消えます）`,
     };
     const paintOk = () => {
@@ -6118,7 +6177,7 @@ function _applyChapters(id, sel, duration) {
   // 明示的に選ばれた時だけ消す。既定（追加）では1件も消さない。
   // replaceAll は手で作ったものも消える＝確認画面でその旨と件数を出している。
   if (sel.replaceAll)       v.bookmarks = [];
-  else if (sel.replaceAuto) v.bookmarks = v.bookmarks.filter(b => b.auto !== 'chapter');
+  else if (sel.replaceAuto) v.bookmarks = v.bookmarks.filter(b => b.auto !== 'chapter' || b.star);   // ★を付けたものは残す（v52.981）
 
   // 再実行で同じ位置が二重にならないよう、近接する既存の自動チャプターは飛ばす
   const dup = t => v.bookmarks.some(b => b.auto === 'chapter' && Math.abs((b.time || 0) - t) <= CHAP_DUP_SEC);
@@ -6518,8 +6577,9 @@ window.vpGenChapters = async function(id, preset) {
 
       // 3. 確認してから書き込む（粒度を変えられたら検出からやり直す）
       const bmAll    = (v.bookmarks || []);
-      const autoCount = bmAll.filter(b => b.auto === 'chapter').length;
-      const handCount = bmAll.length - autoCount;
+      const starAuto  = bmAll.filter(b => b.auto === 'chapter' && b.star).length;   // 入れ替えでも残す（v52.981）
+      const autoCount = bmAll.filter(b => b.auto === 'chapter').length - starAuto;
+      const handCount = bmAll.length - autoCount - starAuto;
       const note = noteSrc + (totalCost ? ` · $${totalCost.toFixed(3)}` : '');
       // 窓を隠している間に終わったら、帯を「確認する」にして、開くまで待つ（勝手に入れない）
       if (job) {
@@ -6534,7 +6594,7 @@ window.vpGenChapters = async function(id, preset) {
             replaceAll: !!preset.replaceAll,
             divs: divs.map(d => ({ time: chaps[d.at].time, label: d.label })) }
         : await _chapReviewDialog(chaps, {
-            note, autoCount, handCount, warn, divs,
+            note, autoCount, handCount, starAuto, warn, divs,
             grain: grainKey, canRedo: via !== 'list' && via !== 'yt',
           });
       if (!sel) return { ok: false, skipped: true };

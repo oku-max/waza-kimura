@@ -862,6 +862,14 @@ body.bulk-mode .card-pv-pair{display:none;}
 .vp-bm-note-tog:hover{background:var(--surface2);color:var(--text);}
 .vp-bm-note-tog.open{transform:rotate(180deg);}
 @media (prefers-reduced-motion: reduce){.vp-bm-note-tog{transition:none;}}
+/* ブックマークの星（v52.981・mock-bm-star.html の B）: 行の右・「編集」の前。押すと ★ になり行がうすく色づく */
+.vp-bm-star{flex-shrink:0;width:30px;height:28px;margin:-4px -2px;padding:0;border:none;background:none;color:var(--text3);font-size:18px;line-height:1;cursor:pointer;font-family:inherit;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;}
+.vp-bm-star:hover{background:var(--surface2);}
+.vp-bm-star.on{color:#d9a400;}
+body.dark .vp-bm-star.on,[data-theme="dark"] .vp-bm-star.on{color:#f2c94c;}
+.vp-bm-rowwrap.starred{background:rgba(217,164,0,.10);}
+.vp-bm-staronly.on{background:#d9a400 !important;border-color:#d9a400 !important;color:#1c1c1e !important;font-weight:700;}
+.vp-bm-div-star{color:#d9a400;font-weight:700;margin-left:6px;}
 /* 画像の行のメモ（書いた文はその画像の拡大表示のメモにも写る） */
 .vp-memo .snap-cap{display:inline-block;min-width:6em;max-width:calc(100% - 150px);vertical-align:middle;padding:1px 5px;border-bottom:1px dashed var(--border);white-space:pre-wrap;}
 /* 以前の貼り付けで原寸のまま入った画像（snap-ref でない img）も、表示だけ小さくする。保存されたメモは書き換えない */
