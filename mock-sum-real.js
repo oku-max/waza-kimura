@@ -97,16 +97,26 @@
   const subCache = new Map();
   async function loadSubs(v) {
     if (subCache.has(v.id)) return subCache.get(v.id);
-    let res = { cues: [], label: '' };
+    let res = { cues: [], label: '' }; const dg = [];   // 何を探して何が見つかったか（画面に出す）
     const g = gdEl();
-    if (g) { const tr = [...g.querySelectorAll('track')]; const pick = tr.find(t => /日本|ja/i.test(t.label + t.srclang)) || tr[0];
-      if (pick?.src) { try { res = { cues: parseCues(await (await fetch(pick.src)).text()), label: pick.label || '字幕' }; } catch (_) {} } }
+    dg.push('動画: pt=' + (v.pt || '?') + ' / video要素=' + document.querySelectorAll('video').length + '本 / Driveの再生=' + (g ? 'あり' : 'なし') + ' / iframe=' + [...document.querySelectorAll('iframe')].map(f => (f.src || '').replace(/^https?:\/\/([^/]+).*/, '$1')).join(',') );
+    if (g) { const tr = [...g.querySelectorAll('track')]; dg.push('track=' + tr.length + '本 ' + tr.map(t => `[${t.label}/${t.srclang}/${(t.src || '').slice(0, 10)}]`).join(' '));
+      dg.push('textTracks=' + [...g.textTracks].map(t => `[${t.label}/${t.mode}/cues:${t.cues ? t.cues.length : '-'}]`).join(' '));
+      const pick = tr.find(t => /日本|ja/i.test(t.label + t.srclang)) || tr[0];
+      if (pick?.src) { try { const txt = await (await fetch(pick.src)).text(); res = { cues: parseCues(txt), label: pick.label || '字幕' };
+          dg.push('読んだ字幕: ' + txt.length + '文字 → ' + res.cues.length + 'キュー / 先頭: ' + JSON.stringify(txt.slice(0, 80))); }
+        catch (e) { dg.push('字幕の読み込みに失敗: ' + (e.message || e)); } }
+      if (!res.cues.length) { const tt = [...g.textTracks].find(t => t.cues && t.cues.length);   // 読めなければ、ブラウザが読み込み済みのキューを使う
+        if (tt) { res = { cues: [...tt.cues].map(c => ({ start: c.startTime, end: c.endTime, text: String(c.text).replace(/<[^>]+>/g, '') })), label: tt.label || '字幕' }; dg.push('textTracks から ' + res.cues.length + 'キュー'); } } }
     else { const yt = ytIdOf(v), uid = window._firebaseCurrentUser?.()?.uid;
+      dg.push('ytId=' + (yt || 'なし') + ' / ログイン=' + (uid ? 'あり' : 'なし') + ' / firestore=' + (window.firebase?.firestore ? 'あり' : 'なし'));
       if (yt && uid && window.firebase?.firestore) { try {
         const snap = await window.firebase.firestore().collection('users').doc(uid).collection('data').doc('ytsub_' + yt).get();
         const tr = snap.exists ? (snap.data()?.tracks || {}) : {}; const k = tr.ja?.srt ? 'ja' : Object.keys(tr).find(x => tr[x]?.srt);
-        if (k) res = { cues: parseCues(tr[k].srt), label: k === 'ja' ? '日本語' : k };
-      } catch (_) {} } }
+        dg.push('字幕の置き場所: ' + (snap.exists ? 'あり' : 'なし') + ' / 言語=' + (Object.keys(tr).join(',') || 'なし'));
+        if (k) { res = { cues: parseCues(tr[k].srt), label: k === 'ja' ? '日本語' : k }; dg.push('読んだ字幕(' + k + '): ' + tr[k].srt.length + '文字 → ' + res.cues.length + 'キュー / 先頭: ' + JSON.stringify(tr[k].srt.slice(0, 80))); }
+      } catch (e) { dg.push('字幕の読み込みに失敗: ' + (e.message || e)); } } }
+    res.diag = dg;
     if (res.cues.length) subCache.set(v.id, res);
     return res;
   }
@@ -133,7 +143,7 @@
   setInterval(() => { fab.style.display = window.openVPanelId && !ov ? '' : 'none'; if (ov && mode === 'time' && phase === 'pick') { const n = ov.querySelector('.msr-bar .now'), D = data();
     if (n && D.dur) { n.style.left = (nowSec() / D.dur * 100) + '%'; ov.querySelector('.msr-nowlbl').textContent = '赤い線＝今の位置 ' + fmt(nowSec()); } } }, 500);
   fab.onclick = () => { phase = 'pick'; result = ''; const D = data(); if (selDiv == null && D.divs.length) selDiv = 0; if (!D.divs.length && mode === 'div') mode = D.bms.length ? 'bm' : 'time';
-    ov = document.createElement('div'); ov.className = 'msr-ov'; ov.innerHTML = '<div class="msr-sh"></div>'; document.body.appendChild(ov);
+    ov = document.createElement('div'); ov.className = 'msr-ov'; ov.setAttribute('translate', 'no'); ov.innerHTML = '<div class="msr-sh"></div>'; document.body.appendChild(ov);
     ov.onclick = e => { if (e.target === ov && phase !== 'busy') close(); }; render(); };
   const close = () => { cancelTok++; ov?.remove(); ov = null; };
 
@@ -230,7 +240,8 @@
     const setMsg = m => { const el = ov?.querySelector('#msr-busy'); if (el) el.textContent = m; };
     setMsg('字幕を読んでいます…');
     const subs = await loadSubs(D.v); if (tok !== cancelTok) return;
-    if (!subs.cues.length) { phase = 'done'; result = `<div class="msr-warn">この動画の字幕が見つかりませんでした。本物では「先に字幕を作りますか？」と聞きます。<br><span style="font-size:11px">Drive の動画は、動画パネルで字幕が読み込まれてから押してください。</span></div>`; render(); return; }
+    if (!subs.cues.length) { phase = 'done'; result = `<div class="msr-warn">この動画の字幕を読めませんでした。<br><span style="font-size:11px">下の「調べた結果」をスクリーンショットで送ってください。</span></div>
+      <div style="font:11px/1.6 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;background:var(--s2);border-radius:6px;padding:8px">調べた結果\n${esc((subs.diag || []).join('\n'))}</div>`; render(); return; }
     const tot = rs.reduce((s, r) => s + r.b - r.a, 0), items = nItems || Math.max(1, Math.min(30, Math.round(tot / 60)));
     const times = []; for (let k = 0; k < items; k++) { let x = tot * (k + 0.5) / items; for (const r of rs) { if (x < r.b - r.a) { times.push(Math.floor(r.a + x)); break; } x -= r.b - r.a; } }
     const shots = gdEl() ? Math.min(nShots, items) : 0, withShot = new Set(); for (let k = 0; k < shots; k++) withShot.add(Math.floor(k * items / shots));
