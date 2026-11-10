@@ -167,7 +167,6 @@ code{font-family:var(--mono);font-size:11.5px;background:var(--surface2);padding
           <li><b>ファイル名から</b>：<code>_</code> や全角スペースで区切った語のうち、先頭・末尾の人名らしい語を拾います（例 <code>マイケ大浦_パスガード…</code> → マイケ大浦）。</li>
           <li><b>既存と一致</b>：拾った語がライブラリに既にあるチャンネル名と同じなら、その印を付けて先頭に出します。表記ゆれで別チャンネルが増えるのを防げます。</li>
           <li><b>フォルダ名から</b>：選んだフォルダや親フォルダの名前が既存チャンネルと一致すれば候補にします。</li>
-          <li><b>前回使った</b>：直前の Drive 取り込みで入れたチャンネル名を1つだけ出します。</li>
           <li><b>ファイルごとに別々</b>：先生がファイルごとに違うときだけ出ます。押すと1本ずつ違うチャンネル名が入ります（右の表で確認できます）。</li>
           <li>候補が見つからないときは何も出しません。推測で埋めることはせず、押すまで入力欄は空のままです。</li>
         </ul>
@@ -195,7 +194,6 @@ code{font-family:var(--mono);font-size:11.5px;background:var(--surface2);padding
 // ── サンプルデータ（モック用の例。実データではありません）──
 const EXISTING_CH = { '米倉大貴': 12, 'Triforce': 41, 'マイケ大浦': 8, '宇原浩一': 5, 'Carpe Diem': 19 };
 const EXISTING_PL = ['フットロック', 'ガード基礎', 'パスガード', 'Triforce 2024'];
-const LAST_CH = 'Triforce';
 const SC = {
   a: { path: ['マイドライブ', '教則', '米倉大貴 フットロック'],
        folders: [{ name: '米倉大貴 フットロック', files: [
@@ -249,10 +247,9 @@ function channelCandidates() {
   for (const { f } of files) for (const t of nameTokens(f)) add(t, 'ファイル名から');
   for (const p of SC[state.sc].path.concat(SC[state.sc].folders.map(g => g.name)))
     for (const t of p.split(/[\s　_]+/)) if (EXISTING_CH[t]) add(t, 'フォルダ名から');
-  add(LAST_CH, '前回使った');
   const list = [...cands.values()].map(c => ({
     ...c, existing: !!EXISTING_CH[c.name],
-    score: (EXISTING_CH[c.name] ? 100 : 0) + c.hits * 10 + (c.srcs.has('前回使った') && c.srcs.size === 1 ? -50 : 0),
+    score: (EXISTING_CH[c.name] ? 100 : 0) + c.hits * 10,
   })).sort((a, b) => b.score - a.score);
   // ファイルごとに違う名前が取れるか
   const per = files.map(x => perFileChannel(x.f));
