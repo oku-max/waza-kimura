@@ -5644,13 +5644,13 @@ function _chapGrainDialog(via, duration) {
     const desc = k => dur > 0 ? `動画全体にまんべんなく（平均 ${avgLabel(CHAP_GRAINS[k])}ごと）` : '動画全体にまんべんなく';
     bg.innerHTML = `
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
-                  width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
+                  width:100%;max-width:380px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
           <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの数</div>
           <div id="vp-chap-grain-sub" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
             via === 'sub' ? `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}` : `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
         </div>
-        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
+        <div id="vp-chap-grain-list" style="padding:10px 14px;display:flex;flex-direction:column;gap:7px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain">
           ${CHAP_GRAIN_KEYS.map(k => `
             <button class="vp-chap-grain-opt" data-g="${k}"
               style="display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;cursor:pointer;font-family:inherit;

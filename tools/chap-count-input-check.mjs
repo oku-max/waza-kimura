@@ -83,8 +83,21 @@ const open = async () => {
 const st = () => pg.evaluate(() => ({ dis: document.getElementById('vp-chap-grain-go')?.disabled, hint: document.getElementById('vp-chap-grain-hint')?.textContent,
   presets: [...document.querySelectorAll('.vp-chap-grain-opt')].map(b => b.dataset.g) }));
 
-console.log('── ① ② ──');
+console.log('── ⓪ スマホで欄まで指でスクロールできる（v52.982。v52.977/979 で中身が窓より高くなり、はみ出した分が切れてスクロールできなかった）──');
 await open();
+const vis = () => pg.evaluate(() => { const l = document.getElementById('vp-chap-grain-list').getBoundingClientRect(), n = document.getElementById('vp-chap-grain-num').getBoundingClientRect();
+  return { inside: n.top >= l.top - 1 && n.bottom <= l.bottom + 1, top: Math.round(n.top) }; });
+const sc = await pg.evaluate(() => { const l = document.getElementById('vp-chap-grain-list'); return { ov: getComputedStyle(l).overflowY, ch: l.clientHeight, sh: l.scrollHeight }; });
+const v0 = await vis();
+ck('⓪ スマホ幅では入力欄は最初は見えない位置にあり、選択肢の並びがスクロールできる箱になっている', !v0.inside && /auto|scroll/.test(sc.ov) && sc.sh > sc.ch, { sc, v0 });
+const lb = await pg.evaluate(() => { const r = document.getElementById('vp-chap-grain-list').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+await pg.mouse.move(lb.x, lb.y); await pg.mouse.wheel(0, 800); await pg.waitForTimeout(300);
+const v1 = await vis();
+ck('⓪ スクロールすると入力欄が窓の中に出てくる', v1.inside, { v0, v1 });
+const hf = await pg.evaluate(() => ({ cancel: !!document.getElementById('vp-chap-grain-cancel')?.getClientRects().length, btnH: [...document.querySelectorAll('.vp-chap-grain-opt')].map(b => b.offsetHeight) }));
+ck('⓪ 選択肢のボタンは潰れない・「キャンセル」は見えたまま', hf.cancel && hf.btnH.every(h => h >= 40), hf);
+
+console.log('── ① ② ──');
 let s0 = await st();
 ck('① 一覧（5〜60件）はそのまま・その下に入力欄・最初は押せない', JSON.stringify(s0.presets) === '["5","10","20","30","40","50","60"]' && s0.dis === true && /1〜100件で入れられます/.test(s0.hint), s0);
 for (const bad of ['0', '101', 'abc']) {
