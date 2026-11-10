@@ -5212,13 +5212,15 @@ function _chapCountHint(v, dur) {
   const n = _chapCountOf(v);
   if (!n) return { text: `${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}の数字で入れてください`, bad: true };
   const d = Number(dur) || 0;
-  return { text: `話の変わり目で区切ります（最大${n}件）`, bad: false };
+  if (!d) return { text: '動画全体にまんべんなく', bad: false };
+  const a = Math.floor(d / n);
+  return { text: `動画全体にまんべんなく（平均 ${a >= 60 ? `約${Math.floor(a / 60)}分` : `約${a}秒`}ごと）`, bad: false };
 }
 // これより短い区切りは作らない（言い直し・同じ時刻の重なりを落とすため）。件数から決める:
 // 平均の長さの4分の1（10〜120秒）。長さが分からなければ30秒
 function _chapMinSec(g, dur) {
-  // v52.983: v52.964 の「ふつう」と同じ 45秒に戻す（件数から細かく出すのをやめた。オーナー「チャプターが多すぎる」「前のほうがいい」）
-  return CHAP_MIN_SEC;
+  const d = Number(dur) || 0;
+  return d > 0 ? Math.max(10, Math.min(120, Math.floor(d / g.count / 4))) : 30;
 }
 // 件数より多いときは、いちばん詰まっている所（外したときにできる区切りがいちばん短くなる所）から1つずつ外す。
 // 先頭の区切りは残す。頭から n 件だけ残す（＝後ろを捨てる）ことはしない。
@@ -5638,8 +5640,8 @@ function _chapGrainDialog(via, duration) {
     bg.id = 'vp-chap-grain-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
     // 平均の長さ。切り捨てて分で書く（1分未満は秒）
-    // 件数は上限（v52.983。話の変わり目で区切り、多くてもこの件数まで）
-    const desc = k => `話の変わり目で区切ります（最大${CHAP_GRAINS[k].count}件）`;
+    const avgLabel = g => { const a = Math.floor(dur / g.count); return a >= 60 ? `約${Math.floor(a / 60)}分` : `約${a}秒`; };
+    const desc = k => dur > 0 ? `動画全体にまんべんなく（平均 ${avgLabel(CHAP_GRAINS[k])}ごと）` : '動画全体にまんべんなく';
     bg.innerHTML = `
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:380px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
@@ -6494,7 +6496,7 @@ window.vpGenChapters = async function(id, preset) {
 
     for (;;) {
       const grain    = _chapGrain(grainKey);
-      // count＝選んだ件数（v52.983 から上限として頼む＝v52.964 の「最大◯件まで」）。maxCount は前の版のサーバー向けの写し
+      // count＝選んだ件数（全体にまんべんなく）。maxCount は前の版のサーバー向けの写し
       const freeOpts = { count: grain.count, minSec: _chapMinSec(grain, duration), maxCount: grain.count, titleLen: grain.titleLen };
       let chaps = [], cost = 0, noteSrc = '', warn = '', divs = [];
 

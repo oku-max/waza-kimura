@@ -44,9 +44,8 @@ ck('1〜100 の整数だけ件数として読む（全角数字も）', M._chapC
 ck('入れた件数でそのまま作る（一覧に無い 15・1・100 も）', M._chapGrain('15').count === 15 && M._chapGrain('1').count === 1 && M._chapGrain('100').count === 100 && M._chapGrainKey('15') === '15');
 ck('範囲外は既定の20件に戻す（黙って100件や0件で頼まない）', M._chapGrainKey('150') === '20' && M._chapGrainKey('0') === '20');
 ck('一覧の件数は今までどおり（20 は一覧の20件）', M._chapGrain('20') === M.CHAP_GRAINS['20']);
-ck('入れた件数を上限として出す・範囲外は知らせる', M._chapCountHint('15', 54 * 60).text === '話の変わり目で区切ります（最大15件）' && M._chapCountHint('150', 600).bad && !M._chapCountHint('', 600).bad);
-ck('区切り方は v52.964 の「最大◯件まで」（v52.983・オーナー「チャプターが多すぎる」「前のほうがいい」）', /チャプターは最大\$\{count \|\| maxCount\}件まで。迷ったら刻む/.test(wk) && !/件前後/.test(wk) && !/全体にまんべんなく配分/.test(wk));
-ck('区切りの最短は v52.964 の「ふつう」と同じ 45秒', M._chapMinSec(M._chapGrain('20'), 3600) === 45 && M._chapMinSec(M._chapGrain('5'), 600) === 45);
+ck('入れた件数の平均の長さを出す・範囲外は知らせる', M._chapCountHint('15', 54 * 60).text === '動画全体にまんべんなく（平均 約3分ごと）' && M._chapCountHint('150', 600).bad && !M._chapCountHint('', 600).bad);
+ck('1件で頼むときに「2〜3件」と言わない', /Math\.max\(1, count - 2\)/.test(wk));
 console.log('── ①-3 補足（説明）は中身を書く（v52.980・オーナー「〇〇ガードの基礎の下に〇〇ガードの基礎について説明します、は意味がない」）──');
 ck('補足は題名の言い直し・予告（〜について説明します）にせず、語られている中身を言い切りで書くよう頼む', /title の言い直しにしない/.test(wk) && /について説明します/.test(wk) && /中身そのものを言い切りで書く/.test(wk));
 ck('補足は60文字程度まで・中身が読み取れなければ空にする', /60文字程度まで/.test(wk) && /推測で書かずに空/.test(wk));
@@ -73,14 +72,15 @@ ck('先頭（0:00）は残す', kept[0].time === 0);
 ck('少ないときは減らさない（12件 → 12件）', M._chapThin(kept.slice(0, 12), 20, D53).length === 12);
 
 console.log('── ③ サーバー（_worker.js）──');
-ck('件数（count）を受け取り、上限として頼む', /const count = Number\(o\.count\) > 0/.test(wk));
-ck('前の版（count が無い）からの呼び出しは maxCount を上限に使う', /最大\$\{count \|\| maxCount\}件まで/.test(wk));
+ck('件数（count）を受け取り、全体を見渡してまんべんなく配分するよう頼む', /const count = Number\(o\.count\) > 0/.test(wk)
+   && /最初から最後までを見渡し、話の量に合わせて\$\{count\}件を全体にまんべんなく配分/.test(wk) && /後半を少なくしたり省いたりしない/.test(wk));
+ck('前の版（count が無い）からの呼び出しは今までどおり', /: `- チャプターは最大\$\{maxCount\}件まで/.test(wk));
 ck('動画（字幕）の最後まで区切る・返しの枠 32768', /動画（字幕）の最後まで区切る。途中で打ち切らない/.test(wk) && /mode === 'chapters'\) return \{ json: true, maxOutputTokens: 32768/.test(wk));
 
 console.log('── ④ それでも途中で止まったら、黙って出さない ──');
 ck('最後のチャプターが動画の8割より手前なら、確認画面に知らせる', /lastT < duration \* 0\.8 && !warn\) warn = `最後のチャプターが/.test(vp));
 const i18n = fs.readFileSync(path.join(ROOT, 'js/i18n.js'), 'utf8');
-ck('新しい文言は英語表示でも訳される', ['"チャプターの数"', '"件数を変えて検出し直せます"', '"件数"', '話の変わり目で区切ります（最大#件）', '最後のチャプターが ('].every(k => i18n.includes(k)));
+ck('新しい文言は英語表示でも訳される', ['"チャプターの数"', '"件数を変えて検出し直せます"', '"件数"', '"動画全体にまんべんなく"', '動画全体にまんべんなく（平均 約', '最後のチャプターが ('].every(k => i18n.includes(k)));
 
 console.log(ng ? `\n✗ ${ng}件の問題` : '\n✓ 自動チャプター: 件数を選び、動画全体にまんべんなく');
 process.exit(ng ? 1 : 0);
