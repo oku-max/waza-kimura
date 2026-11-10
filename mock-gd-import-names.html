@@ -1,0 +1,355 @@
+<title>取り込み設定の名前候補</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: アプリと同じ取り込みシートを左に、提案の説明を右に。スマホでは縦に積む */
+:root{
+  --bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;
+  --accent:#111;--on-accent:#fff;--text:#111;--text2:#555;--text3:#70706c;
+  --border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;
+  --blue:#1a3a5c;--blue-soft:#edf2f8;--gold:#7a6200;--gold-soft:#fdf8e8;--red:#c0392b;--red-soft:#fdecea;
+  --sans:'DM Sans','Hiragino Sans','Noto Sans JP',system-ui,sans-serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;
+  --accent:#e5c47a;--on-accent:#1a1a1a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;
+  --border:#48484a;--border2:#3a3a3c;--green:#6bc490;--green-soft:#1e2e24;
+  --blue:#7ab8e0;--blue-soft:#1e2530;--gold:#e5c47a;--gold-soft:#2e2a1e;--red:#ff8080;--red-soft:#3a2020;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;
+  --accent:#e5c47a;--on-accent:#1a1a1a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;
+  --border:#48484a;--border2:#3a3a3c;--green:#6bc490;--green-soft:#1e2e24;
+  --blue:#7ab8e0;--blue-soft:#1e2530;--gold:#e5c47a;--gold-soft:#2e2a1e;--red:#ff8080;--red-soft:#3a2020;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-size:20px;font-weight:800;margin:0;text-wrap:balance}
+.lead{color:var(--text2);font-size:13px;line-height:1.7;margin:4px 0 0;max-width:70ch}
+.scen{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.scen .lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin-right:4px}
+.scen button{font:inherit;font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}
+.scen button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.cols{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+
+/* ── シート（アプリの見た目に合わせる）── */
+.sheet{background:var(--surface);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sh-title{font-size:15px;font-weight:800}
+.files{border:1px solid var(--border2);border-radius:10px;padding:4px 0;max-height:150px;overflow:auto}
+.fgrp{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--text3);padding:8px 10px 2px}
+.frow{display:flex;gap:8px;align-items:center;padding:6px 10px;font-size:12.5px}
+.frow .cb{width:15px;height:15px;border-radius:4px;background:var(--accent);flex-shrink:0;display:grid;place-items:center;color:var(--on-accent);font-size:10px}
+.frow .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opts{background:var(--surface2);border-radius:10px;padding:10px 12px 12px;display:flex;flex-direction:column;gap:14px}
+.optshd{display:flex;align-items:center;font-size:12px;font-weight:700;color:var(--text2)}
+.optshd span:last-child{margin-left:auto;font-weight:400;color:var(--text3);font-size:11px}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fl-lbl{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.inrow{display:flex;gap:6px;align-items:center}
+input[type=text]{flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none}
+input[type=text]:focus{border-color:var(--accent)}
+input[type=text]:disabled{color:var(--text3);background:var(--surface2)}
+.dd{font-size:11px;color:var(--accent);padding:6px 10px;border:1.5px dashed var(--accent);border-radius:14px;white-space:nowrap;cursor:pointer;background:none;font-family:inherit}
+.sugg{display:flex;flex-wrap:wrap;gap:6px}
+.sg{font:inherit;display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;padding:5px 10px;border-radius:10px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-align:left;line-height:1.25}
+.sg b{font-size:12px;font-weight:700}
+.sg small{font-size:9.5px;color:var(--text3)}
+.sg[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sg.multi{border-style:dashed;border-color:var(--blue);background:var(--blue-soft)}
+.sg.multi b{color:var(--blue)}
+.sg:focus-visible,.seg button:focus-visible,.scen button:focus-visible,.dd:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.hint{font-size:10.5px;color:var(--text3);line-height:1.5}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface3);border-radius:9px;padding:3px;gap:3px}
+.seg button{font:inherit;font-size:11.5px;font-weight:700;padding:7px 4px;border-radius:7px;border:none;background:none;color:var(--text2);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.result{font-size:11.5px;line-height:1.55;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+.result .pl{display:flex;gap:6px;align-items:baseline}
+.result .pl b{font-weight:700}
+.result .pl .ct{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--text3)}
+.result.none{color:var(--text3)}
+.foot{display:flex;gap:8px}
+.foot button{font:inherit;font-weight:700;font-size:13px;padding:12px;border-radius:8px;cursor:pointer}
+.foot .c{flex:0 0 34%;background:var(--surface);border:1.5px solid var(--border);color:var(--text)}
+.foot .ok{flex:1;background:var(--accent);color:var(--on-accent);border:none}
+
+/* ── 右側 ── */
+.side{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px 18px}
+.card h2{font-size:14px;font-weight:800;margin:0 0 8px}
+.card p,.card li{font-size:12.5px;line-height:1.7;color:var(--text2);margin:0}
+.card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.card.warn{border-color:var(--red);background:var(--red-soft)}
+.card.warn h2{color:var(--red)}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{font-size:10px;letter-spacing:.06em;color:var(--text3);text-align:left;font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:7px 8px;border-bottom:1px solid var(--border2);vertical-align:top}
+td.t{max-width:260px}
+td .empty{color:var(--text3)}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;background:var(--green-soft);color:var(--green);font-weight:700;white-space:nowrap}
+.pill.ch{background:var(--gold-soft);color:var(--gold)}
+code{font-family:var(--mono);font-size:11.5px;background:var(--surface2);padding:1px 5px;border-radius:4px}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>取り込みの設定：チャンネル名とプレイリスト名の提案（モック）</h1>
+    <p class="lead">Drive から取り込むときの設定欄だけを抜き出しています。上の「例」を切り替えると、選んだ動画に合わせて候補と結果が変わります。候補をタップすると入力されます。</p>
+  </header>
+
+  <div class="scen" role="group" aria-label="例の切り替え">
+    <span class="lbl">例</span>
+    <button id="sc-a" data-sc="a" aria-pressed="true">1フォルダ・同じ先生</button>
+    <button id="sc-b" data-sc="b" aria-pressed="false">1フォルダ・先生がバラバラ</button>
+    <button id="sc-c" data-sc="c" aria-pressed="false">サブフォルダごと選んだ</button>
+  </div>
+
+  <div class="cols">
+    <section class="sheet" aria-label="取り込みシート">
+      <div class="sh-title">動画を追加 ・ Drive</div>
+      <div class="files" id="files"></div>
+
+      <div class="opts">
+        <div class="optshd"><span>取り込みの設定</span><span>いつも開いています</span></div>
+
+        <div class="fld">
+          <div class="fl-lbl">チャンネル名 <span style="font-size:9px;font-weight:700;border:1px solid var(--border);border-radius:10px;padding:1px 6px">任意</span></div>
+          <div class="inrow">
+            <input type="text" id="ch-in" placeholder="空欄でも登録できます">
+            <button class="dd" type="button">▼ 既存</button>
+          </div>
+          <div class="sugg" id="ch-sugg"></div>
+          <div class="hint" id="ch-hint"></div>
+        </div>
+
+        <div class="fld">
+          <div class="fl-lbl">プレイリスト</div>
+          <div class="seg" role="group" aria-label="プレイリストの決め方">
+            <button id="pl-folder" data-pl="folder" aria-pressed="true">📁 フォルダ名</button>
+            <button id="pl-name" data-pl="name" aria-pressed="false">✏️ 名前を指定</button>
+            <button id="pl-none" data-pl="none" aria-pressed="false">入れない</button>
+          </div>
+          <div id="pl-namebox" class="fld" hidden>
+            <div class="inrow">
+              <input type="text" id="pl-in" placeholder="プレイリスト名">
+              <button class="dd" type="button">▼ 既存</button>
+            </div>
+            <div class="sugg" id="pl-sugg"></div>
+          </div>
+          <div class="result" id="pl-result"></div>
+        </div>
+      </div>
+
+      <div class="foot">
+        <button class="c" type="button">キャンセル</button>
+        <button class="ok" type="button" id="ok-btn">取り込む</button>
+      </div>
+    </section>
+
+    <div class="side">
+      <div class="card">
+        <h2>取り込まれる内容</h2>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>タイトル</th><th>チャンネル</th><th>プレイリスト</th></tr></thead>
+            <tbody id="preview"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>チャンネル名：候補の出し方</h2>
+        <ul>
+          <li><b>ファイル名から</b>：<code>_</code> や全角スペースで区切った語のうち、先頭・末尾の人名らしい語を拾います（例 <code>マイケ大浦_パスガード…</code> → マイケ大浦）。</li>
+          <li><b>既存と一致</b>：拾った語がライブラリに既にあるチャンネル名と同じなら、その印を付けて先頭に出します。表記ゆれで別チャンネルが増えるのを防げます。</li>
+          <li><b>フォルダ名から</b>：選んだフォルダや親フォルダの名前が既存チャンネルと一致すれば候補にします。</li>
+          <li><b>前回使った</b>：直前の Drive 取り込みで入れたチャンネル名を1つだけ出します。</li>
+          <li><b>ファイルごとに別々</b>：先生がファイルごとに違うときだけ出ます。押すと1本ずつ違うチャンネル名が入ります（右の表で確認できます）。</li>
+          <li>候補が見つからないときは何も出しません。推測で埋めることはせず、押すまで入力欄は空のままです。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>プレイリスト名：3択にする</h2>
+        <ul>
+          <li>「自動入力」と「空欄でプレイリストなし」が同時に書かれていて、どっちになるのか分からない、という問題を、<b>決め方を先に選ぶ</b>形で解消します。</li>
+          <li>既定は <b>📁 フォルダ名</b>。サブフォルダごと選んだ場合は「2つのプレイリストに分かれます」と、出来上がる名前と本数をその場で見せます。</li>
+          <li><b>✏️ 名前を指定</b> を選ぶと、全部を1つのプレイリストにまとめます。フォルダ名や既存プレイリストが候補に出ます。</li>
+          <li><b>入れない</b> ははっきりボタンにしました。空欄の意味を覚えなくて済みます。</li>
+        </ul>
+      </div>
+
+      <div class="card warn">
+        <h2>調べていて見つけた不具合（今のアプリ）</h2>
+        <p>今のコードでは、各動画のプレイリストは <code>フォルダ名 || 入力したプレイリスト名</code> で決まっています（<code>js/gdrive.js</code> の <code>gdImport</code>）。フォルダ名は必ず入っているので、<b>プレイリスト名欄に何を打っても無視され、空欄にしても「プレイリストなし」にはなりません</b>。画面の説明と実際の動きが食い違っています。上の3択を実装するときに一緒に直す想定です。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── サンプルデータ（モック用の例。実データではありません）──
+const EXISTING_CH = { '米倉大貴': 12, 'Triforce': 41, 'マイケ大浦': 8, '宇原浩一': 5, 'Carpe Diem': 19 };
+const EXISTING_PL = ['フットロック', 'ガード基礎', 'パスガード', 'Triforce 2024'];
+const LAST_CH = 'Triforce';
+const SC = {
+  a: { path: ['マイドライブ', '教則', '米倉大貴 フットロック'],
+       folders: [{ name: '米倉大貴 フットロック', files: [
+         '柔術ストレートフットロック大全　米倉大貴 Part1 (360p).mp4',
+         '柔術ストレートフットロック大全　米倉大貴 Part2 (360p).mp4',
+         '柔術ストレートフットロック大全　米倉大貴 Part3 (360p).mp4'] }] },
+  b: { path: ['マイドライブ', '教則DL'],
+       folders: [{ name: '教則DL', files: [
+         'マイケ大浦_パスガードのエッセンス.mp4',
+         '宇原浩一_checkmate_crown_グリップで制するトップコントロール.mp4',
+         '柔術ストレートフットロック大全　米倉大貴 (360p).mp4'] }] },
+  c: { path: ['マイドライブ', 'Triforce'],
+       folders: [
+         { name: 'ガード基礎', files: ['01_クローズドガードの姿勢.mp4', '02_ヒップバンプ.mp4', '03_シザースイープ.mp4', '04_十字絞め.mp4'] },
+         { name: 'パス', files: ['01_トレアンドパス.mp4', '02_ニースライス.mp4', '03_レッグドラッグ.mp4'] }] },
+};
+
+const state = { sc: 'a', ch: '', chMode: 'one', plMode: 'folder', pl: '' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function baseName(f) { return f.replace(/\.[a-z0-9]+$/i, '').replace(/\s*\(\d+p\)\s*/i, '').trim(); }
+function cleanTitle(f) { return baseName(f); }
+// 区切りで割って、先頭と末尾の「名前らしい語」を拾う
+function nameTokens(f) {
+  const parts = baseName(f).split(/[_＿　]|\s+(?=\S)/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  const looks = s => s.length >= 2 && s.length <= 12 && !/^\d+$/.test(s) && !/^(part|vol)\d*$/i.test(s);
+  if (/[_＿]/.test(baseName(f)) && looks(parts[0])) out.push(parts[0]);
+  if (/　/.test(baseName(f))) {
+    const after = baseName(f).split('　').pop().split(/\s+/)[0];
+    if (looks(after)) out.push(after);
+  }
+  for (const p of parts) if (EXISTING_CH[p] && !out.includes(p)) out.push(p);
+  return out;
+}
+function perFileChannel(f) {
+  const t = nameTokens(f);
+  return t.find(x => EXISTING_CH[x]) || t[0] || '';
+}
+function allFiles() { return SC[state.sc].folders.flatMap(g => g.files.map(f => ({ f, folder: g.name }))); }
+
+function channelCandidates() {
+  const files = allFiles();
+  const cands = new Map(); // name -> {src, hits}
+  const add = (name, src) => {
+    if (!name) return;
+    const c = cands.get(name) || { name, srcs: new Set(), hits: 0 };
+    c.srcs.add(src); c.hits++; cands.set(name, c);
+  };
+  for (const { f } of files) for (const t of nameTokens(f)) add(t, 'ファイル名から');
+  for (const p of SC[state.sc].path.concat(SC[state.sc].folders.map(g => g.name)))
+    for (const t of p.split(/[\s　_]+/)) if (EXISTING_CH[t]) add(t, 'フォルダ名から');
+  add(LAST_CH, '前回使った');
+  const list = [...cands.values()].map(c => ({
+    ...c, existing: !!EXISTING_CH[c.name],
+    score: (EXISTING_CH[c.name] ? 100 : 0) + c.hits * 10 + (c.srcs.has('前回使った') && c.srcs.size === 1 ? -50 : 0),
+  })).sort((a, b) => b.score - a.score);
+  // ファイルごとに違う名前が取れるか
+  const per = files.map(x => perFileChannel(x.f));
+  const distinct = [...new Set(per.filter(Boolean))];
+  const multi = distinct.length >= 2 && per.every(Boolean) ? distinct : null;
+  return { list: list.slice(0, 4), multi };
+}
+
+function renderFiles() {
+  const s = SC[state.sc];
+  $('files').innerHTML = s.folders.map(g =>
+    `<div class="fgrp">📁 ${esc(g.name)}</div>` +
+    g.files.map(f => `<div class="frow"><span class="cb">✓</span><span class="n">🎬 ${esc(cleanTitle(f))}</span></div>`).join('')
+  ).join('');
+  $('ok-btn').textContent = `${allFiles().length}本を取り込む`;
+}
+
+function renderChannel() {
+  const { list, multi } = channelCandidates();
+  let html = '';
+  if (multi) html += `<button class="sg multi" data-chmulti aria-pressed="${state.chMode === 'per'}"><b>ファイルごとに別々（${multi.length}人）</b><small>${esc(multi.join('・'))}</small></button>`;
+  html += list.map(c => {
+    const src = [...c.srcs].join('・') + (c.existing ? ` ・既存 ${EXISTING_CH[c.name]}本` : ' ・新規');
+    const on = state.chMode === 'one' && state.ch === c.name;
+    return `<button class="sg" data-ch="${esc(c.name)}" aria-pressed="${on}"><b>${esc(c.name)}</b><small>${esc(src)}</small></button>`;
+  }).join('');
+  $('ch-sugg').innerHTML = html;
+  const inp = $('ch-in');
+  inp.disabled = state.chMode === 'per';
+  if (state.chMode === 'per') inp.value = 'ファイルごとに別々';
+  else if (inp !== document.activeElement) inp.value = state.ch;
+  $('ch-hint').textContent = state.chMode === 'per'
+    ? '1本ずつ違うチャンネル名が入ります。右の表で確認できます。もう一度押すと解除。'
+    : '候補をタップで入力。空欄のままでも登録できます。';
+  $('ch-sugg').querySelectorAll('[data-ch]').forEach(b => b.onclick = () => {
+    const n = b.dataset.ch;
+    if (state.chMode === 'one' && state.ch === n) state.ch = ''; else { state.ch = n; state.chMode = 'one'; }
+    render();
+  });
+  const m = $('ch-sugg').querySelector('[data-chmulti]');
+  if (m) m.onclick = () => { state.chMode = state.chMode === 'per' ? 'one' : 'per'; render(); };
+}
+
+function renderPlaylist() {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pl === state.plMode)));
+  $('pl-namebox').hidden = state.plMode !== 'name';
+  const s = SC[state.sc];
+  if (state.plMode === 'name') {
+    const folderNames = [...new Set([s.path[s.path.length - 1], ...s.folders.map(g => g.name)])];
+    const words = folderNames.join(' ').split(/[\s　]+/);
+    const fromExisting = EXISTING_PL.filter(p => words.some(w => p.includes(w) || w.includes(p)));
+    const cands = [...folderNames.map(n => ({ n, src: 'フォルダ名' })),
+                   ...fromExisting.filter(p => !folderNames.includes(p)).map(n => ({ n, src: '既存プレイリスト' }))];
+    $('pl-sugg').innerHTML = cands.map(c =>
+      `<button class="sg" data-pl-name="${esc(c.n)}" aria-pressed="${state.pl === c.n}"><b>${esc(c.n)}</b><small>${c.src}${EXISTING_PL.includes(c.n) ? '・既存に追加' : ''}</small></button>`).join('');
+    $('pl-sugg').querySelectorAll('[data-pl-name]').forEach(b => b.onclick = () => { state.pl = b.dataset.plName; $('pl-in').value = state.pl; render(); });
+    if ($('pl-in') !== document.activeElement) $('pl-in').value = state.pl;
+  }
+  const r = $('pl-result');
+  r.classList.toggle('none', state.plMode === 'none');
+  if (state.plMode === 'folder') {
+    const n = s.folders.length;
+    r.innerHTML = (n > 1 ? `<div style="color:var(--text3)">${n}つのプレイリストに分かれます</div>` : '') +
+      s.folders.map(g => `<div class="pl"><span>→</span><b>${esc(g.name)}</b>${EXISTING_PL.includes(g.name) ? '<span class="pill">既存に追加</span>' : ''}<span class="ct">${g.files.length}本</span></div>`).join('');
+  } else if (state.plMode === 'name') {
+    r.innerHTML = state.pl
+      ? `<div class="pl"><span>→</span><b>${esc(state.pl)}</b>${EXISTING_PL.includes(state.pl) ? '<span class="pill">既存に追加</span>' : '<span class="pill">新規</span>'}<span class="ct">${allFiles().length}本</span></div><div style="color:var(--text3)">選んだ動画をすべてこの1つにまとめます</div>`
+      : '<span style="color:var(--text3)">名前を入れるか、候補を選んでください</span>';
+  } else {
+    r.textContent = 'プレイリストには入れません（あとから追加できます）';
+  }
+}
+
+function plOf(folder) {
+  if (state.plMode === 'folder') return folder;
+  if (state.plMode === 'name') return state.pl;
+  return '';
+}
+function renderPreview() {
+  $('preview').innerHTML = allFiles().map(({ f, folder }) => {
+    const ch = state.chMode === 'per' ? perFileChannel(f) : state.ch;
+    const pl = plOf(folder);
+    return `<tr><td class="t">${esc(cleanTitle(f))}</td>
+      <td>${ch ? `<span class="pill ch">${esc(ch)}</span>` : '<span class="empty">なし</span>'}</td>
+      <td>${pl ? `<span class="pill">${esc(pl)}</span>` : '<span class="empty">なし</span>'}</td></tr>`;
+  }).join('');
+}
+
+function render() { renderFiles(); renderChannel(); renderPlaylist(); renderPreview(); }
+
+document.querySelectorAll('.scen button').forEach(b => b.onclick = () => {
+  state.sc = b.dataset.sc; state.ch = ''; state.chMode = 'one'; state.pl = '';
+  document.querySelectorAll('.scen button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  render();
+});
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { state.plMode = b.dataset.pl; render(); });
+$('ch-in').addEventListener('input', e => { state.ch = e.target.value.trim(); state.chMode = 'one'; renderChannel(); renderPreview(); $('ch-in').focus(); });
+$('pl-in').addEventListener('input', e => { state.pl = e.target.value.trim(); renderPlaylist(); renderPreview(); });
+render();
+</script>
