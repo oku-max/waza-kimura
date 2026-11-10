@@ -805,6 +805,9 @@ function _getBookmarks(id) {
 // time/label/note/endTime の4項目だけで丸ごと書き直すので、そのままだと星（と自動チャプターの印 auto）が消える。
 // 書き直すときは _bmKeepExtra で、同じブックマーク（時刻と題名が同じ・無ければ時刻が同じもの）の4項目以外の欄を引き継ぐ。
 // 「★だけ表示」は画面の中だけ（window._vpBmStarOnly。動画のデータに書かない）。
+// v52.985（オーナー決定 mock-bm-star-level.html の A「押すたびに増える」）: 星は1〜3。star に数（1・2・3）を入れる。
+// 前の版の star:true は ★1 として読む（書き換えない）。押すたびに 1→2→3→外す。絞り込みは一覧の上の1行
+// 「すべて／★1以上／★2以上／★3」（window._vpBmStarMin。画面の中だけ）。古い版の端末でも数の星は「星あり」として出る。
 const _BM_BASE_KEYS = ['time', 'label', 'note', 'endTime'];
 function _bmKeepExtra(oldList, newList) {
   const old = (Array.isArray(oldList) ? oldList : []).filter(b => b && typeof b === 'object');
@@ -823,31 +826,35 @@ function _bmKeepExtra(oldList, newList) {
   });
 }
 window.wkBmKeepExtra = _bmKeepExtra;
-function _bmStarOnly(id) { return !!window._vpBmStarOnly?.[id]; }
+function _bmStarLv(bm) {
+  const s = bm?.star;
+  if (s === true) return 1;
+  const n = Math.round(Number(s));
+  return n >= 1 ? Math.min(3, n) : 0;
+}
+function _bmStarMin(id) { const m = Number(window._vpBmStarMin?.[id]); return m >= 1 && m <= 3 ? m : 0; }
 window.vpBmStar = function(id, i) {
   const v = (window.videos || []).find(x => x.id === id);
   const bm = v?.bookmarks?.[i]; if (!bm) return;
-  if (bm.star) delete bm.star; else bm.star = true;
+  const next = (_bmStarLv(bm) + 1) % 4;   // 1→2→3→外す
+  if (next) bm.star = next; else delete bm.star;
   // 編集中に押したなら、「閉じる」で戻す控えにも同じ星を入れる（閉じたら星だけ戻る、を防ぐ）
   const snap = window._vpBmSnapshot?.[id + '-' + i];
-  if (snap) { if (bm.star) snap.star = true; else delete snap.star; }
+  if (snap) { if (next) snap.star = next; else delete snap.star; }
   window.debounceSave?.();
   _refreshBmList(id);
 };
-function _bmStarOnlyBtnHTML(id) {
-  const on = _bmStarOnly(id), any = _getBookmarks(id).some(b => b.star);
-  return `<button data-bm-staronly="${id}" onclick="vpBmStarOnly('${id}')" ${any || on ? '' : 'hidden'} class="vp-bm-staronly${on ? ' on' : ''}"
-    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">★だけ表示</button>`;
-}
-function _bmStarOnlySync(id) {
-  const on = _bmStarOnly(id), any = _getBookmarks(id).some(b => b.star);
-  document.querySelectorAll(`[data-bm-staronly="${id}"]`).forEach(b => { b.hidden = !(any || on); b.classList.toggle('on', on); });
-}
-window.vpBmStarOnly = function(id) {
-  const all = (window._vpBmStarOnly ||= {});
-  all[id] = !all[id];
+window.vpBmStarMin = function(id, m) {
+  (window._vpBmStarMin ||= {})[id] = Number(m) || 0;
   _refreshBmList(id);
 };
+// 一覧の上の絞り込み（星が1つも無く、絞ってもいなければ出さない）
+function _bmStarFilterHTML(id, bms) {
+  const min = _bmStarMin(id);
+  if (!min && !bms.some(b => _bmStarLv(b))) return '';
+  return `<div class="vp-bm-starflt">${[[0, 'すべて'], [1, '★1以上'], [2, '★2以上'], [3, '★3']].map(([m, l]) =>
+    `<button type="button" class="${m === min ? 'on' : ''}" onclick="vpBmStarMin('${id}',${m})">${l}</button>`).join('')}</div>`;
+}
 
 // ── ブックマークの説明（note）の開閉 ──
 // 説明は既定で閉じ、題名の横の ⌄ で開く。見出しの1つのボタンで全部を開く／閉じる。
@@ -907,10 +914,12 @@ function _bookmarkListHTML(id) {
   }
   const openSet = _divOpenSet(id);
   const vDur = folds ? _getDurationSec(id) : 0;
-  // ★だけ表示（v52.981）: 星の付いた行だけ。その行がある区切りは開いて出し、星の無い区切りの仕切りは出さない。仕切りの編集中は全部出す
-  const starOnly = !editing && _bmStarOnly(id);
-  const stars = divs.map(() => 0);
-  bms.forEach(b => { if (b.star) { const k = _divSecOf(divs, Number(b.time)); if (k >= 0) stars[k]++; } });
+  // 星の絞り込み（v52.981・v52.985 で ★◯以上）: その数以上の星の行だけ。その行がある区切りは開いて出し、無い区切りの仕切りは出さない。仕切りの編集中は全部出す
+  const starMin = editing ? 0 : _bmStarMin(id);
+  const starOnly = starMin > 0;
+  const stars = divs.map(() => 0), hits = divs.map(() => 0);
+  bms.forEach(b => { const lv = _bmStarLv(b); if (lv) { const k = _divSecOf(divs, Number(b.time)); if (k >= 0) { stars[k]++; if (lv >= starMin) hits[k]++; } } });
+  const pass = bm => !starOnly || _bmStarLv(bm) >= starMin;
   const foldOf = (k, isOpen) => ({ open: isOpen, n: counts[k], stars: stars[k], start: Number(divs[k].d.time), end: _divEnd(divs, k, vDur) });
   let di = 0, curOpen = true;
   const head = editing ? _divAiBarHTML(id, bms.length) : '';
@@ -919,18 +928,18 @@ function _bookmarkListHTML(id) {
     while (di < divs.length && Number(divs[di].d.time) <= Number(bm.time)) {
       const k = di, x = divs[di++];
       curOpen = starOnly || !folds || openSet.has(_divKey(x.d));
-      if (!starOnly || stars[k]) pre += _divRowHTML(id, x, folds ? foldOf(k, curOpen) : null);
+      if (!starOnly || hits[k]) pre += _divRowHTML(id, x, folds ? foldOf(k, curOpen) : null);
     }
     if (_divUi.draft?.id === id && _divUi.draft.at === i) pre += _divInputHTML(id, 'draft', -1, '');
-    return pre + (curOpen && (!starOnly || bm.star) ? _bmRowHTML(id, bm, i) : '');
+    return pre + (curOpen && pass(bm) ? _bmRowHTML(id, bm, i) : '');
   });
   let tail = '';
   while (di < divs.length) { const k = di, x = divs[di++]; if (!starOnly) tail += _divRowHTML(id, x, folds ? foldOf(k, openSet.has(_divKey(x.d))) : null); }
-  if (starOnly && bms.length && !bms.some(b => b.star)) tail += '<div style="font-size:11px;color:var(--text3);padding:6px 0">★を付けたブックマークはありません</div>';
+  if (starOnly && bms.length && !bms.some(pass)) tail += '<div style="font-size:11px;color:var(--text3);padding:6px 0">この数の星が付いたブックマークはありません</div>';
   if (_divUi.draft?.id === id && _divUi.draft.at === bms.length) tail += _divInputHTML(id, 'draft', -1, '');
   if (editing) tail += _divSlotHTML(id, bms.length);
   if (!bms.length) tail += '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
-  return head + rows.join('') + tail;
+  return (editing ? '' : _bmStarFilterHTML(id, bms)) + head + rows.join('') + tail;
 }
 
 function _bmRowHTML(id, bm, i) {
@@ -1032,14 +1041,15 @@ function _bmRowHTML(id, bm, i) {
     const rowStyle = isExpanded
       ? 'border-bottom:1px solid var(--border);padding:6px 8px;background:var(--gold-soft);border-left:3px solid var(--accent);margin:2px 0;border-radius:4px'
       : 'border-bottom:1px solid var(--border);padding:6px 8px;';
-    return `<div data-bm-idx="${i}" class="vp-bm-rowwrap${bm.star && !isExpanded ? ' starred' : ''}" style="${rowStyle}">
+    const lv = _bmStarLv(bm);
+    return `<div data-bm-idx="${i}" class="vp-bm-rowwrap${lv && !isExpanded ? ' starred lv' + lv : ''}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button class="vp-bm-tbtn" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
         <span style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
         ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
         <span style="flex:1"></span>
-        <button class="vp-bm-star${bm.star ? ' on' : ''}" onclick="event.stopPropagation();vpBmStar('${id}',${i})" aria-pressed="${bm.star ? 'true' : 'false'}" title="${bm.star ? '星を外す' : '星を付ける'}">${bm.star ? '★' : '☆'}</button>
-        <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit">${isExpanded ? '✔ 保存' : '編集'}</button>
+        <button class="vp-bm-star${lv ? ' on' : ''}" data-lv="${lv}" onclick="event.stopPropagation();vpBmStar('${id}',${i})" aria-label="星 ${lv}" title="押すたびに星が増える（★★★の次は外れる）">${lv ? '★'.repeat(lv) : '☆'}</button>
+        <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
       ${bm.note && !isExpanded && noteOpen ? `<div class="vp-bm-note">${_vpEsc(bm.note)}</div>` : ''}
       ${editorHTML}
@@ -1529,7 +1539,6 @@ function _bookmarkSectionHTML(id) {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;margin-bottom:4px;flex-wrap:wrap">
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
-          ${_bmStarOnlyBtnHTML(id)}
           ${_bmNoteAllBtnHTML(id)}
           ${_divFoldBtnHTML(id)}
           ${_divBtnHTML(id)}
@@ -1761,7 +1770,6 @@ function _refreshBmList(id, flashIdx) {
     if (flashIdx != null) { const b = _getBookmarks(id)[flashIdx]; if (b) _divOpenFor(id, b.time); }
     el.innerHTML = _bookmarkListHTML(id);
     _bmNoteAllSync(id);
-    _bmStarOnlySync(id);
     _divBtnSync(id);
     _divFoldBtnSync(id);
     _bmNowSync(true);

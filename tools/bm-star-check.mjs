@@ -59,36 +59,69 @@ await pg.waitForSelector('#vp-bm-list-AAAAAAAAAAA');
 await pg.evaluate(() => window.vpDivFoldAll('AAAAAAAAAAA'));
 const S = () => pg.evaluate(() => {
   const el = document.getElementById('vp-bm-list-AAAAAAAAAAA'), v = window.videos[0];
+  const flt = el.querySelector('.vp-bm-starflt');
   return { rows: [...el.querySelectorAll('[data-bm-idx]')].map(r => ({ i: +r.dataset.bmIdx, star: r.querySelector('.vp-bm-star')?.textContent, starred: r.classList.contains('starred'),
+      w: Math.round(r.querySelector('.vp-bm-star')?.getBoundingClientRect().width || 0),
       order: [...r.querySelector('div').children].map(c => c.className.includes('vp-bm-star') ? 'STAR' : /編集|保存/.test(c.textContent) ? 'EDIT' : '').filter(Boolean).join('>') })),
     divs: [...el.querySelectorAll('.vp-bm-div')].map(d => d.textContent.replace(/\s+/g, ' ').trim()),
-    btn: (() => { const b = document.querySelector('[data-bm-staronly="AAAAAAAAAAA"]'); return b ? { hidden: b.hidden, on: b.classList.contains('on') } : null; })(),
-    stars: v.bookmarks.map(b => b.star === true ? 1 : ('star' in b ? 'x' : 0)).join(''), saves: window.__saves,
-    empty: /★を付けたブックマークはありません/.test(el.textContent) };
+    flt: flt ? [...flt.querySelectorAll('button')].map(b => (b.classList.contains('on') ? '*' : '') + b.textContent).join('|') : null,
+    stars: v.bookmarks.map(b => b.star === true ? 'T' : ('star' in b ? String(b.star) : 0)).join(''), saves: window.__saves,
+    empty: /この数の星が付いたブックマークはありません/.test(el.textContent) };
 });
-console.log('── ① ──');
+const fltClick = label => pg.evaluate(l => [...document.querySelectorAll('#vp-bm-list-AAAAAAAAAAA .vp-bm-starflt button')].find(b => b.textContent === l)?.click(), label);
+console.log('── ① 星は1〜3（v52.985・mock-bm-star-level.html の A「押すたびに増える」）──');
 let s = await S();
 ck('① 各行の右・「編集」の前に ☆ がある', s.rows.length === 4 && s.rows.every(r => r.star === '☆' && r.order === 'STAR>EDIT'), s.rows);
-ck('② 星が1つも無ければ「★だけ表示」は出さない', s.btn && s.btn.hidden === true, s.btn);
+ck('② 星が1つも無ければ絞り込みの行は出さない', s.flt === null, s.flt);
 await pg.evaluate(() => { window.__saves = 0; });
 await pg.click('[data-bm-idx="2"] .vp-bm-star');
 s = await S();
-ck('① 押すと ★ になり、行が色づき、データに star:true・保存が呼ばれる', s.rows.find(r => r.i === 2).star === '★' && s.rows.find(r => r.i === 2).starred && s.stars === '0010' && s.saves === 1, s);
-ck('② 星が付くと「★だけ表示」が出る・仕切りに ★1', s.btn.hidden === false && s.divs.some(d => /前半/.test(d) && /★1/.test(d)) && !s.divs.some(d => /後半/.test(d) && /★/.test(d)), s);
+ck('① 押すと ★（star:1）・行が色づき・保存が呼ばれる', s.rows.find(r => r.i === 2).star === '★' && s.rows.find(r => r.i === 2).starred && s.stars === '0010' && s.saves === 1, s);
+await pg.click('[data-bm-idx="2"] .vp-bm-star'); await pg.click('[data-bm-idx="2"] .vp-bm-star'); s = await S();
+ck('① 押すたびに増える: ★★ → ★★★（star:3）', s.rows.find(r => r.i === 2).star === '★★★' && s.stars === '0030', s);
+ck('① 星の数を変えても星のボタンの幅は同じ（題名の幅が動かない）', new Set(s.rows.map(r => r.w)).size === 1, s.rows.map(r => r.w));
+ck('② 星が付くと絞り込みの行が出る（すべて／★1以上／★2以上／★3）・仕切りに ★1', s.flt === '*すべて|★1以上|★2以上|★3' && s.divs.some(d => /前半/.test(d) && /★1/.test(d)), s);
 await pg.click('[data-bm-idx="2"] .vp-bm-star'); s = await S();
-ck('① もう一度押すと外れ、star の欄も消える', s.stars === '0000' && s.rows.find(r => r.i === 2).star === '☆', s.stars);
+ck('① ★★★ の次は外れ、star の欄も消える', s.stars === '0000' && s.rows.find(r => r.i === 2).star === '☆', s.stars);
+const legacy = await pg.evaluate(() => { const v = window.videos[0]; v.bookmarks[1].star = true; window.vpBmStar('AAAAAAAAAAA', 1); return v.bookmarks[1].star; });
+await pg.evaluate(() => { const b = window.videos[0].bookmarks[1]; b.star = true; window.vpDivFoldAll('AAAAAAAAAAA'); window.vpDivFoldAll('AAAAAAAAAAA'); });
+s = await S();
+ck('① 前の版の star:true は ★1 として出し、押すと ★★（star:2）になる', legacy === 2 && s.rows.find(r => r.i === 1)?.star === '★', { legacy, s });
+await pg.evaluate(() => { delete window.videos[0].bookmarks[1].star; });
 
-console.log('── ② ★だけ表示 ──');
-await pg.click('[data-bm-idx="2"] .vp-bm-star');
-await pg.evaluate(() => window.vpDivFoldAll('AAAAAAAAAAA'));   // 全部閉じる
-await pg.click('[data-bm-staronly="AAAAAAAAAAA"]'); s = await S();
-ck('② 押すと星の行だけ・閉じた区切りでも開いて出す・星の無い区切りの仕切りは出さない', JSON.stringify(s.rows.map(r => r.i)) === '[2]' && s.divs.length === 1 && /前半/.test(s.divs[0]) && s.btn.on, s);
-await pg.click('[data-bm-idx="2"] .vp-bm-star'); s = await S();
-ck('② 全部外すと「★を付けたブックマークはありません」・押している間はボタンを消さない', s.empty && s.btn.hidden === false && s.btn.on, s);
-await pg.click('[data-bm-staronly="AAAAAAAAAAA"]'); s = await S();
-ck('② もう一度押すと元に戻る・ボタンは隠れる', !s.btn.on && s.btn.hidden === true && s.divs.length === 2, s);
+console.log('── ② 絞り込み ──');
+await pg.evaluate(() => { const b = window.videos[0].bookmarks; b[1].star = 1; b[2].star = 2; b[3].star = 3; window.vpDivFoldAll('AAAAAAAAAAA'); });
+s = await S();
+if (!s.divs.every(d => /▶/.test(d))) { await pg.evaluate(() => window.vpDivFoldAll('AAAAAAAAAAA')); }
+await fltClick('★2以上'); s = await S();
+ck('② ★2以上: その数以上の行だけ・閉じた区切りでも開いて出す', JSON.stringify(s.rows.map(r => r.i)) === '[2,3]' && /\*★2以上/.test(s.flt), s);
+await fltClick('★3'); s = await S();
+ck('② ★3: ★★★ の行だけ・その行の無い区切りの仕切りは出さない', JSON.stringify(s.rows.map(r => r.i)) === '[3]' && s.divs.length === 1 && /後半/.test(s.divs[0]), s);
+await pg.evaluate(() => { const b = window.videos[0].bookmarks; delete b[3].star; window.vpBmStarMin('AAAAAAAAAAA', 3); }); s = await S();
+ck('② 当てはまる行が無ければ「この数の星が付いたブックマークはありません」・絞り込みの行は残す', s.empty && s.flt && /\*★3/.test(s.flt), s);
+await fltClick('すべて'); s = await S();
+ck('② 「すべて」で元に戻る', /\*すべて/.test(s.flt) && !s.empty, s);
 const keys = await pg.evaluate(() => JSON.stringify(window.videos[0]));
-ck('② 「★だけ表示」の状態は動画のデータに書かない', !/staronly|starOnly/i.test(keys));
+ck('② 絞り込みの状態は動画のデータに書かない', !/starMin|staronly|starOnly/i.test(keys));
+await pg.evaluate(() => { const b = window.videos[0].bookmarks; delete b[1].star; delete b[2].star; window.vpBmStarMin('AAAAAAAAAAA', 0); });
+
+console.log('── ②-2 狭いスマホ（360px）──');
+await pg.setViewportSize({ width: 360, height: 780 });
+await pg.evaluate(() => { const b = window.videos[0].bookmarks; b[0].star = 3; b[1].label = 'とても長い題名のブックマークで画面の幅をこえるかどうかを確かめる'; window.openVPanel('AAAAAAAAAAA'); });
+await pg.waitForTimeout(400);
+const nw = await pg.evaluate(() => {
+  const el = document.getElementById('vp-bm-list-AAAAAAAAAAA'), r = el.getBoundingClientRect();
+  const over = [...el.querySelectorAll('[data-bm-idx] > div:first-child')].some(row => { const b = row.getBoundingClientRect(); return b.right > r.right + 1 || row.scrollWidth > row.clientWidth + 1; });
+  const st = el.querySelector('[data-bm-idx="0"] .vp-bm-star').getBoundingClientRect(), ed = [...el.querySelectorAll('[data-bm-idx="0"] button')].find(b => /編集/.test(b.textContent)).getBoundingClientRect();
+  const edBtns = [...el.querySelectorAll('[data-bm-idx] button')].filter(b => /編集/.test(b.textContent));
+  const edOneLine = edBtns.every(b => b.getBoundingClientRect().height < 24);
+  return { over, edOneLine, starW: Math.round(st.width), starInside: st.right <= ed.left + 1, docW: document.documentElement.scrollWidth };
+});
+ck('②-2 360px でも行が横にはみ出さない・★★★ と「編集」が重ならない・ページが横に広がらない', !nw.over && nw.starInside && nw.docW <= 360, nw);
+ck('②-2 題名が長くても「編集」は1行のまま（つぶれて「編／集」と割れない）', nw.edOneLine, nw);
+await pg.setViewportSize({ width: 1300, height: 900 });
+await pg.evaluate(() => { const b = window.videos[0].bookmarks; delete b[0].star; b[1].label = '姿勢'; window.openVPanel('AAAAAAAAAAA'); });
+await pg.waitForTimeout(300);
 
 console.log('── ③ 編集中 ──');
 await pg.evaluate(() => { window.vpDivFoldAll('AAAAAAAAAAA'); });

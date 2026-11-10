@@ -863,11 +863,20 @@ body.bulk-mode .card-pv-pair{display:none;}
 .vp-bm-note-tog.open{transform:rotate(180deg);}
 @media (prefers-reduced-motion: reduce){.vp-bm-note-tog{transition:none;}}
 /* ブックマークの星（v52.981・mock-bm-star.html の B）: 行の右・「編集」の前。押すと ★ になり行がうすく色づく */
-.vp-bm-star{flex-shrink:0;width:30px;height:28px;margin:-4px -2px;padding:0;border:none;background:none;color:var(--text3);font-size:18px;line-height:1;cursor:pointer;font-family:inherit;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;}
+.vp-bm-star{flex-shrink:0;width:44px;height:28px;margin:-4px -2px;padding:0;border:none;background:none;color:var(--text3);font-size:15px;letter-spacing:-2px;line-height:1;cursor:pointer;font-family:inherit;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;}
+.vp-bm-star[data-lv="0"]{font-size:18px;letter-spacing:0;}
+/* 星は ☆ でも ★★★ でも同じ幅（数を変えても題名の幅が動かない）。とても狭い画面では少し小さく（v52.985） */
+@media (max-width:380px){.vp-bm-star{width:38px;font-size:13px;}.vp-bm-star[data-lv="0"]{font-size:16px;}}
 .vp-bm-star:hover{background:var(--surface2);}
 .vp-bm-star.on{color:#d9a400;}
 body.dark .vp-bm-star.on,[data-theme="dark"] .vp-bm-star.on{color:#f2c94c;}
 .vp-bm-rowwrap.starred{background:rgba(217,164,0,.10);}
+.vp-bm-rowwrap.lv1{background:rgba(217,164,0,.07);}
+.vp-bm-rowwrap.lv2{background:rgba(217,164,0,.13);}
+.vp-bm-rowwrap.lv3{background:rgba(217,164,0,.20);}
+.vp-bm-starflt{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 6px;}
+.vp-bm-starflt button{font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;}
+.vp-bm-starflt button.on{background:#d9a400;border-color:#d9a400;color:#1c1c1e;font-weight:700;}
 .vp-bm-staronly.on{background:#d9a400 !important;border-color:#d9a400 !important;color:#1c1c1e !important;font-weight:700;}
 .vp-bm-div-star{color:#d9a400;font-weight:700;margin-left:6px;}
 /* 画像の行のメモ（書いた文はその画像の拡大表示のメモにも写る） */

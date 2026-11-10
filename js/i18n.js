@@ -1968,6 +1968,8 @@
     "動画全体にまんべんなく": "Spread evenly over the whole video",
     "自分で決める": "Choose your own",
     "★だけ表示": "★ only",
+    "この数の星が付いたブックマークはありません": "No bookmarks with that many stars",
+    "押すたびに星が増える（★★★の次は外れる）": "Each tap adds a star (after ★★★ it clears)",
     "星を付ける": "Star",
     "星を外す": "Unstar",
     "★を付けたブックマークはありません": "No starred bookmarks",
@@ -2008,6 +2010,8 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '★#以上':'★# or more',
+    '星 #':'Stars #',
     '（★を付けた#件も残します）':' (the # starred ones are kept too)',
     '★#':'★#',
     '#〜#件で入れられます':'Enter #–#',
