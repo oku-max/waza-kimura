@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 自動チャプターの件数を自分で入れる（3案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  AIも呼ばない。押した結果はこのページの中だけ。
+  オーナー「選べる件数に加えて、マニュアルで入れられるように。1〜最大100」（2026-11-10）
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--on-accent:#fff;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--warn:#b4442f}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--warn:#f08a74}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;padding-bottom:60px}
+button,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.top{max-width:760px;margin:0 auto;padding:0 12px}
+.tabs{display:flex;gap:6px;padding:10px 0;flex-wrap:wrap}
+.tab{flex:1;min-width:150px;padding:8px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11.5px;color:var(--text2);text-align:left;line-height:1.4}
+.tab b{display:block;font-size:12.5px;color:var(--text)}
+.tab.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opts{display:flex;gap:12px;align-items:center;padding:2px 2px 8px;font-size:11.5px;color:var(--text2)}
+.opts label{display:flex;gap:5px;align-items:center;cursor:pointer}
+.desc{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2);margin-bottom:12px}
+.desc b{color:var(--text)}
+.row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.phone{width:390px;max-width:100%;border:1px solid var(--border);border-radius:14px;background:var(--bg);padding:14px 12px;display:flex;flex-direction:column;gap:12px}
+.cap{font-size:11px;color:var(--text3);text-align:center}
+/* 本物の窓に寄せたカード */
+.win{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.12);overflow:hidden}
+.wh{padding:12px 14px 8px;border-bottom:.5px solid var(--border)}
+.wh .t{font-size:13px;font-weight:700}
+.wh .s{font-size:10.5px;color:var(--text3);margin-top:3px}
+.crumbs{display:flex;gap:4px;align-items:center;margin-top:7px;font-size:10px;color:var(--text3);flex-wrap:wrap}
+.crumbs span{padding:2px 7px;border-radius:9px;background:var(--surface2)}
+.crumbs span.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.wb{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.opt{display:block;width:100%;text-align:left;padding:9px 12px;border-radius:9px;border:1.5px solid var(--border);background:transparent}
+.opt.on{border-color:var(--accent);background:var(--gold-soft)}
+.opt .n{font-size:12.5px;font-weight:700}
+.opt .d{font-size:10.5px;color:var(--text3);margin-top:2px}
+.wf{padding:9px 14px 12px;display:flex;justify-content:space-between;align-items:center;border-top:.5px solid var(--border)}
+.btn{padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);font-size:11.5px}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.btn:disabled{opacity:.4;cursor:default}
+.manual{border:1.5px dashed var(--border);border-radius:9px;padding:9px 12px;display:flex;flex-direction:column;gap:6px}
+.manual .lbl{font-size:12px;font-weight:700}
+.mrow{display:flex;gap:6px;align-items:center}
+.num{width:76px;padding:7px 8px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);font-size:16px;text-align:right}
+.num:focus{outline:none;border-color:var(--accent)}
+.unit{font-size:12px;color:var(--text2)}
+.hint{font-size:10.5px;color:var(--text3)}
+.hint.bad{color:var(--warn)}
+.step{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700}
+.big{width:96px;font-size:22px;text-align:center}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{padding:5px 10px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);font-size:11px;font-weight:600}
+.chip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.result{font-size:11.5px;padding:8px 10px;border-radius:8px;background:var(--gold-soft);border:1px solid var(--border);line-height:1.6}
+.sec{font-size:10.5px;color:var(--text3);margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="banner">見本です。本物のデータには何も書きません。AIも呼びません。押した結果はこのページの中だけで動きます。動画の長さは 54分 として「平均 何分ごと」を出しています。</div>
+<div class="top">
+  <div class="tabs" id="tabs"></div>
+  <div class="opts"><label><input type="checkbox" id="dark"> 暗い画面</label></div>
+  <div class="desc" id="desc"></div>
+  <div class="row">
+    <div>
+      <div class="phone" id="p1"></div>
+      <div class="cap">① 件数を選ぶ画面（作り方 → 件数）</div>
+    </div>
+    <div>
+      <div class="phone" id="p2"></div>
+      <div class="cap">② 確認画面の「件数を変えて検出し直す」</div>
+    </div>
+  </div>
+</div>
+<script>
+const DUR = 54 * 60;
+const PRESETS = [5, 10, 20, 30, 40, 50, 60];
+const MIN = 1, MAX = 100;
+const avg = n => { const a = Math.floor(DUR / n); return a >= 60 ? `約${Math.floor(a / 60)}分` : `約${a}秒`; };
+const ok = v => /^\d+$/.test(String(v).trim()) && +v >= MIN && +v <= MAX;
+const hintFor = v => {
+  const s = String(v).trim();
+  if (!s) return { t: `${MIN}〜${MAX}件で入れられます`, bad: false };
+  if (!ok(s)) return { t: `${MIN}〜${MAX}の数字で入れてください`, bad: true };
+  return { t: `動画全体にまんべんなく（平均 ${avg(+s)}ごと）`, bad: false };
+};
+const head = `<div class="wh"><div class="t">📑 自動チャプター</div><div class="s">チャプターの数 ・ この動画の字幕から検出します（54分）</div>
+  <div class="crumbs"><span>✓ 作り方</span>›<span class="on">件数</span>›<span>作成中</span>›<span>確認</span></div></div>`;
+const presetBtns = (sel) => PRESETS.map(n => `<button class="opt ${n === sel ? 'on' : ''}" data-p="${n}"><div class="n">${n}件</div><div class="d">動画全体にまんべんなく（平均 ${avg(n)}ごと）</div></button>`).join('');
+const done = n => `<div class="result">→ AIに <b>${n}件</b> で頼みます（見本なのでここで止まります）</div>`;
+
+const PLANS = {
+  A: {
+    name: 'A 一覧の下に入力欄',
+    sub: 'いつも見えている',
+    desc: '<b>今の一覧（5〜60件）はそのまま</b>で、いちばん下に「自分で決める」欄を<b>いつも出しておく</b>。一覧を押せばその件数ですぐ作る（今と同じ）。欄に数字を入れて「この件数で作る」を押すとその件数で作る。<br>確認画面の「検出し直す」も、件数のボタンの後ろに小さな入力欄を置く。',
+    p1(st) {
+      return `<div class="win">${head}<div class="wb">${presetBtns(st.sel)}
+        <div class="manual"><div class="lbl">自分で決める</div>
+          <div class="mrow"><input class="num" id="m" inputmode="numeric" placeholder="例 15" value="${st.v}"><span class="unit">件</span>
+            <button class="btn pri" id="go" ${ok(st.v) ? '' : 'disabled'}>この件数で作る</button></div>
+          <div class="hint ${hintFor(st.v).bad ? 'bad' : ''}" id="h">${hintFor(st.v).t}</div></div>
+        ${st.done ? done(st.done) : ''}</div>
+        <div class="wf"><button class="btn">← 戻る</button><button class="btn">キャンセル</button></div></div>`;
+    },
+    p2(st) {
+      return `<div class="win"><div class="wh"><div class="t">📑 自動チャプター</div><div class="s">字幕から検出 · 20件</div></div><div class="wb">
+        <div class="sec">件数を変えて検出し直せます</div>
+        <div class="chips">${PRESETS.map(n => `<button class="chip ${n === 20 ? 'on' : ''}">${n}件</button>`).join('')}</div>
+        <div class="mrow"><input class="num" style="width:64px;font-size:14px;padding:5px 6px" inputmode="numeric" placeholder="15"><span class="unit">件で</span><button class="btn">作り直す</button></div>
+        <div class="hint">1〜100件</div></div></div>`;
+    },
+  },
+  B: {
+    name: 'B 最後に「ほかの件数」',
+    sub: '押したときだけ欄が開く',
+    desc: '<b>今の一覧はそのまま</b>で、いちばん下に「ほかの件数を入れる」のボタンを1つ足す。<b>押したときだけ</b>入力欄が開く（ふだんの見た目は今とほぼ同じ）。<br>確認画面の「検出し直す」も、ボタンの最後に「ほか」を足し、押すと入力欄が出る。',
+    p1(st) {
+      const open = st.open;
+      return `<div class="win">${head}<div class="wb">${presetBtns(st.sel)}
+        ${open ? `<div class="manual"><div class="lbl">ほかの件数</div>
+          <div class="mrow"><input class="num" id="m" inputmode="numeric" placeholder="例 15" value="${st.v}"><span class="unit">件</span>
+            <button class="btn pri" id="go" ${ok(st.v) ? '' : 'disabled'}>この件数で作る</button></div>
+          <div class="hint ${hintFor(st.v).bad ? 'bad' : ''}" id="h">${hintFor(st.v).t}</div></div>`
+          : `<button class="opt" id="openm"><div class="n">ほかの件数を入れる…</div><div class="d">1〜100件</div></button>`}
+        ${st.done ? done(st.done) : ''}</div>
+        <div class="wf"><button class="btn">← 戻る</button><button class="btn">キャンセル</button></div></div>`;
+    },
+    p2(st) {
+      return `<div class="win"><div class="wh"><div class="t">📑 自動チャプター</div><div class="s">字幕から検出 · 20件</div></div><div class="wb">
+        <div class="sec">件数を変えて検出し直せます</div>
+        <div class="chips">${PRESETS.map(n => `<button class="chip ${n === 20 ? 'on' : ''}">${n}件</button>`).join('')}<button class="chip" id="o2">ほか…</button></div>
+        ${st.open2 ? `<div class="mrow"><input class="num" style="width:64px;font-size:14px;padding:5px 6px" inputmode="numeric" placeholder="15"><span class="unit">件で</span><button class="btn">作り直す</button></div><div class="hint">1〜100件</div>` : ''}
+        </div></div>`;
+    },
+  },
+  C: {
+    name: 'C 数字を先に',
+    sub: 'よく使う数はボタンで入る',
+    desc: '画面の上に<b>数字の欄と − ＋</b>（最初は20）。下のボタン（5・10・20…60）は<b>押すと欄の数字が変わるだけ</b>で、作るのは「この件数で作る」を押したとき。<br>1つの欄で全部まかなう形。<b>今の「押したらすぐ作る」とは手順が1つ増える</b>のが違い。確認画面も同じ欄と − ＋。',
+    p1(st) {
+      const v = st.v === '' ? '' : st.v;
+      return `<div class="win">${head}<div class="wb">
+        <div class="mrow" style="justify-content:center;gap:10px;padding:6px 0">
+          <button class="step" id="minus">−</button>
+          <input class="num big" id="m" inputmode="numeric" value="${v}">
+          <span class="unit">件</span>
+          <button class="step" id="plus">＋</button></div>
+        <div class="hint ${hintFor(v).bad ? 'bad' : ''}" id="h" style="text-align:center">${hintFor(v).t}</div>
+        <div class="sec" style="margin-top:6px">よく使う件数</div>
+        <div class="chips">${PRESETS.map(n => `<button class="chip ${String(n) === String(v) ? 'on' : ''}" data-c="${n}">${n}件</button>`).join('')}</div>
+        ${st.done ? done(st.done) : ''}</div>
+        <div class="wf"><button class="btn">← 戻る</button><button class="btn pri" id="go" ${ok(v) ? '' : 'disabled'}>この件数で作る</button></div></div>`;
+    },
+    p2(st) {
+      return `<div class="win"><div class="wh"><div class="t">📑 自動チャプター</div><div class="s">字幕から検出 · 20件</div></div><div class="wb">
+        <div class="sec">件数を変えて検出し直せます</div>
+        <div class="mrow"><button class="step" style="width:32px;height:32px;font-size:15px">−</button><input class="num" style="width:60px;text-align:center;font-size:15px" value="20"><span class="unit">件</span><button class="step" style="width:32px;height:32px;font-size:15px">＋</button><button class="btn" style="margin-left:auto">作り直す</button></div>
+        <div class="chips">${PRESETS.map(n => `<button class="chip ${n === 20 ? 'on' : ''}">${n}件</button>`).join('')}</div></div></div>`;
+    },
+  },
+};
+
+let cur = 'A';
+let st = {};
+const reset = () => { st = { sel: null, v: cur === 'C' ? '20' : '', open: false, open2: false, done: null }; };
+function render() {
+  const P = PLANS[cur];
+  document.getElementById('tabs').innerHTML = Object.entries(PLANS).map(([k, p]) => `<button class="tab ${k === cur ? 'on' : ''}" data-k="${k}"><b>${p.name}</b>${p.sub}</button>`).join('');
+  document.getElementById('desc').innerHTML = P.desc;
+  const p1 = document.getElementById('p1');
+  p1.innerHTML = P.p1(st);
+  document.getElementById('p2').innerHTML = P.p2(st);
+  bind();
+}
+function bind() {
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => { cur = b.dataset.k; reset(); render(); });
+  document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { st.sel = +b.dataset.p; st.done = st.sel; render(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { st.v = b.dataset.c; st.done = null; render(); });
+  const m = document.getElementById('m');
+  if (m) m.oninput = () => {
+    st.v = m.value.replace(/[^\d０-９]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    if (m.value !== st.v) m.value = st.v;
+    const h = hintFor(st.v), he = document.getElementById('h');
+    he.textContent = h.t; he.className = 'hint' + (h.bad ? ' bad' : '');
+    const go = document.getElementById('go'); if (go) go.disabled = !ok(st.v);
+    document.querySelectorAll('[data-c]').forEach(c => c.classList.toggle('on', c.dataset.c === st.v));
+  };
+  const go = document.getElementById('go');
+  if (go) go.onclick = () => { if (ok(st.v)) { st.done = +st.v; st.sel = null; render(); } };
+  const om = document.getElementById('openm');
+  if (om) om.onclick = () => { st.open = true; render(); document.getElementById('m')?.focus(); };
+  const o2 = document.getElementById('o2');
+  if (o2) o2.onclick = () => { st.open2 = !st.open2; render(); };
+  const step = d => { const n = ok(st.v) ? +st.v : 20; st.v = String(Math.min(MAX, Math.max(MIN, n + d))); st.done = null; render(); };
+  const mi = document.getElementById('minus'), pl = document.getElementById('plus');
+  if (mi) mi.onclick = () => step(-1);
+  if (pl) pl.onclick = () => step(1);
+}
+document.getElementById('dark').onchange = e => document.body.classList.toggle('dark', e.target.checked);
+reset(); render();
+</script>
+</body>
+</html>
