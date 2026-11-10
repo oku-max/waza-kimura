@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MOCK — 部分だけAI要約（本物の動画で）</title>
+<!--
+  見本。本物のアプリ（/）をこの枠の中で開き、見本の部品（mock-sum-real.js）を差し込むだけ。
+  アプリのコードは1文字も変えていない。差し込んだ部品は動画のデータ・メモ・スナップショットに何も書かない。
+  AIも呼ばない（要約の文の代わりに、その時刻の字幕をそのまま出す）。
+-->
+<style>
+html,body{margin:0;height:100%;background:#1c1c1e}
+.bn{position:fixed;top:0;left:0;right:0;z-index:2;background:#3a2f12;color:#f3dc9f;font:12px/1.5 -apple-system,'Hiragino Sans',sans-serif;padding:6px 12px;display:flex;gap:8px;align-items:center}
+.bn b{white-space:nowrap}
+.bn span{flex:1;min-width:0}
+.bn button{font:inherit;padding:3px 8px;border-radius:6px;border:1px solid #f3dc9f;background:none;color:#f3dc9f}
+iframe{position:fixed;left:0;right:0;bottom:0;width:100%;border:0;background:#fff}
+</style>
+</head>
+<body>
+<div class="bn" id="bn"><b>見本</b><span>本物の動画で試せます。動画を開くと右下に「✨ 部分を要約（見本）」が出ます。何も保存しません。</span><button id="x">閉じる</button></div>
+<iframe id="app" src="/"></iframe>
+<script>
+const bn = document.getElementById('bn'), fr = document.getElementById('app');
+const fit = () => { const h = bn.offsetHeight; fr.style.top = h + 'px'; fr.style.height = `calc(100% - ${h}px)`; };
+fit(); addEventListener('resize', fit);
+document.getElementById('x').onclick = () => { bn.style.display = 'none'; fr.style.top = '0'; fr.style.height = '100%'; };
+fr.addEventListener('load', () => {
+  try {
+    const d = fr.contentDocument;
+    if (d.getElementById('msr-script')) return;
+    const s = d.createElement('script'); s.id = 'msr-script'; s.src = '/mock-sum-real.js?' + Date.now();
+    d.body.appendChild(s);
+  } catch (e) { alert('見本の部品を差し込めませんでした: ' + e.message); }
+});
+</script>
+</body>
+</html>
