@@ -7,6 +7,7 @@
 //   ③ 編集中に星を押してから「閉じる」（取り消し）でも星は残る
 //   ④ ノートの埋め込みプレーヤー・フローチャートが4項目だけで書き直しても、星と自動チャプターの印（auto）を引き継ぐ（wkBmKeepExtra）
 //   ⑤ 自動チャプターの「自動の◯件だけ入れ替える」でも、★を付けた自動チャプターは消さない（全部入れ替えは今までどおり消す）
+//   ⑥ 時刻を押すとジャンプ・題名と ⌄ は説明の開閉（説明の無いものは何もしない）（v52.986）
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
 setTimeout(() => { console.log('⏱ 90秒で打ち切り'); process.exit(3); }, 90000).unref?.();
@@ -159,6 +160,29 @@ const r5 = await pg.evaluate(async () => {
 });
 ck('⑤ 「自動だけ入れ替える」で★の自動チャプターは残り、★の無い自動は消える', r5.auto === '手,新A,自動・星,新B', r5);
 ck('⑤ 「全部入れ替える」は今までどおり★も含めて全部消す', !/手|自動・星/.test(r5.all) && /新A/.test(r5.all), r5);
+console.log('── ⑥ 押したときの動き（v52.986・オーナー「時間を押すとジャンプ／タイトルとアコーディオンボタンで開閉」）──');
+await pg.evaluate(() => {
+  const v = window.videos[0];
+  v.bookmarks = [{time:0,label:'説明なし',note:''},{time:60,label:'説明あり',note:'右手で襟を深く持つ'}];
+  v.bmDividers = [];
+  window.__jumps = [];
+  const orig = window.vpBmTimeClick;
+  window.vpBmTimeClick = (...a) => { window.__jumps.push(a[2]); };
+  window.openVPanel('AAAAAAAAAAA');
+});
+await pg.waitForSelector('[data-bm-idx="1"] .vp-bm-ttl');
+const noteShown = () => pg.evaluate(() => !!document.querySelector('[data-bm-idx="1"] .vp-bm-note'));
+await pg.click('[data-bm-idx="1"] .vp-bm-ttl');
+const t1 = { open: await noteShown(), jumps: await pg.evaluate(() => window.__jumps.length) };
+ck('⑥ 題名を押すと説明が開く（ジャンプしない）', t1.open && t1.jumps === 0, t1);
+await pg.click('[data-bm-idx="1"] .vp-bm-ttl');
+ck('⑥ もう一度題名を押すと閉じる', !(await noteShown()));
+await pg.click('[data-bm-idx="1"] .vp-bm-note-tog');
+ck('⑥ ⌄ でも開く', await noteShown());
+await pg.click('[data-bm-idx="0"] .vp-bm-ttl');
+ck('⑥ 説明の無いブックマークは、題名を押しても何もしない（ジャンプもしない）', await pg.evaluate(() => window.__jumps.length) === 0);
+await pg.click('[data-bm-idx="1"] .vp-bm-tbtn');
+ck('⑥ 左の時刻を押すとその時刻へジャンプ', JSON.stringify(await pg.evaluate(() => window.__jumps)) === '[60]', await pg.evaluate(() => window.__jumps));
 ck('JSエラーなし', errs.length === 0, errs);
 console.log(fail ? `\n✗ ${fail}件ずれ` : '\n✓ ブックマークの星');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);

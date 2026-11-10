@@ -1045,7 +1045,12 @@ function _bmRowHTML(id, bm, i) {
     return `<div data-bm-idx="${i}" class="vp-bm-rowwrap${lv && !isExpanded ? ' starred lv' + lv : ''}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button class="vp-bm-tbtn" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
-        <span style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
+        ${(() => {
+          // 題名を押すと説明（アコーディオン）の開閉（v52.986・オーナー「時間を押すとジャンプ／タイトルとアコーディオンボタンで開閉」）。
+          // ジャンプは左の時刻のボタンだけ。説明の無いブックマークは、開くものが無いので題名を押しても何もしない
+          const canTog = !!bm.note && !isExpanded;
+          return `<span class="vp-bm-ttl" style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:${canTog ? 'pointer' : 'default'}"${canTog ? ` onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}"` : ''}>${bm.label || '（ラベルなし）'}</span>`;
+        })()}
         ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
         <span style="flex:1"></span>
         <button class="vp-bm-star${lv ? ' on' : ''}" data-lv="${lv}" onclick="event.stopPropagation();vpBmStar('${id}',${i})" aria-label="星 ${lv}" title="押すたびに星が増える（★★★の次は外れる）">${lv ? '★'.repeat(lv) : '☆'}</button>
