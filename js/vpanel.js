@@ -5117,6 +5117,7 @@ const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字�
 // 多く返ってきたら、いちばん詰まっている所から減らして件数に合わせる（_chapThin。頭から切らない）。
 // 既定は20件。前の版の呼び出し（fine/normal/coarse）は近い件数に読み替える。
 const CHAP_GRAINS = {
+  '5':  { count: 5,  titleLen: 20, label: '5件' },   // v52.977・オーナー「チャプター数に５を追加して」
   '10': { count: 10, titleLen: 20, label: '10件' },
   '20': { count: 20, titleLen: 18, label: '20件' },
   '30': { count: 30, titleLen: 18, label: '30件' },
@@ -5124,7 +5125,7 @@ const CHAP_GRAINS = {
   '50': { count: 50, titleLen: 16, label: '50件' },
   '60': { count: 60, titleLen: 16, label: '60件' },
 };
-const CHAP_GRAIN_KEYS = ['10', '20', '30', '40', '50', '60'];   // 60まで（v52.967・オーナー「60までにしろ」）
+const CHAP_GRAIN_KEYS = ['5', '10', '20', '30', '40', '50', '60'];   // 60まで（v52.967）・5件を足す（v52.977）
 const CHAP_GRAIN_OLD = { fine: '30', normal: '20', coarse: '10' };
 function _chapGrainKey(k) {
   k = CHAP_GRAIN_OLD[k] || (k == null ? k : String(k));
