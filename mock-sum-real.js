@@ -240,6 +240,7 @@
     const setMsg = m => { const el = ov?.querySelector('#msr-busy'); if (el) el.textContent = m; };
     setMsg('字幕を読んでいます…');
     const subs = await loadSubs(D.v); if (tok !== cancelTok) return;
+    if (!subs.cues.length && String(D.v?.pt || '') === 'gdrive' && !gdEl()) { phase = 'done'; result = `<div class="msr-warn">Drive の動画がまだ再生されていません（Google の認証が切れているため）。<br>動画の所の「Googleで認証して再生」を押して、動画と字幕が出てから、もう一度押してください。</div>`; render(); return; }
     if (!subs.cues.length) { phase = 'done'; result = `<div class="msr-warn">この動画の字幕を読めませんでした。<br><span style="font-size:11px">下の「調べた結果」をスクリーンショットで送ってください。</span></div>
       <div style="font:11px/1.6 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;background:var(--s2);border-radius:6px;padding:8px">調べた結果\n${esc((subs.diag || []).join('\n'))}</div>`; render(); return; }
     const tot = rs.reduce((s, r) => s + r.b - r.a, 0), items = nItems || Math.max(1, Math.min(30, Math.round(tot / 60)));
