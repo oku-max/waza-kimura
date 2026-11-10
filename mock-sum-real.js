@@ -60,8 +60,11 @@
 .msr-res .it{display:flex;gap:7px;align-items:flex-start;margin:4px 0}
 .msr-res .th{flex-shrink:0;width:96px;border-radius:5px;display:block;cursor:zoom-in}
 .msr-res .ts{color:var(--sel);text-decoration:underline;cursor:pointer}
-.msr-big{position:fixed;inset:0;z-index:99995;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center}
-.msr-big img{max-width:96%;max-height:90%}
+.msr-big{position:fixed;inset:0;z-index:99995;background:rgba(0,0,0,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif}
+.msr-big img{max-width:100%;max-height:68vh;border-radius:6px}
+.msr-big .cap{max-width:760px;width:100%;color:#fff;font-size:15px;line-height:1.7;background:#26262a;border-radius:8px;padding:10px 14px;box-sizing:border-box}
+.msr-big .cap .ct{color:#8fb0ff;font-weight:700;margin-right:6px}
+.msr-big .x{position:absolute;top:10px;right:14px;color:#fff;font-size:13px;opacity:.75}
 `;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
 
@@ -201,7 +204,7 @@
     q('[data-act]', b => b.onclick = () => { const a = b.dataset.act;
       if (a === 'close') close(); else if (a === 'stop') { cancelTok++; phase = 'pick'; render(); } else if (a === 'back') { phase = 'pick'; render(); } else if (a === 'go') run(); });
     q('.ts[data-t]', s => s.onclick = () => window.vpSeek?.(window.openVPanelId, +s.dataset.t));
-    q('img.th', im => im.onclick = () => { const big = document.createElement('div'); big.className = 'msr-big'; big.innerHTML = `<img src="${im.src}">`; big.onclick = () => big.remove(); document.body.appendChild(big); });
+    q('img.th', im => im.onclick = () => { const big = document.createElement('div'); big.className = 'msr-big'; big.setAttribute('translate', 'no'); big.innerHTML = `<span class="x">✕ 閉じる</span><img src="${im.src}">` + (im.dataset.txt ? `<div class="cap"><span class="ct">${fmt(+im.dataset.t)}</span>${esc(im.dataset.txt)}</div>` : ''); big.onclick = () => big.remove(); document.body.appendChild(big); });
   }
 
   // ── 見本の要約: 項目の時刻を範囲にならべ、その時刻の字幕を出す。写真はその時刻の絵 ──
@@ -275,7 +278,7 @@
     const pics = shotTimes.length ? await capFrames(shotTimes, setMsg, tok) : {}; if (tok !== cancelTok) return;
     const lbl = lbl0 ? '　' + esc(lbl0) : '';
     result = `<div class="msr-res"><div class="h">✂️ 要約 ${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')}${lbl}</div>` +
-      items.map(x => `<div class="it">${pics[x.t] && shotTimes.includes(x.t) ? `<img class="th" src="${pics[x.t]}" alt="">` : ''}<span>・<span class="ts" data-t="${x.t}">${fmt(x.t)}</span> ${esc(x.text)}</span></div>`).join('') + '</div>' +
+      items.map(x => `<div class="it">${pics[x.t] && shotTimes.includes(x.t) ? `<img class="th" src="${pics[x.t]}" alt="" data-t="${x.t}" data-txt="${esc(x.text)}">` : ''}<span>・<span class="ts" data-t="${x.t}">${fmt(x.t)}</span> ${esc(x.text)}</span></div>`).join('') + '</div>' +
       (pics.__err ? `<div class="msr-warn" style="margin-top:8px">写真を撮れませんでした: ${esc(pics.__err)}</div>` : '') +
       `<div class="msr-hint" style="margin-top:8px">AIが字幕（${esc(subs.label)}・${cues.length}行）から作った要約です。項目 ${items.length}個・写真 ${Object.keys(pics).filter(k => k !== '__err').length}枚${cost != null ? `・料金 約$${Number(cost).toFixed(4)}` : ''}。メモには入れていません。</div>`;
     phase = 'done'; render();
