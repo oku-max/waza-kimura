@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 部分だけAI要約</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。AIも呼ばない。
+  要約の文章は見本の固定の文。押した結果はこのページの中だけ。
+  オーナー決定（2026-11-10）: 範囲 = 仕切り／ブックマーク1つ／★の付いた所／開始〜終了（つまみ＋時刻を数字で）。
+  元は字幕。結果はメモに足す。一言・全体の要約は戻さない。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--star:#d9a400;--sel:#2050c0;--selsoft:rgba(32,80,192,.10)}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--star:#f2c94c;--sel:#8fb0ff;--selsoft:rgba(143,176,255,.14)}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:620px;margin:0 auto;padding-bottom:80px}
+button,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.opts{display:flex;gap:14px;align-items:center;padding:8px 14px;font-size:11px;color:var(--text3);flex-wrap:wrap}
+.opts label{display:flex;gap:4px;align-items:center;cursor:pointer}
+.player{margin:6px 12px;background:#000;border-radius:10px;aspect-ratio:16/9;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.player .now{color:#fff;font-size:12px;padding:6px 10px;display:flex;align-items:center;gap:8px}
+.player input[type=range]{flex:1}
+.panel{margin:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.hsp{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.hbtn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);white-space:nowrap}
+.hbtn.ai{border-color:var(--sel);color:var(--sel);font-weight:700}
+.row{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);padding:6px 4px}
+.row.in{background:var(--selsoft);box-shadow:inset 3px 0 0 var(--sel)}
+.t{flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid var(--accent);color:var(--accent);font-size:12px;min-width:54px;text-align:center;background:transparent}
+.name{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st{flex-shrink:0;width:40px;text-align:center;font-size:13px;color:var(--star);letter-spacing:-2px}
+.dv{display:flex;align-items:center;gap:8px;padding:12px 4px 6px;border-bottom:2px solid var(--text3)}
+.dv.in{background:var(--selsoft)}
+.dv .dt{flex:1;min-width:0;font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dv .meta{flex-shrink:0;color:var(--text3);font-size:10.5px;white-space:nowrap}
+.memo{margin:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.memo .body{font-size:12.5px;line-height:1.8;min-height:60px;white-space:pre-wrap}
+.memo .body .h{font-weight:700;color:var(--sel)}
+.memo .body .ts{color:var(--sel);text-decoration:underline;cursor:pointer}
+.memo .body .new{background:var(--selsoft);border-radius:6px;display:block;padding:6px 8px;margin-top:6px}
+/* シート */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.ov.on{display:flex}
+.sheet{background:var(--surface);width:100%;max-width:620px;border-radius:14px 14px 0 0;max-height:88vh;display:flex;flex-direction:column}
+.sh-hd{padding:12px 14px 8px;border-bottom:1px solid var(--border)}
+.sh-hd b{font-size:14px}
+.sh-hd .sub{font-size:11px;color:var(--text3);margin-top:2px}
+.tabs{display:flex;gap:4px;margin-top:10px}
+.tabs button{flex:1;font-size:11.5px;padding:7px 2px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text2);white-space:nowrap}
+.tabs button.on{background:var(--sel);border-color:var(--sel);color:#fff;font-weight:700}
+.sh-body{overflow-y:auto;padding:8px 14px;flex:1;min-height:0}
+.pick{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 8px;border:1px solid var(--border);border-radius:8px;background:transparent;margin-bottom:6px;font-size:12.5px}
+.pick.on{border-color:var(--sel);background:var(--selsoft)}
+.pick .r{width:16px;height:16px;border-radius:50%;border:2px solid var(--text3);flex-shrink:0}
+.pick.on .r{border-color:var(--sel);background:radial-gradient(var(--sel) 45%,transparent 50%)}
+.pick .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick .pm{flex-shrink:0;font-size:10.5px;color:var(--text3)}
+.chips{display:flex;gap:5px;margin:4px 0 10px}
+.chips button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text2)}
+.chips button.on{background:var(--star);border-color:var(--star);color:#1c1c1e;font-weight:700}
+.hint{font-size:11px;color:var(--text3);line-height:1.7;margin:4px 0 8px}
+.tm{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:6px 0}
+.tm label{font-size:12px;font-weight:700}
+.tm .f{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.tm input{width:84px;font-size:15px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);text-align:center}
+.tm input.bad{border-color:#d33}
+.sb{font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);white-space:nowrap}
+.bar{position:relative;height:26px;margin:10px 4px 2px;background:var(--surface2);border-radius:6px}
+.bar .seg{position:absolute;top:0;bottom:0;background:var(--sel);opacity:.55;border-radius:4px}
+.bar .now{position:absolute;top:-3px;bottom:-3px;width:2px;background:#d33}
+.barlbl{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin:0 4px 6px}
+.sh-ft{border-top:1px solid var(--border);padding:10px 14px 14px}
+.sum{font-size:12px;line-height:1.6;margin-bottom:8px}
+.sum b{color:var(--sel)}
+.sum .warn{color:#c33}
+.go{width:100%;padding:11px;border-radius:9px;border:none;background:var(--sel);color:#fff;font-size:14px;font-weight:700}
+.go:disabled{opacity:.35;cursor:default}
+.cancel{width:100%;padding:8px;margin-top:6px;border:none;background:none;color:var(--text3);font-size:12px}
+.nosub{border:1px solid #d9a400;background:rgba(217,164,0,.10);border-radius:8px;padding:10px;font-size:12px;line-height:1.7;margin-bottom:8px}
+.nosub .b2{display:flex;gap:6px;margin-top:8px}
+.nosub button{flex:1;padding:8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);font-size:12px}
+.nosub button.p{background:var(--sel);color:#fff;border-color:var(--sel);font-weight:700}
+.busy{text-align:center;padding:26px 0;font-size:13px;color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="banner">見本です。本物のデータには何も書きません。AIも呼びません（要約の文は見本の固定の文）。ブックマークの見出しの「✨ 部分を要約」から、範囲を選んで要約しメモに入れる流れを試せます。</div>
+<div class="opts">
+  <label><input type="checkbox" id="dark"> 暗い画面</label>
+  <label><input type="checkbox" id="nosubOpt"> 字幕の無い動画として試す</label>
+</div>
+<div class="player"><div class="now">▶ <span id="nowTxt">0:00</span><input type="range" id="seek" min="0" max="1500" value="380"><span>25:00</span></div></div>
+
+<div class="panel">
+  <div class="hd"><span class="lbl">🔖 ブックマーク</span>
+    <span class="hsp"><button class="hbtn ai" id="openSum">✨ 部分を要約</button><button class="hbtn">仕切りを全部開く</button><button class="hbtn">✎ 仕切り</button></span></div>
+  <div id="list"></div>
+</div>
+
+<div class="memo"><div class="lbl" style="margin-bottom:6px">📝 メモ</div><div class="body" id="memo">（ここに自分で書いたメモがある想定）</div></div>
+
+<div class="ov" id="ov"><div class="sheet">
+  <div class="sh-hd"><b>✨ 部分を要約</b><div class="sub">選んだ範囲の字幕だけを要約して、メモの最後に足します</div>
+    <div class="tabs" id="tabs"></div></div>
+  <div class="sh-body" id="shBody"></div>
+  <div class="sh-ft" id="shFt"></div>
+</div></div>
+
+<script>
+const DUR = 1500; // 25:00
+const DATA = [
+  { div: 'ダックアンダーからのアームロック概要', time: 0 },
+  { t: 0, name: 'イントロ' },
+  { t: 42, name: 'ダックアンダーの入り方', star: 1 },
+  { div: '脚を掴まれた状況でのアームバー', time: 60 },
+  { t: 60, name: '脚を掴まれたときの姿勢', star: 3 },
+  { t: 195, name: '腕を抜く角度' },
+  { t: 400, name: 'アームバーへの移行', star: 2 },
+  { t: 545, name: 'よくある失敗：肘が浮く', star: 1 },
+  { div: 'ハーフベリンボロからのアームバー', time: 826 },
+  { t: 826, name: 'ハーフベリンボロの形' },
+  { t: 910, name: '腰を回す方向', star: 2 },
+  { t: 1022, name: '仕上げのグリップ' },
+];
+const BMS = DATA.filter(d => !d.div), DIVS = DATA.filter(d => d.div);
+const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const parse = str => { const z = String(str).trim().replace(/[０-９：]/g, c => c === '：' ? ':' : String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  if (!/^\d{1,3}(:\d{1,2}){0,2}$/.test(z)) return null; const p = z.split(':').map(Number); if (p.slice(1).some(x => x > 59)) return null;
+  return p.reduce((a, b) => a * 60 + b, 0); };
+const bmEnd = i => { const k = BMS.indexOf(BMS[i]); return k + 1 < BMS.length ? BMS[k + 1].t : DUR; };
+const divEnd = i => i + 1 < DIVS.length ? DIVS[i + 1].time : DUR;
+const now = () => +document.getElementById('seek').value;
+
+let mode = 'div', selDiv = 1, selBm = null, starMin = 2, tA = null, tB = null, phase = 'pick', ranges = [];
+
+// いま選んでいる範囲（複数あり得る＝★）
+function curRanges() {
+  if (mode === 'div') return selDiv == null ? [] : [{ a: DIVS[selDiv].time, b: divEnd(selDiv), label: DIVS[selDiv].div }];
+  if (mode === 'bm') return selBm == null ? [] : [{ a: BMS[selBm].t, b: bmEnd(selBm), label: BMS[selBm].name }];
+  if (mode === 'star') return BMS.map((b, i) => ({ b, i })).filter(x => (x.b.star || 0) >= starMin).map(x => ({ a: x.b.t, b: bmEnd(x.i), label: x.b.name }));
+  if (mode === 'time') return tA != null && tB != null && tB > tA ? [{ a: tA, b: tB, label: '' }] : [];
+  return [];
+}
+const inRange = (t, rs) => rs.some(r => t >= r.a && t < r.b);
+
+function renderList() {
+  const rs = document.getElementById('ov').classList.contains('on') ? curRanges() : [];
+  let h = '';
+  DATA.forEach((d, idx) => {
+    if (d.div) { const i = DIVS.indexOf(d); const e = divEnd(i);
+      h += `<div class="dv ${mode === 'div' && rs.length && selDiv === i ? 'in' : ''}"><span class="dt">${d.div}</span><span class="meta">${fmt(d.time)}–${fmt(e)} · ${Math.round((e - d.time) / 60)}分</span></div>`; }
+    else h += `<div class="row ${inRange(d.t, rs) ? 'in' : ''}"><button class="t">${fmt(d.t)}</button><span class="name">${d.name}</span><span class="st">${d.star ? '★'.repeat(d.star) : ''}</span></div>`;
+  });
+  document.getElementById('list').innerHTML = h;
+}
+
+const TABS = [['div', '仕切り'], ['bm', 'ブックマーク'], ['star', '★の所'], ['time', '時刻を指定']];
+function renderSheet() {
+  document.getElementById('tabs').innerHTML = TABS.map(([k, l]) => `<button class="${k === mode ? 'on' : ''}" data-tab="${k}" ${phase !== 'pick' ? 'disabled' : ''}>${l}</button>`).join('');
+  const B = document.getElementById('shBody'), F = document.getElementById('shFt');
+  if (phase === 'busy') { B.innerHTML = '<div class="busy">要約しています…<br><span style="font-size:11px;color:var(--text3)">字幕のうち選んだ範囲だけを送っています</span></div>';
+    F.innerHTML = '<button class="cancel" id="stop">やめる（結果を受け取らない）</button>'; bind(); renderList(); return; }
+  let b = '';
+  if (mode === 'div') {
+    b += '<div class="hint">仕切り1つ分（次の仕切りまで）を要約します。</div>';
+    b += DIVS.map((d, i) => `<button class="pick ${selDiv === i ? 'on' : ''}" data-div="${i}"><span class="r"></span><span class="pn">${d.div}</span><span class="pm">${fmt(d.time)}–${fmt(divEnd(i))}</span></button>`).join('');
+  } else if (mode === 'bm') {
+    b += '<div class="hint">ブックマーク1つ分（次のブックマークまで）を要約します。</div>';
+    b += BMS.map((x, i) => `<button class="pick ${selBm === i ? 'on' : ''}" data-bm="${i}"><span class="r"></span><span class="pn">${fmt(x.t)}　${x.name}</span><span class="pm">〜${fmt(bmEnd(i))}</span></button>`).join('');
+  } else if (mode === 'star') {
+    b += '<div class="hint">星の付いたブックマーク（次のブックマークまで）を、まとめて1つの要約にします。</div>';
+    b += '<div class="chips">' + [[1, '★1以上'], [2, '★2以上'], [3, '★3']].map(([m, l]) => `<button class="${m === starMin ? 'on' : ''}" data-min="${m}">${l}</button>`).join('') + '</div>';
+    const rs = curRanges();
+    b += rs.length ? rs.map(r => `<div class="pick on" style="cursor:default"><span class="pn">${fmt(r.a)}　${r.label}</span><span class="pm">〜${fmt(r.b)}</span></div>`).join('')
+                   : '<div class="hint">この数の星が付いたブックマークはありません</div>';
+  } else {
+    b += '<div class="hint">数字で打つ（12:30 のように）か、動画を止めた所で「今の位置」を押します。</div>';
+    const row = (k, lbl, v) => `<label>${lbl}</label><div class="f"><input id="in${k}" inputmode="numeric" placeholder="0:00" value="${v == null ? '' : fmt(v)}">
+      <button class="sb" data-now="${k}">今の位置</button><button class="sb" data-nudge="${k}" data-d="-5">−5秒</button><button class="sb" data-nudge="${k}" data-d="5">＋5秒</button></div>`;
+    b += '<div class="tm">' + row('A', '開始', tA) + row('B', '終了', tB) + '</div>';
+    const segs = curRanges();
+    b += `<div class="bar">${segs.map(r => `<div class="seg" style="left:${r.a / DUR * 100}%;width:${(r.b - r.a) / DUR * 100}%"></div>`).join('')}<div class="now" style="left:${now() / DUR * 100}%"></div></div>
+          <div class="barlbl"><span>0:00</span><span>赤い線＝今の位置 ${fmt(now())}</span><span>${fmt(DUR)}</span></div>`;
+    if (tA != null && tB != null && tB <= tA) b += '<div class="hint" style="color:#c33">終了は開始より後にしてください</div>';
+  }
+  B.innerHTML = b;
+  // 下の確認
+  const rs = curRanges(); const tot = rs.reduce((s, r) => s + r.b - r.a, 0);
+  const nosub = document.getElementById('nosubOpt').checked;
+  let f = '';
+  if (phase === 'nosub') {
+    f += `<div class="nosub">この動画には字幕がありません。要約は字幕から作るので、先に字幕を作る必要があります。<br>
+      <span style="font-size:11px;color:var(--text3)">字幕は動画全体で作ります（いつもの「💬 字幕生成」と同じ）。できたら続けてこの範囲を要約します。</span>
+      <div class="b2"><button id="nsBack">戻る</button><button class="p" id="nsGo">字幕を作ってから要約</button></div></div>`;
+  } else {
+    f += rs.length ? `<div class="sum">範囲: <b>${rs.length > 1 ? rs.length + 'か所・' : ''}${rs.length === 1 ? fmt(rs[0].a) + '–' + fmt(rs[0].b) + '・' : ''}合計 ${Math.max(1, Math.round(tot / 60))}分</b>
+        ${nosub ? '<br><span class="warn">字幕がありません（押すと先に字幕を作るか聞きます）</span>' : ''}</div>`
+      : '<div class="sum" style="color:var(--text3)">範囲を選んでください</div>';
+    f += `<button class="go" id="go" ${rs.length ? '' : 'disabled'}>要約してメモに入れる</button>`;
+  }
+  f += '<button class="cancel" id="close">キャンセル</button>';
+  F.innerHTML = f;
+  bind(); renderList();
+}
+
+const SAMPLE = {
+  '脚を掴まれた状況でのアームバー': ['脚を掴まれたら、まず腰を落として頭の位置を相手より高く保つ', '腕は肘から抜く。手首から引くと相手に読まれる', '移行は相手の肘が伸びた瞬間。早く足を回すと逃げられる'],
+  default: ['左手で襟を深く持ち、相手の肩を床に押しつける', '腰を回す向きは相手の頭の側。逆だとスペースができる', '最後は両膝を締めてから腰を上げる'],
+};
+function doSum() {
+  ranges = curRanges(); phase = 'busy'; renderSheet();
+  setTimeout(() => {
+    if (phase !== 'busy') return;
+    const lbl = ranges.length === 1 && ranges[0].label ? '　' + ranges[0].label : (mode === 'star' ? `　★${starMin === 3 ? 3 : starMin + '以上'}の所` : '');
+    const pts = (SAMPLE[ranges[0].label] || SAMPLE.default);
+    const head = ranges.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ');
+    const lines = pts.map((p, k) => { const r = ranges[Math.min(k, ranges.length - 1)]; const t = r.a + Math.round((r.b - r.a) * (k + 1) / (pts.length + 1)); return `・<span class="ts">${fmt(t)}</span> ${p}`; }).join('\n');
+    const m = document.getElementById('memo');
+    if (/ここに自分で/.test(m.textContent)) m.innerHTML = '前回の練習で肘が浮いた。次は角度を意識する。';
+    m.querySelectorAll('.new').forEach(e => e.classList.remove('new'));
+    m.insertAdjacentHTML('beforeend', `<span class="new"><span class="h">✂️ 要約 ${head}${lbl}</span>\n${lines}</span>`);
+    phase = 'pick'; document.getElementById('ov').classList.remove('on'); renderList();
+    m.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 1200);
+}
+
+function bind() {
+  const q = (s, f) => document.querySelectorAll(s).forEach(f);
+  q('[data-tab]', b => b.onclick = () => { mode = b.dataset.tab; renderSheet(); });
+  q('[data-div]', b => b.onclick = () => { selDiv = +b.dataset.div; renderSheet(); });
+  q('[data-bm]', b => b.onclick = () => { selBm = +b.dataset.bm; renderSheet(); });
+  q('[data-min]', b => b.onclick = () => { starMin = +b.dataset.min; renderSheet(); });
+  q('[data-now]', b => b.onclick = () => { if (b.dataset.now === 'A') tA = now(); else tB = now(); renderSheet(); });
+  q('[data-nudge]', b => b.onclick = () => { const d = +b.dataset.d; if (b.dataset.nudge === 'A') tA = Math.max(0, Math.min(DUR, (tA ?? now()) + d)); else tB = Math.max(0, Math.min(DUR, (tB ?? now()) + d)); renderSheet(); });
+  ['A', 'B'].forEach(k => { const el = document.getElementById('in' + k); if (!el) return;
+    el.onchange = () => { const v = el.value.trim() === '' ? null : parse(el.value); if (el.value.trim() !== '' && (v == null || v > DUR)) { el.classList.add('bad'); return; } if (k === 'A') tA = v; else tB = v; renderSheet(); };
+    el.onkeydown = e => { if (e.key === 'Enter') el.onchange(); }; });
+  const g = document.getElementById('go'); if (g) g.onclick = () => { if (document.getElementById('nosubOpt').checked) { phase = 'nosub'; renderSheet(); } else doSum(); };
+  const nb = document.getElementById('nsBack'); if (nb) nb.onclick = () => { phase = 'pick'; renderSheet(); };
+  const ng = document.getElementById('nsGo'); if (ng) ng.onclick = () => { document.getElementById('nosubOpt').checked = false; doSum(); };
+  const c = document.getElementById('close'); if (c) c.onclick = () => { phase = 'pick'; document.getElementById('ov').classList.remove('on'); renderList(); };
+  const s = document.getElementById('stop'); if (s) s.onclick = () => { phase = 'pick'; renderSheet(); };
+}
+document.getElementById('openSum').onclick = () => { phase = 'pick'; document.getElementById('ov').classList.add('on'); renderSheet(); };
+document.getElementById('ov').onclick = e => { if (e.target.id === 'ov' && phase !== 'busy') { document.getElementById('ov').classList.remove('on'); renderList(); } };
+document.getElementById('seek').oninput = () => { document.getElementById('nowTxt').textContent = fmt(now()); if (document.getElementById('ov').classList.contains('on') && mode === 'time') renderSheet(); };
+document.getElementById('dark').onchange = e => document.body.classList.toggle('dark', e.target.checked);
+document.getElementById('nowTxt').textContent = fmt(now());
+renderList();
+</script>
+</body>
+</html>
