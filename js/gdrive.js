@@ -756,15 +756,6 @@ export function gdToggleDrawer() {
   if (open) gdRenderDrawer();
 }
 
-export function gdToggleOpts() {
-  const body = document.getElementById('gd-optsbody');
-  const hd   = document.getElementById('gd-optshd');
-  if (!body || !hd) return;
-  const open = body.style.display === 'none';
-  body.style.display = open ? '' : 'none';
-  hd.setAttribute('aria-expanded', String(open));
-}
-
 // 手入力を尊重するため、除去欄は「触ったら自動検出しない」に切り替える
 export function gdStripTouched() { _stripTouched = true; _paintList(); gdRenderDrawer(); gdOptsSummary(); }
 

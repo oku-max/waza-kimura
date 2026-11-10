@@ -1689,6 +1689,7 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
   font:inherit;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;text-align:left}
 .gdp-tw{color:var(--text3);font-size:11px;transition:transform .15s}
 .gdp-optshd[aria-expanded="true"] .gdp-tw{transform:rotate(90deg)}
+.gdp-optshd-static{cursor:default;padding-bottom:6px}
 .gdp-optsum{margin-left:auto;font-weight:400;color:var(--text3);font-size:11px}
 .gdp-optsbody{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
 .gdp-foot{display:flex;gap:8px;padding-top:12px}
