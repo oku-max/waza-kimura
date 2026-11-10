@@ -105,7 +105,7 @@ for (const bad of ['0', '101', 'abc']) {
   ck(`① 範囲外「${bad}」は押せず、1〜100 で入れるよう知らせる`, s1.dis === true && /1〜100の数字で入れてください/.test(s1.hint), s1);
 }
 await pg.fill('#vp-chap-grain-num', '15'); let s2 = await st();
-ck('② 15 は押せる・平均の長さ（30分の動画で 約2分）を出す', s2.dis === false && s2.hint === '動画全体にまんべんなく（平均 約2分ごと）', s2);
+ck('② 15 は押せる・上限として「最大15件」と出す', s2.dis === false && s2.hint === '話の変わり目で区切ります（最大15件）', s2);
 if (process.argv[2]) await pg.screenshot({ path: process.argv[2] + '/count-input.png' }).catch(() => {});
 await pg.click('#vp-chap-grain-go');
 await pg.waitForSelector('#vp-chap-ok', { timeout: 8000 });

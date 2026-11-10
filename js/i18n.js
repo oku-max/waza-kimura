@@ -2008,6 +2008,7 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '話の変わり目で区切ります（最大#件）':'Split where the topic changes (up to #)',
     '（★を付けた#件も残します）':' (the # starred ones are kept too)',
     '★#':'★#',
     '#〜#件で入れられます':'Enter #–#',
