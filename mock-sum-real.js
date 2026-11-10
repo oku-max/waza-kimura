@@ -59,6 +59,8 @@
 .msr-res .h{font-weight:700;color:var(--sel)}
 .msr-res .it{display:flex;gap:7px;align-items:flex-start;margin:4px 0}
 .msr-res .th{flex-shrink:0;width:96px;border-radius:5px;display:block;cursor:zoom-in}
+.msr-res .ch{margin:12px 0 2px;padding:3px 0 3px 8px;border-left:3px solid var(--sel);font-weight:700;font-size:12.5px}
+.msr-res .ch .ct{margin-right:6px;font-weight:700}
 .msr-res .ts{color:var(--sel);text-decoration:underline;cursor:pointer}
 .msr-big{position:fixed;inset:0;z-index:99995;background:rgba(0,0,0,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif}
 .msr-big img{max-width:100%;max-height:68vh;border-radius:6px}
@@ -277,8 +279,13 @@
     const shotTimes = shotIdx.map(k => items[k].t);
     const pics = shotTimes.length ? await capFrames(shotTimes, setMsg, tok) : {}; if (tok !== cancelTok) return;
     const lbl = lbl0 ? '　' + esc(lbl0) : '';
-    result = `<div class="msr-res"><div class="h">✂️ 要約 ${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')}${lbl}</div>` +
-      items.map(x => `<div class="it">${pics[x.t] && shotTimes.includes(x.t) ? `<img class="th" src="${pics[x.t]}" alt="" data-t="${x.t}" data-txt="${esc(x.text)}">` : ''}<span>・<span class="ts" data-t="${x.t}">${fmt(x.t)}</span> ${esc(x.text)}</span></div>`).join('') + '</div>' +
+    const itemHTML = x => `<div class="it">${pics[x.t] && shotTimes.includes(x.t) ? `<img class="th" src="${pics[x.t]}" alt="" data-t="${x.t}" data-txt="${esc(x.text)}">` : ''}<span>・<span class="ts" data-t="${x.t}">${fmt(x.t)}</span> ${esc(x.text)}</span></div>`;
+    // 項目を、それが入っているブックマーク（チャプター）ごとに見出しで分ける。2つ以上にまたがるときだけ
+    const chOf = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
+    const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2;
+    const body = items.map((x, k) => (many && chs[k] && chs[k] !== chs[k - 1]
+      ? `<div class="ch"><span class="ct ts" data-t="${chs[k].t}">${fmt(chs[k].t)}</span>${esc(chs[k].label || '（名前なし）')}</div>` : '') + itemHTML(x)).join('');
+    result = `<div class="msr-res"><div class="h">✂️ 要約 ${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')}${lbl}</div>` + body + '</div>' +
       (pics.__err ? `<div class="msr-warn" style="margin-top:8px">写真を撮れませんでした: ${esc(pics.__err)}</div>` : '') +
       `<div class="msr-hint" style="margin-top:8px">AIが字幕（${esc(subs.label)}・${cues.length}行）から作った要約です。項目 ${items.length}個・写真 ${Object.keys(pics).filter(k => k !== '__err').length}枚${cost != null ? `・料金 約$${Number(cost).toFixed(4)}` : ''}。メモには入れていません。</div>`;
     phase = 'done'; render();
