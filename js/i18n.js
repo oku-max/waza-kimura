@@ -1966,6 +1966,10 @@
     "件数を変えて検出し直せます": "Pick another count to detect again",
     "件数": "Count",
     "動画全体にまんべんなく": "Spread evenly over the whole video",
+    "自分で決める": "Choose your own",
+    "この件数で作る": "Create with this count",
+    "件で": "chapters:",
+    "作り直す": "Redo",
     "刻みすぎ・粗すぎる時は粒度を変えて検出し直せます":
       "Too many or too few? Pick another granularity to detect again",
     "細かめ": "Finer",
@@ -2000,6 +2004,10 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '#〜#件で入れられます':'Enter #–#',
+    '#〜#の数字で入れてください':'Enter a number from # to #',
+    '#〜#件':'#–#',
+    '例 #':'e.g. #',
     '✅ タイトルを変更しました（Drive上のファイル名も更新）／字幕#件の名前も変更':'✅ Title updated (Drive filename too) / renamed # subtitle files',
     '✅ タイトルを変更しました（Drive上のファイル名も更新）／字幕#件は名前を変えられませんでした':'✅ Title updated (Drive filename too) / could not rename # subtitle files',
     '✅ タイトルを変更しました（Drive上のファイル名も更新）／字幕#件の名前も変更／字幕#件は名前を変えられませんでした':'✅ Title updated (Drive filename too) / renamed # subtitle files / could not rename #',

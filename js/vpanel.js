@@ -5127,11 +5127,37 @@ const CHAP_GRAINS = {
 };
 const CHAP_GRAIN_KEYS = ['5', '10', '20', '30', '40', '50', '60'];   // 60まで（v52.967）・5件を足す（v52.977）
 const CHAP_GRAIN_OLD = { fine: '30', normal: '20', coarse: '10' };
+// 自分で入れる件数（v52.979・オーナー決定 mock-chap-count.html の A「一覧の下に入力欄」・1〜最大100）
+const CHAP_COUNT_MIN = 1, CHAP_COUNT_MAX = 100;
+// 打った文字を件数に読む（全角数字も可）。1〜100 の整数でなければ null
+function _chapCountOf(v) {
+  const t = String(v == null ? '' : v).trim().replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  if (!/^\d+$/.test(t)) return null;
+  const n = Number(t);
+  return n >= CHAP_COUNT_MIN && n <= CHAP_COUNT_MAX ? n : null;
+}
 function _chapGrainKey(k) {
   k = CHAP_GRAIN_OLD[k] || (k == null ? k : String(k));
-  return CHAP_GRAINS[k] ? k : '20';
+  if (CHAP_GRAINS[k]) return k;
+  const n = _chapCountOf(k);
+  return n ? String(n) : '20';
 }
-function _chapGrain(k) { return CHAP_GRAINS[_chapGrainKey(k)]; }
+function _chapGrain(k) {
+  const key = _chapGrainKey(k);
+  if (CHAP_GRAINS[key]) return CHAP_GRAINS[key];
+  const n = Number(key);   // 自分で入れた件数。題の長さは近い一覧の件数に合わせる
+  return { count: n, titleLen: n <= 10 ? 20 : n <= 40 ? 18 : 16, label: `${n}件` };
+}
+// 入力欄の下に出す説明（入れた件数の平均の長さ／範囲外の知らせ）
+function _chapCountHint(v, dur) {
+  if (!String(v || '').trim()) return { text: `${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}件で入れられます`, bad: false };
+  const n = _chapCountOf(v);
+  if (!n) return { text: `${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}の数字で入れてください`, bad: true };
+  const d = Number(dur) || 0;
+  if (!d) return { text: '動画全体にまんべんなく', bad: false };
+  const a = Math.floor(d / n);
+  return { text: `動画全体にまんべんなく（平均 ${a >= 60 ? `約${Math.floor(a / 60)}分` : `約${a}秒`}ごと）`, bad: false };
+}
 // これより短い区切りは作らない（言い直し・同じ時刻の重なりを落とすため）。件数から決める:
 // 平均の長さの4分の1（10〜120秒）。長さが分からなければ30秒
 function _chapMinSec(g, dur) {
@@ -5575,6 +5601,17 @@ function _chapGrainDialog(via, duration) {
               <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}</div>
               <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc(k)}</div>
             </button>`).join('')}
+          <div style="border:1.5px dashed var(--border,#444);border-radius:9px;padding:9px 12px;display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:12px;font-weight:700;color:var(--text,#eee)">自分で決める</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="vp-chap-grain-num" inputmode="numeric" placeholder="例 15" autocomplete="off"
+                style="width:76px;box-sizing:border-box;padding:6px 8px;border-radius:7px;border:1.5px solid var(--border,#444);background:var(--surface,#222);
+                       color:var(--text,#eee);font-size:16px;text-align:right;font-family:inherit;outline:none">
+              <span style="font-size:12px;color:var(--text2,#bbb)">件</span>
+              <button id="vp-chap-grain-go" disabled style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 12px;font-size:11.5px;opacity:.45">この件数で作る</button>
+            </div>
+            <div id="vp-chap-grain-hint" style="font-size:10.5px;color:var(--text3,#999)">${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}件で入れられます</div>
+          </div>
         </div>
         <div style="padding:2px 14px 12px;display:flex;justify-content:flex-end;align-items:center;gap:7px">
           ${_flowWin.el ? `<button id="vp-chap-grain-back" class="vp-flow-back">← 戻る</button><span style="flex:1"></span>` : ''}
@@ -5588,6 +5625,17 @@ function _chapGrainDialog(via, duration) {
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
     bg.querySelectorAll('.vp-chap-grain-opt').forEach(b =>
       b.addEventListener('click', () => done(b.dataset.g)));
+    // 自分で決める: 1〜100 の数字が入ったときだけ押せる。Enter でも作る
+    const num = bg.querySelector('#vp-chap-grain-num'), go = bg.querySelector('#vp-chap-grain-go'), hint = bg.querySelector('#vp-chap-grain-hint');
+    const syncNum = () => {
+      const h = _chapCountHint(num.value, dur), n = _chapCountOf(num.value);
+      hint.textContent = h.text; hint.style.color = h.bad ? 'var(--red,#e05a4a)' : 'var(--text3,#999)';
+      go.disabled = !n; go.style.opacity = n ? '1' : '.45';
+    };
+    const goNum = () => { const n = _chapCountOf(num.value); if (n) done(String(n)); };
+    num.addEventListener('input', syncNum);
+    num.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); goNum(); } });
+    go.addEventListener('click', goNum);
     bg.querySelector('#vp-chap-grain-cancel').addEventListener('click', () => done(null));
     bg.querySelector('#vp-chap-grain-back')?.addEventListener('click', () => done('back'));
     function onX() { done(null); }
@@ -5896,6 +5944,14 @@ function _chapReviewDialog(chaps, info) {
                 >${CHAP_GRAINS[k].label}</button>`;
             }).join('')}
           </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+            <input id="vp-chap-redo-num" inputmode="numeric" placeholder="15" autocomplete="off" value="${CHAP_GRAINS[info.grain] ? '' : _escAttr(info.grain || '')}"
+              style="width:64px;box-sizing:border-box;padding:4px 6px;border-radius:7px;border:1.5px solid var(--border,#444);background:var(--surface,#222);
+                     color:var(--text,#eee);font-size:16px;text-align:right;font-family:inherit;outline:none">
+            <span style="font-size:11px;color:var(--text2,#bbb)">件で</span>
+            <button id="vp-chap-redo-go" disabled style="${_adjBtnStyle()};padding:5px 11px;font-size:11px;opacity:.45">作り直す</button>
+            <span id="vp-chap-redo-hint" style="font-size:10px;color:var(--text3,#999)">${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}件</span>
+          </div>
         </div>` : ''}
         <div style="display:flex;gap:6px;padding:7px 14px 0">
           <button id="vp-chap-all"  style="${_adjBtnStyle()}">すべて選択</button>
@@ -6001,6 +6057,20 @@ function _chapReviewDialog(chaps, info) {
       if (b.disabled) return;
       b.addEventListener('click', () => done({ redo: true, grain: b.dataset.g }));
     });
+    // 件数を自分で入れて作り直す（今と同じ件数なら押せない）
+    const rNum = bg.querySelector('#vp-chap-redo-num'), rGo = bg.querySelector('#vp-chap-redo-go'), rHint = bg.querySelector('#vp-chap-redo-hint');
+    if (rNum && rGo) {
+      const rSync = () => {
+        const n = _chapCountOf(rNum.value), okN = !!n && String(n) !== String(info.grain);
+        rGo.disabled = !okN; rGo.style.opacity = okN ? '1' : '.45';
+        if (rHint) { const bad = !!String(rNum.value).trim() && !n; rHint.textContent = bad ? `${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}の数字で入れてください` : `${CHAP_COUNT_MIN}〜${CHAP_COUNT_MAX}件`; rHint.style.color = bad ? 'var(--red,#e05a4a)' : 'var(--text3,#999)'; }
+      };
+      const rGoNow = () => { const n = _chapCountOf(rNum.value); if (n && String(n) !== String(info.grain)) done({ redo: true, grain: String(n) }); };
+      rNum.addEventListener('input', rSync);
+      rNum.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); rGoNow(); } });
+      rGo.addEventListener('click', rGoNow);
+      rSync();
+    }
     cks().forEach(c => c.addEventListener('change', paintOk));
     bg.querySelector('#vp-chap-all').addEventListener('click',  () => { cks().forEach(c => { c.checked = true;  }); paintOk(); });
     bg.querySelector('#vp-chap-none').addEventListener('click', () => { cks().forEach(c => { c.checked = false; }); paintOk(); });

@@ -29,15 +29,23 @@ const grab = (src, name) => {
 const constLine = (src, name) => (src.match(new RegExp(`^const ${name}\\s*=.*$`, 'm')) || [''])[0];
 const block = (start) => vp.slice(vp.indexOf(start), vp.indexOf('};', vp.indexOf(start)) + 2);
 const env = [constLine(vp, 'CHAP_MIN_SEC'), constLine(vp, 'CHAP_MAX_COUNT'), constLine(vp, 'CHAP_LABEL_MAX'),
-  block('const CHAP_GRAINS = {'), constLine(vp, 'CHAP_GRAIN_KEYS'), constLine(vp, 'CHAP_GRAIN_OLD'),
-  ...['_chapGrainKey', '_chapGrain', '_chapMinSec', '_chapThin', '_chapSec', '_normalizeChapters'].map(n => grab(vp, n))].join('\n');
-const M = new Function(env + '\nreturn { CHAP_GRAINS, CHAP_GRAIN_KEYS, _chapGrainKey, _chapGrain, _chapMinSec, _chapThin, _normalizeChapters };')();
+  block('const CHAP_GRAINS = {'), constLine(vp, 'CHAP_GRAIN_KEYS'), constLine(vp, 'CHAP_GRAIN_OLD'), constLine(vp, 'CHAP_COUNT_MIN'),
+  ...['_chapCountOf', '_chapCountHint', '_chapGrainKey', '_chapGrain', '_chapMinSec', '_chapThin', '_chapSec', '_normalizeChapters'].map(n => grab(vp, n))].join('\n');
+const M = new Function(env + '\nreturn { CHAP_GRAINS, CHAP_GRAIN_KEYS, _chapCountOf, _chapCountHint, _chapGrainKey, _chapGrain, _chapMinSec, _chapThin, _normalizeChapters };')();
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const D53 = 53 * 60 + 12;
 
 console.log('── ① 選ぶのは件数（10〜60）──');
 ck('選べるのは 5件・10件〜60件（10件刻み）', JSON.stringify(M.CHAP_GRAIN_KEYS.map(k => M.CHAP_GRAINS[k].label)) === '["5件","10件","20件","30件","40件","50件","60件"]');
-ck('サーバーも60件まで受け取る', /Math\.min\(60, Math\.round\(Number\(o\.count\)\)\)/.test(wk));
+ck('サーバーは1〜100件まで受け取る', /Math\.max\(1, Math\.min\(100, Math\.round\(Number\(o\.count\)\)\)\)/.test(wk));
+console.log('── ①-2 自分で入れる件数（v52.979・オーナー決定 mock-chap-count.html の A・1〜100）──');
+ck('1〜100 の整数だけ件数として読む（全角数字も）', M._chapCountOf('15') === 15 && M._chapCountOf('１５') === 15 && M._chapCountOf(' 1 ') === 1 && M._chapCountOf('100') === 100
+  && M._chapCountOf('0') === null && M._chapCountOf('101') === null && M._chapCountOf('1.5') === null && M._chapCountOf('-3') === null && M._chapCountOf('abc') === null && M._chapCountOf('') === null);
+ck('入れた件数でそのまま作る（一覧に無い 15・1・100 も）', M._chapGrain('15').count === 15 && M._chapGrain('1').count === 1 && M._chapGrain('100').count === 100 && M._chapGrainKey('15') === '15');
+ck('範囲外は既定の20件に戻す（黙って100件や0件で頼まない）', M._chapGrainKey('150') === '20' && M._chapGrainKey('0') === '20');
+ck('一覧の件数は今までどおり（20 は一覧の20件）', M._chapGrain('20') === M.CHAP_GRAINS['20']);
+ck('入れた件数の平均の長さを出す・範囲外は知らせる', M._chapCountHint('15', 54 * 60).text === '動画全体にまんべんなく（平均 約3分ごと）' && M._chapCountHint('150', 600).bad && !M._chapCountHint('', 600).bad);
+ck('1件で頼むときに「2〜3件」と言わない', /Math\.max\(1, count - 2\)/.test(wk));
 ck('既定は20件', M._chapGrainKey() === '20' && M._chapGrainKey('xx') === '20');
 ck('前の版の呼び方（細かめ・ふつう・大きめ）は近い件数に読む', M._chapGrainKey('fine') === '30' && M._chapGrainKey('normal') === '20' && M._chapGrainKey('coarse') === '10');
 ck('画面に 細かめ／ふつう／大きめ・「最大◯個」が残っていない', !/'細かめ'|'大きめ'|短めに区切る|ほどよく区切る|この動画なら最大/.test(vp));
