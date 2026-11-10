@@ -70,6 +70,8 @@ button{cursor:pointer}
 .tm .f{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
 .tm input{width:84px;font-size:15px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);text-align:center}
 .tm input.bad{border-color:#d33}
+.nud{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:-2px 0 6px}
+.nud .sb{padding:6px 0;text-align:center}
 .sb{font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);white-space:nowrap}
 .bar{position:relative;height:26px;margin:10px 4px 2px;background:var(--surface2);border-radius:6px}
 .bar .seg{position:absolute;top:0;bottom:0;background:var(--sel);opacity:.55;border-radius:4px}
@@ -180,9 +182,10 @@ function renderSheet() {
     b += rs.length ? rs.map(r => `<div class="pick on" style="cursor:default"><span class="pn">${fmt(r.a)}　${r.label}</span><span class="pm">〜${fmt(r.b)}</span></div>`).join('')
                    : '<div class="hint">この数の星が付いたブックマークはありません</div>';
   } else {
-    b += '<div class="hint">数字で打つ（12:30 のように）か、動画を止めた所で「今の位置」を押します。</div>';
+    b += '<div class="hint">数字で打つ（12:30 のように）か、動画を止めた所で「今の位置」を押します。±ボタンは入っている時刻から（空なら今の位置から）ずらします。</div>';
     const row = (k, lbl, v) => `<label>${lbl}</label><div class="f"><input id="in${k}" inputmode="numeric" placeholder="0:00" value="${v == null ? '' : fmt(v)}">
-      <button class="sb" data-now="${k}">今の位置</button><button class="sb" data-nudge="${k}" data-d="-5">−5秒</button><button class="sb" data-nudge="${k}" data-d="5">＋5秒</button></div>`;
+      <button class="sb" data-now="${k}">今の位置</button></div>
+      <span></span><div class="nud">${[[-60,'−1分'],[-30,'−30秒'],[-10,'−10秒'],[-5,'−5秒'],[5,'＋5秒'],[10,'＋10秒'],[30,'＋30秒'],[60,'＋1分']].map(([d,l]) => `<button class="sb" data-nudge="${k}" data-d="${d}">${l}</button>`).join('')}</div>`;
     b += '<div class="tm">' + row('A', '開始', tA) + row('B', '終了', tB) + '</div>';
     const segs = curRanges();
     b += `<div class="bar">${segs.map(r => `<div class="seg" style="left:${r.a / DUR * 100}%;width:${(r.b - r.a) / DUR * 100}%"></div>`).join('')}<div class="now" style="left:${now() / DUR * 100}%"></div></div>
