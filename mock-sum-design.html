@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 部分要約のデザイン（見出し・複数選択・数の見え方）</title>
+<!--
+  デザインの見本。本物のデータには何も書かない。AIも呼ばない。
+  オーナー（2026-11-10）:
+   ① 見出しを一目で見出しと分かるように（ライトとダーク）
+   ② 仕切り・ブックマークを複数選べるように
+   ③ 項目の数・写真の数を、チャプターの件数と同じように「何分ごとか」で見せる
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;background:#e9e9e6;color:#111;padding-bottom:60px}
+button,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.sec{max-width:1100px;margin:0 auto;padding:18px 12px 4px}
+.sec>h2{font-size:15px;margin-bottom:4px}
+.sec>p{font-size:12px;color:#555;line-height:1.7;margin-bottom:10px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button{padding:7px 12px;border-radius:8px;border:1px solid #c9c9c4;background:#fff;font-size:12px;text-align:left;line-height:1.4}
+.tabs button b{display:block;font-size:12.5px}
+.tabs button.on{border-color:#111;box-shadow:inset 0 0 0 1px #111}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.pair{grid-template-columns:1fr}}
+.cap{font-size:11px;font-weight:700;color:#666;margin:0 0 4px 2px}
+
+/* テーマ（アプリの色に合わせる） */
+.th{--bg:#f6f6f4;--s:#fff;--s2:#f1f1ef;--t:#111;--t2:#555;--t3:#70706c;--b:#e0e0dc;--sel:#2050c0;--selsoft:rgba(32,80,192,.08);--selmid:rgba(32,80,192,.16);--star:#d9a400;--th:#c9ced6;
+  background:var(--bg);color:var(--t);border-radius:12px;padding:12px;border:1px solid var(--b)}
+.th.dark{--bg:#1c1c1e;--s:#2c2c2e;--s2:#38383a;--t:#e5e5e7;--t2:#ababab;--t3:#9a9aa0;--b:#48484a;--sel:#8fb0ff;--selsoft:rgba(143,176,255,.08);--selmid:rgba(143,176,255,.18);--star:#f2c94c;--th:#4a4f58}
+
+/* ── 要約の結果 ── */
+.res{background:var(--s);border:1px solid var(--b);border-radius:10px;padding:12px;font-size:13px;line-height:1.7}
+.it{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
+.it .thumb{flex-shrink:0;width:88px;height:50px;border-radius:5px;background:var(--th);position:relative}
+.it .thumb::after{content:'写真';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t3)}
+.ts{color:var(--sel);text-decoration:underline;cursor:pointer;font-weight:600}
+.dot{color:var(--t3);margin-right:2px}
+/* 要約全体の見出し（どの版も共通） */
+.rtitle{display:flex;align-items:center;gap:8px;padding-bottom:9px;margin-bottom:4px;border-bottom:1px solid var(--b)}
+.rtitle .ic{font-size:16px}
+.rtitle .tt{font-size:15px;font-weight:800;line-height:1.35}
+.rtitle .rg{font-size:11px;color:var(--t3);font-weight:600;margin-top:1px}
+/* 見出し A: 色の帯 */
+.ch-A{display:flex;align-items:center;gap:8px;margin:14px -4px 6px;padding:8px 10px;border-radius:8px;background:var(--selmid)}
+.ch-A .ct{flex-shrink:0;font-size:11.5px;font-weight:800;color:#fff;background:var(--sel);border-radius:5px;padding:1px 7px}
+.th.dark .ch-A .ct{color:#111}
+.ch-A .cn{font-size:14px;font-weight:800;line-height:1.4}
+/* 見出し B: 番号つき＋下線 */
+.ch-B{display:flex;align-items:baseline;gap:9px;margin:16px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--t)}
+.ch-B .no{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--t);color:var(--s);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;transform:translateY(4px)}
+.ch-B .cn{flex:1;font-size:15px;font-weight:800;line-height:1.4}
+.ch-B .ct{flex-shrink:0;font-size:11.5px}
+/* 見出し C: 小さなラベル＋大きい文字 */
+.ch-C{margin:18px 0 6px}
+.ch-C .lb{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--sel)}
+.ch-C .lb::after{content:'';flex:1;height:1px;background:var(--b)}
+.ch-C .cn{font-size:16px;font-weight:800;line-height:1.4;margin-top:2px}
+
+/* ── シート（範囲・数） ── */
+.sheet{background:var(--s);border:1px solid var(--b);border-radius:14px;overflow:hidden;max-width:520px}
+.sh-hd{padding:12px 14px 8px;border-bottom:1px solid var(--b)}
+.sh-hd b{font-size:14px}
+.stabs{display:flex;gap:4px;margin-top:10px}
+.stabs button{flex:1;font-size:11.5px;padding:7px 2px;border-radius:7px;border:1px solid var(--b);background:transparent;white-space:nowrap}
+.stabs button.on{background:var(--sel);border-color:var(--sel);color:var(--s);font-weight:700}
+.sh-bd{padding:8px 14px;max-height:340px;overflow-y:auto}
+.allrow{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--t3);margin:2px 0 6px}
+.allrow button{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--b);background:transparent;color:var(--t2)}
+.pick{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 8px;border:1px solid var(--b);border-radius:8px;background:transparent;margin-bottom:5px;font-size:12.5px}
+.pick.on{border-color:var(--sel);background:var(--selsoft)}
+.pick .cb{width:18px;height:18px;border-radius:5px;border:2px solid var(--t3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--s)}
+.pick.on .cb{background:var(--sel);border-color:var(--sel)}
+.pick.on .cb::after{content:'✓'}
+.pick .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick .pm{flex-shrink:0;font-size:10.5px;color:var(--t3)}
+.pick.sub{margin-left:18px;width:calc(100% - 18px)}
+.sh-ft{border-top:1px solid var(--b);padding:10px 14px 14px}
+.rng{font-size:12px;margin-bottom:6px}.rng b{color:var(--sel)}
+.tl{position:relative;height:30px;background:var(--s2);border-radius:6px;margin:4px 0 2px}
+.tl .seg{position:absolute;top:0;bottom:0;background:var(--selmid);border-left:1px solid var(--sel);border-right:1px solid var(--sel)}
+.tl .tick{position:absolute;top:4px;width:2px;height:12px;background:var(--sel);border-radius:1px;transform:translateX(-1px)}
+.tl .cam{position:absolute;bottom:1px;font-size:10px;transform:translateX(-50%);line-height:1}
+.tll{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-bottom:10px}
+.grp{font-size:11.5px;font-weight:800;margin:8px 0 5px;display:flex;justify-content:space-between;align-items:baseline}
+.grp span{font-weight:600;color:var(--t3);font-size:10.5px}
+.opts{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.opt{padding:7px 4px;border-radius:8px;border:1px solid var(--b);background:transparent;text-align:center;line-height:1.25}
+.opt b{display:block;font-size:13px}
+.opt small{display:block;font-size:10px;color:var(--t3);margin-top:2px}
+.opt.on{border-color:var(--sel);background:var(--sel);color:var(--s)}
+.opt.on small{color:var(--s);opacity:.85}
+.own{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px;color:var(--t2)}
+.own input{width:58px;font-size:14px;padding:5px 6px;border:1px solid var(--b);border-radius:7px;background:var(--s2);text-align:center}
+.own input.on{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
+.own .h{color:var(--t3);font-size:11px}
+.note{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.6}
+.go{width:100%;margin-top:12px;padding:11px;border-radius:9px;border:none;background:var(--sel);color:var(--s);font-size:14px;font-weight:700}
+.thsw{display:flex;gap:6px;margin-bottom:8px}
+.thsw button{padding:5px 12px;border-radius:7px;border:1px solid #c9c9c4;background:#fff;font-size:12px}
+.thsw button.on{background:#111;color:#fff;border-color:#111}
+</style>
+</head>
+<body>
+<div class="banner">デザインの見本です。本物のデータには何も書きません。AIも呼びません。①見出しの見た目（ライト・ダーク）、②仕切り・ブックマークの複数選択、③項目と写真の数の見え方、の3つです。</div>
+
+<div class="sec">
+  <h2>① 要約の見出し</h2>
+  <p>いちばん上の「要約のタイトル」と、チャプター（ブックマーク）ごとの見出しの見た目です。3案を左右でライト・ダークに並べています。</p>
+  <div class="tabs" id="htabs"></div>
+  <div class="pair"><div><div class="cap">ライト</div><div class="th" id="hl"></div></div><div><div class="cap">ダーク</div><div class="th dark" id="hd"></div></div></div>
+</div>
+
+<div class="sec">
+  <h2>②③ 範囲を選ぶ（複数）・項目と写真の数</h2>
+  <p>仕切りもブックマークも、チェックで何個でも選べます。選んだ範囲は下のバーに出ます。項目と写真の数は、選んでいる数で「何分ごと」になるかをボタンの中に出し、バーに印（| が項目・📷 が写真）で見せます。</p>
+  <div class="thsw"><button data-th="light" class="on">ライト</button><button data-th="dark">ダーク</button></div>
+  <div class="th" id="sheetWrap" style="max-width:560px"></div>
+</div>
+
+<script>
+const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+const every = s0 => { const s = s0 < 60 ? Math.max(5, Math.round(s0 / 5) * 5) : Math.round(s0 / 10) * 10; if (s < 60) return `約${s}秒`; const m = Math.floor(s / 60), r = s % 60; return r && s < 600 ? `約${m}分${r}秒` : `約${Math.round(s / 60)}分`; };
+const DUR = 2989;
+const DIVS = [['導入とフィニッシュの基礎', 3], ['テクニック1: クロスカラーパス', 60], ['テクニック2: ロングステップパス', 540], ['テクニック3: レッグドラッグ', 1006], ['テクニック4: ヘッドトラップ', 1474], ['テクニック5: フルスタックパス', 1867], ['テクニック6: バックロールオプション', 2242], ['テクニック7: デッドリフトスタック', 2540]].map(([l, t]) => ({ l, t }));
+const BMS = [['イントロ', 3], ['フィニッシュの形', 32], ['クロスカラーの握り', 60], ['膝を割る', 190], ['腰を切って抜ける', 330], ['よくある失敗', 470], ['ロングステップの入り', 540], ['足を大きく引く', 700], ['肩で押さえる', 860], ['レッグドラッグの形', 1006], ['腰を落とす', 1200], ['ヘッドトラップの入り', 1474], ['頭を抱える', 1650], ['フルスタック', 1867], ['相手の腰を上げる', 2050], ['バックロール', 2242], ['デッドリフトの姿勢', 2540], ['持ち上げて崩す', 2760]].map(([l, t]) => ({ l, t }));
+const endOf = (arr, k) => k + 1 < arr.length ? arr[k + 1].t : DUR;
+
+// ── ① 見出し ──
+const HPLANS = {
+  A: { n: 'A 色の帯', s: '見出しの行に色を敷く・時刻は色の札' },
+  B: { n: 'B 番号＋太い下線', s: '①②の番号と、行の下に太い線' },
+  C: { n: 'C 小さな札＋大きい文字', s: '上に「CHAPTER 2 · 9:00」・下に大きい題名' },
+};
+let hp = 'A';
+const SAMPLE = [
+  { ch: 1, l: 'テクニック2: ロングステップパス', t: 540, items: [[552, '相手の膝を外へ倒してから、遠い側の足を大きく後ろへ引く', 1], [640, '引いた足のつま先は外向き。内向きだと相手の脚が戻る', 0], [760, '胸を相手の太ももに乗せ、体重を預けたまま頭を外へ', 1]] },
+  { ch: 2, l: 'テクニック3: レッグドラッグ', t: 1006, items: [[1012, 'ズボンの膝を両手で持ち、相手の脚を自分の腰の横へ運ぶ', 1], [1180, '腰を落として相手の脚を床に押しつける。浮くと回られる', 0]] },
+];
+function headHTML(c) {
+  if (hp === 'A') return `<div class="ch-A"><span class="ct ts">${fmt(c.t)}</span><span class="cn">${c.l}</span></div>`;
+  if (hp === 'B') return `<div class="ch-B"><span class="no">${c.ch}</span><span class="cn">${c.l}</span><span class="ct ts">${fmt(c.t)}</span></div>`;
+  return `<div class="ch-C"><div class="lb">CHAPTER ${c.ch} · <span class="ts">${fmt(c.t)}</span></div><div class="cn">${c.l}</div></div>`;
+}
+function resHTML() {
+  return `<div class="res"><div class="rtitle"><span class="ic">✂️</span><div><div class="tt">要約　ロングステップパス・レッグドラッグ</div><div class="rg">9:00–24:34 · 2か所 · 合計 15分</div></div></div>` +
+    SAMPLE.map(c => headHTML(c) + c.items.map(([t, x, p]) => `<div class="it">${p ? '<span class="thumb"></span>' : ''}<span><span class="dot">・</span><span class="ts">${fmt(t)}</span> ${x}</span></div>`).join('')).join('') + '</div>';
+}
+function renderH() {
+  document.getElementById('htabs').innerHTML = Object.entries(HPLANS).map(([k, p]) => `<button data-h="${k}" class="${k === hp ? 'on' : ''}"><b>${p.n}</b>${p.s}</button>`).join('');
+  document.getElementById('hl').innerHTML = document.getElementById('hd').innerHTML = resHTML();
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { hp = b.dataset.h; renderH(); });
+}
+renderH();
+
+// ── ②③ シート ──
+let tab = 'div', selDiv = new Set([2, 3]), selBm = new Set(), nItems = 0, nShots = 3, ownI = '', ownS = '';
+function ranges() {
+  const list = tab === 'div' ? [...selDiv].sort((a, b) => a - b).map(k => ({ a: DIVS[k].t, b: endOf(DIVS, k), l: DIVS[k].l }))
+                             : [...selBm].sort((a, b) => a - b).map(k => ({ a: BMS[k].t, b: endOf(BMS, k), l: BMS[k].l }));
+  const out = []; for (const r of list) { const last = out[out.length - 1]; if (last && r.a <= last.b) last.b = Math.max(last.b, r.b); else out.push({ ...r }); }  // 隣り合うものはつなぐ
+  return out;
+}
+function posAt(rs, x) { for (const r of rs) { if (x < r.b - r.a) return r.a + x; x -= r.b - r.a; } return null; }
+function renderS() {
+  const rs = ranges(), tot = rs.reduce((s, r) => s + r.b - r.a, 0), auto = Math.max(1, Math.min(30, Math.round(tot / 60)));
+  const items = nItems || auto, shots = Math.min(nShots, items);
+  const list = tab === 'div' ? DIVS : BMS, sel = tab === 'div' ? selDiv : selBm;
+  let h = `<div class="sheet"><div class="sh-hd"><b>✨ 部分を要約</b>
+    <div class="stabs">${[['div', '仕切り'], ['bm', 'ブックマーク'], ['star', '★の所'], ['time', '時刻を指定']].map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}" ${k === 'star' || k === 'time' ? 'disabled style="opacity:.45"' : ''}>${l}</button>`).join('')}</div></div>
+    <div class="sh-bd"><div class="allrow"><span>${sel.size ? sel.size + '個を選んでいます' : 'チェックで何個でも選べます'}</span><span><button data-all="1">全部選ぶ</button> <button data-all="0">全部外す</button></span></div>`;
+  h += list.map((x, k) => `<button class="pick ${sel.has(k) ? 'on' : ''}" data-k="${k}"><span class="cb"></span><span class="pn">${tab === 'bm' ? fmt(x.t) + '　' : ''}${x.l}</span><span class="pm">${tab === 'div' ? fmt(x.t) + '–' + fmt(endOf(list, k)) : '〜' + fmt(endOf(list, k))}</span></button>`).join('');
+  h += `</div><div class="sh-ft">`;
+  h += rs.length ? `<div class="rng">範囲: <b>${rs.length}か所・合計 ${Math.round(tot / 60)}分</b></div>` : `<div class="rng" style="color:var(--t3)">範囲を選んでください</div>`;
+  // バー: 範囲・項目の印・写真の印
+  const ticks = [], cams = [];
+  if (rs.length) { for (let k = 0; k < items; k++) ticks.push(posAt(rs, tot * (k + .5) / items)); const step = items / Math.max(1, shots); for (let k = 0; k < shots; k++) cams.push(ticks[Math.floor(k * step)]); }
+  h += `<div class="tl">${rs.map(r => `<div class="seg" style="left:${r.a / DUR * 100}%;width:${(r.b - r.a) / DUR * 100}%"></div>`).join('')}
+    ${ticks.map(t => `<div class="tick" style="left:${t / DUR * 100}%"></div>`).join('')}${cams.map(t => `<div class="cam" style="left:${t / DUR * 100}%">📷</div>`).join('')}</div>
+    <div class="tll"><span>0:00</span><span>動画全体 ${fmt(DUR)}</span></div>`;
+  const per = n => rs.length ? every(tot / n) + 'ごと' : '—';
+  const IOPT = [[0, 'おまかせ'], [5, '5'], [10, '10'], [20, '20']];
+  h += `<div class="grp">項目の数<span>${rs.length ? `${items}項目 · 選んだ ${Math.round(tot / 60)}分を${every(tot / items)}ごと` : ''}</span></div>
+    <div class="opts">${IOPT.map(([v, l]) => `<button class="opt ${nItems === v && !ownI ? 'on' : ''}" data-ni="${v}"><b>${v ? l + '項目' : l}</b><small>${v ? per(v) : (rs.length ? auto + '項目 · ' + per(auto) : '約1分ごと')}</small></button>`).join('')}</div>
+    <div class="own">自分で決める <input id="ownI" inputmode="numeric" placeholder="数" value="${ownI}" class="${ownI ? 'on' : ''}"> 項目 <span class="h">${ownI && +ownI >= 1 && +ownI <= 30 ? per(+ownI) : '1〜30'}</span></div>`;
+  const SOPT = [[0, 'なし'], [1, '1'], [3, '3'], [5, '5']];
+  const sper = n => !n ? '写真なし' : n > items ? `項目より多くは入れられない` : rs.length ? every(tot / n) + 'に1枚' : '—';
+  h += `<div class="grp">写真の数<span>${rs.length ? (shots ? `${shots}枚 · ${every(tot / shots)}に1枚` : '写真なし') : ''}</span></div>
+    <div class="opts">${SOPT.map(([v, l]) => `<button class="opt ${nShots === v && !ownS ? 'on' : ''}" data-ns="${v}" ${v > items ? 'disabled style="opacity:.4"' : ''}><b>${v ? l + '枚' : l}</b><small>${sper(v)}</small></button>`).join('')}</div>
+    <div class="own">自分で決める <input id="ownS" inputmode="numeric" placeholder="数" value="${ownS}" class="${ownS ? 'on' : ''}"> 枚 <span class="h">${ownS && +ownS >= 1 ? sper(+ownS) : '項目の数まで'}</span></div>
+    <div class="note">どの項目に写真を付けるかは AI が選びます（バーの 📷 は目安の位置）。</div>
+    <button class="go" ${rs.length ? '' : 'disabled style="opacity:.4"'}>AIで要約する</button></div></div>`;
+  const W = document.getElementById('sheetWrap'); W.innerHTML = h;
+  W.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { if (b.disabled) return; tab = b.dataset.tab; renderS(); });
+  W.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const k = +b.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); renderS(); });
+  W.querySelectorAll('[data-all]').forEach(b => b.onclick = () => { if (+b.dataset.all) list.forEach((_, k) => sel.add(k)); else sel.clear(); renderS(); });
+  W.querySelectorAll('[data-ni]').forEach(b => b.onclick = () => { nItems = +b.dataset.ni; ownI = ''; renderS(); });
+  W.querySelectorAll('[data-ns]').forEach(b => b.onclick = () => { if (b.disabled) return; nShots = +b.dataset.ns; ownS = ''; renderS(); });
+  const num = v => +String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  const bindOwn = (id, ok, set) => { const el = W.querySelector('#' + id); el.oninput = () => { const v = num(el.value);
+    if (el.value === '' ) { set(null, ''); renderS(); W.querySelector('#' + id).focus(); return; }
+    if (ok(v)) { set(v, el.value); const pos = el.selectionStart; renderS(); const e2 = W.querySelector('#' + id); e2.focus(); e2.setSelectionRange(pos, pos); } }; };
+  bindOwn('ownI', v => v >= 1 && v <= 30, (v, s) => { ownI = s; if (v) nItems = v; else nItems = 0; });
+  bindOwn('ownS', v => v >= 1 && v <= 30, (v, s) => { ownS = s; if (v) nShots = v; else nShots = 3; });
+}
+renderS();
+document.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); document.getElementById('sheetWrap').classList.toggle('dark', b.dataset.th === 'dark'); });
+</script>
+</body>
+</html>
