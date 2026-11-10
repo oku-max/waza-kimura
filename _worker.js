@@ -383,6 +383,10 @@ async function handleAiSummary(request, env) {
     return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
   }
 
+  // 部分だけの要約の見本（mock-sum-real.html から呼ぶ・2026-11-10）。範囲の字幕だけを受け取り、
+  // 項目（時刻・要点・写真を付けるか）を JSON で返す。何も保存しない。オーナーの見本の確認用。
+  if (source === 'rangesum') return _aiRangeSummary(env, body, title, channel, playlist);
+
   // すでにあるブックマークの一覧（名前と時刻）だけを読んで、大きな区切り（仕切り）を探す経路（v52.953）。
   // 動画も字幕も送らない。ブックマークを作り直さず、仕切りだけを後から入れるためのもの。
   if (source === 'bmlist') {
@@ -750,6 +754,46 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
     summary: result.summary, usage: result.usage, costUsd: result.costUsd,
     via: 'transcript', clipped,
   });
+}
+
+// ── 部分だけの要約（見本・mock-sum-real.html）──────────────────
+// 受け取るのは範囲の字幕の行（[M:SS] 本文）だけ。動画は送らない。
+// 返すのは {items:[{t:"M:SS", text, shot}]}。t は字幕に書かれた時刻から選ばせる（推測させない）。
+const RANGESUM_MAX = 60000;
+async function _aiRangeSummary(env, body, title, channel, playlist) {
+  const lines = (Array.isArray(body.cues) ? body.cues : []).map(c => {
+    const t = Math.max(0, Math.round(Number(c?.t) || 0));
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60, z = n => String(n).padStart(2, '0');
+    return `[${h ? `${h}:${z(m)}:${z(sec)}` : `${m}:${z(sec)}`}] ${String(c?.text || '').replace(/\s+/g, ' ').trim()}`;
+  }).filter(l => !/\]\s*$/.test(l));
+  let text = lines.join('\n');
+  if (!text) return jsonRes({ error: '字幕テキストが空です' }, 400);
+  const clipped = text.length > RANGESUM_MAX; if (clipped) text = text.slice(0, RANGESUM_MAX);
+  const items = Math.max(1, Math.min(30, Math.round(Number(body.items) || 0))) || 0;
+  const shots = Math.max(0, Math.min(items || 30, Math.round(Number(body.shots) || 0)));
+  const nItems = Number(body.items) > 0 ? items : 0;
+  const ctx = _ctxStr(title, channel, playlist);
+  const label = String(body.label || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const prompt = `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+以下は教則動画の一部分（${label ? `「${label}」` : '指定された範囲'}）の字幕です。各行は「[開始時刻] 話している内容」です。
+この部分を、あとで読み返して練習に使えるメモとして要約してください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+【字幕】
+${text}
+
+【決まり】
+- 項目は${nItems ? `ちょうど${nItems}個` : `この部分の長さに合わせて、おおよそ1分に1個`}。部分の最初から最後までまんべんなく拾い、後半を省かない
+- 各項目の t は、その内容を話し始めた字幕行の時刻を、字幕に書かれているとおりに書く（自分で計算しない）。早い順に並べ、同じ時刻を2回使わない
+- text は語られている中身（要点・コツ・注意点・体の使い方）を言い切りで1〜2文。60文字程度まで
+- 「〜について説明します」「〜を紹介」のような予告・言い直しにしない。字幕をそのまま写さず、話し言葉の繰り返し・相づち・「もう一度やりましょう」の類は落とす
+- 柔術用語はカタカナ（ハーフガード、アンダーフック 等）
+- shot は、その項目に動画の画面の写真を付けるなら true。${shots ? `ちょうど${shots}個を true にする。形や位置関係が写真で分かると役に立つ項目（姿勢・グリップ・足の位置など）を選ぶ` : 'すべて false にする'}
+- 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
+
+{"items":[{"t":"M:SS","text":"要点","shot":false}]}`;
+  const result = await _geminiGenerate(env, [{ text: prompt }], { json: true, maxOutputTokens: 16384, thinkingBudget: 2048, temperature: 0.3, what: '要約' });
+  if (result.error) return jsonRes(result, 502);
+  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd, via: 'rangesum', clipped });
 }
 
 // ブックマークの一覧から仕切り（大きな区切り）を探す。返すのは「何番の前に、どんな見出しを入れるか」だけ。

@@ -2,7 +2,7 @@
 // ・読むだけ: window.videos（ブックマーク・仕切り・長さ）、動画の <video>（再生位置・字幕の <track>）、
 //   YouTube の字幕（Firestore users/{uid}/data/ytsub_{ytId} を get するだけ）。
 // ・書かない: 動画のデータ・メモ・スナップショット・localStorage・Firestore に何も書かない。
-// ・AIを呼ばない: 要約の文の代わりに、その時刻の字幕をそのまま出す。
+// ・AI: 範囲の字幕の行だけを /api/ai-summary（source:'rangesum'）へ送り、項目（時刻・要点・写真を付けるか）を受け取る。
 // ・写真: Drive の動画だけ。同じ動画を隠れた <video> でもう1本開き、その時刻の絵を撮る（保存しない）。
 (() => {
   if (window.__msr) return; window.__msr = true;
@@ -150,7 +150,7 @@
   const TABS = [['div', '仕切り'], ['bm', 'ブックマーク'], ['star', '★の所'], ['time', '時刻を指定']];
   function render() {
     if (!ov) return; const D = data(), sh = ov.querySelector('.msr-sh'); const isGd = !!gdEl();
-    let h = `<div class="msr-hd"><b>✨ 部分を要約（見本）</b><div class="sub">${esc(D.v?.title || '')}<br>見本なので AI は呼ばず、要約の文の代わりにその時刻の字幕を出します。メモには入れません。</div>
+    let h = `<div class="msr-hd"><b>✨ 部分を要約（見本）</b><div class="sub">${esc(D.v?.title || '')}<br>範囲の字幕だけをAIに送って要約します（押すたびに少し料金がかかります）。メモには入れません。</div>
       <div class="msr-tabs">${TABS.map(([k, l]) => `<button class="${k === mode ? 'on' : ''}" data-tab="${k}" ${phase !== 'pick' ? 'disabled' : ''}>${l}</button>`).join('')}</div></div><div class="msr-bd">`;
     if (phase === 'busy') { sh.innerHTML = h + `<div class="msr-busy" id="msr-busy">準備しています…</div></div><div class="msr-ft"><button class="msr-cancel" data-act="stop">やめる</button></div>`; bind(); return; }
     if (phase === 'done') { sh.innerHTML = h + `<div class="msr-hint">メモにはこの形で入る想定です（見本なので入れていません）。時刻を押すとその位置へ飛びます。写真を押すと大きく出ます。</div>${result}</div>
@@ -177,8 +177,8 @@
     const IL = [[0, 'おまかせ'], [3, '3'], [5, '5'], [10, '10']], SL = [[0, 'なし'], [1, '1'], [3, '3'], [5, '5']];
     h += `<div class="msr-opt"><span class="ol">項目の数</span>${cs('ni', nItems, IL)}${custom('msr-ni', nItems, IL)}<span class="on2">${nItems ? items + '項目' : 'おまかせ＝約1分に1項目（この範囲なら ' + auto + '項目）'}・1〜30</span></div>`;
     if (!isGd) h += `<div class="msr-opt"><span class="ol">写真</span><span style="font-size:11.5px;color:var(--t3)">YouTubeの動画は画面を撮れないので、文章だけになります</span></div>`;
-    else { const s2 = Math.min(nShots, items); h += `<div class="msr-opt"><span class="ol">写真</span>${cs('ns', nShots, SL)}${custom('msr-ns', nShots, SL)}<span class="on2">${!nShots ? '写真は入れません' : nShots > items ? `項目より多くは入れられないので ${s2}枚（1項目に1枚まで）` : `${s2}枚。本物ではどの項目に付けるかをAIが選ぶ（見本は間をあけて付ける）`}</span></div>`; }
-    h += `<button class="msr-go" data-act="go" ${rs.length ? '' : 'disabled'}>要約する（見本）</button><button class="msr-cancel" data-act="close">キャンセル</button></div>`;
+    else { const s2 = Math.min(nShots, items); h += `<div class="msr-opt"><span class="ol">写真</span>${cs('ns', nShots, SL)}${custom('msr-ns', nShots, SL)}<span class="on2">${!nShots ? '写真は入れません' : nShots > items ? `項目より多くは入れられないので ${s2}枚（1項目に1枚まで）` : `${s2}枚。どの項目に付けるかはAIが選ぶ`}</span></div>`; }
+    h += `<button class="msr-go" data-act="go" ${rs.length ? '' : 'disabled'}>AIで要約する（見本）</button><button class="msr-cancel" data-act="close">キャンセル</button></div>`;
     sh.innerHTML = h; bind();
   }
   function bind() {
@@ -243,16 +243,41 @@
     if (!subs.cues.length && String(D.v?.pt || '') === 'gdrive' && !gdEl()) { phase = 'done'; result = `<div class="msr-warn">Drive の動画がまだ再生されていません（Google の認証が切れているため）。<br>動画の所の「Googleで認証して再生」を押して、動画と字幕が出てから、もう一度押してください。</div>`; render(); return; }
     if (!subs.cues.length) { phase = 'done'; result = `<div class="msr-warn">この動画の字幕を読めませんでした。<br><span style="font-size:11px">下の「調べた結果」をスクリーンショットで送ってください。</span></div>
       <div style="font:11px/1.6 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;background:var(--s2);border-radius:6px;padding:8px">調べた結果\n${esc((subs.diag || []).join('\n'))}</div>`; render(); return; }
-    const tot = rs.reduce((s, r) => s + r.b - r.a, 0), items = nItems || Math.max(1, Math.min(30, Math.round(tot / 60)));
-    const times = []; for (let k = 0; k < items; k++) { let x = tot * (k + 0.5) / items; for (const r of rs) { if (x < r.b - r.a) { times.push(Math.floor(r.a + x)); break; } x -= r.b - r.a; } }
-    const shots = gdEl() ? Math.min(nShots, items) : 0, withShot = new Set(); for (let k = 0; k < shots; k++) withShot.add(Math.floor(k * items / shots));
-    const pics = shots ? await capFrames(times.filter((_, k) => withShot.has(k)), setMsg, tok) : {}; if (tok !== cancelTok) return;
-    const textAt = t => { const c = subs.cues.filter(c => c.end > t - 1 && c.start < t + 12).map(c => c.text).join(' '); return c.length > 90 ? c.slice(0, 90) + '…' : c || '（この時刻の字幕なし）'; };
-    const lbl = rs.length === 1 && rs[0].label ? '　' + esc(rs[0].label) : (mode === 'star' ? `　★${starMin === 3 ? 3 : starMin + '以上'}の所` : '');
+    const tot = rs.reduce((s, r) => s + r.b - r.a, 0);
+    const inR = t => rs.some(r => t >= r.a - 1 && t < r.b);
+    const cues = subs.cues.filter(c => inR(c.start)).map(c => ({ t: c.start, text: c.text }));
+    if (!cues.length) { phase = 'done'; result = `<div class="msr-warn">この範囲に字幕の行がありません。</div>`; render(); return; }
+    const isGd = !!gdEl(), wantShots = isGd ? nShots : 0;
+    const lbl0 = rs.length === 1 && rs[0].label ? rs[0].label : (mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : '');
+    setMsg('AIが要約しています…（' + cues.length + '行の字幕を送っています）');
+    let items = [], cost = null, err = '';
+    try {
+      const user = window._firebaseCurrentUser?.(); if (!user) throw new Error('ログインが必要です');
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/ai-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, source: 'rangesum', cues, items: nItems, shots: wantShots, label: lbl0, title: D.v?.title || '', channel: D.v?.channel || '', playlist: D.v?.playlist || '' }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.error) throw new Error(j.error ? (j.error + (j.detail ? ': ' + j.detail : '')) : 'HTTP ' + res.status);
+      cost = j.costUsd;
+      const txt = String(j.summary || '').replace(/^```(?:json)?\s*|\s*```$/g, '');
+      const obj = JSON.parse(txt);
+      items = (obj.items || []).map(x => ({ t: parse(x.t), text: String(x.text || ''), shot: !!x.shot })).filter(x => x.t != null).sort((a, b) => a.t - b.t);
+      if (!items.length) throw new Error('AIの返事に項目がありませんでした');
+    } catch (e) { err = e.message || String(e); }
+    if (tok !== cancelTok) return;
+    if (err) { phase = 'done'; result = `<div class="msr-warn">AIの要約に失敗しました: ${esc(err)}</div>`; render(); return; }
+    // 写真: AIが shot にした項目。数がずれていたら指定の枚数に合わせる（多ければ先から・足りなければ間をあけて足す）
+    let shotIdx = items.map((x, k) => x.shot ? k : -1).filter(k => k >= 0);
+    const want = Math.min(wantShots, items.length);
+    if (shotIdx.length > want) shotIdx = shotIdx.slice(0, want);
+    for (let k = 0; shotIdx.length < want && k < items.length * 2; k++) { const c = Math.floor(k * items.length / want) % items.length; if (!shotIdx.includes(c)) shotIdx.push(c); }
+    const shotTimes = shotIdx.map(k => items[k].t);
+    const pics = shotTimes.length ? await capFrames(shotTimes, setMsg, tok) : {}; if (tok !== cancelTok) return;
+    const lbl = lbl0 ? '　' + esc(lbl0) : '';
     result = `<div class="msr-res"><div class="h">✂️ 要約 ${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')}${lbl}</div>` +
-      times.map((t, k) => `<div class="it">${pics[t] ? `<img class="th" src="${pics[t]}" alt="">` : ''}<span>・<span class="ts" data-t="${t}">${fmt(t)}</span> ${esc(textAt(t))}</span></div>`).join('') + '</div>' +
+      items.map(x => `<div class="it">${pics[x.t] && shotTimes.includes(x.t) ? `<img class="th" src="${pics[x.t]}" alt="">` : ''}<span>・<span class="ts" data-t="${x.t}">${fmt(x.t)}</span> ${esc(x.text)}</span></div>`).join('') + '</div>' +
       (pics.__err ? `<div class="msr-warn" style="margin-top:8px">写真を撮れませんでした: ${esc(pics.__err)}</div>` : '') +
-      `<div class="msr-hint" style="margin-top:8px">字幕: ${esc(subs.label)}。本物ではここが AI の要約（要点・コツを言い切りで）になり、項目の時刻も AI が中身に合わせて選びます。</div>`;
+      `<div class="msr-hint" style="margin-top:8px">AIが字幕（${esc(subs.label)}・${cues.length}行）から作った要約です。項目 ${items.length}個・写真 ${Object.keys(pics).filter(k => k !== '__err').length}枚${cost != null ? `・料金 約$${Number(cost).toFixed(4)}` : ''}。メモには入れていません。</div>`;
     phase = 'done'; render();
   }
 })();
