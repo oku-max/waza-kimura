@@ -136,7 +136,7 @@ const HPLANS = {
   B: { n: 'B 番号＋太い下線', s: '①②の番号と、行の下に太い線' },
   C: { n: 'C 小さな札＋大きい文字', s: '上に「CHAPTER 2 · 9:00」・下に大きい題名' },
 };
-let hp = 'A';
+let hp = 'B';
 const SAMPLE = [
   { ch: 1, l: 'テクニック2: ロングステップパス', t: 540, items: [[552, '相手の膝を外へ倒してから、遠い側の足を大きく後ろへ引く', 1], [640, '引いた足のつま先は外向き。内向きだと相手の脚が戻る', 0], [760, '胸を相手の太ももに乗せ、体重を預けたまま頭を外へ', 1]] },
   { ch: 2, l: 'テクニック3: レッグドラッグ', t: 1006, items: [[1012, 'ズボンの膝を両手で持ち、相手の脚を自分の腰の横へ運ぶ', 1], [1180, '腰を落として相手の脚を床に押しつける。浮くと回られる', 0]] },
@@ -158,7 +158,7 @@ function renderH() {
 renderH();
 
 // ── ②③ シート ──
-let tab = 'div', selDiv = new Set([2, 3]), selBm = new Set(), nItems = 0, nShots = 3, ownI = '', ownS = '';
+let tab = 'div', selDiv = new Set([2, 3]), selBm = new Set(), nItems = 0, nShots = 5, ownI = '', ownS = '';
 function ranges() {
   const list = tab === 'div' ? [...selDiv].sort((a, b) => a - b).map(k => ({ a: DIVS[k].t, b: endOf(DIVS, k), l: DIVS[k].l }))
                              : [...selBm].sort((a, b) => a - b).map(k => ({ a: BMS[k].t, b: endOf(BMS, k), l: BMS[k].l }));
@@ -187,7 +187,7 @@ function renderS() {
   h += `<div class="grp">項目の数<span>${rs.length ? `${items}項目 · 選んだ ${Math.round(tot / 60)}分を${every(tot / items)}ごと` : ''}</span></div>
     <div class="opts">${IOPT.map(([v, l]) => `<button class="opt ${nItems === v && !ownI ? 'on' : ''}" data-ni="${v}"><b>${v ? l + '項目' : l}</b><small>${v ? per(v) : (rs.length ? auto + '項目 · ' + per(auto) : '約1分ごと')}</small></button>`).join('')}</div>
     <div class="own">自分で決める <input id="ownI" inputmode="numeric" placeholder="数" value="${ownI}" class="${ownI ? 'on' : ''}"> 項目 <span class="h">${ownI && +ownI >= 1 && +ownI <= 30 ? per(+ownI) : '1〜30'}</span></div>`;
-  const SOPT = [[0, 'なし'], [1, '1'], [3, '3'], [5, '5']];
+  const SOPT = [[0, 'なし'], [5, '5'], [10, '10'], [20, '20']];   // 項目と同じ数
   const sper = n => !n ? '写真なし' : n > items ? `項目より多くは入れられない` : rs.length ? every(tot / n) + 'に1枚' : '—';
   h += `<div class="grp">写真の数<span>${rs.length ? (shots ? `${shots}枚 · ${every(tot / shots)}に1枚` : '写真なし') : ''}</span></div>
     <div class="opts">${SOPT.map(([v, l]) => `<button class="opt ${nShots === v && !ownS ? 'on' : ''}" data-ns="${v}" ${v > items ? 'disabled style="opacity:.4"' : ''}><b>${v ? l + '枚' : l}</b><small>${sper(v)}</small></button>`).join('')}</div>
@@ -205,7 +205,7 @@ function renderS() {
     if (el.value === '' ) { set(null, ''); renderS(); W.querySelector('#' + id).focus(); return; }
     if (ok(v)) { set(v, el.value); const pos = el.selectionStart; renderS(); const e2 = W.querySelector('#' + id); e2.focus(); e2.setSelectionRange(pos, pos); } }; };
   bindOwn('ownI', v => v >= 1 && v <= 30, (v, s) => { ownI = s; if (v) nItems = v; else nItems = 0; });
-  bindOwn('ownS', v => v >= 1 && v <= 30, (v, s) => { ownS = s; if (v) nShots = v; else nShots = 3; });
+  bindOwn('ownS', v => v >= 1 && v <= 30, (v, s) => { ownS = s; if (v) nShots = v; else nShots = 5; });
 }
 renderS();
 document.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); document.getElementById('sheetWrap').classList.toggle('dark', b.dataset.th === 'dark'); });

@@ -59,8 +59,10 @@
 .msr-res .h{font-weight:700;color:var(--sel)}
 .msr-res .it{display:flex;gap:7px;align-items:flex-start;margin:4px 0}
 .msr-res .th{flex-shrink:0;width:96px;border-radius:5px;display:block;cursor:zoom-in}
-.msr-res .ch{margin:12px 0 2px;padding:3px 0 3px 8px;border-left:3px solid var(--sel);font-weight:700;font-size:12.5px}
-.msr-res .ch .ct{margin-right:6px;font-weight:700}
+.msr-res .ch{display:flex;align-items:baseline;gap:9px;margin:16px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--t)}
+.msr-res .ch .no{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--t);color:var(--s);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;transform:translateY(4px)}
+.msr-res .ch .cn{flex:1;font-size:15px;font-weight:800;line-height:1.4}
+.msr-res .ch .ct{flex-shrink:0;font-size:11.5px}
 .msr-res .ts{color:var(--sel);text-decoration:underline;cursor:pointer}
 .msr-big{position:fixed;inset:0;z-index:99995;background:rgba(0,0,0,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif}
 .msr-big img{max-width:100%;max-height:68vh;border-radius:6px}
@@ -127,7 +129,7 @@
   }
 
   // ── 範囲 ──
-  let mode = 'div', selDiv = null, selBm = null, starMin = 1, tA = null, tB = null, nItems = 0, nShots = 3, phase = 'pick', result = '', cancelTok = 0;
+  let mode = 'div', selDiv = null, selBm = null, starMin = 1, tA = null, tB = null, nItems = 0, nShots = 5, phase = 'pick', result = '', cancelTok = 0;
   const data = () => { const v = curVideo(); const dur = durOf(v);
     const bms = (v?.bookmarks || []).map((b, i) => ({ i, t: toSec(b.time), label: b.label || '', star: b.star === true ? 1 : (Number(b.star) || 0) })).sort((a, b) => a.t - b.t);
     const divs = (v?.bmDividers || []).map(d => ({ t: toSec(d.time), label: d.label || '' })).sort((a, b) => a.t - b.t);
@@ -179,7 +181,7 @@
     h += rs.length ? `<div class="msr-sum">範囲: <b>${rs.length > 1 ? rs.length + 'か所・' : fmt(rs[0].a) + '–' + fmt(rs[0].b) + '・'}合計 ${tot < 60 ? Math.round(tot) + '秒' : Math.round(tot / 60) + '分'}</b></div>` : '<div class="msr-sum" style="color:var(--t3)">範囲を選んでください</div>';
     const cs = (key, cur, list) => list.map(([v, l]) => `<button class="${cur === v ? 'on' : ''}" data-${key}="${v}">${l}</button>`).join('');
     const custom = (id, cur, list) => `<input id="${id}" inputmode="numeric" placeholder="数" value="${list.some(x => x[0] === cur) ? '' : cur}" class="${list.some(x => x[0] === cur) ? '' : 'on'}">`;
-    const IL = [[0, 'おまかせ'], [3, '3'], [5, '5'], [10, '10']], SL = [[0, 'なし'], [1, '1'], [3, '3'], [5, '5']];
+    const IL = [[0, 'おまかせ'], [5, '5'], [10, '10'], [20, '20']], SL = [[0, 'なし'], [5, '5'], [10, '10'], [20, '20']];   // 写真も項目と同じ数
     h += `<div class="msr-opt"><span class="ol">項目の数</span>${cs('ni', nItems, IL)}${custom('msr-ni', nItems, IL)}<span class="on2">${nItems ? items + '項目' : 'おまかせ＝約1分に1項目（この範囲なら ' + auto + '項目）'}・1〜30</span></div>`;
     if (!isGd) h += `<div class="msr-opt"><span class="ol">写真</span><span style="font-size:11.5px;color:var(--t3)">YouTubeの動画は画面を撮れないので、文章だけになります</span></div>`;
     else { const s2 = Math.min(nShots, items); h += `<div class="msr-opt"><span class="ol">写真</span>${cs('ns', nShots, SL)}${custom('msr-ns', nShots, SL)}<span class="on2">${!nShots ? '写真は入れません' : nShots > items ? `項目より多くは入れられないので ${s2}枚（1項目に1枚まで）` : `${s2}枚。どの項目に付けるかはAIが選ぶ`}</span></div>`; }
@@ -282,9 +284,9 @@
     const itemHTML = x => `<div class="it">${pics[x.t] && shotTimes.includes(x.t) ? `<img class="th" src="${pics[x.t]}" alt="" data-t="${x.t}" data-txt="${esc(x.text)}">` : ''}<span>・<span class="ts" data-t="${x.t}">${fmt(x.t)}</span> ${esc(x.text)}</span></div>`;
     // 項目を、それが入っているブックマーク（チャプター）ごとに見出しで分ける。2つ以上にまたがるときだけ
     const chOf = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
-    const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2;
+    const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2; let chNo = 0;
     const body = items.map((x, k) => (many && chs[k] && chs[k] !== chs[k - 1]
-      ? `<div class="ch"><span class="ct ts" data-t="${chs[k].t}">${fmt(chs[k].t)}</span>${esc(chs[k].label || '（名前なし）')}</div>` : '') + itemHTML(x)).join('');
+      ? `<div class="ch"><span class="no">${++chNo}</span><span class="cn">${esc(chs[k].label || '（名前なし）')}</span><span class="ct ts" data-t="${chs[k].t}">${fmt(chs[k].t)}</span></div>` : '') + itemHTML(x)).join('');
     result = `<div class="msr-res"><div class="h">✂️ 要約 ${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')}${lbl}</div>` + body + '</div>' +
       (pics.__err ? `<div class="msr-warn" style="margin-top:8px">写真を撮れませんでした: ${esc(pics.__err)}</div>` : '') +
       `<div class="msr-hint" style="margin-top:8px">AIが字幕（${esc(subs.label)}・${cues.length}行）から作った要約です。項目 ${items.length}個・写真 ${Object.keys(pics).filter(k => k !== '__err').length}枚${cost != null ? `・料金 約$${Number(cost).toFixed(4)}` : ''}。メモには入れていません。</div>`;
