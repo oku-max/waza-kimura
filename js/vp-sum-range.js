@@ -1,5 +1,5 @@
 // ═══ 部分だけの要約（v52.987・オーナー決定 mock-sum-real.html / mock-sum-design.html） ═══
-// 動画パネルのブックマークの見出しの「✨ 部分を要約」から開く。
+// 動画パネルのブックマークの見出しの「✨ 要約」から開く。
 //   範囲: 仕切り・ブックマーク（どちらも何個でも選べる・隣り合うものはつなぐ）／★の所／時刻を指定
 //   項目の数・写真の数: おまかせ（約1分に1項目）・5・10・20・自分で決める（1〜30）。何分ごとになるかを見せる
 //   元は字幕だけ（/api/ai-summary source:'rangesum'）。範囲の字幕の行だけを送る。動画は送らない
@@ -26,7 +26,7 @@
 
   // ── 状態（画面の中だけ。動画ごとに選び直す） ──
   let vid = null, mode = 'div', selDiv = new Set(), selBm = new Set(), starMin = 1, tA = null, tB = null;
-  let nItems = 0, nShots = 5, ownI = '', ownS = '', phase = 'pick', cancelTok = 0, ov = null, nowTimer = null;
+  let nItems = 0, nShots = 5, ownI = '', ownS = '', phase = 'pick', cancelTok = 0, ov = null, nowTimer = null, noAuth = '';
 
   const data = () => {
     const v = (window.videos || []).find(x => x.id === vid) || null;
@@ -56,7 +56,7 @@
     if (!selDiv.size && !selBm.size) { if (D.divs.length) { mode = 'div'; selDiv.add(0); } else if (D.bms.length) { mode = 'bm'; selBm.add(0); } else mode = 'time'; }
     phase = 'pick';
     ov?.remove();
-    ov = document.createElement('div'); ov.className = 'vsr-ov'; ov.id = 'vsr-ov'; ov.innerHTML = '<div class="vsr-sh" role="dialog" aria-label="部分を要約"></div>';
+    ov = document.createElement('div'); ov.className = 'vsr-ov'; ov.id = 'vsr-ov'; ov.innerHTML = '<div class="vsr-sh" role="dialog" aria-label="要約"></div>';
     document.body.appendChild(ov);
     ov.onclick = e => { if (e.target === ov && phase !== 'busy') close(); };
     clearInterval(nowTimer);
@@ -71,9 +71,14 @@
   function render() {
     if (!ov) return;
     const D = data(), sh = ov.querySelector('.vsr-sh'), isGd = !!K().isGdPlaying?.();
-    let h = `<div class="vsr-hd"><b>✨ 部分を要約</b><div class="sub">選んだ部分の字幕だけを AI に送って要約し、メモの最後に入れます。</div>
+    let h = `<div class="vsr-hd"><b>✨ 要約</b><div class="sub">選んだ部分の字幕だけを AI に送って要約し、メモの最後に入れます。</div>
       <div class="vsr-tabs">${TABS.map(([k, l]) => `<button class="${k === mode ? 'on' : ''}" data-tab="${k}" ${phase !== 'pick' ? 'disabled' : ''}>${l}</button>`).join('')}</div></div><div class="vsr-bd">`;
     if (phase === 'busy') { sh.innerHTML = h + `<div class="vsr-busy" id="vsr-busy">準備しています…</div></div><div class="vsr-ft"><button class="vsr-cancel" data-act="stop">やめる（結果を受け取らない）</button></div>`; bind(); return; }
+    // ログインしていない・Drive の認証が切れていると字幕を読めない。そのときは「字幕が無い」ではなく、ログインを案内する
+    if (phase === 'noauth') { const gd = noAuth === 'drive';
+      sh.innerHTML = h + `<div class="vsr-warn">${gd ? 'Google ドライブの認証が切れているため、動画も字幕も読み込めていません。Google にログインして動画を再生してから、もう一度「✨ 要約」を押してください。'
+          : 'ログインしていないため、字幕を読めません。Google でログインしてから、もう一度「✨ 要約」を押してください。'}</div></div>
+      <div class="vsr-ft">${gd && document.getElementById('gd-auth-play-btn') ? '<button class="vsr-go" data-act="gdauth">Google にログインして再生</button>' : ''}<button class="vsr-cancel" data-act="${gd && document.getElementById('gd-auth-play-btn') ? 'back' : 'close'}">${gd && document.getElementById('gd-auth-play-btn') ? '戻る' : '閉じる'}</button></div>`; bind(); return; }
     if (phase === 'nosub') { sh.innerHTML = h + `<div class="vsr-warn">この動画には字幕がありません。要約は字幕から作るので、先に「💬 字幕生成」で字幕を作ってください。</div></div>
       <div class="vsr-ft"><button class="vsr-go" data-act="mksub">💬 字幕生成を開く</button><button class="vsr-cancel" data-act="back">戻る</button></div>`; bind(); return; }
     const allRow = sel => `<div class="vsr-allrow"><span>${sel.size ? `${sel.size}個を選んでいます` : 'チェックで何個でも選べます'}</span><span><button data-all="1">全部選ぶ</button> <button data-all="0">全部外す</button></span></div>`;
@@ -143,6 +148,7 @@
       if (a === 'close') close();
       else if (a === 'stop') { cancelTok++; phase = 'pick'; render(); window.toast?.('やめました（AIへの依頼は止まらないので、料金はかかることがあります）'); }
       else if (a === 'back') { phase = 'pick'; render(); }
+      else if (a === 'gdauth') { const btn = document.getElementById('gd-auth-play-btn'); close(); btn?.click(); }   // 動画の所の「Googleで認証して再生」を押したのと同じ
       else if (a === 'mksub') { const id = vid; close(); window.vpGenSubtitle?.(id); }
       else if (a === 'go') run(); });
   }
@@ -170,7 +176,12 @@
   async function run() {
     const id = vid, D = data(), rs = ranges(D); if (!rs.length || !D.v) return;
     const sub = K().cues?.() || { cues: [] };
-    if (!sub.cues.length) { phase = 'nosub'; render(); return; }
+    if (!sub.cues.length) {
+      // 字幕が読めない理由を先に見分ける: ログインしていない／Drive の動画が認証待ちで再生されていない／本当に字幕が無い
+      if (!window._firebaseCurrentUser?.()) { noAuth = 'login'; phase = 'noauth'; render(); return; }
+      if (String(D.v.pt || '') === 'gdrive' && !K().isGdPlaying?.()) { noAuth = 'drive'; phase = 'noauth'; render(); return; }
+      phase = 'nosub'; render(); return;
+    }
     const inR = t => rs.some(r => t >= r.a - 1 && t < r.b);
     const cues = sub.cues.filter(c => inR(c.start)).map(c => ({ t: c.start, text: c.text }));
     if (!cues.length) { window.toast?.('選んだ範囲に字幕の行がありません'); return; }

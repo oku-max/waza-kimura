@@ -1542,7 +1542,7 @@ function _bookmarkSectionHTML(id) {
   // 部分だけの要約（v52.987・オーナー決定 mock-sum-real.html / mock-sum-design.html）。字幕から作るので、チャプターと同じ動画に出す
   const sumBtn = isGd
     ? `<button onclick="vpSumRangeOpen('${id}')" id="vp-sumrange-${id}" title="仕切り・ブックマーク・時刻で選んだ部分だけを、字幕からAIで要約してメモに入れます"
-         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">✨ 部分を要約</button>`
+         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">✨ 要約</button>`
     : '';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">

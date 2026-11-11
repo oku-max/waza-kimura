@@ -1,13 +1,14 @@
 // ═══ 部分だけの要約（v52.987・オーナー決定 mock-sum-real.html / mock-sum-design.html） ═══
 // 使い方: node tools/sum-range-check.mjs
 // 本物の index.html で（AI の返事は偽物・字幕と写真は窓口 _vpSumKit の差し替え）:
-//   ① ブックマークの見出しに「✨ 部分を要約」がある
+//   ① ブックマークの見出しに「✨ 要約」がある
 //   ② 仕切り・ブックマークを何個でも選べる。隣り合うものは1か所につなぐ・離れていれば2か所・全部外すと押せない
 //   ③ 項目の数・写真の数のボタンに「何分ごと」を出す・自分で打つとその場で変わる・項目より多い写真は押せない・YouTube は文章だけ
 //   ④ AI に送るのは選んだ範囲の字幕の行だけ。メモは最後に足すだけ（前のメモは1文字も変えない）・動画のほかの欄は変えない
 //      タイトル（memo-sum-t）・チャプターをまたぐときだけ番号つきの見出し（memo-sum-ch）
 //   ⑤ Drive の動画は写真を撮り、スナップショットに入れる（その写真のメモ＝解説文）・メモの行にも同じ文
 //   ⑥ AI が失敗したら・字幕が無ければ・パネルを閉じていたら、メモに何も書かない
+//   ⑦ ログインしていない・Drive の認証が切れているときは「字幕が無い」ではなく、ログインを案内する（v52.988）
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
 setTimeout(() => { console.log('⏱ 90秒で打ち切り'); process.exit(3); }, 90000).unref?.();
@@ -71,7 +72,7 @@ await pg.evaluate(() => { const kit = window._vpSumKit; window.__realCues = kit.
 const before = await pg.evaluate(() => { const v = JSON.parse(JSON.stringify(window.videos[0])); return v; });
 
 console.log('── ① 入口 ──');
-ck('① ブックマークの見出しに「✨ 部分を要約」', await pg.evaluate(() => /部分を要約/.test(document.getElementById('vp-sumrange-AAAAAAAAAAA')?.textContent || '')));
+ck('① ブックマークの見出しに「✨ 要約」', await pg.evaluate(() => /✨ 要約/.test(document.getElementById('vp-sumrange-AAAAAAAAAAA')?.textContent || '')));
 await pg.click('#vp-sumrange-AAAAAAAAAAA');
 await pg.waitForSelector('.vsr-sh');
 const S = () => pg.evaluate(() => ({ sum: document.querySelector('.vsr-sum')?.textContent.replace(/\s+/g, ' ').trim(), go: !document.querySelector('[data-act="go"]')?.disabled,
@@ -145,6 +146,21 @@ await pg.evaluate(() => { window._vpSumKit.cues = () => ({ cues: Array.from({ le
 await pg.route('**/api/ai-summary', async r => { await new Promise(x => setTimeout(x, 600)); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ summary: JSON.stringify({ items: [{ t: '2:10', text: 'a', shot: false }] }) }) }); });
 await pg.click('[data-act="go"]'); await pg.evaluate(() => { window.openVPanelId = 'ZZZ'; }); await pg.waitForTimeout(1200);
 ck('⑥ 待っている間にパネルを閉じた（ほかの動画を開いた）ら、メモに入れない', await pg.evaluate(() => window.videos[0].memo) === m0);
+console.log('── ⑦ ログインしていないときは「字幕が無い」と言わない ──');
+await pg.evaluate(() => { window.openVPanelId = 'AAAAAAAAAAA'; document.querySelector('.vsr-ov')?.remove();
+  const kit = window._vpSumKit; kit.cues = () => ({ cues: [], label: '' }); kit.isGdPlaying = () => false;
+  window.videos[0].pt = 'gdrive';
+  const b = document.createElement('button'); b.id = 'gd-auth-play-btn'; window.__authClicks = 0; b.onclick = () => { window.__authClicks++; }; document.body.appendChild(b);
+  window.vpSumRangeOpen('AAAAAAAAAAA'); });
+await pg.click('[data-act="go"]'); await pg.waitForTimeout(300);
+let t7 = (await S()).text;
+ck('⑦ Drive の認証が切れていると「Google にログイン」を案内し、「字幕がありません」とは言わない', /Google にログイン/.test(t7) && !/字幕がありません/.test(t7), t7.slice(0, 200));
+await pg.click('[data-act="gdauth"]'); await pg.waitForTimeout(200);
+ck('⑦ 「Google にログインして再生」は動画の所の「Googleで認証して再生」を押したのと同じ', await pg.evaluate(() => window.__authClicks) === 1 && !(await pg.$('.vsr-ov')));
+await pg.evaluate(() => { window._firebaseCurrentUser = () => null; window.vpSumRangeOpen('AAAAAAAAAAA'); });
+await pg.click('[data-act="go"]'); await pg.waitForTimeout(300); t7 = (await S()).text;
+ck('⑦ アプリにログインしていないときも「ログインしてから」と案内し、「字幕がありません」とは言わない', /ログインしていないため/.test(t7) && !/字幕がありません/.test(t7), t7.slice(0, 200));
+ck('⑦ どちらもメモは変えない', await pg.evaluate(() => window.videos[0].memo) === m0);
 ck('JSエラーなし', errs.length === 0, errs);
 console.log(fail ? `\n✗ ${fail}件ずれ` : '\n✓ 部分だけの要約');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);
