@@ -194,6 +194,8 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 部分だけの要約（v52.987）
+    '✨ 部分を要約':'✨ Summarize a part','部分を要約':'Summarize a part','仕切り・ブックマーク・時刻で選んだ部分だけを、字幕からAIで要約してメモに入れます':'Summarize just the part you pick (dividers, bookmarks or times) from the subtitles with AI and add it to the memo','選んだ部分の字幕だけを AI に送って要約し、メモの最後に入れます。':'Only the subtitles of the part you pick are sent to the AI; the summary is added to the end of the memo.','★の所':'★ marked','時刻を指定':'By time','チェックで何個でも選べます':'Tick as many as you like','全部選ぶ':'Select all','全部外す':'Clear all','この動画には仕切りがありません。':'This video has no dividers.','この動画にはブックマークがありません。':'This video has no bookmarks.','星の付いたブックマーク（次のブックマークまで）を、まとめて1つの要約にします。':'Starred bookmarks (each up to the next bookmark) are summarized together.','今の位置':'Current position','終了は開始より後にしてください':'The end must be after the start','範囲を選んでください':'Choose a range','項目の数':'Number of points','おまかせ':'Auto','写真の数':'Number of photos','自分で決める':'Choose your own','項目':'points','枚':'photos','写真なし':'No photos','項目より多くは不可':'Not more than points','項目の数まで':'Up to the number of points','YouTubeの動画は画面を撮れないので、文章だけになります':'YouTube videos cannot be captured, so it will be text only','どの項目に写真を付けるかは AI が選びます（バーの 📷 は目安の位置）。':'The AI picks which points get a photo (the 📷 on the bar are approximate).','AIで要約してメモに入れる':'Summarize with AI and add to memo','準備しています…':'Preparing...','写真の準備をしています…':'Preparing photos...','やめる（結果を受け取らない）':'Stop (discard the result)','この動画には字幕がありません。要約は字幕から作るので、先に「💬 字幕生成」で字幕を作ってください。':'This video has no subtitles. Summaries are made from subtitles, so create them first with “💬 Subtitles”.','💬 字幕生成を開く':'💬 Open subtitle generation','やめました（AIへの依頼は止まらないので、料金はかかることがあります）':'Stopped (the AI request keeps running, so you may still be charged)','動画パネルを閉じたので、メモには入れませんでした':'The video panel was closed, so nothing was added to the memo','動画パネルを開き直してください':'Reopen the video panel','選んだ範囲に字幕の行がありません':'There are no subtitle lines in the chosen range','AIの返事に項目がありませんでした':'The AI reply had no points','動画を開けませんでした':'Could not open the video','メモ欄が見つかりませんでした（パネルを開き直してください）':'Memo field not found (reopen the panel)','範囲:':'Range:',
     // 仕切りで開閉（v52.956）
     '仕切りを全部開く':'Expand all dividers','仕切りを全部閉じる':'Collapse all dividers','この区切りを開く':'Expand this section','この区切りを閉じる':'Collapse this section',
     // 自動チャプターの窓（v52.955）
@@ -2010,6 +2012,8 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // 部分だけの要約（v52.987）
+    '−#分':'−# min','−#秒':'−# s','＋#秒':'+# s','＋#分':'+# min','#個を選んでいます':'# selected','#項目':'# points','#枚':'# photos','数字で打つ（#:# のように）か、動画を止めた所で「今の位置」を押します。±ボタンは入っている時刻から（空なら今の位置から）ずらします。':'Type a time (like #:#) or pause the video and press “Current position”. The ± buttons shift from the entered time (or from the current position if empty).','AIが要約しています…（字幕 #行）':'The AI is summarizing... (# subtitle lines)','写真を撮っています… #/#':'Taking photos... #/#','約#分ごと':'about every # min','約#秒ごと':'about every # s','約#分#秒ごと':'about every # min # s','約#分に#枚':'1 photo about every # min','約#秒に#枚':'1 photo about every # s','約#分#秒に#枚':'1 photo about every # min # s',
     '★#以上':'★# or more',
     '星 #':'Stars #',
     '（★を付けた#件も残します）':' (the # starred ones are kept too)',
@@ -2316,6 +2320,16 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── 部分だけの要約（v52.987・js/vp-sum-range.js）。数・長さ・時刻が入る ──
+    [/^(\d+)か所・合計 (\d+)(分|秒)$/, (m, n, t, u) => `${n} ranges · ${t} ${u === '分' ? 'min' : 's'} total`],
+    [/^([\d:]+)–([\d:]+)・合計 (\d+)(分|秒)$/, (m, a, b, t, u) => `${a}–${b} · ${t} ${u === '分' ? 'min' : 's'} total`],
+    [/^動画全体 ([\d:]+)$/, (m, d) => `Whole video ${d}`],
+    [/^赤い線＝今の位置 ([\d:]+)$/, (m, d) => `Red line = current position ${d}`],
+    [/^(\d+)項目 · 選んだ (\d+)(分|秒)を約(\d+)(分|秒)(?:(\d+)秒)?ごと$/, (m, n, t, tu, a, au, b) => `${n} points · about every ${a} ${au === '分' ? 'min' : 's'}${b ? ` ${b} s` : ''} over ${t} ${tu === '分' ? 'min' : 's'}`],
+    [/^(\d+)項目 · 約(\d+)(分|秒)(?:(\d+)秒)?ごと$/, (m, n, a, au, b) => `${n} points · about every ${a} ${au === '分' ? 'min' : 's'}${b ? ` ${b} s` : ''}`],
+    [/^(\d+)枚 · 約(\d+)(分|秒)(?:(\d+)秒)?に1枚$/, (m, n, a, au, b) => `${n} photos · 1 about every ${a} ${au === '分' ? 'min' : 's'}${b ? ` ${b} s` : ''}`],
+    [/^✂️ 要約をメモに入れました（(\d+)項目(?:・写真(\d+)枚)?）(.*)$/, (m, n, p, rest) => `✂️ Summary added to the memo (${n} points${p ? `, ${p} photos` : ''})${rest ? rest.replace('／写真を撮れませんでした: ', ' / Could not take photos: ') : ''}`],
+    [/^⚠️ 要約に失敗しました: (.*)$/, (m, e) => `⚠️ Summary failed: ${e}`],
     // ── チャプターの数の説明（平均の長さが入る・v52.966）──
     [/^動画全体にまんべんなく（平均 約(\d+)(分|秒)ごと）$/,
       (m, n, u) => `Spread evenly over the whole video (about every ${n} ${u === '分' ? 'min' : 'sec'})`],

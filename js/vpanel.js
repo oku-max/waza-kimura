@@ -1539,6 +1539,11 @@ function _bookmarkSectionHTML(id) {
     ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
          style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">${_chapBtnLabel(id, _peek)}</button>`
     : '';
+  // 部分だけの要約（v52.987・オーナー決定 mock-sum-real.html / mock-sum-design.html）。字幕から作るので、チャプターと同じ動画に出す
+  const sumBtn = isGd
+    ? `<button onclick="vpSumRangeOpen('${id}')" id="vp-sumrange-${id}" title="仕切り・ブックマーク・時刻で選んだ部分だけを、字幕からAIで要約してメモに入れます"
+         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">✨ 部分を要約</button>`
+    : '';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;margin-bottom:4px;flex-wrap:wrap">
@@ -1548,6 +1553,7 @@ function _bookmarkSectionHTML(id) {
           ${_divFoldBtnHTML(id)}
           ${_divBtnHTML(id)}
           ${chapBtn}
+          ${sumBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
       </div>
@@ -9401,6 +9407,48 @@ let _openVPanelId = null;
 // ── Search VP 統合: プライベート関数を window に公開 ──
 window._vpLoopSectionHTML      = () => _loopSectionHTML();
 window._vpBookmarkSectionHTML  = (id) => _bookmarkSectionHTML(id);
+
+// ── 部分だけの要約（js/vp-sum-range.js）が使う読み出し口（v52.987） ──
+// 読むだけ（再生位置・字幕・Drive の動画）と、メモに入れる・写真を撮るための既存の部品の窓口。
+// 要約の画面は vp-sum-range.js にあり、ここは中の状態を渡すだけ（動画のデータには触らない）。
+window._vpSumKit = {
+  nowSec: () => _getCurrentTime(),
+  seek: (sec) => _seekTo(sec),
+  isGdPlaying: () => !!_gdVideoEl,
+  gdDuration: () => Number(_gdVideoEl?.duration) || 0,
+  // 今の動画の字幕（日本語を優先）。整形前の本文（rawVtt）から読むので、表示の設定に左右されない
+  cues() {
+    const pick = (arr) => arr.find(t => /日本|ja/i.test(`${t.label || ''} ${t.lang || ''}`)) || arr[0];
+    if (_gdVideoEl) {
+      const t = pick(_gdSubTracks.filter(t => t.rawVtt));
+      return t ? { cues: _parseVtt(t.rawVtt), label: t.label || '字幕' } : { cues: [], label: '' };
+    }
+    const t = pick(_ytSubTracks.filter(t => t.rawVtt || t.srt));
+    return t ? { cues: _parseVtt(t.rawVtt || t.srt), label: t.label || '字幕' } : { cues: [], label: '' };
+  },
+  // 写真: 再生中の動画を動かさないよう、同じ動画を見えない <video> でもう1本開いて撮る
+  async openShotVideo() {
+    const token = window.getDriveTokenIfAvailable?.();
+    if (!_gdFileId || !token) return null;
+    return _makeOffscreenGdVideo(_gdFileId, token);
+  },
+  capture: (sec, videoEl) => _captureGdFrame(sec, videoEl),
+  sigDiff: (a, b) => _sigDiff(a, b),
+  fmtSec: (s) => _fmtSec(s),
+  tsLinkHtml: (sec) => _tsLinkHtml(sec, _fmtSec(sec)),
+  thumbHtml: (snapId, sec, url) => _thumbHtml(snapId, sec, url, 'inline'),
+  // メモの最後に足して保存する（今のメモは消さない・書き換えない）
+  appendMemo(id, html) {
+    const el = document.getElementById('vp-memo-' + id);
+    if (!el) return false;
+    el.insertAdjacentHTML('beforeend', html);
+    _bindTsLinks(el);
+    vpSaveMemo(id);
+    const snapSec = document.getElementById('vp-snap-section-' + id);
+    if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
+    return true;
+  },
+};
 
 // ── チャンネル/プレイリスト → ライブラリジャンプ ──
 window.vpJumpToChannel = function(id) {

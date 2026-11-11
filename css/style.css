@@ -1841,4 +1841,75 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 .vp-bm-now::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:3px;border-radius:2px;background:#c8831a;}
 .vp-bm-now .vp-bm-tbtn{border-color:#c8831a!important;color:#c8831a!important;}
 .vp-bm-div-now .vp-bm-div-t,.vp-bm-div-now .vp-bm-div-car{color:#c8831a;}
-.vp-bm-div-now 
+/* ── 部分だけの要約（v52.987・js/vp-sum-range.js。オーナー決定 mock-sum-real.html / mock-sum-design.html） ── */
+.vsr-ov{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.vsr-sh{--sel:#2050c0;--selsoft:rgba(32,80,192,.08);background:var(--surface);color:var(--text);width:100%;max-width:620px;border-radius:14px 14px 0 0;max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+body.dark .vsr-sh{--sel:#8fb0ff;--selsoft:rgba(143,176,255,.08)}
+.vsr-sh button,.vsr-sh input{font-family:inherit;color:inherit}
+.vsr-hd{padding:12px 14px 8px;border-bottom:1px solid var(--border)}
+.vsr-hd b{font-size:14px}
+.vsr-hd .sub{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5}
+.vsr-tabs{display:flex;gap:4px;margin-top:10px}
+.vsr-tabs button{flex:1;font-size:11.5px;padding:7px 2px;border-radius:7px;border:1px solid var(--border);background:transparent;white-space:nowrap;cursor:pointer}
+.vsr-tabs button.on{background:var(--sel);border-color:var(--sel);color:var(--surface);font-weight:700}
+.vsr-bd{padding:8px 14px}
+.vsr-pick{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 8px;border:1px solid var(--border);border-radius:8px;background:transparent;margin-bottom:5px;font-size:12.5px;cursor:pointer}
+.vsr-pick.on{border-color:var(--sel);background:var(--selsoft)}
+.vsr-pick .cb{width:18px;height:18px;border-radius:5px;border:2px solid var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--surface)}
+.vsr-pick.on .cb{background:var(--sel);border-color:var(--sel)}
+.vsr-pick.on .cb::after{content:'✓'}
+.vsr-pick .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vsr-pick .pm{flex-shrink:0;font-size:10.5px;color:var(--text3)}
+.vsr-pick .st{color:#d9a400;font-size:11px;letter-spacing:-2px;flex-shrink:0}
+body.dark .vsr-pick .st{color:#f2c94c}
+.vsr-allrow{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text3);margin:2px 0 6px}
+.vsr-allrow button{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer}
+.vsr-chips{display:flex;gap:5px;margin:4px 0 10px}
+.vsr-chips button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer}
+.vsr-chips button.on{background:#d9a400;border-color:#d9a400;color:#1c1c1e;font-weight:700}
+.vsr-hint{font-size:11px;color:var(--text3);line-height:1.7;margin:4px 0 8px}
+.vsr-tm{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:6px 0}
+.vsr-tm label{font-size:12px;font-weight:700}
+.vsr-tm .f{display:flex;gap:5px;align-items:center}
+.vsr-tm input{width:84px;font-size:15px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);text-align:center}
+.vsr-tm input.bad{border-color:var(--red)}
+.vsr-nud{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:-2px 0 6px}
+.vsr-sb{font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;white-space:nowrap;cursor:pointer}
+.vsr-nud .vsr-sb{padding:6px 0;text-align:center}
+.vsr-ft{border-top:1px solid var(--border);padding:10px 14px calc(14px + env(safe-area-inset-bottom))}
+.vsr-sum{font-size:12px;line-height:1.6;margin-bottom:6px}
+.vsr-sum b{color:var(--sel)}
+.vsr-tl{position:relative;height:30px;background:var(--surface2);border-radius:6px;margin:4px 0 2px}
+.vsr-tl .seg{position:absolute;top:0;bottom:0;background:var(--selsoft);border-left:1px solid var(--sel);border-right:1px solid var(--sel)}
+.vsr-tl .tick{position:absolute;top:4px;width:2px;height:12px;background:var(--sel);border-radius:1px;transform:translateX(-1px)}
+.vsr-tl .cam{position:absolute;bottom:1px;font-size:10px;transform:translateX(-50%);line-height:1}
+.vsr-tl .now{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--red)}
+.vsr-tll{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:8px}
+.vsr-grp{font-size:11.5px;font-weight:800;margin:8px 0 5px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.vsr-grp span{font-weight:600;color:var(--text3);font-size:10.5px;text-align:right}
+.vsr-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.vsr-o{padding:7px 3px;border-radius:8px;border:1px solid var(--border);background:transparent;text-align:center;line-height:1.25;cursor:pointer}
+.vsr-o b{display:block;font-size:13px}
+.vsr-o small{display:block;font-size:10px;color:var(--text3);margin-top:2px}
+.vsr-o.on{border-color:var(--sel);background:var(--sel);color:var(--surface)}
+.vsr-o.on small{color:var(--surface);opacity:.85}
+.vsr-o:disabled{opacity:.4;cursor:default}
+.vsr-own{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px}
+.vsr-own input{width:58px;font-size:14px;padding:5px 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);text-align:center}
+.vsr-own input.on{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
+.vsr-own .h{color:var(--text3);font-size:11px}
+.vsr-go{width:100%;margin-top:10px;padding:11px;border-radius:9px;border:none;background:var(--sel);color:var(--surface);font-size:14px;font-weight:700;cursor:pointer;position:sticky;bottom:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.vsr-go:disabled{opacity:.35;cursor:default}
+.vsr-cancel{width:100%;padding:8px;margin-top:6px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer}
+.vsr-warn{border:1px solid #d9a400;background:rgba(217,164,0,.10);border-radius:8px;padding:10px;font-size:12px;line-height:1.7;margin-bottom:8px}
+.vsr-busy{text-align:center;padding:26px 0;font-size:13px;color:var(--text3);line-height:1.7}
+/* メモに入る要約。タイトルは大きく、チャプターの見出しは番号＋太い下線（mock-sum-design.html の B） */
+.memo-sum-t{font-size:1.15em;font-weight:800;line-height:1.4;margin:14px 0 4px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.memo-sum-t:first-child{margin-top:2px}
+.memo-sum-rg{display:block;font-size:.72em;font-weight:600;color:var(--text3);margin-top:1px}
+.memo-sum-ch{font-size:1.08em;font-weight:800;line-height:1.45;margin:14px 0 5px;padding-bottom:5px;border-bottom:2px solid var(--text)}
+.memo-sum-no{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:var(--text);color:var(--surface);font-size:.78em;font-weight:800;margin-right:7px;vertical-align:.1em}
+.memo-sum-ch .ts-link{font-size:.75em;font-weight:600;margin-left:6px}
+.memo-sum-it{margin:4px 0;line-height:1.65}
+/* 色地のボタンの文字は地と反対の色（.vsr-sh button の color:inherit より強く） */
+.vsr-sh .vsr-go,.vsr-sh .vsr-o.on,.vsr-sh .vsr-o.on small,.vsr-sh .vsr-tabs button.on{color:var(--surface)}

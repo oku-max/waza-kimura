@@ -383,8 +383,8 @@ async function handleAiSummary(request, env) {
     return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
   }
 
-  // 部分だけの要約の見本（mock-sum-real.html から呼ぶ・2026-11-10）。範囲の字幕だけを受け取り、
-  // 項目（時刻・要点・写真を付けるか）を JSON で返す。何も保存しない。オーナーの見本の確認用。
+  // 部分だけの要約（v52.987・js/vp-sum-range.js。見本 mock-sum-real.html でも使う）。範囲の字幕だけを受け取り、
+  // 項目（時刻・要点・写真を付けるか）を JSON で返す。サーバーは何も保存しない（メモに入れるのは画面の側）。オーナーのみ。
   if (source === 'rangesum') return _aiRangeSummary(env, body, title, channel, playlist);
 
   // すでにあるブックマークの一覧（名前と時刻）だけを読んで、大きな区切り（仕切り）を探す経路（v52.953）。
@@ -756,7 +756,7 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
   });
 }
 
-// ── 部分だけの要約（見本・mock-sum-real.html）──────────────────
+// ── 部分だけの要約（v52.987・js/vp-sum-range.js）─────────────────
 // 受け取るのは範囲の字幕の行（[M:SS] 本文）だけ。動画は送らない。
 // 返すのは {items:[{t:"M:SS", text, shot}]}。t は字幕に書かれた時刻から選ばせる（推測させない）。
 const RANGESUM_MAX = 60000;
