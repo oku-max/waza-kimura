@@ -10,14 +10,14 @@
 .msr-fab{position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:99990;padding:10px 14px;border-radius:22px;border:none;background:#2050c0;color:#fff;font:700 13px -apple-system,'Hiragino Sans',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer}
 .msr-ov{position:fixed;inset:0;z-index:99991;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif}
 .msr-sh{--s:var(--surface,#fff);--t:var(--text,#111);--t3:var(--text3,#70706c);--b:var(--border,#e0e0dc);--s2:var(--surface2,#f1f1ef);--sel:#2050c0;--selsoft:rgba(32,80,192,.10);--star:#d9a400;
-  background:var(--s);color:var(--t);width:100%;max-width:620px;border-radius:14px 14px 0 0;max-height:90vh;display:flex;flex-direction:column}
+  background:var(--s);color:var(--t);width:100%;max-width:620px;border-radius:14px 14px 0 0;max-height:90vh;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .msr-sh button,.msr-sh input{font-family:inherit;color:inherit}
 .msr-hd{padding:12px 14px 8px;border-bottom:1px solid var(--b)}
 .msr-hd b{font-size:14px}.msr-hd .sub{font-size:11px;color:var(--t3);margin-top:2px;line-height:1.5}
 .msr-tabs{display:flex;gap:4px;margin-top:10px}
 .msr-tabs button{flex:1;font-size:11.5px;padding:7px 2px;border-radius:7px;border:1px solid var(--b);background:transparent;white-space:nowrap;cursor:pointer}
 .msr-tabs button.on{background:var(--sel);border-color:var(--sel);color:#fff;font-weight:700}
-.msr-bd{overflow-y:auto;padding:8px 14px;flex:1;min-height:0}
+.msr-bd{padding:8px 14px;flex:none}
 .msr-pick{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 8px;border:1px solid var(--b);border-radius:8px;background:transparent;margin-bottom:6px;font-size:12.5px;cursor:pointer}
 .msr-pick.on{border-color:var(--sel);background:var(--selsoft)}
 .msr-pick .r{width:16px;height:16px;border-radius:50%;border:2px solid var(--t3);flex-shrink:0}
@@ -25,6 +25,33 @@
 .msr-pick .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .msr-pick .pm{flex-shrink:0;font-size:10.5px;color:var(--t3)}
 .msr-pick .st{color:var(--star);font-size:11px;letter-spacing:-2px;flex-shrink:0}
+.msr-pick .cb{width:18px;height:18px;border-radius:5px;border:2px solid var(--t3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--s)}
+.msr-pick.on .cb{background:var(--sel);border-color:var(--sel)}
+.msr-pick.on .cb::after{content:'✓'}
+.msr-allrow{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--t3);margin:2px 0 6px}
+.msr-allrow button{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--b);background:transparent;cursor:pointer}
+.msr-tl{position:relative;height:30px;background:var(--s2);border-radius:6px;margin:4px 0 2px}
+.msr-tl .seg{position:absolute;top:0;bottom:0;background:var(--selsoft);border-left:1px solid var(--sel);border-right:1px solid var(--sel)}
+.msr-tl .tick{position:absolute;top:4px;width:2px;height:12px;background:var(--sel);border-radius:1px;transform:translateX(-1px)}
+.msr-tl .cam{position:absolute;bottom:1px;font-size:10px;transform:translateX(-50%);line-height:1}
+.msr-tll{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-bottom:8px}
+.msr-grp{font-size:11.5px;font-weight:800;margin:8px 0 5px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.msr-grp span{font-weight:600;color:var(--t3);font-size:10.5px;text-align:right}
+.msr-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.msr-o{padding:7px 3px;border-radius:8px;border:1px solid var(--b);background:transparent;text-align:center;line-height:1.25;cursor:pointer}
+.msr-o b{display:block;font-size:13px}
+.msr-o small{display:block;font-size:10px;color:var(--t3);margin-top:2px}
+.msr-o.on{border-color:var(--sel);background:var(--sel);color:#fff !important}
+.msr-o.on small{color:#fff;opacity:.85}
+.msr-o:disabled{opacity:.4;cursor:default}
+.msr-own{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px}
+.msr-own input{width:58px;font-size:14px;padding:5px 6px;border:1px solid var(--b);border-radius:7px;background:var(--s2);text-align:center}
+.msr-own input.on{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
+.msr-own .h{color:var(--t3);font-size:11px}
+.msr-res .rt{display:flex;align-items:center;gap:8px;padding-bottom:9px;margin-bottom:4px;border-bottom:1px solid var(--b)}
+.msr-res .rt .ic{font-size:16px}
+.msr-res .rt .tt{font-size:15px;font-weight:800;line-height:1.35}
+.msr-res .rt .rg{font-size:11px;color:var(--t3);font-weight:600;margin-top:1px}
 .msr-chips{display:flex;gap:5px;margin:4px 0 10px}
 .msr-chips button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--b);background:transparent;cursor:pointer}
 .msr-chips button.on{background:var(--star);border-color:var(--star);color:#1c1c1e;font-weight:700}
@@ -50,12 +77,13 @@
 .msr-opt input{width:52px;font-size:13px;padding:5px 6px;border:1px solid var(--b);border-radius:7px;background:var(--s2);text-align:center}
 .msr-opt input.on{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 .msr-opt .on2{font-size:10.5px;color:var(--t3);width:100%;padding-left:63px;margin-top:-2px}
+.msr-ft .msr-go{position:sticky;bottom:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .msr-go{width:100%;padding:11px;border-radius:9px;border:none;background:var(--sel);color:#fff !important;font-size:14px;font-weight:700;cursor:pointer}
 .msr-go:disabled{opacity:.35;cursor:default}
 .msr-cancel{width:100%;padding:8px;margin-top:6px;border:none;background:none;color:var(--t3) !important;font-size:12px;cursor:pointer}
 .msr-warn{border:1px solid #d9a400;background:rgba(217,164,0,.10);border-radius:8px;padding:10px;font-size:12px;line-height:1.7;margin-bottom:8px}
 .msr-busy{text-align:center;padding:26px 0;font-size:13px;color:var(--t3)}
-.msr-res{font-size:12.5px;line-height:1.7;background:var(--selsoft);border-radius:8px;padding:8px 10px}
+.msr-res{font-size:13px;line-height:1.7;background:var(--s);border:1px solid var(--b);border-radius:10px;padding:12px}
 .msr-res .h{font-weight:700;color:var(--sel)}
 .msr-res .it{display:flex;gap:7px;align-items:flex-start;margin:4px 0}
 .msr-res .th{flex-shrink:0;width:96px;border-radius:5px;display:block;cursor:zoom-in}
@@ -129,7 +157,7 @@
   }
 
   // ── 範囲 ──
-  let mode = 'div', selDiv = null, selBm = null, starMin = 1, tA = null, tB = null, nItems = 0, nShots = 5, phase = 'pick', result = '', cancelTok = 0;
+  let mode = 'div', selDiv = new Set(), selBm = new Set(), ownI = '', ownS = '', starMin = 1, tA = null, tB = null, nItems = 0, nShots = 5, phase = 'pick', result = '', cancelTok = 0;
   const data = () => { const v = curVideo(); const dur = durOf(v);
     const bms = (v?.bookmarks || []).map((b, i) => ({ i, t: toSec(b.time), label: b.label || '', star: b.star === true ? 1 : (Number(b.star) || 0) })).sort((a, b) => a.t - b.t);
     const divs = (v?.bmDividers || []).map(d => ({ t: toSec(d.time), label: d.label || '' })).sort((a, b) => a.t - b.t);
@@ -137,8 +165,13 @@
   const bmEnd = (D, k) => k + 1 < D.bms.length ? D.bms[k + 1].t : (D.dur || D.bms[k].t + 60);
   const divEnd = (D, k) => k + 1 < D.divs.length ? D.divs[k + 1].t : (D.dur || D.divs[k].t + 60);
   function curRanges(D) {
-    if (mode === 'div') return selDiv == null || !D.divs[selDiv] ? [] : [{ a: D.divs[selDiv].t, b: divEnd(D, selDiv), label: D.divs[selDiv].label }];
-    if (mode === 'bm') return selBm == null || !D.bms[selBm] ? [] : [{ a: D.bms[selBm].t, b: bmEnd(D, selBm), label: D.bms[selBm].label }];
+    if (mode === 'div' || mode === 'bm') {   // 何個でも選べる。隣り合うものは1つの範囲につなぐ
+      const arr = mode === 'div' ? D.divs : D.bms, sel = mode === 'div' ? selDiv : selBm, end = mode === 'div' ? divEnd : bmEnd;
+      const out = [];
+      for (const k of [...sel].filter(k => arr[k]).sort((a, b) => a - b)) { const r = { a: arr[k].t, b: end(D, k), labels: [arr[k].label] }, last = out[out.length - 1];
+        if (last && r.a <= last.b) { last.b = Math.max(last.b, r.b); last.labels.push(...r.labels); } else out.push(r); }
+      return out.map(r => ({ ...r, label: r.labels.join('・') }));
+    }
     if (mode === 'star') return D.bms.map((b, k) => ({ b, k })).filter(x => x.b.star >= starMin).map(x => ({ a: x.b.t, b: bmEnd(D, x.k), label: x.b.label }));
     return tA != null && tB != null && tB > tA ? [{ a: tA, b: tB, label: '' }] : [];
   }
@@ -149,7 +182,7 @@
   document.body.appendChild(fab);
   setInterval(() => { fab.style.display = window.openVPanelId && !ov ? '' : 'none'; if (ov && mode === 'time' && phase === 'pick') { const n = ov.querySelector('.msr-bar .now'), D = data();
     if (n && D.dur) { n.style.left = (nowSec() / D.dur * 100) + '%'; ov.querySelector('.msr-nowlbl').textContent = '赤い線＝今の位置 ' + fmt(nowSec()); } } }, 500);
-  fab.onclick = () => { phase = 'pick'; result = ''; const D = data(); if (selDiv == null && D.divs.length) selDiv = 0; if (!D.divs.length && mode === 'div') mode = D.bms.length ? 'bm' : 'time';
+  fab.onclick = () => { phase = 'pick'; result = ''; const D = data(); if (!selDiv.size && !selBm.size && D.divs.length) selDiv.add(0); if (!D.divs.length && mode === 'div') mode = D.bms.length ? 'bm' : 'time';
     ov = document.createElement('div'); ov.className = 'msr-ov'; ov.setAttribute('translate', 'no'); ov.innerHTML = '<div class="msr-sh"></div>'; document.body.appendChild(ov);
     ov.onclick = e => { if (e.target === ov && phase !== 'busy') close(); }; render(); };
   const close = () => { cancelTok++; ov?.remove(); ov = null; };
@@ -162,9 +195,10 @@
     if (phase === 'busy') { sh.innerHTML = h + `<div class="msr-busy" id="msr-busy">準備しています…</div></div><div class="msr-ft"><button class="msr-cancel" data-act="stop">やめる</button></div>`; bind(); return; }
     if (phase === 'done') { sh.innerHTML = h + `<div class="msr-hint">メモにはこの形で入る想定です（見本なので入れていません）。時刻を押すとその位置へ飛びます。写真を押すと大きく出ます。</div>${result}</div>
       <div class="msr-ft"><button class="msr-go" data-act="back">範囲を選び直す</button><button class="msr-cancel" data-act="close">閉じる</button></div>`; bind(); return; }
-    if (mode === 'div') { h += D.divs.length ? '<div class="msr-hint">仕切り1つ分（次の仕切りまで）を要約します。</div>' + D.divs.map((d, k) => `<button class="msr-pick ${selDiv === k ? 'on' : ''}" data-div="${k}"><span class="r"></span><span class="pn">${esc(d.label)}</span><span class="pm">${fmt(d.t)}–${fmt(divEnd(D, k))}</span></button>`).join('')
+    const allRow = sel => `<div class="msr-allrow"><span>${sel.size ? sel.size + '個を選んでいます' : 'チェックで何個でも選べます'}</span><span><button data-all="1">全部選ぶ</button> <button data-all="0">全部外す</button></span></div>`;
+    if (mode === 'div') { h += D.divs.length ? allRow(selDiv) + D.divs.map((d, k) => `<button class="msr-pick ${selDiv.has(k) ? 'on' : ''}" data-div="${k}"><span class="cb"></span><span class="pn">${esc(d.label)}</span><span class="pm">${fmt(d.t)}–${fmt(divEnd(D, k))}</span></button>`).join('')
         : '<div class="msr-hint">この動画には仕切りがありません。</div>'; }
-    else if (mode === 'bm') { h += D.bms.length ? '<div class="msr-hint">ブックマーク1つ分（次のブックマークまで）を要約します。</div>' + D.bms.map((b, k) => `<button class="msr-pick ${selBm === k ? 'on' : ''}" data-bm="${k}"><span class="r"></span><span class="pn">${fmt(b.t)}　${esc(b.label)}</span><span class="st">${b.star ? '★'.repeat(Math.min(3, b.star)) : ''}</span><span class="pm">〜${fmt(bmEnd(D, k))}</span></button>`).join('')
+    else if (mode === 'bm') { h += D.bms.length ? allRow(selBm) + D.bms.map((b, k) => `<button class="msr-pick ${selBm.has(k) ? 'on' : ''}" data-bm="${k}"><span class="cb"></span><span class="pn">${fmt(b.t)}　${esc(b.label)}</span><span class="st">${b.star ? '★'.repeat(Math.min(3, b.star)) : ''}</span><span class="pm">〜${fmt(bmEnd(D, k))}</span></button>`).join('')
         : '<div class="msr-hint">この動画にはブックマークがありません。</div>'; }
     else if (mode === 'star') { h += '<div class="msr-hint">星の付いたブックマーク（次のブックマークまで）を、まとめて1つの要約にします。</div><div class="msr-chips">' + [[1, '★1以上'], [2, '★2以上'], [3, '★3']].map(([m, l]) => `<button class="${m === starMin ? 'on' : ''}" data-min="${m}">${l}</button>`).join('') + '</div>';
       const rs = curRanges(D); h += rs.length ? rs.map(r => `<div class="msr-pick on" style="cursor:default"><span class="pn">${fmt(r.a)}　${esc(r.label)}</span><span class="pm">〜${fmt(r.b)}</span></div>`).join('') : '<div class="msr-hint">この数の星が付いたブックマークはありません</div>'; }
@@ -177,34 +211,55 @@
       if (tA != null && tB != null && tB <= tA) h += '<div class="msr-hint" style="color:#c33">終了は開始より後にしてください</div>'; }
     h += '</div><div class="msr-ft">';
     const rs = curRanges(D), tot = rs.reduce((s, r) => s + r.b - r.a, 0);
-    const auto = Math.max(1, Math.min(30, Math.round(tot / 60))), items = nItems || auto;
-    h += rs.length ? `<div class="msr-sum">範囲: <b>${rs.length > 1 ? rs.length + 'か所・' : fmt(rs[0].a) + '–' + fmt(rs[0].b) + '・'}合計 ${tot < 60 ? Math.round(tot) + '秒' : Math.round(tot / 60) + '分'}</b></div>` : '<div class="msr-sum" style="color:var(--t3)">範囲を選んでください</div>';
-    const cs = (key, cur, list) => list.map(([v, l]) => `<button class="${cur === v ? 'on' : ''}" data-${key}="${v}">${l}</button>`).join('');
-    const custom = (id, cur, list) => `<input id="${id}" inputmode="numeric" placeholder="数" value="${list.some(x => x[0] === cur) ? '' : cur}" class="${list.some(x => x[0] === cur) ? '' : 'on'}">`;
+    const auto = Math.max(1, Math.min(30, Math.round(tot / 60))), items = nItems || auto, shots = isGd ? Math.min(nShots, items) : 0;
+    const totTxt = tot < 60 ? Math.round(tot) + '秒' : Math.round(tot / 60) + '分';
+    h += rs.length ? `<div class="msr-sum">範囲: <b>${rs.length > 1 ? rs.length + 'か所・' : fmt(rs[0].a) + '–' + fmt(rs[0].b) + '・'}合計 ${totTxt}</b></div>` : '<div class="msr-sum" style="color:var(--t3)">範囲を選んでください</div>';
+    // バー: 動画全体の上に、選んだ範囲・項目の印（|）・写真の目安（📷）
+    if (D.dur && mode !== 'time') {
+      const posAt = x => { for (const r of rs) { if (x < r.b - r.a) return r.a + x; x -= r.b - r.a; } return null; };
+      const ticks = rs.length ? Array.from({ length: items }, (_, k) => posAt(tot * (k + .5) / items)) : [];
+      const cams = shots ? Array.from({ length: shots }, (_, k) => ticks[Math.floor(k * items / shots)]) : [];
+      h += `<div class="msr-tl">${rs.map(r => `<div class="seg" style="left:${r.a / D.dur * 100}%;width:${(r.b - r.a) / D.dur * 100}%"></div>`).join('')}${ticks.map(t => `<div class="tick" style="left:${t / D.dur * 100}%"></div>`).join('')}${cams.map(t => `<div class="cam" style="left:${t / D.dur * 100}%">📷</div>`).join('')}</div>
+        <div class="msr-tll"><span>0:00</span><span>動画全体 ${fmt(D.dur)}</span></div>`;
+    }
+    const every = s0 => { const s = s0 < 60 ? Math.max(5, Math.round(s0 / 5) * 5) : Math.round(s0 / 10) * 10; if (s < 60) return `約${s}秒`; const m = Math.floor(s / 60), r = s % 60; return r && s < 600 ? `約${m}分${r}秒` : `約${Math.round(s / 60)}分`; };
+    const per = n => rs.length ? every(tot / n) + 'ごと' : '—';
     const IL = [[0, 'おまかせ'], [5, '5'], [10, '10'], [20, '20']], SL = [[0, 'なし'], [5, '5'], [10, '10'], [20, '20']];   // 写真も項目と同じ数
-    h += `<div class="msr-opt"><span class="ol">項目の数</span>${cs('ni', nItems, IL)}${custom('msr-ni', nItems, IL)}<span class="on2">${nItems ? items + '項目' : 'おまかせ＝約1分に1項目（この範囲なら ' + auto + '項目）'}・1〜30</span></div>`;
-    if (!isGd) h += `<div class="msr-opt"><span class="ol">写真</span><span style="font-size:11.5px;color:var(--t3)">YouTubeの動画は画面を撮れないので、文章だけになります</span></div>`;
-    else { const s2 = Math.min(nShots, items); h += `<div class="msr-opt"><span class="ol">写真</span>${cs('ns', nShots, SL)}${custom('msr-ns', nShots, SL)}<span class="on2">${!nShots ? '写真は入れません' : nShots > items ? `項目より多くは入れられないので ${s2}枚（1項目に1枚まで）` : `${s2}枚。どの項目に付けるかはAIが選ぶ`}</span></div>`; }
+    h += `<div class="msr-grp">項目の数<span>${rs.length ? `${items}項目 · 選んだ ${totTxt}を${every(tot / items)}ごと` : ''}</span></div>
+      <div class="msr-opts">${IL.map(([v, l]) => `<button class="msr-o ${nItems === v && !ownI ? 'on' : ''}" data-ni="${v}"><b>${v ? l + '項目' : l}</b><small>${v ? per(v) : (rs.length ? auto + '項目 · ' + per(auto) : '約1分ごと')}</small></button>`).join('')}</div>
+      <div class="msr-own">自分で決める <input id="msr-ni" inputmode="numeric" placeholder="数" value="${esc(ownI)}" class="${ownI ? 'on' : ''}"> 項目 <span class="h" id="msr-nih">${ownI && nItems ? per(nItems) : '1〜30'}</span></div>`;
+    if (!isGd) h += `<div class="msr-grp">写真の数</div><div class="msr-hint" style="margin:0">YouTubeの動画は画面を撮れないので、文章だけになります</div>`;
+    else { const sper = n => !n ? '写真なし' : n > items ? '項目より多くは不可' : rs.length ? every(tot / n) + 'に1枚' : '—';
+      h += `<div class="msr-grp">写真の数<span>${rs.length ? (shots ? `${shots}枚 · ${every(tot / shots)}に1枚` : '写真なし') : ''}</span></div>
+      <div class="msr-opts">${SL.map(([v, l]) => `<button class="msr-o ${nShots === v && !ownS ? 'on' : ''}" data-ns="${v}" ${v > items ? 'disabled' : ''}><b>${v ? l + '枚' : l}</b><small>${sper(v)}</small></button>`).join('')}</div>
+      <div class="msr-own">自分で決める <input id="msr-ns" inputmode="numeric" placeholder="数" value="${esc(ownS)}" class="${ownS ? 'on' : ''}"> 枚 <span class="h">${ownS && nShots ? sper(nShots) : '項目の数まで'}</span></div>
+      <div class="msr-hint" style="margin:4px 0 0">どの項目に写真を付けるかは AI が選びます（バーの 📷 は目安の位置）。</div>`; }
+    h += '<div style="height:10px"></div>';
     h += `<button class="msr-go" data-act="go" ${rs.length ? '' : 'disabled'}>AIで要約する（見本）</button><button class="msr-cancel" data-act="close">キャンセル</button></div>`;
     sh.innerHTML = h; bind();
   }
   function bind() {
     const q = (s, f) => ov.querySelectorAll(s).forEach(f);
     q('[data-tab]', b => b.onclick = () => { mode = b.dataset.tab; render(); });
-    q('[data-div]', b => b.onclick = () => { selDiv = +b.dataset.div; render(); });
-    q('[data-bm]', b => b.onclick = () => { selBm = +b.dataset.bm; render(); });
+    const keepScroll = f => { const sh = ov.querySelector('.msr-sh'), y = sh.scrollTop; f(); render(); ov.querySelector('.msr-sh').scrollTop = y; };
+    q('[data-div]', b => b.onclick = () => keepScroll(() => { const k = +b.dataset.div; selDiv.has(k) ? selDiv.delete(k) : selDiv.add(k); }));
+    q('[data-bm]', b => b.onclick = () => keepScroll(() => { const k = +b.dataset.bm; selBm.has(k) ? selBm.delete(k) : selBm.add(k); }));
+    q('[data-all]', b => b.onclick = () => keepScroll(() => { const D = data(), sel = mode === 'div' ? selDiv : selBm, arr = mode === 'div' ? D.divs : D.bms; if (+b.dataset.all) arr.forEach((_, k) => sel.add(k)); else sel.clear(); }));
     q('[data-min]', b => b.onclick = () => { starMin = +b.dataset.min; render(); });
-    q('[data-ni]', b => b.onclick = () => { nItems = +b.dataset.ni; render(); });
-    q('[data-ns]', b => b.onclick = () => { nShots = +b.dataset.ns; render(); });
+    q('[data-ni]', b => b.onclick = () => { nItems = +b.dataset.ni; ownI = ''; render(); });
+    q('[data-ns]', b => b.onclick = () => { if (b.disabled) return; nShots = +b.dataset.ns; ownS = ''; render(); });
     q('[data-now]', b => b.onclick = () => { if (b.dataset.now === 'A') tA = nowSec(); else tB = nowSec(); render(); });
     q('[data-nudge]', b => b.onclick = () => { const D = data(), d = +b.dataset.d, lim = x => Math.max(0, D.dur ? Math.min(D.dur, x) : x);
       if (b.dataset.nudge === 'A') tA = lim((tA ?? nowSec()) + d); else tB = lim((tB ?? nowSec()) + d); render(); });
     ['A', 'B'].forEach(k => { const el = ov.querySelector('#msr-in' + k); if (!el) return;
       el.onchange = () => { const s = el.value.trim(), v = s === '' ? null : parse(s), D = data(); if (s !== '' && (v == null || (D.dur && v > D.dur))) { el.classList.add('bad'); return; }
         if (k === 'A') tA = v; else tB = v; render(); }; el.onkeydown = e => { if (e.key === 'Enter') el.onchange(); }; });
-    [['msr-ni', v => nItems = v], ['msr-ns', v => nShots = v]].forEach(([id, set]) => { const el = ov.querySelector('#' + id); if (!el) return;
-      el.onchange = () => { const z = el.value.trim().replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)), v = +z;
-        if (!/^\d+$/.test(z) || v < 1 || v > 30) { el.style.borderColor = '#d33'; return; } set(v); render(); }; el.onkeydown = e => { if (e.key === 'Enter') el.onchange(); }; });
+    // 自分で決める: 打つそばから「何分ごと」とバーが変わる（範囲外の数は赤くするだけで選ばない）
+    [['msr-ni', (v, s) => { ownI = s; nItems = v || 0; }], ['msr-ns', (v, s) => { ownS = s; nShots = v || 5; }]].forEach(([id, set]) => { const el = ov.querySelector('#' + id); if (!el) return;
+      el.oninput = () => { const s = el.value, z = s.trim().replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)), v = +z;
+        if (z === '') set(0, ''); else if (/^\d+$/.test(z) && v >= 1 && v <= 30) set(v, s); else { el.style.borderColor = '#d33'; return; }
+        const pos = el.selectionStart; const y = ov.querySelector('.msr-sh').scrollTop; render();
+        const e2 = ov.querySelector('#' + id); if (e2) { e2.focus(); try { e2.setSelectionRange(pos, pos); } catch (_) {} } ov.querySelector('.msr-sh').scrollTop = y; }; });
     q('[data-act]', b => b.onclick = () => { const a = b.dataset.act;
       if (a === 'close') close(); else if (a === 'stop') { cancelTok++; phase = 'pick'; render(); } else if (a === 'back') { phase = 'pick'; render(); } else if (a === 'go') run(); });
     q('.ts[data-t]', s => s.onclick = () => window.vpSeek?.(window.openVPanelId, +s.dataset.t));
@@ -255,7 +310,7 @@
     const cues = subs.cues.filter(c => inR(c.start)).map(c => ({ t: c.start, text: c.text }));
     if (!cues.length) { phase = 'done'; result = `<div class="msr-warn">この範囲に字幕の行がありません。</div>`; render(); return; }
     const isGd = !!gdEl(), wantShots = isGd ? nShots : 0;
-    const lbl0 = rs.length === 1 && rs[0].label ? rs[0].label : (mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : '');
+    const names = rs.map(r => r.label).filter(Boolean).join('・'); const lbl0 = mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : (names.length > 60 ? names.slice(0, 60) + '…' : names);
     setMsg('AIが要約しています…（' + cues.length + '行の字幕を送っています）');
     let items = [], cost = null, err = '';
     try {
@@ -287,7 +342,8 @@
     const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2; let chNo = 0;
     const body = items.map((x, k) => (many && chs[k] && chs[k] !== chs[k - 1]
       ? `<div class="ch"><span class="no">${++chNo}</span><span class="cn">${esc(chs[k].label || '（名前なし）')}</span><span class="ct ts" data-t="${chs[k].t}">${fmt(chs[k].t)}</span></div>` : '') + itemHTML(x)).join('');
-    result = `<div class="msr-res"><div class="h">✂️ 要約 ${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')}${lbl}</div>` + body + '</div>' +
+    const totTxt = tot < 60 ? Math.round(tot) + '秒' : Math.round(tot / 60) + '分';
+    result = `<div class="msr-res"><div class="rt"><span class="ic">✂️</span><div><div class="tt">要約${lbl}</div><div class="rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · ${rs.length}か所 · 合計 ${totTxt}</div></div></div>` + body + '</div>' +
       (pics.__err ? `<div class="msr-warn" style="margin-top:8px">写真を撮れませんでした: ${esc(pics.__err)}</div>` : '') +
       `<div class="msr-hint" style="margin-top:8px">AIが字幕（${esc(subs.label)}・${cues.length}行）から作った要約です。項目 ${items.length}個・写真 ${Object.keys(pics).filter(k => k !== '__err').length}枚${cost != null ? `・料金 約$${Number(cost).toFixed(4)}` : ''}。メモには入れていません。</div>`;
     phase = 'done'; render();
