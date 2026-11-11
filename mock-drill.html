@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — ドリル（作る・一覧・回す）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  押した結果はこのページの中だけ。動画はにせもの（時間だけ進む絵）。
+  オーナー「ループをさくっと作って、ドリルに登録、あとで一覧」「反転はいる」（2026-11-11）
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--hi:#2f6fde;--hiBg:#e9f0fd;--ok:#1f8a4c;--star:#d9a400}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--hi:#6b9cff;--hiBg:#24324d;--ok:#4cc27e;--star:#f2c94c}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:620px;margin:0 auto;padding-bottom:80px}
+button{font-family:inherit;cursor:pointer;color:inherit}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.steps{display:flex;gap:5px;padding:10px 12px 4px}
+.step{flex:1;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--text2);line-height:1.35;text-align:center}
+.step b{display:block;font-size:13px;color:var(--text)}
+.step.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sub{display:flex;gap:5px;padding:6px 12px 0;flex-wrap:wrap}
+.sub button{font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.sub button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.opts{display:flex;gap:12px;align-items:center;padding:6px 14px;font-size:11px;color:var(--text3)}
+.opts label{display:flex;gap:4px;align-items:center;cursor:pointer}
+.desc{margin:6px 12px 10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)}
+.panel{margin:0 12px 10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.lbl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+
+/* にせもの動画 */
+.scr{position:relative;aspect-ratio:16/9;background:#14161a;border-radius:8px;overflow:hidden;color:#fff;transition:transform .25s}
+.scr.mir{transform:scaleX(-1)}
+.scr .mat{position:absolute;left:0;right:0;bottom:0;height:34%;background:#2a3b55}
+.scr .p1,.scr .p2{position:absolute;bottom:22%;width:13%;aspect-ratio:1/2.2;border-radius:40% 40% 10% 10%}
+.scr .p1{background:#e9e9e9}
+.scr .p2{background:#3d6fd1}
+.scr .hook{position:absolute;bottom:30%;height:6px;background:#f2c94c;border-radius:3px}
+.scr .cap{position:absolute;left:4%;top:5%;font-size:12px;font-weight:700;background:rgba(0,0,0,.45);padding:3px 7px;border-radius:4px}
+.scr .side{position:absolute;right:4%;top:5%;font-size:11px;background:rgba(0,0,0,.45);padding:3px 7px;border-radius:4px}
+.scr .tc{position:absolute;left:4%;bottom:4%;font-size:11px;font-variant-numeric:tabular-nums;opacity:.85}
+.scr .lp{position:absolute;right:4%;bottom:4%;font-size:11px;background:rgba(47,111,222,.85);padding:2px 7px;border-radius:4px}
+.mirtag{position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:2;font-size:10px;background:#f2c94c;color:#111;padding:2px 6px;border-radius:4px;font-weight:700}
+.scrwrap{position:relative}
+
+.ctl{display:flex;gap:6px;align-items:center;margin:8px 0 2px;flex-wrap:wrap}
+.cb{font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2)}
+.cb.on{background:var(--hi);border-color:var(--hi);color:#fff}
+.cb.big{font-size:13px;padding:8px 12px;font-weight:700}
+.tl{position:relative;height:8px;background:var(--surface2);border-radius:4px;margin:8px 0 4px;cursor:pointer}
+.tl .rg{position:absolute;top:0;bottom:0;background:var(--hiBg);border:1px solid var(--hi);border-radius:4px}
+.tl .ph{position:absolute;top:-3px;width:3px;height:14px;background:var(--text);border-radius:2px}
+.tl .bm{position:absolute;top:0;width:1px;height:8px;background:var(--text3)}
+
+/* ブックマーク */
+.bmr{display:flex;align-items:center;gap:8px;padding:7px 4px;border-top:1px solid var(--border);font-size:13px}
+.bmr:first-of-type{border-top:0}
+.bmr .t{font-size:11px;font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);min-width:46px;text-align:center}
+.bmr .n{flex:1;min-width:0}
+.bmr .n small{display:block;font-size:10px;color:var(--text3)}
+.bmr.now{background:var(--hiBg);border-radius:6px}
+.dbtn{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);white-space:nowrap}
+.dbtn.has{color:var(--ok);border-color:var(--ok)}
+.dvd{font-size:11px;font-weight:700;color:var(--text3);padding:8px 2px 3px;display:flex;gap:6px}
+.dvd span{flex:1;border-bottom:1px solid var(--border);transform:translateY(-6px)}
+
+/* 作るカード */
+.mk{margin-top:10px;border:1.5px solid var(--hi);border-radius:10px;padding:10px;background:var(--surface)}
+.mk h4{font-size:12px;color:var(--hi);margin-bottom:6px;display:flex;gap:6px;align-items:center}
+.mk h4 .lpn{margin-left:auto;font-weight:400;color:var(--text3)}
+.mk input[type=text]{width:100%;font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);margin-bottom:8px}
+.edge{display:grid;grid-template-columns:52px 1fr;gap:6px;align-items:center;margin-bottom:6px}
+.edge .k{font-size:11px;color:var(--text3)}
+.adj{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.adj button{font-size:12px;padding:6px 0;width:44px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);font-variant-numeric:tabular-nums}
+.adj .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+.adj .now{width:auto;padding:6px 8px;font-size:11px}
+.zoom{position:relative;height:46px;background:var(--surface2);border-radius:8px;margin:6px 0 4px;touch-action:none;user-select:none}
+.zoom .rg{position:absolute;top:8px;bottom:8px;background:var(--hiBg);border-top:2px solid var(--hi);border-bottom:2px solid var(--hi)}
+.zoom .hd{position:absolute;top:0;bottom:0;width:22px;margin-left:-11px;display:flex;align-items:center;justify-content:center;cursor:ew-resize}
+.zoom .hd i{width:8px;height:34px;background:var(--hi);border-radius:4px}
+.zoom .ph{position:absolute;top:4px;bottom:4px;width:2px;background:var(--text)}
+.zoom .sc{position:absolute;bottom:-14px;font-size:9px;color:var(--text3);transform:translateX(-50%)}
+.zoom .rg,.zoom .ph,.zoom .sc,.zoom .bm{pointer-events:none}
+.zoom .bm{position:absolute;top:0;bottom:0;width:1px;background:var(--text3);opacity:.5}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11px;padding:5px 9px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text2)}
+.chip.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.sw{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--border)}
+.sw.on{background:#f2c94c;color:#111;border-color:#f2c94c;font-weight:700}
+.save{margin-left:auto;font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;border:0;background:var(--hi);color:#fff}
+.ghost{font-size:12px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2)}
+.note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:6px}
+
+/* 一覧 */
+.lhd{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.dr{display:flex;gap:8px;align-items:center;padding:9px 2px;border-top:1px solid var(--border)}
+.dr:first-child{border-top:0}
+.dr input{width:18px;height:18px;flex:none}
+.dr .th{width:64px;aspect-ratio:16/9;border-radius:5px;background:#2a3b55;flex:none;position:relative;overflow:hidden}
+.dr .th b{position:absolute;right:3px;bottom:2px;font-size:9px;color:#fff;background:rgba(0,0,0,.6);padding:0 3px;border-radius:3px}
+.dr .th em{position:absolute;left:3px;top:2px;font-size:9px;font-style:normal;background:#f2c94c;color:#111;padding:0 3px;border-radius:3px}
+.dr .bd{flex:1;min-width:0}
+.dr .bd .tt{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr .bd .mt{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr .bd .old{color:#c0612b}
+.dr .pl{font-size:15px;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);flex:none}
+.menus{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px}
+.menu{flex:none;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--surface2);font-size:12px;min-width:150px;text-align:left}
+.menu b{display:block;font-size:13px}
+.menu small{color:var(--text3)}
+.menu.add{min-width:auto;color:var(--text3);border-style:dashed;background:transparent}
+.runbar{position:sticky;bottom:10px;margin-top:8px;display:flex;gap:8px;align-items:center;background:var(--accent);color:var(--bg);border-radius:10px;padding:10px 12px;font-size:13px}
+.runbar button{margin-left:auto;border:0;background:var(--bg);color:var(--text);font-weight:700;font-size:13px;padding:7px 14px;border-radius:8px}
+
+/* 回す A: 道場モード */
+.dojo{background:#0e0f12;color:#eee;border-radius:12px;padding:10px;margin:0 12px 10px}
+.dojo .top{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px}
+.dojo .top b{font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dojo .top .x{border:1px solid #444;background:transparent;color:#aaa;border-radius:6px;padding:3px 8px;font-size:11px}
+.dots{display:flex;gap:4px;margin:8px 0 2px}
+.dots i{flex:1;height:4px;border-radius:2px;background:#333}
+.dots i.done{background:#4cc27e}
+.dots i.cur{background:#6b9cff}
+.cnt{display:flex;justify-content:space-between;font-size:12px;color:#aaa;margin:6px 2px}
+.cnt b{color:#fff;font-size:20px;font-variant-numeric:tabular-nums}
+.bigs{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:8px;margin-top:8px}
+.bigs button{border:0;border-radius:12px;padding:16px 4px;font-size:14px;font-weight:700;background:#26282e;color:#eee;line-height:1.3}
+.bigs button small{display:block;font-size:10px;font-weight:400;color:#999}
+.bigs .did{background:#1f8a4c;color:#fff}
+.bigs .did small{color:#cfe9d9}
+.dset{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center;font-size:11px;color:#999}
+.dset button{border:1px solid #444;background:transparent;color:#ccc;border-radius:999px;padding:5px 10px;font-size:11px}
+.dset button.on{background:#eee;color:#111;border-color:#eee}
+.dset .mir.on{background:#f2c94c;border-color:#f2c94c;color:#111;font-weight:700}
+.dset .sp{flex:1}
+.done-card{text-align:center;padding:24px 10px}
+.done-card b{display:block;font-size:20px;margin-bottom:6px}
+
+/* 回す B: 一覧のまま */
+.qitem{display:flex;gap:8px;align-items:center;padding:8px 6px;border-radius:8px;border:1px solid transparent;margin-top:4px;font-size:13px}
+.qitem.cur{border-color:var(--hi);background:var(--hiBg)}
+.qitem.done{opacity:.55}
+.qitem .no{width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;flex:none}
+.qitem.done .no{background:var(--ok);color:#fff}
+.qitem .bd{flex:1;min-width:0}
+.qitem .bd small{display:block;font-size:10.5px;color:var(--text3)}
+.qitem .rp{font-size:11px;font-variant-numeric:tabular-nums;color:var(--text2)}
+.qitem .pl1{font-size:11px;border:1px solid var(--border);background:transparent;border-radius:6px;padding:4px 8px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+@media (max-width:380px){.bigs button{font-size:13px;padding:14px 2px}.adj button{width:38px}}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。ここで押しても本物のデータは何も変わりません。動画はにせもの（時間だけ進む絵）です。<br>
+①作る → ②一覧 → ③回す の順に触ってみてください。①で保存したドリルは②③に出ます。</div>
+
+<div class="steps" id="steps"></div>
+<div class="opts"><label><input type="checkbox" id="dk"> ダーク</label></div>
+<div id="view"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ───────── にせものの動画とデータ ─────────
+const VIDEO = { title:'デラヒーバ完全ガイド Vol.2', dur: 900 };
+const BMS = [
+  {t:0,   n:'イントロ'},
+  {t:95,  n:'デラヒーバフックの入り方', d:'膝の裏に足の甲を引っかける'},
+  {t:210, n:'グリップ：袖と足首', d:'同じ側の袖、反対の足首'},
+  {t:330, n:'ベリンボロへの入り', div:'ベリンボロ'},
+  {t:505, n:'ドリル：フックの出し入れ', d:'左右10回ずつ'},
+  {t:600, n:'キスオブザドラゴン'},
+  {t:780, n:'まとめ'},
+];
+const DIVS = [{t:0,n:'デラヒーバの基本'},{t:330,n:'ベリンボロ'}];
+let DRILLS = [
+  {id:'d1', title:'エビ → 膝を入れてガードを戻す', video:'ガードリテンション入門', a:412, b:441, mir:false, sp:1, last:9, total:24},
+  {id:'d2', title:'レッグドラッグの足の置き方', video:'Leg Drag Masterclass', a:1265, b:1290, mir:true, sp:.75, last:2, total:8},
+  {id:'d3', title:'シングルレッグXの入り', video:'SLX Fundamentals', a:203, b:231, mir:false, sp:1, last:0, total:31},
+];
+const MENUS = [
+  {n:'朝のガード 15分', ids:['d1','d3']},
+  {n:'パス練の前に', ids:['d2']},
+];
+
+const fmt = s => { s=Math.max(0,Math.round(s)); const m=Math.floor(s/60), r=s%60; return m+':'+String(r).padStart(2,'0'); };
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast = m => { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),1600); };
+const chapOf = t => { let c=BMS[0]; for(const b of BMS) if(b.t<=t) c=b; return c; };
+const chapEnd = b => { const i=BMS.indexOf(b); return i<BMS.length-1 ? BMS[i+1].t : VIDEO.dur; };
+
+// ───────── 再生（1つだけ） ─────────
+const P = { t:120, playing:true, sp:1, mir:false, a:null, b:null, loops:0, onLoop:null };
+let last = performance.now();
+function tick(now){
+  const dt=(now-last)/1000; last=now;
+  if(P.playing){
+    P.t += dt*P.sp;
+    if(P.a!=null && P.b!=null && P.t>=P.b){ P.t=P.a; P.loops++; P.onLoop && P.onLoop(); }
+    if(P.t>VIDEO.dur) P.t=0;
+  }
+  paint();
+  requestAnimationFrame(tick);
+}
+function screenHTML(id){
+  return `<div class="scrwrap"><span class="mirtag" id="${id}-mt" style="display:none">⇋ 反転中</span><div class="scr" id="${id}">
+    <div class="mat"></div><div class="p1"></div><div class="p2"></div><div class="hook"></div>
+    <div class="cap"></div><div class="side">右足でフック →</div><div class="tc"></div><div class="lp" style="display:none"></div></div></div>`;
+}
+function paintScreen(id, title){
+  const s=document.getElementById(id); if(!s) return;
+  s.classList.toggle('mir', P.mir);
+  const mt=document.getElementById(id+'-mt'); if(mt) mt.style.display=P.mir?'':'none';
+  const ph=(P.t%6)/6, w=Math.sin(ph*Math.PI*2);
+  s.querySelector('.p1').style.left=(30+w*4)+'%';
+  s.querySelector('.p2').style.left=(55-w*3)+'%';
+  const hk=s.querySelector('.hook'); hk.style.left=(38+w*4)+'%'; hk.style.width=(12+w*5)+'%';
+  s.querySelector('.cap').textContent = title || chapOf(P.t).n;
+  s.querySelector('.tc').textContent = fmt(P.t)+' / '+fmt(VIDEO.dur)+(P.sp!==1?'  ×'+P.sp:'');
+  const lp=s.querySelector('.lp');
+  if(P.a!=null&&P.b!=null){ lp.style.display=''; lp.textContent='🔁 '+fmt(P.a)+'–'+fmt(P.b); } else lp.style.display='none';
+}
+
+// ───────── 画面の切り替え ─────────
+const STEPS=[['make','① 作る','動画パネルで'],['list','② 一覧','ドリルの棚'],['run','③ 回す','練習中']];
+let step='make', makeVar='A', runVar='A';
+function renderSteps(){
+  document.getElementById('steps').innerHTML = STEPS.map(([k,b,s])=>`<button class="step ${k===step?'on':''}" onclick="go('${k}')"><b>${b}</b>${s}</button>`).join('');
+}
+function go(k){ step=k; P.onLoop=null; if(k!=='run'){ RUN=null; } render(); window.scrollTo(0,0); }
+function render(){ renderSteps(); ({make:renderMake,list:renderList,run:renderRun})[step](); }
+let paint=()=>{};
+
+// ═════════ ① 作る ═════════
+let MK=null;          // 作っている途中 {title,a,b,mir,sp,from}
+let twoTap=null;      // 「ここから」を押した時刻
+function renderMake(){
+  const v=document.getElementById('view');
+  v.innerHTML = `
+  <div class="sub"><span class="lbl" style="align-self:center">区間の合わせ方:</span>
+    <button class="${makeVar==='A'?'on':''}" onclick="makeVar='A';renderMake()">A ±ボタン</button>
+    <button class="${makeVar==='B'?'on':''}" onclick="makeVar='B';renderMake()">B つまみをドラッグ</button></div>
+  <div class="desc">入口は2つ。<b>チャプターの行の「🏋️」</b>＝その時刻〜次のチャプターがそのまま区間になる（1タップ）。
+  チャプターに無い場所は、再生しながら<b>「🏋️ ここから」→「■ ここまで」</b>の2回押し（押す遅れを見込んで開始は2秒前に）。
+  どちらも下に同じカードが出て、<b>ループしたまま</b>端を合わせる。合わせ方は A（±1秒のボタン）と B（区間の前後を拡大したバーのつまみ）の2案。</div>
+  <div class="panel">
+    ${screenHTML('scrM')}
+    <div class="tl" id="tlM" onclick="seekTl(event,this)"></div>
+    <div class="ctl">
+      <button class="cb" id="ppM" onclick="P.playing=!P.playing">❚❚</button>
+      <button class="cb" onclick="P.t=Math.max(0,P.t-5)">−5s</button>
+      <button class="cb" onclick="P.t=P.t+5">+5s</button>
+      <span style="flex:1"></span>
+      <button class="cb big ${twoTap!=null?'on':''}" id="twoTap" onclick="tapTwo()"></button>
+    </div>
+    <div id="mkCard"></div>
+  </div>
+  <div class="panel">
+    <div class="lbl" style="margin-bottom:4px">ブックマーク</div>
+    <div id="bmList"></div>
+  </div>`;
+  renderBms(); renderMk();
+  paint=()=>{
+    paintScreen('scrM', MK?MK.title:null);
+    const tl=document.getElementById('tlM');
+    if(tl){
+      tl.innerHTML = BMS.map(b=>`<div class="bm" style="left:${b.t/VIDEO.dur*100}%"></div>`).join('')
+        + (P.a!=null?`<div class="rg" style="left:${P.a/VIDEO.dur*100}%;width:${(P.b-P.a)/VIDEO.dur*100}%"></div>`:'')
+        + `<div class="ph" style="left:${P.t/VIDEO.dur*100}%"></div>`;
+    }
+    const pp=document.getElementById('ppM'); if(pp) pp.textContent=P.playing?'❚❚':'▶';
+    const tt=document.getElementById('twoTap'); if(tt) tt.textContent = twoTap!=null ? '■ ここまで（'+fmt(twoTap)+'〜）' : '🏋️ ここから';
+    document.querySelectorAll('#bmList .bmr').forEach(r=>r.classList.toggle('now', +r.dataset.t===chapOf(P.t).t));
+    const ln=document.getElementById('lpn'); if(ln&&MK) ln.textContent='🔁 '+(P.loops+1)+'回目';
+    paintZoom();
+  };
+}
+function seekTl(e,el){ const r=el.getBoundingClientRect(); P.t=(e.clientX-r.left)/r.width*VIDEO.dur; }
+function renderBms(){
+  const el=document.getElementById('bmList'); if(!el) return;
+  el.innerHTML = BMS.map(b=>{
+    const dv = DIVS.find(d=>d.t===b.t);
+    const has = DRILLS.some(d=>d.video===VIDEO.title && d.a<=b.t+3 && d.b>=chapEnd(b)-3);
+    return (dv?`<div class="dvd">${esc(dv.n)}<span></span></div>`:'') +
+    `<div class="bmr" data-t="${b.t}"><button class="t" onclick="P.t=${b.t}">${fmt(b.t)}</button>
+      <div class="n">${esc(b.n)}<small>${fmt(chapEnd(b)-b.t)}</small></div>
+      <button class="dbtn ${has?'has':''}" onclick="fromChapter(${b.t})">${has?'✓ ドリル':'🏋️'}</button></div>`;
+  }).join('');
+}
+function fromChapter(t){
+  const b=BMS.find(x=>x.t===t);
+  startMk({title:b.n, a:b.t, b:chapEnd(b), from:'チャプター「'+b.n+'」から'});
+}
+function tapTwo(){
+  if(twoTap==null){ twoTap=P.t; toast('開始を '+fmt(Math.max(0,twoTap-2))+' に（2秒前）。終わりで「ここまで」'); renderMake(); return; }
+  const a=Math.max(0,twoTap-2), b=Math.max(P.t, a+3); twoTap=null;
+  startMk({title:chapOf(a).n+'（'+fmt(a)+'〜）', a, b, from:'再生しながら2回押しで'});
+}
+function startMk(m){
+  MK={mir:false, sp:1, ...m};
+  P.a=MK.a; P.b=MK.b; P.t=MK.a; P.loops=0; P.playing=true; P.mir=false; P.sp=1;
+  renderMake();
+  document.getElementById('mkCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderMk(){
+  const el=document.getElementById('mkCard'); if(!el) return;
+  if(!MK){ el.innerHTML=''; return; }
+  const edgeA = (k,lab)=>`<div class="edge"><span class="k">${lab}</span><div class="adj">
+      <button onclick="nudge('${k}',-1)">−1s</button><span class="v" id="v${k}">${fmt(MK[k])}</span><button onclick="nudge('${k}',1)">+1s</button>
+      <button class="now" onclick="setNow('${k}')">今の位置</button></div></div>`;
+  el.innerHTML = `<div class="mk">
+    <h4>🏋️ ドリルを作る <span class="lpn" id="lpn"></span></h4>
+    <input type="text" value="${esc(MK.title)}" oninput="MK.title=this.value" aria-label="ドリルの名前">
+    ${makeVar==='A' ? edgeA('a','開始')+edgeA('b','終了')
+      : `<div class="zoom" id="zoom"></div><div style="height:12px"></div>
+         <div class="adj" style="justify-content:space-between"><span class="v" id="va" style="text-align:left">${fmt(MK.a)}</span>
+         <span style="font-size:11px;color:var(--text3)" id="vlen"></span><span class="v" id="vb" style="text-align:right">${fmt(MK.b)}</span></div>`}
+    <div class="row">
+      <button class="sw ${MK.mir?'on':''}" onclick="MK.mir=P.mir=!MK.mir;renderMk()">⇋ 反転</button>
+      ${[.5,.75,1].map(s=>`<button class="chip ${MK.sp===s?'on':''}" onclick="MK.sp=P.sp=${s};renderMk()">×${s}</button>`).join('')}
+    </div>
+    <div class="row">
+      <button class="ghost" onclick="MK=null;P.a=P.b=null;renderMake()">やめる</button>
+      <button class="save" onclick="saveMk()">ドリルに保存</button>
+    </div>
+    <div class="note">${esc(MK.from)}・長さ ${fmt(MK.b-MK.a)}。反転と速度もドリルごとに覚える（回すときに最初からその状態）。</div>
+  </div>`;
+  if(makeVar==='B') bindZoom();
+}
+function nudge(k,d){ MK[k]=Math.max(0,Math.min(VIDEO.dur,MK[k]+d)); if(MK.a>=MK.b-1){ if(k==='a') MK.a=MK.b-1; else MK.b=MK.a+1; } syncMk(k); }
+function setNow(k){ MK[k]=P.t; if(MK.a>=MK.b-1){ toast('開始は終了より前に'); MK[k]=k==='a'?MK.b-1:MK.a+1; } syncMk(k); }
+function syncMk(k){
+  P.a=MK.a; P.b=MK.b;
+  if(k==='a') P.t=MK.a; else P.t=Math.max(MK.a, MK.b-3);   // 終わりを動かしたら、終わりの3秒前から見せる
+  const va=document.getElementById('va'), vb=document.getElementById('vb');
+  if(va) va.textContent=fmt(MK.a); if(vb) vb.textContent=fmt(MK.b);
+}
+// B: 区間の前後20秒を拡大したバー
+function zoomWin(){ const pad=20; return [Math.max(0,MK.a-pad), Math.min(VIDEO.dur, MK.b+pad)]; }
+function paintZoom(){
+  const z=document.getElementById('zoom'); if(!z||!MK) return;
+  const [lo,hi]=zoomWin(), X=t=>(t-lo)/(hi-lo)*100;
+  if(!z._built){
+    z.innerHTML=`<div class="rg"></div><div class="ph"></div><div class="hd" data-k="a"><i></i></div><div class="hd" data-k="b"><i></i></div>`
+      + BMS.filter(b=>b.t>lo&&b.t<hi).map(b=>`<div class="bm" style="left:${X(b.t)}%"></div>`).join('')
+      + `<span class="sc" style="left:2%">${fmt(lo)}</span><span class="sc" style="left:98%">${fmt(hi)}</span>`;
+    z._built=true; z._lo=lo; z._hi=hi;
+  }
+  const L=t=>(t-z._lo)/(z._hi-z._lo)*100;
+  z.querySelector('.rg').style.cssText=`left:${L(MK.a)}%;width:${L(MK.b)-L(MK.a)}%`;
+  z.querySelector('[data-k=a]').style.left=L(MK.a)+'%';
+  z.querySelector('[data-k=b]').style.left=L(MK.b)+'%';
+  z.querySelector('.ph').style.left=Math.max(0,Math.min(100,L(P.t)))+'%';
+  const vl=document.getElementById('vlen'); if(vl) vl.textContent='長さ '+fmt(MK.b-MK.a);
+}
+function bindZoom(){
+  const z=document.getElementById('zoom'); let k=null;
+  const tAt=e=>{ const r=z.getBoundingClientRect(); return z._lo+(Math.min(r.width,Math.max(0,e.clientX-r.left))/r.width)*(z._hi-z._lo); };
+  z.addEventListener('pointerdown',e=>{
+    const h=e.target.closest('.hd'); if(!h) return; k=h.dataset.k; z.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  z.addEventListener('pointermove',e=>{ if(!k) return; MK[k]=Math.round(tAt(e)*2)/2; if(MK.a>MK.b-1){ if(k==='a') MK.a=MK.b-1; else MK.b=MK.a+1; } syncMk(k); });
+  z.addEventListener('pointerup',()=>{ if(k){ z._built=false; } k=null; });
+}
+function saveMk(){
+  DRILLS.unshift({id:'d'+Date.now(), title:MK.title||'(名前なし)', video:VIDEO.title, a:MK.a, b:MK.b, mir:MK.mir, sp:MK.sp, last:null, total:0, isNew:true});
+  toast('🏋️ ドリルに保存しました（一覧へ）');
+  MK=null; P.a=P.b=null; renderMake();
+}
+
+// ═════════ ② 一覧 ═════════
+let sortBy='old', sel=new Set();
+function renderList(){
+  const v=document.getElementById('view');
+  const arr=[...DRILLS].sort((x,y)=> sortBy==='old' ? ((y.last??999)-(x.last??999)) : sortBy==='new' ? 0 : x.video.localeCompare(y.video));
+  v.innerHTML=`
+  <div class="desc">ドリルは<b>動画の中の1区間</b>。棚の上は<b>メニュー</b>（ドリルの束）。並びの既定は<b>「しばらくやっていない順」</b>＝復習の入口。
+  チェックして下の帯の「▶ 回す」で、選んだ順に③へ。▶ だけ押せば1つをその場でループ。</div>
+  <div class="panel">
+    <div class="lbl" style="margin-bottom:6px">メニュー</div>
+    <div class="menus">
+      ${MENUS.map((m,i)=>`<button class="menu" onclick="runIds(MENUS[${i}].ids)"><b>▶ ${esc(m.n)}</b><small>${m.ids.length}本 · ${fmt(m.ids.reduce((s,id)=>{const d=DRILLS.find(x=>x.id===id);return s+(d?d.b-d.a:0)},0))}</small></button>`).join('')}
+      <button class="menu add" onclick="newMenu()">＋ 選んだものでメニュー</button>
+    </div>
+    <div class="lhd"><span class="lbl">ドリル ${DRILLS.length}</span><span style="flex:1"></span>
+      ${[['old','やっていない順'],['new','作った順'],['video','動画ごと']].map(([k,l])=>`<button class="chip ${sortBy===k?'on':''}" onclick="sortBy='${k}';renderList()">${l}</button>`).join('')}
+    </div>
+    <div>${arr.map(d=>`<div class="dr">
+      <input type="checkbox" ${sel.has(d.id)?'checked':''} onchange="this.checked?sel.add('${d.id}'):sel.delete('${d.id}');renderList()">
+      <div class="th">${d.mir?'<em>⇋</em>':''}<b>${fmt(d.b-d.a)}</b></div>
+      <div class="bd"><div class="tt">${d.isNew?'🆕 ':''}${esc(d.title)}</div>
+        <div class="mt">${esc(d.video)} · ${fmt(d.a)}–${fmt(d.b)}${d.sp!==1?' · ×'+d.sp:''}</div>
+        <div class="mt ${d.last!=null&&d.last>=7?'old':''}">${d.last==null?'まだやっていない':d.last===0?'今日':d.last+'日前'} · 計${d.total}回</div></div>
+      <button class="pl" onclick="runIds(['${d.id}'])" title="この1つを回す">▶</button></div>`).join('')}</div>
+  </div>
+  ${sel.size?`<div class="runbar" style="margin:0 12px">${sel.size}本を選択<button onclick="runIds([...sel])">▶ 回す</button></div>`:''}`;
+  paint=()=>{};
+}
+function newMenu(){
+  if(!sel.size){ toast('先にドリルをチェックしてください'); return; }
+  MENUS.push({n:'新しいメニュー '+(MENUS.length+1), ids:[...sel]}); sel.clear(); toast('メニューを作りました（名前はあとで変えられる）'); renderList();
+}
+
+// ═════════ ③ 回す ═════════
+let RUN=null;   // {ids, i, reps:{id:n}, adv:'loops'|'time'|'hand', n, secs, started}
+const RUN_SET={adv:'loops', n:5, secs:60};
+function runIds(ids){
+  RUN={ids:[...ids], i:0, reps:{}, done:false, ...RUN_SET}; sel.clear();
+  step='run'; loadCur(); render(); window.scrollTo(0,0);
+}
+function cur(){ return RUN && DRILLS.find(d=>d.id===RUN.ids[RUN.i]); }
+function loadCur(){
+  const d=cur(); if(!d) return;
+  P.a=d.a; P.b=d.b; P.t=d.a; P.loops=0; P.mir=d.mir; P.sp=d.sp; P.playing=true; RUN.started=performance.now();
+  P.onLoop=()=>{ if(RUN.adv==='loops' && P.loops>=RUN.n) next(true); };
+}
+function next(auto){
+  if(!RUN) return;
+  if(RUN.i>=RUN.ids.length-1){ RUN.done=true; P.playing=false; P.onLoop=null; renderRun(); return; }
+  RUN.i++; loadCur(); renderRun(); if(auto) toast('次のドリルへ');
+}
+function did(){ const d=cur(); RUN.reps[d.id]=(RUN.reps[d.id]||0)+1; d.total++; d.last=0; toast('✓ '+d.title+'  +1'); }
+function renderRun(){
+  const v=document.getElementById('view');
+  if(!RUN){
+    v.innerHTML=`<div class="desc">②の一覧で ▶ を押すか、チェックして「▶ 回す」、またはメニューを押すとここに来ます。</div>
+    <div class="panel"><button class="save" style="margin:0" onclick="runIds(MENUS[0].ids)">▶ 試しに「${esc(MENUS[0].n)}」を回す</button></div>`;
+    paint=()=>{}; return;
+  }
+  const subs=`<div class="sub"><span class="lbl" style="align-self:center">見せ方:</span>
+    <button class="${runVar==='A'?'on':''}" onclick="runVar='A';renderRun()">A 道場モード（大きいボタン）</button>
+    <button class="${runVar==='B'?'on':''}" onclick="runVar='B';renderRun()">B 一覧のまま</button></div>`;
+  const d=cur();
+  if(RUN.done){
+    v.innerHTML=subs+`<div class="${runVar==='A'?'dojo':'panel'}"><div class="done-card"><b>おつかれさま</b>
+      ${RUN.ids.map(id=>{const x=DRILLS.find(y=>y.id===id);return `<div style="font-size:12px;margin:3px 0">${esc(x.title)} — ${RUN.reps[id]||0}回</div>`}).join('')}
+      <div class="row" style="justify-content:center;margin-top:14px"><button class="ghost" onclick="runIds(RUN.ids)">もう一周</button><button class="save" style="margin:0" onclick="go('list')">一覧へ</button></div></div></div>`;
+    paint=()=>{}; return;
+  }
+  const setRow=(dark)=>`
+    <button class="mir ${P.mir?'on':''}" onclick="toggleMir()">⇋ 反転</button>
+    ${[.5,.75,1].map(s=>`<button class="${P.sp===s?'on':''}" onclick="P.sp=${s};renderRun()">×${s}</button>`).join('')}
+    <span class="sp" style="flex-basis:100%;height:0"></span>次へ:
+    ${[['loops',RUN.n+'回で'],['time',RUN.secs+'秒で'],['hand','手で']].map(([k,l])=>`<button class="${RUN.adv===k?'on':''}" onclick="RUN.adv=RUN_SET.adv='${k}';renderRun()">${l}</button>`).join('')}`;
+  if(runVar==='A'){
+    v.innerHTML=subs+`<div class="desc">道場で<b>スマホを床に置いて</b>使う想定。画面を消さない。押すのは下の3つだけ。
+      反転はドリルに保存した状態から始まり、ここで切り替えたら<b>そのドリルに覚える</b>。</div>
+    <div class="dojo">
+      <div class="top"><span>${RUN.i+1}/${RUN.ids.length}</span><b>${esc(d.title)}</b><button class="x" onclick="RUN=null;P.a=P.b=null;go('list')">終わる</button></div>
+      ${screenHTML('scrR')}
+      <div class="dots">${RUN.ids.map((_,i)=>`<i class="${i<RUN.i?'done':i===RUN.i?'cur':''}"></i>`).join('')}</div>
+      <div class="cnt"><span>ループ <b id="lpR">1</b>${RUN.adv==='loops'?' / '+RUN.n:''}</span><span id="tmR"></span><span>やった <b id="rpR">${RUN.reps[d.id]||0}</b></span></div>
+      <div class="bigs">
+        <button onclick="P.t=P.a">↺<br>頭から</button>
+        <button class="did" onclick="did();document.getElementById('rpR').textContent=RUN.reps[cur().id]">✓ やった<small>+1回</small></button>
+        <button onclick="next()">次へ →<br><small>${RUN.i<RUN.ids.length-1?esc(DRILLS.find(x=>x.id===RUN.ids[RUN.i+1]).title).slice(0,10)+'…':'おわり'}</small></button>
+      </div>
+      <div class="dset">${setRow(true)}</div>
+    </div>`;
+  } else {
+    v.innerHTML=subs+`<div class="desc">ふだんの画面のまま、上で再生・下に今日の順番。どれを押してもそこへ飛べる。家で見直すとき向き。</div>
+    <div class="panel">
+      ${screenHTML('scrR')}
+      <div class="ctl"><button class="cb" onclick="P.playing=!P.playing" id="ppR">❚❚</button><button class="cb" onclick="P.t=P.a">↺ 頭から</button>
+        <span style="flex:1"></span><span style="font-size:12px;color:var(--text3)">ループ <b id="lpR">1</b>${RUN.adv==='loops'?'/'+RUN.n:''} <span id="tmR"></span></span>
+        <button class="cb on" onclick="did();renderRun()">✓ やった</button></div>
+      <div class="dset" style="color:var(--text3)">${setRow(false)}</div>
+      <div style="margin-top:8px">${RUN.ids.map((id,i)=>{const x=DRILLS.find(y=>y.id===id);return `<div class="qitem ${i===RUN.i?'cur':i<RUN.i?'done':''}">
+        <span class="no">${i<RUN.i?'✓':i+1}</span><div class="bd">${esc(x.title)}<small>${esc(x.video)} · ${fmt(x.b-x.a)}${x.mir?' · ⇋反転':''}</small></div>
+        <span class="rp">${RUN.reps[id]||0}回</span>${i!==RUN.i?`<button class="pl1" onclick="RUN.i=${i};loadCur();renderRun()">▶</button>`:''}</div>`}).join('')}</div>
+    </div>`;
+    // B は明るい画面なので、設定ボタンを明るい色に
+    document.querySelectorAll('.panel .dset button').forEach(b=>{b.style.borderColor='var(--border)';b.style.color=b.classList.contains('on')?'#111':'var(--text2)';});
+  }
+  paint=()=>{
+    paintScreen('scrR', cur()?.title);
+    const lp=document.getElementById('lpR'); if(lp) lp.textContent=P.loops+1;
+    const pp=document.getElementById('ppR'); if(pp) pp.textContent=P.playing?'❚❚':'▶';
+    const tm=document.getElementById('tmR');
+    if(tm && RUN && RUN.adv==='time'){
+      const left=Math.max(0, RUN.secs-(performance.now()-RUN.started)/1000);
+      tm.textContent='残り '+Math.ceil(left)+'秒'; if(left<=0) next(true);
+    } else if(tm) tm.textContent='';
+  };
+}
+function toggleMir(){ P.mir=!P.mir; const d=cur(); if(d) d.mir=P.mir; toast(P.mir?'⇋ 反転（このドリルに覚えた）':'反転を解除'); renderRun(); }
+
+// ───────── 起動 ─────────
+document.getElementById('dk').onchange=e=>document.body.classList.toggle('dark',e.target.checked);
+if(matchMedia('(prefers-color-scheme: dark)').matches){ document.body.classList.add('dark'); document.getElementById('dk').checked=true; }
+render(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>
