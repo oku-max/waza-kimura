@@ -2008,10 +2008,15 @@
     "この動画は長すぎて動画からの検出ができません（先に字幕を作成し、「字幕から検出」をお使いください）":
       "This video is too long to detect from the video itself. Create subtitles first, then use “Detect from subtitles”",
 
+    // ドリル（v52.989・js/drills.js）
+    '2回押し':'Two taps','↺ 頭から':'↺ From start','⇋ 反転':'⇋ Mirror','⇋ 反転中':'⇋ Mirrored','⇋ 反転（このドリルに覚えました）':'⇋ Mirrored (saved for this drill)','■ ここまで':'■ End here','✓ やった':'✓ Done','まだやっていない':'Not done yet','やった':'Done','やっていない順':'Least recent','ドリルの名前':'Drill name','ドリルを削除しました':'Drill deleted','メニューに入れる…':'Add to menu…','メニューの名前':'Menu name','メニューを作りました':'Menu created','メニューを削除しました':'Menu deleted','ライブラリに追加した動画でドリルを作れます':'You can make drills from videos in your library','ループ':'Loop','一覧':'List','作った順':'Newest','元の動画がありません':'Original video not found','元の動画がライブラリにありません':'The original video is not in your library','先にドリルをチェックしてください':'Check some drills first','動画ごと':'By video','反転を外しました':'Mirror off','回せるドリルがありません':'No drills to play','次のドリルへ':'Next drill','次へ:':'Next:','終わる':'Finish','道場':'Dojo','開始は終了より前にしてください':'Start must be before end','頭から':'From start','🏋️ ここから':'🏋️ Start here','🏋️ ドリルに保存しました（Drill タブで一覧）':'🏋️ Saved as a drill (see the Drill tab)','🏋️ ドリルを直しました':'🏋️ Drill updated','この区間をドリルにする':'Make this section a drill','YouTube を読み込めませんでした':'Couldn\'t load YouTube','Googleにログインしてください':'Please sign in with Google','（中のドリルは消えません）':'(The drills in it are not deleted)','（動画とブックマークはそのまま残ります）':'(The video and bookmarks stay as they are)','名前を変えるなら新しい名前を、削除するなら「削除」と入れてください。':'Type a new name to rename it, or type “削除” to delete it.','🏋️ ドリル':'🏋️ Drills','ドリルを作る':'Make a drill','ドリルの区間を直す':'Edit drill section','ドリルに保存':'Save as drill','まだドリルがありません':'No drills yet','区間を直す':'Edit section','＋ 選んだものでメニュー':'＋ Menu from selection','▶ 回す':'▶ Play','おつかれさま':'Nice work','もう一周':'One more round','この動画はここでは再生できません。':'This video can\'t be played here.','もう入っています':'Already in it','❚❚ 止める':'❚❚ Pause','手で':'manually','おわり':'End','+1回':'+1','✓ やった+1回':'✓ Done +1','この1つを回す':'Play this one','メニューを編集':'Edit menu','選ぶ':'Select','再生しながら、ドリルにしたい所の始まりで1回・終わりでもう1回押す':'While playing, press once at the start of the part you want and once more at the end','動画パネルのブックマークの行の':'In the video panel, press','を押すと、そのチャプターがそのままドリルになります。':'on a bookmark row to turn that chapter into a drill.','チャプターに無い所は、再生しながら見出しの':'For parts without a chapter, press','を始まりと終わりで2回押します。':'in the header twice while playing: at the start and at the end.','「🏋️ ここから」':'“🏋️ Start here”',
+
   };
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // ドリル（v52.989）
+    '#本を選択':'# selected','#本 · #:#':'# · #:#','#本 · #:#:#':'# · #:#:#','#日前':'# days ago','#日前 · 計#回':'# days ago · # total','今日 · 計#回':'Today · # total','昨日 · 計#回':'Yesterday · # total','まだやっていない · 計#回':'Not done yet · # total','🔁 #回目':'🔁 Loop #','残り #秒':'# s left','#回で':'after # loops','#秒で':'after # s','長さ #:#':'Length #:#','長さ #:#:#':'Length #:#:#','（押した#秒前）→ いま':'(# s before you pressed) → now','🏋️ 開始':'🏋️ Start','#回':'# times','動画パネルで開く（#:#から）':'Open in the video panel (from #:#)',
     // 部分だけの要約（v52.987）
     '−#分':'−# min','−#秒':'−# s','＋#秒':'+# s','＋#分':'+# min','#個を選んでいます':'# selected','#項目':'# points','#枚':'# photos','数字で打つ（#:# のように）か、動画を止めた所で「今の位置」を押します。±ボタンは入っている時刻から（空なら今の位置から）ずらします。':'Type a time (like #:#) or pause the video and press “Current position”. The ± buttons shift from the entered time (or from the current position if empty).','AIが要約しています…（字幕 #行）':'The AI is summarizing... (# subtitle lines)','写真を撮っています… #/#':'Taking photos... #/#','約#分ごと':'about every # min','約#秒ごと':'about every # s','約#分#秒ごと':'about every # min # s','約#分に#枚':'1 photo about every # min','約#秒に#枚':'1 photo about every # s','約#分#秒に#枚':'1 photo about every # min # s',
     '★#以上':'★# or more',
@@ -2320,6 +2325,12 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── ドリル（v52.989・js/drills.js）。ユーザーが付けた名前が入る（名前は訳さない） ──
+    [/^ドリル「(.+)」を削除しますか？$/, (m, n) => `Delete the drill “${n}”?`],
+    [/^「(.+)」に入れました$/, (m, n) => `Added to “${n}”`],
+    [/^✓ (.+)  \+1$/, (m, n) => `✓ ${n}  +1`],
+    [/^(.+) — (\d+)回$/, (m, n, k) => `${n} — ${k}×`],
+    [/^(.+)（(\d+:\d+(?::\d+)?)〜）$/, () => null],
     // ── 部分だけの要約（v52.987・js/vp-sum-range.js）。数・長さ・時刻が入る ──
     [/^(\d+)か所・合計 (\d+)(分|秒)$/, (m, n, t, u) => `${n} ranges · ${t} ${u === '分' ? 'min' : 's'} total`],
     [/^([\d:]+)–([\d:]+)・合計 (\d+)(分|秒)$/, (m, a, b, t, u) => `${a}–${b} · ${t} ${u === '分' ? 'min' : 's'} total`],

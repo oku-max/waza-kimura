@@ -134,6 +134,7 @@ auth.onAuthStateChanged(async (user) => {
     _vcSettled = false; _vcShown = false; _vcDirty = false;
     _vcShow(user.uid);
     _cvFiltStart(user.uid);           // リストごとの絞り込み（小さい文書）。待たない＝動画の読み込みと並んで走る
+    _drillStart(user.uid);            // ドリル（data/drills・小さい文書）。待たない
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     window.__pmark?.('cv_startup');
@@ -151,6 +152,8 @@ auth.onAuthStateChanged(async (user) => {
     // 絞り込みの見張りを止めて、以後クラウドへ書かない（この端末の控えは消さない）
     if (_cvFiltUnsub) { _cvFiltUnsub(); _cvFiltUnsub = null; }
     _cvFiltReady = false; _cvFiltUid = null;
+    if (_drillUnsub) { _drillUnsub(); _drillUnsub = null; }
+    _drillReady = false; _drillUid = null;
   }
 });
 
@@ -932,6 +935,60 @@ async function _cvFiltStart(uid) {
       window._cvFiltApplyRemote?.(d.snaps || {});
     } catch (e) { console.warn('[cvFilters] 受け取りに失敗（現状維持）', e); }
   }, e => console.warn('[cvFilters] onSnapshot:', e));
+}
+
+// ── ドリル（v52.989・オーナー決定 mock-drill.html）──────────────
+// 文書 users/{uid}/data/drills = { items: { [ドリルid]: {...} }, menus: { [メニューid]: {...} }, savedBy, updatedAt }。
+// 動画（videos.json）・設定・リストの文書とは別。中身の判断（どちらが新しいか・形が正しいか）は js/drills.js。
+// 【安全側の決まり】cvFilters と同じ
+//   ・クラウドを読み終えるまで書かない（_drillReady）。読めなかったら書かない
+//   ・書くのは変えた1つだけ（update で items.{id} / menus.{id} の1つを置き換える）。ほかのドリルには触らない
+//   ・消すときも欄は消さない（{id, del:true, at} を書く＝ほかの端末に「消した」が届き、古い端末から復活しない）
+//   ・自分が書いた変更の知らせは受け取らない（savedBy）
+let _drillReady = false, _drillUid = null, _drillUnsub = null;
+const _drillRef = uid => _dataDoc(uid, 'drills');
+const _DRILL_KEY_OK = k => typeof k === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(k);
+async function _drillWrite(uid, kind, id, entry) {
+  if ((kind !== 'items' && kind !== 'menus') || !_DRILL_KEY_OK(id) || !entry || entry.id !== id) return;
+  const payload = JSON.parse(JSON.stringify(entry));
+  const meta = { savedBy: _sessionId, updatedAt: new Date().toISOString() };
+  try {
+    await _drillRef(uid).update({ [kind + '.' + id]: payload, ...meta });
+  } catch (e) {
+    if (e && (e.code === 'not-found' || /No document to update/i.test(String(e.message)))) {
+      // 文書がまだ無いときだけ作る（merge なので、あっても他の欄は消さない）
+      try { await _drillRef(uid).set({ [kind]: { [id]: payload }, ...meta }, { merge: true }); }
+      catch (e2) { console.warn('[drills] 保存に失敗', e2); }
+    } else console.warn('[drills] 保存に失敗', e);
+  }
+}
+window._drillPush = function(kind, id, entry) {
+  if (!_drillReady || !currentUser || currentUser.uid !== _drillUid) return;   // 読み終えるまでは書かない（読んだ後にまとめて送る）
+  _drillWrite(currentUser.uid, kind, id, entry);
+};
+async function _drillStart(uid) {
+  _drillReady = false; _drillUid = uid;
+  if (_drillUnsub) { _drillUnsub(); _drillUnsub = null; }
+  let cloud = {};
+  try {
+    const snap = await _drillRef(uid).get();
+    if (currentUser?.uid !== uid) return;
+    const d = snap.exists ? (snap.data() || {}) : {};
+    cloud = { items: (d.items && typeof d.items === 'object') ? d.items : {}, menus: (d.menus && typeof d.menus === 'object') ? d.menus : {} };
+  } catch (e) { console.warn('[drills] 読み込みに失敗（この端末の分だけ使う・クラウドへは書かない）', e); return; }
+  // 手元の控えに足し合わせる（新しい方を採る）。手元にだけある分・手元の方が新しい分は、送る候補として返ってくる
+  const toPush = window._drillApplyRemote?.(cloud, uid, true) || [];
+  _drillReady = true;
+  toPush.forEach(x => _drillWrite(uid, x.kind, x.id, x.entry));
+  _drillUnsub = _drillRef(uid).onSnapshot(s => {
+    try {
+      if (currentUser?.uid !== uid || !s.exists) return;
+      if (s.metadata?.hasPendingWrites) return;
+      const d = s.data() || {};
+      if (d.savedBy === _sessionId) return;
+      window._drillApplyRemote?.({ items: d.items || {}, menus: d.menus || {} }, uid, false);
+    } catch (e) { console.warn('[drills] 受け取りに失敗（現状維持）', e); }
+  }, e => console.warn('[drills] onSnapshot:', e));
 }
 
 // ── カスタムビューの同期状態を出す（読むだけ・何も書かない）──────

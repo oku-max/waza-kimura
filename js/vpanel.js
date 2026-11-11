@@ -1053,6 +1053,7 @@ function _bmRowHTML(id, bm, i) {
         })()}
         ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
         <span style="flex:1"></span>
+        ${isExpanded ? '' : `<button class="vp-bm-drill${window.wkDrillHas?.(id, Number(bm.time)) ? ' on' : ''}" onclick="event.stopPropagation();wkDrillFromBm('${id}',${i})" title="この区間をドリルにする">🏋️</button>`}
         <button class="vp-bm-star${lv ? ' on' : ''}" data-lv="${lv}" onclick="event.stopPropagation();vpBmStar('${id}',${i})" aria-label="星 ${lv}" title="押すたびに星が増える（★★★の次は外れる）">${lv ? '★'.repeat(lv) : '☆'}</button>
         <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
@@ -1554,6 +1555,8 @@ function _bookmarkSectionHTML(id) {
           ${_divBtnHTML(id)}
           ${chapBtn}
           ${sumBtn}
+          <button onclick="wkDrillTap('${id}')" id="vp-drill-tap-${id}" title="再生しながら、ドリルにしたい所の始まりで1回・終わりでもう1回押す"
+            style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">🏋️ ここから</button>
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
       </div>
@@ -9407,6 +9410,27 @@ let _openVPanelId = null;
 // ── Search VP 統合: プライベート関数を window に公開 ──
 window._vpLoopSectionHTML      = () => _loopSectionHTML();
 window._vpBookmarkSectionHTML  = (id) => _bookmarkSectionHTML(id);
+
+// ── ドリル（js/drills.js）が使う窓口（v52.989） ──
+// 再生位置を読む・飛ぶ・速度・反転だけ。動画のデータには触らない。
+window._vpDrillKit = {
+  now() {   // 秒（小数あり）。取れなければ null
+    if (window._srVpOpen) return null;
+    try {
+      if (_gdVideoEl) return _gdIntendedTime !== null ? _gdIntendedTime : (isNaN(_gdVideoEl.currentTime) ? null : _gdVideoEl.currentTime);
+      if (_vmPlayer) return _vmCurTime;
+      if (_ytPlayer && _ytPlayerReady) { const t = _ytPlayer.getCurrentTime(); return isFinite(t) ? t : null; }
+    } catch(e) {}
+    return null;
+  },
+  seek: (sec) => _seekTo(sec),
+  duration: (id) => _getDurationSec(id),
+  getRate: () => _vpGetRate(),
+  setRate: (r) => window.vpSetRate(r),
+  mirrored: () => !!window._vpMirrored,
+  setMirror(on) { if (!!window._vpMirrored !== !!on) window.vpToggleMirror(); },
+  fmt: (s) => _formatTime(Math.floor(Math.max(0, s))),
+};
 
 // ── 部分だけの要約（js/vp-sum-range.js）が使う読み出し口（v52.987） ──
 // 読むだけ（再生位置・字幕・Drive の動画）と、メモに入れる・写真を撮るための既存の部品の窓口。

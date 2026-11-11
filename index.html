@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.988</title>
+<title>WAZA KIMURA v52.989</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -81,6 +81,7 @@
 <link rel="stylesheet" href="css/notes.css">
 <link rel="stylesheet" href="css/flowchart.css">
 <link rel="stylesheet" href="css/murmurs.css">
+<link rel="stylesheet" href="css/drills.css">
 <link rel="stylesheet" href="css/random-pick.css">
 <link rel="stylesheet" href="css/note-templates.css">
 
@@ -108,6 +109,7 @@
 <script src="js/tag-wizard.js" defer></script>
 <script src="js/vpanel-v4.js" defer></script>
 <script src="js/vp-sum-range.js" defer></script>
+<script src="js/drills.js" defer></script>
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
 <script src="js/share-target.js" defer></script>
@@ -1399,6 +1401,7 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
       <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
       <div class="tn-i" id="tnav-search" onclick="switchTab('search')">○ Search</div>
       <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">≡ Notes</div>
+      <div class="tn-i" id="tnav-drills" onclick="switchTab('drills')">↻ Drill</div>
       <div class="tn-i" id="tnav-murmurs" onclick="switchTab('murmurs')">◷ Journal</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
       <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
@@ -1463,6 +1466,7 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
     <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>○</span> Search</div>
     <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>≡</span> Notes</div>
+    <div class="fs-nav-i" id="fnav-drills" onclick="switchTab('drills')"><span>↻</span> Drill</div>
     <div class="fs-nav-i" id="fnav-murmurs" onclick="switchTab('murmurs')"><span>◷</span> Journal</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
     <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
@@ -2184,6 +2188,7 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
 </div>
 
 <!-- Notes tab -->
+<div class="tab-panel" id="drillsTab"></div>
 <div class="tab-panel" id="murmursTab"></div>
 
 <div class="tab-panel" id="notesTab">
@@ -2297,6 +2302,7 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
   <div class="mn-i active" id="mnav-home" onclick="switchTab('home')"><span>□</span>Library</div>
   <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>○</span>Search</div>
   <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>≡</span>Notes</div>
+  <div class="mn-i" id="mnav-drills" onclick="switchTab('drills')"><span>↻</span>Drill</div>
   <div class="mn-i" id="mnav-murmurs" onclick="switchTab('murmurs')"><span>◷</span>Journal</div>
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
   <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
@@ -3390,6 +3396,7 @@ async function _wazaCollectLightData() {
     filterColVis: window.filterColVis || {},     // フィルター列の表示設定
     tagTemplates: window.getTagTemplatesRaw?.() || null,  // タグのテンプレート（編集したことがある時だけ中身がある。従来は欠落していた）
     tagRegistry: window.tagRegistry?.raw?.() || null,     // タググループの一覧（タグ1〜4の中身・未使用のタググループ）
+    drills: window.wkDrills?.raw?.() || null,            // ドリル（data/drills 相当）
     notes: window._notesGetData
       ? { folders: window._notesGetData(), root: window._notesGetRoot?.() || [] }
       : null,
@@ -3506,6 +3513,8 @@ window.wazaImport = async function(input) {
     window.saveUserSettings?.();
     // タググループの一覧。入っていない古いバックアップなら、今の一覧をそのまま残す。
     // 形が合わないものは受け取らない（applyRemote が false を返す）。
+    // ドリル。足し合わせ（新しい方を採る）なので、今あるドリルは消えない
+    if (data.drills) window.wkDrills?.importMerge?.(data.drills);
     if (data.tagRegistry && window.tagRegistry?.applyRemote(data.tagRegistry)) {
       window.tagRegistry.reconcile(window.getTagTemplatesRaw?.() || null);
       window.saveTagRegistry?.();
@@ -4309,6 +4318,7 @@ document.addEventListener('click', function(e) {
     <!-- 右カラム: ABバー + タイトル + BM + 編集 -->
     <div id="vpanel-right-col">
       <div id="vpanel-ab-area"></div>
+      <div id="vp-drill-slot"></div>
       <div class="vpanel-edit" id="vpanel-edit-wrap" style="flex:1;overflow-y:auto;min-height:0;padding:10px 12px">
 
         <div id="vpanel-bm-area"></div>
