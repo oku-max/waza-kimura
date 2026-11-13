@@ -133,7 +133,7 @@ const FAKE_YT = () => {
   await pg.evaluate(() => document.getElementById('vp-drill-slot').scrollIntoView()); await shot(pg, '1-card');
   await pg.fill('#vp-drill-name', 'フックの出し入れ');
   await pg.click('.dr-save'); await wait(400);
-  let s = await store();
+  let s = await store(), s0;
   let d1 = alive(s)[0];
   ck('③ 保存したドリルが区間・名前・反転・速度を覚える', alive(s).length === 1 && d1.vid === 'AAAAAAAAAAA' && d1.a === 60 && d1.b === 120 && d1.mir === true && d1.sp === 0.5 && d1.title === 'フックの出し入れ', d1);
   vp = await pg.evaluate(() => ({ mir: !!window._vpMirrored, slot: document.getElementById('vp-drill-slot').innerHTML }));
@@ -152,15 +152,32 @@ const FAKE_YT = () => {
   await setT(330.2);
   await pg.click('#vp-drill-slot .dr-tap-end'); await wait(300);
   card = await pg.evaluate(() => ({ a: document.getElementById('vp-drill-a')?.textContent, b: document.getElementById('vp-drill-b')?.textContent, name: document.getElementById('vp-drill-name')?.value }));
-  ck('⑤ 開始は押した2秒前・終わりは2回目の位置・名前は手前のブックマーク＋時刻', card.a === '4:58' && card.b === '5:30' && card.name === 'グリップ（4:58〜）', card);
+  ck('⑤ 開始は押した2秒前・終わりは2回目の位置・名前はトラック（開始が入っているブックマーク）の名前', card.a === '4:58' && card.b === '5:30' && card.name === 'グリップ', card);
   await pg.click('#vp-drill-slot .dr-x'); await wait(200);
   ck('⑤ やめると何も保存しない', alive(await store()).length === 1);
+  // 同じトラックから作ると番号をふる（v52.990）。最初の1本は番号なし・今あるドリルの名前は書き換えない
+  const tap2 = async (a, b) => { await setT(a); await pg.click('#vp-drill-tap-AAAAAAAAAAA'); await wait(250); await setT(b); await pg.click('#vp-drill-slot .dr-tap-end'); await wait(250);
+    return pg.evaluate(() => document.getElementById('vp-drill-name')?.value); };
+  let nm = await tap2(240, 260); await pg.click('.dr-save'); await wait(200);
+  const n2 = await tap2(300.6, 330); await pg.click('.dr-save'); await wait(200);
+  const n3 = await tap2(250, 280);
+  ck('⑤ 同じトラックから作るたびに番号をふる（グリップ → グリップ 2 → グリップ 3）', nm === 'グリップ' && n2 === 'グリップ 2' && n3 === 'グリップ 3', [nm, n2, n3]);
+  await pg.click('#vp-drill-slot .dr-x'); await wait(200);
+  s0 = await store();
+  ck('⑤ 番号を付けても、前のドリルの名前は書き換えない', alive(s0).filter(d => /^グリップ/.test(d.title)).map(d => d.title).sort().join('|') === 'グリップ|グリップ 2', alive(s0).map(d => d.title));
+  for (const d of alive(s0).filter(d => /^グリップ/.test(d.title))) await pg.evaluate(id => window.wkDrillDelete(id), d.id);
+  await wait(200);
+  ck('⑤ 消した分は番号の数えに入らない', await tap2(300, 320) === 'グリップ');
+  await pg.click('#vp-drill-slot .dr-x'); await wait(200);
   await pg.click('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="3"] .vp-bm-drill'); await wait(200);
   ck('① 終わりの時刻があるブックマークはそこまで', await pg.textContent('#vp-drill-b') === '16:00');
   await pg.click('.dr-save'); await wait(200);
   await pg.evaluate(() => window.closeVPanel());
   await pg.evaluate(() => window.openVPanel('BBBBBBBBBBB')); await pg.waitForSelector('#vp-bm-list-BBBBBBBBBBB');
   await pg.waitForFunction(() => window._vpDrillKit.now() != null);
+  await setT(12); await pg.click('#vp-drill-tap-BBBBBBBBBBB'); await wait(250); await setT(20); await pg.click('#vp-drill-slot .dr-tap-end'); await wait(250);
+  ck('⑤ 開始より前にブックマークが無ければ、動画の名前', await pg.evaluate(() => document.getElementById('vp-drill-name')?.value) === '教則B');
+  await pg.click('#vp-drill-slot .dr-x'); await wait(200);
   await pg.click('#vp-bm-list-BBBBBBBBBBB [data-bm-idx="0"] .vp-bm-drill'); await wait(200);
   ck('① 最後のブックマークは動画の終わりまで', await pg.textContent('#vp-drill-b') === '10:00');
   await pg.click('.dr-save'); await wait(200);
@@ -178,13 +195,22 @@ const FAKE_YT = () => {
   promptAns = ['新しい名前'];
   await pg.click('#drillsTab .drl-acts button:has-text("名前を変える")'); await wait(200);
   ck('⑥ 名前を変える', alive(await store()).some(d => d.title === '新しい名前'));
+  promptAns = ['空のメニュー'];
+  ck('④ 何も選んでいなければ「＋ 新しいメニュー」', /新しいメニュー/.test(await pg.textContent('#drillsTab .drl-menu-add')));
+  await pg.click('#drillsTab .drl-menu-add'); await wait(200);
+  const em = Object.values((await store()).menus).find(m => m.name === '空のメニュー');
+  ck('④ 空のメニューを作れる（回すボタンは押せない）', em && em.ids.length === 0 && await pg.evaluate(() => [...document.querySelectorAll('#drillsTab .drl-menu-run')].find(b => /空のメニュー/.test(b.textContent))?.disabled === true), em);
+  // （「名前を変える」で開いた1行目の操作の行がまだ開いている）
+  await pg.selectOption('#drillsTab .drl-acts select', { label: '空のメニュー' }); await wait(200);
+  ck('④ 空のメニューに、行の「メニューに入れる…」で足せる', Object.values((await store()).menus).find(m => m.name === '空のメニュー')?.ids.length === 1);
+  await pg.locator('#drillsTab .drl-more').first().click(); await wait(100);
   await pg.locator('#drillsTab .drl-ck').nth(0).check(); await pg.locator('#drillsTab .drl-ck').nth(1).check(); await wait(100);
   await shot(pg, '2-list');
   ck('⑥ 選ぶと下に「▶ 回す」の帯', /2本を選択/.test(await pg.textContent('#drillsTab .drl-bar')));
   promptAns = ['朝のガード'];
   await pg.click('#drillsTab .drl-menu-add'); await wait(200);
   s = await store();
-  const menu = Object.values(s.menus).find(m => !m.del);
+  const menu = Object.values(s.menus).find(m => !m.del && m.name === '朝のガード');
   ck('⑥ 選んだものでメニューを作る', menu && menu.name === '朝のガード' && menu.ids.length === 2, s.menus);
   ck('⑥ メニューが棚に出る', /朝のガード/.test(await pg.textContent('#drillsTab .drl-menus')));
   const delId = alive(s).find(d => !menu.ids.includes(d.id)).id;
@@ -203,7 +229,7 @@ const FAKE_YT = () => {
     window.videos.push({ id: 'BBBBBBBBBBB', ytId: 'BBBBBBBBBBB', pt: 'youtube', title: '教則B', duration: 600, bookmarks: [] });
   }, BMS);
   s = await store();
-  const m = Object.values(s.menus).find(x => !x.del);
+  const m = Object.values(s.menus).find(x => !x.del && x.name === '朝のガード');
   await pg.evaluate(id => { window.switchTab('drills'); window.wkDrillRunMenu(id); }, m.id);
   await pg.waitForFunction(() => window.__yt.some(p => !p.__st.dead && p.__st.t > 0)); await wait(400);
   const run = () => pg.evaluate(() => ({ cls: document.getElementById('drill-run')?.className, title: document.querySelector('.drr-title')?.textContent, pos: document.querySelector('.drr-pos')?.textContent,

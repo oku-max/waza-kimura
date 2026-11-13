@@ -145,8 +145,20 @@
     if (t == null || !TAP) return;
     const a = Math.max(0, TAP.t - 2), b = Math.max(t, a + 3), vid = TAP.vid;
     TAP = null;
-    const near = (videoOf(vid)?.bookmarks || []).filter(x => toSec(x.time) <= a + 1).pop();
-    openCard({ vid, title: near?.label ? `${near.label}（${fmt(a)}〜）` : `${fmt(a)}〜`, a, b, from: '2回押し' });
+    openCard({ vid, title: trackName(vid, a), a, b, from: '2回押し' });
+  }
+  // 2回押しで作ったドリルの名前（v52.990・オーナー「デフォルトはトラック名。同じトラックからつくった場合は番号をふってく」）。
+  // トラック＝開始の時刻が入っているブックマーク（チャプター）。無ければ動画の名前。
+  // 同じ動画に同じ名前（または「名前 N」）のドリルがあれば、いちばん大きい番号の次を付ける（最初の1本は番号なし）。
+  // 名前を付けるだけ。今あるドリルの名前は書き換えない。
+  function trackName(vid, a) {
+    const v = videoOf(vid);
+    const bm = (v?.bookmarks || []).filter(x => toSec(x.time) <= a + 1).sort((x, y) => toSec(x.time) - toSec(y.time)).pop();
+    const base = String(bm?.label || v?.title || '').trim().slice(0, 110) || `${fmt(a)}〜`;
+    const re = new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?: (\\d+))?$');
+    let max = 0;
+    for (const d of drills()) { if (d.vid !== vid) continue; const m = String(d.title).match(re); if (m) max = Math.max(max, m[1] ? Number(m[1]) : 1); }
+    return max ? `${base} ${max + 1}` : base;
   }
   window.wkDrillTapEnd = tapEnd;
   window.wkDrillTapCancel = () => { TAP = null; renderSlot(); };
@@ -321,12 +333,12 @@
       ${all.length ? '' : `<div class="drl-empty"><b>まだドリルがありません</b>
         動画パネルのブックマークの行の <b>🏋️</b> を押すと、そのチャプターがそのままドリルになります。<br>
         チャプターに無い所は、再生しながら見出しの <b>「🏋️ ここから」</b> を始まりと終わりで2回押します。</div>`}
-      ${ms.length || all.length ? `<div class="drl-sec"><span class="drl-lbl">メニュー</span></div>
+      ${true ? `<div class="drl-sec"><span class="drl-lbl">メニュー</span></div>
       <div class="drl-menus">
         ${ms.map(m => { const ids = m.ids.filter(id => drill(id)); return `<div class="drl-menu">
           <button class="drl-menu-run" onclick="wkDrillRunMenu('${esc(m.id)}')" ${ids.length ? '' : 'disabled'}><b>▶ ${esc(m.name)}</b><small>${ids.length}本 · ${fmt(lenOf(ids))}</small></button>
           <button class="drl-menu-ed" onclick="wkDrillMenuAct('${esc(m.id)}')" aria-label="メニューを編集">⋯</button></div>`; }).join('')}
-        <button class="drl-menu drl-menu-add" onclick="wkDrillNewMenu()">＋ 選んだものでメニュー</button>
+        <button class="drl-menu drl-menu-add" onclick="wkDrillNewMenu()">${sel.size ? `＋ 選んだ${sel.size}本でメニュー` : '＋ 新しいメニュー'}</button>
       </div>` : ''}
       ${all.length ? `<div class="drl-sec"><span class="drl-lbl">ドリル</span><span style="flex:1"></span>
         ${[['old', 'やっていない順'], ['new', '作った順'], ['video', '動画ごと']].map(([k, l]) => `<button class="drl-chip${prefs.sort === k ? ' on' : ''}" onclick="wkDrillSort('${k}')">${l}</button>`).join('')}</div>
@@ -363,12 +375,11 @@
     toast(`「${m.name}」に入れました`);
   };
   window.wkDrillNewMenu = function () {
-    const ids = window.wkDrillSelIds();
-    if (!ids.length) { toast('先にドリルをチェックしてください'); return; }
+    const ids = window.wkDrillSelIds();   // 選んでいなければ空のメニュー（v52.990・あとで行の「メニューに入れる…」で足す）
     const name = prompt(tr('メニューの名前'), `${tr('メニュー')} ${menus().length + 1}`); if (name == null) return;
     put('menus', { id: newId('dm'), name: (name.trim() || `メニュー ${menus().length + 1}`).slice(0, 80), ids, created: Date.now() });
     sel.clear(); window.renderDrills();
-    toast('メニューを作りました');
+    toast(ids.length ? 'メニューを作りました' : '空のメニューを作りました（ドリルの ⋯ から入れられます）');
   };
   window.wkDrillMenuAct = function (mid) {
     const m = S.menus[mid]; if (!m || m.del) return;
