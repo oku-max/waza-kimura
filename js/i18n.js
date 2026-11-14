@@ -2014,6 +2014,9 @@
     // ドリル（v52.991）
     '1週間以上やっていない':'Not done for 1+ week','ここから':'start here','このカスタムドリルから外す':'Remove from this custom drill','このカスタムドリルは空です':'This custom drill is empty','この区間のドリル':'Drills in this section','カスタムドリル':'Custom drill','カスタムドリルに入れる':'Add to custom drill','カスタムドリルの名前':'Custom drill name','カスタムドリルの順':'Custom drill order','カスタムドリルを作りました':'Custom drill created','カスタムドリルを削除しました':'Custom drill deleted','ドリルが見つかりませんでした':'No drills found','ドリルに保存しました（Drill タブで一覧）':'Saved as a drill (see the Drill tab)','ドリルを直しました':'Drill updated','マスタードリル':'Master drill','マスタードリルで「一括編集」から選んで「カスタムドリルに入れる」、またはカードの ⋯ から入れます。':'In Master drill, select drills with “Bulk edit” and choose “Add to custom drill”, or use ⋯ on a card.','作った日':'Created','元の動画':'Source video','先にドリルを選んでください':'Select drills first','反転':'Mirror','回す':'Play','回数':'Count','新しいカスタムドリルを作って入れる':'Create a new custom drill and add','新しいカスタムドリルを作成':'Create a new custom drill','最後にやった日':'Last done','条件に一致するドリルがありません':'No drills match','空で作って、あとから入れる':'Create empty, add drills later','空のカスタムドリルを作りました（ドリルの ⋯ から入れられます）':'Empty custom drill created (add drills from ⋯)','該当ドリル':'Matching drills','速度':'Speed','＋ この区間でもう1本':'＋ One more from this section','＋ カスタムドリル':'＋ Custom drill','全部のドリル':'All drills','チャプターに無い所は、再生しながら見出しの「':'For parts without a chapter, press “','DRILL':'DRILL','直す':'Edit','✏️ 名前を変える':'✏️ Rename','🗑 削除':'🗑 Delete','✂️ 区間を直す':'✂️ Edit section','📌 カスタムドリルに入れる':'📌 Add to custom drill','↩ このカスタムドリルから外す':'↩ Remove from this custom drill',
 
+    // ドリル（v52.992）
+    'このカスタムドリルの順を、つかんで並べ替える':"Drag to reorder this custom drill",'列を全部隠すことはできません':"You can't hide every column",'表示する列':"Columns to show",' の順（⠿ をつかんで並べ替え）':" order (drag ⠿ to reorder)",'並べ替え':"Reorder",
+
   };
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）

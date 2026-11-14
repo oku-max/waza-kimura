@@ -949,7 +949,7 @@ let _drillReady = false, _drillUid = null, _drillUnsub = null;
 const _drillRef = uid => _dataDoc(uid, 'drills');
 const _DRILL_KEY_OK = k => typeof k === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(k);
 async function _drillWrite(uid, kind, id, entry) {
-  if ((kind !== 'items' && kind !== 'menus') || !_DRILL_KEY_OK(id) || !entry || entry.id !== id) return;
+  if (!['items', 'menus', 'conf'].includes(kind) || !_DRILL_KEY_OK(id) || !entry || entry.id !== id) return;
   const payload = JSON.parse(JSON.stringify(entry));
   const meta = { savedBy: _sessionId, updatedAt: new Date().toISOString() };
   try {
@@ -974,7 +974,7 @@ async function _drillStart(uid) {
     const snap = await _drillRef(uid).get();
     if (currentUser?.uid !== uid) return;
     const d = snap.exists ? (snap.data() || {}) : {};
-    cloud = { items: (d.items && typeof d.items === 'object') ? d.items : {}, menus: (d.menus && typeof d.menus === 'object') ? d.menus : {} };
+    cloud = { items: (d.items && typeof d.items === 'object') ? d.items : {}, menus: (d.menus && typeof d.menus === 'object') ? d.menus : {}, conf: (d.conf && typeof d.conf === 'object') ? d.conf : {} };
   } catch (e) { console.warn('[drills] 読み込みに失敗（この端末の分だけ使う・クラウドへは書かない）', e); return; }
   // 手元の控えに足し合わせる（新しい方を採る）。手元にだけある分・手元の方が新しい分は、送る候補として返ってくる
   const toPush = window._drillApplyRemote?.(cloud, uid, true) || [];
@@ -986,7 +986,7 @@ async function _drillStart(uid) {
       if (s.metadata?.hasPendingWrites) return;
       const d = s.data() || {};
       if (d.savedBy === _sessionId) return;
-      window._drillApplyRemote?.({ items: d.items || {}, menus: d.menus || {} }, uid, false);
+      window._drillApplyRemote?.({ items: d.items || {}, menus: d.menus || {}, conf: d.conf || {} }, uid, false);
     } catch (e) { console.warn('[drills] 受け取りに失敗（現状維持）', e); }
   }, e => console.warn('[drills] onSnapshot:', e));
 }

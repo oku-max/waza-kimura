@@ -221,6 +221,23 @@ const FAKE_YT = () => {
   ck('⑥ ⋯ から名前を変える', alive(await store()).some(d => d.title === '新しい名前'));
   await pg.evaluate(() => window.wkDrillView('table')); await wait(150);
   ck('⑥ テーブルでも同じ本数（.org-table）', await pg.evaluate(() => document.querySelectorAll('#drillsTab .org-table tbody tr.org-tr').length) === 3);
+  // 列設定（v52.992）: ライブラリと同じ下から出る窓。チェックで出し入れ・⠿ をドラッグで並べ替え。conf.cols に1件で持つ
+  const drag = async (from, to) => { const a = await pg.locator(from).boundingBox(), b = await pg.locator(to).boundingBox();
+    await pg.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await pg.mouse.down();
+    for (let k = 1; k <= 8; k++) await pg.mouse.move(a.x + a.width / 2, a.y + a.height / 2 + (b.y + b.height / 2 - a.y - a.height / 2) * k / 8 + (b.y > a.y ? 4 : -4));
+    await pg.mouse.up(); await wait(250); };
+  const heads = () => pg.$$eval('#drillsTab .org-table thead th[data-col]', a => a.map(x => x.dataset.col).join(','));
+  ck('⑥ 列設定: 最初は「作った日」以外を出す', await heads() === 'title,video,range,len,mir,sp,last,n', await heads());
+  await pg.click('#drillsTab .drl-tool-btn:has-text("列設定")'); await wait(150);
+  await pg.click('#drl-col-menu-panel [data-cv-id="mir"] input'); await wait(150);
+  ck('⑥ チェックを外すとその列が消える', !/(^|,)mir(,|$)/.test(await heads()), await heads());
+  await pg.click('#drl-col-menu-panel [data-cv-id="created"] input'); await wait(150);
+  ck('⑥ チェックを入れるとその列が出る', /created/.test(await heads()), await heads());
+  await drag('#drl-col-menu-panel [data-cv-id="n"] .cv-drag-handle', '#drl-col-menu-panel [data-cv-id="video"] .cv-drag-handle');
+  ck('⑥ ⠿ をドラッグして列を並べ替える', (await heads()).startsWith('title,n,video'), await heads());
+  const cc = (await store()).conf?.cols;
+  ck('⑥ 列設定は conf.cols に1件で持つ（全部の列が残る・並べ替えと隠すだけ）', cc && cc.order.length === 8 && new Set(cc.order).size === 8 && cc.hide.join() === 'mir', cc);
+  await pg.evaluate(() => document.getElementById('drl-col-menu')?.remove());
   await pg.evaluate(() => window.wkDrillView('card')); await wait(100);
   // カスタムドリル（リストの窓はライブラリの .cv-picker-modal と同じ）
   await pg.click('#drillsTab .results-header .lib-sb-toggle'); await wait(350);   // ライブラリと同じく ≡ で左の欄を開く
@@ -246,6 +263,24 @@ const FAKE_YT = () => {
   s = await store();
   const menu = Object.values(s.menus).find(m => !m.del && m.name === '朝のガード');
   ck('⑥ 選んだものでカスタムドリルを作る', menu && menu.ids.length === 2, s.menus);
+  // 手動の並べ替え（v52.992）: カスタムドリルの中の順。⇅ 並べ替え の窓と、テーブルの行の ⠿
+  await pg.evaluate(id => window.wkDrillPick(id), menu.id); await wait(150);
+  const mOrder = async () => Object.values((await store()).menus).find(m => m.id === menu.id).ids.slice();
+  const o0 = await mOrder();
+  ck('⑥ カスタムドリルを開くと「⇅ 並べ替え」が出る（マスタードリルには出ない）', await pg.locator('#drillsTab .drl-tool-btn:has-text("並べ替え")').count() === 1);
+  await pg.click('#drillsTab .drl-tool-btn:has-text("並べ替え")'); await wait(150);
+  await drag(`#drl-order-menu-panel [data-cv-id="${o0[1]}"] .cv-drag-handle`, `#drl-order-menu-panel [data-cv-id="${o0[0]}"] .cv-drag-handle`);
+  let o1 = await mOrder();
+  ck('⑥ ⇅ 並べ替え の窓で ⠿ をドラッグすると、カスタムドリルの順が変わる（中身は同じ）', o1.join() === [o0[1], o0[0]].join(), [o0, o1]);
+  ck('⑥ カードの並びも新しい順', (await cardNames()).join('|') === o1.map(id => s.items[id].title).join('|'), await cardNames());
+  await pg.evaluate(() => document.getElementById('drl-order-menu')?.remove());
+  await pg.evaluate(() => window.wkDrillView('table')); await wait(150);
+  ck('⑥ テーブルでは「カスタムドリルの順」のとき行に ⠿ が出る', await pg.locator('#drillsTab tr[data-cv-sort="drillrows"] .cv-drag-handle').count() === 2);
+  await drag(`#drillsTab tr[data-cv-id="${o1[1]}"] .cv-drag-handle`, `#drillsTab tr[data-cv-id="${o1[0]}"] .cv-drag-handle`);
+  ck('⑥ テーブルの行の ⠿ でも並べ替えられる', (await mOrder()).join() === o0.join(), await mOrder());
+  await pg.evaluate(() => window.wkDrillSortKey('title')); await wait(100);
+  ck('⑥ ほかの並べ方のときは ⠿ を出さない（見かけの順で保存しない）', await pg.locator('#drillsTab tr[data-cv-sort="drillrows"]').count() === 0);
+  await pg.evaluate(() => { window.wkDrillSortKey('menu'); window.wkDrillView('card'); }); await wait(100);
   // カスタムドリルから外しても、ドリルは消えない
   await pg.evaluate(id => window.wkDrillPick(id), em.id); await wait(150);
   await pg.evaluate(() => window.wkDrillBulk(true)); await pg.locator('#drillsTab .sel-circle').nth(0).click(); await wait(100);
@@ -394,9 +429,18 @@ console.log('── ⑧ 同期 ──');
   ck('⑧ 書くのは作った1本だけ（update で items.{id} の1つ）', writes.length === 1 && writes[0].kind === 'update' && Object.keys(writes[0].d).filter(k => k.startsWith('items.')).join() === 'items.' + newId, writes);
   ck('⑧ クラウドの前からある1本はそのまま', JSON.stringify(CLOUD[DRILL_DOC].items.drOld) === JSON.stringify({ id: 'drOld', vid: 'v9', title: 'クラウドの1本', a: 10, b: 20, at: 1700000000000, created: 1700000000000, log: [], n: 3 }));
   ck('⑧ ほかの文書（設定）には触らない', JSON.stringify(CLOUD['users/u1/data/settings']) === JSON.stringify(OTHER['users/u1/data/settings']) || !(globalThis.__LOG || []).some(x => x.p === 'users/u1/data/settings' && /drill/i.test(JSON.stringify(x.d))));
-  let t0 = Date.now(), got = false;
+  var t0 = Date.now(), got = false;
   while (Date.now() - t0 < 5000) { if ((await list(B.pg)).includes('フック')) { got = true; break; } await wait(250); }
   ck('⑧ 開いたままのほかの端末に届く（再読み込みなし）', got, await list(B.pg));
+  // 列設定もほかの端末に届く（v52.992）
+  await A.pg.evaluate(() => { window.switchTab('drills'); window.wkDrillView('table'); window.wkDrillColMenu(); }); await wait(200);
+  globalThis.__LOG = [];
+  await A.pg.click('#drl-col-menu-panel [data-cv-id="sp"] input'); await wait(600);
+  const cw = (globalThis.__LOG || []).filter(x => x.p === DRILL_DOC);
+  ck('⑧ 列設定は conf.cols の1件だけを書く', cw.length === 1 && Object.keys(cw[0].d).filter(k => !['savedBy', 'updatedAt'].includes(k)).join() === 'conf.cols', cw);
+  t0 = Date.now(); got = false;
+  while (Date.now() - t0 < 5000) { if ((await B.pg.evaluate(() => window.wkDrills.raw().conf?.cols?.hide || [])).includes('sp')) { got = true; break; } await wait(250); }
+  ck('⑧ 列設定がほかの端末に届く', got);
   // B で消す → A に届き、A がその後に何か保存しても復活しない
   await B.pg.evaluate(id => window.wkDrillDelete(id), newId); await wait(600);
   ck('⑧ 消すのは欄を消さず、消した印を書く', CLOUD[DRILL_DOC].items[newId]?.del === true);

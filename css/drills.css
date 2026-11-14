@@ -54,8 +54,17 @@ body.dark .dr-save{color:#111}
 @media(max-width:767px){#drillsTab .results-header select{max-width:88px}#drillsTab .drl-run-all{padding:4px 8px}#drillsTab .toolbar-normal>div:first-child{overflow:hidden}}
 .drl-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
 .drl-table-wrap{flex:1;min-height:0}
-.drl-table-wrap .org-table{width:100%}
+.drl-table-wrap .org-table{width:max-content;min-width:100%}
+.drl-table-wrap .org-th{white-space:nowrap}
+.drl-table-wrap .org-title-text{min-width:150px;max-width:260px;white-space:normal}
+.drl-table-wrap td[data-col=video]{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drl-run-all{font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-family:inherit;white-space:nowrap}
+.drl-tool-btn{white-space:nowrap}
+@media(max-width:767px){#drillsTab .drl-tl{display:none}#drillsTab .drl-tool-btn{padding:4px 7px}}
+.drl-ord-no{flex-shrink:0;width:20px;font-size:11px;color:var(--text3);text-align:right}
+.drl-ord-bd{flex:1;min-width:0;display:flex;flex-direction:column;padding:5px 0}
+.drl-ord-bd b{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drl-ord-bd small{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drl-card-meta{font-size:10.5px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .drl-old{color:#c0612b}
 .drl-mir-badge{position:absolute;right:6px;top:6px;font-size:9px;font-weight:700;background:#f2c94c;color:#111;padding:1px 5px;border-radius:4px;z-index:2}
