@@ -1,12 +1,14 @@
 // ═══ ドリル（v52.989・オーナー決定 mock-drill.html: 端は A「±ボタン」／回す画面は A「道場」と B「一覧」の両方） ═══
 // 使い方: node tools/drill-check.mjs
 // 本物の index.html で（YouTube のプレーヤーは時刻だけ進む偽物に差し替える）:
-//   ① ブックマークの行の 🏋️: その時刻〜次のブックマークがそのまま区間・名前はブックマークの題名
+//   ① ブックマークの行の DRILL: その時刻〜次のブックマークがそのまま区間・名前はブックマークの題名
+//   ②A 同じ区間から何本でも（ある区間は押すと小さなメニュー・2本目から番号）／③D 印は文字の DRILL
 //   ② ループしたまま端を合わせる: 終わりに来たら開始へ戻る・±1秒・今の位置・開始は終了より前のまま
 //   ③ 反転・速度はドリルが覚え、カードを閉じたら動画パネルの反転・速度を元に戻す
 //   ④ 動画のデータ（v.bookmarks 等）を1文字も変えない・動画の保存を呼ばない
-//   ⑤ 「🏋️ ここから」→「■ ここまで」の2回押し（開始は押した2秒前）・やめるなら何も保存しない
-//   ⑥ Drill タブ: 一覧・並べ方・名前を変える・メニューを作る・削除（確認・印だけ残す）
+//   ⑤ 「DRILL ここから」→「■ ここまで」の2回押し（開始は押した2秒前）・やめるなら何も保存しない
+//   ⑥ Drill タブ: ライブラリと同じ部品（左の欄・リストの窓・カード/テーブル・一括編集・フィルターの窓）・マスタードリル／カスタムドリル・
+//      並べ方・名前・カスタムドリルに入れる/外す・ドリルの絞り込みがライブラリの絞り込みに漏れない・削除（確認・印だけ残す）
 //   ⑦ 回す: 道場モード（大きい3つのボタン）／一覧のまま、の切り替え・N回で次へ・やった +1（記録）・反転をドリルに覚える・終わる
 //   ⑧ 同期（本物の firebase.js を偽のクラウドにつなぐ・2端末）: 書くのは変えた1件だけ（items.{id}）・ほかの端末に届く・
 //      消した印が届いて復活しない・クラウドを読めない端末は書かない・ほかのアカウントの控えを送らない・バックアップに入り復元で戻る
@@ -97,9 +99,9 @@ const FAKE_YT = () => {
   const store = () => pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drills') || '{}'));
   const alive = s => Object.values(s.items || {}).filter(d => !d.del);
 
-  console.log('── ① ブックマークの行の 🏋️ ──');
+  console.log('── ① ブックマークの行の DRILL ──');
   let row = await pg.evaluate(() => [...document.querySelectorAll('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] > div > *')].map(c => c.className.includes('vp-bm-drill') ? 'DRILL' : c.className.includes('vp-bm-star') ? 'STAR' : /編集/.test(c.textContent) ? 'EDIT' : '').filter(Boolean).join('>'));
-  ck('① 行の右に 🏋️・★・編集 の順で並ぶ', row === 'DRILL>STAR>EDIT', row);
+  ck('① 行の右に DRILL・★・編集 の順で並ぶ', row === 'DRILL>STAR>EDIT', row);
   const noWrap = await pg.evaluate(() => [...document.querySelectorAll('#vp-bm-list-AAAAAAAAAAA [data-bm-idx]')].every(r => { const e = [...r.querySelectorAll('button')].find(x => /編集/.test(x.textContent)); return e && e.getBoundingClientRect().height < 26; }) && document.documentElement.scrollWidth <= 390);
   ck('① 390px でも「編集」が1行のまま・横にはみ出さない', noWrap);
   await pg.click('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .vp-bm-drill');
@@ -139,7 +141,25 @@ const FAKE_YT = () => {
   vp = await pg.evaluate(() => ({ mir: !!window._vpMirrored, slot: document.getElementById('vp-drill-slot').innerHTML }));
   await wait(300);
   ck('③ 閉じたら動画パネルの反転・速度を元に戻す・カードが消える', !vp.mir && (await yt()).rate === 1 && vp.slot === '', { vp, yt: await yt() });
-  ck('① 保存したブックマークの 🏋️ に印が付く', await pg.evaluate(() => document.querySelector('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .vp-bm-drill').classList.contains('on')));
+  ck('① 保存したブックマークの DRILL に印と本数が付く', await pg.evaluate(() => { const b = document.querySelector('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .vp-bm-drill'); return b.classList.contains('on') && /DRILL/.test(b.textContent) && b.querySelector('.drl-bm-n')?.textContent === '1'; }));
+  console.log('── ②A 同じブックマーク区間から複数（v52.991） ──');
+  await pg.click('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .vp-bm-drill'); await wait(200);
+  ck('②A ドリルがある区間は、押すと小さなメニュー（その区間のドリル・▶・直す・＋ もう1本）', await pg.evaluate(() => { const p = document.getElementById('drl-bm-pop'); return !!p && /フックの出し入れ/.test(p.textContent) && !!p.querySelector('[data-run]') && !!p.querySelector('[data-edit]') && /この区間でもう1本/.test(p.textContent); }));
+  await pg.click('#drl-bm-pop [data-new]'); await wait(200);
+  ck('②A 「＋ この区間でもう1本」で同じ区間のカードが出る', await pg.evaluate(() => document.getElementById('vp-drill-a')?.textContent === '1:00' && document.getElementById('vp-drill-b')?.textContent === '3:20' && !document.getElementById('drl-bm-pop')));
+  const b1 = await pg.evaluate(() => document.getElementById('vp-drill-name').value);
+  await pg.click('.dr-save'); await wait(200);
+  await pg.click('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .vp-bm-drill'); await wait(150); await pg.click('#drl-bm-pop [data-new]'); await wait(200);
+  const b2 = await pg.evaluate(() => document.getElementById('vp-drill-name').value);
+  ck('②A 2本目からは番号（デラヒーバフック → デラヒーバフック 2）', b1 === 'デラヒーバフック' && b2 === 'デラヒーバフック 2', [b1, b2]);
+  await pg.click('#vp-drill-slot .dr-x'); await wait(150);
+  ck('②A DRILL の本数が2になる', await pg.evaluate(() => document.querySelector('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .drl-bm-n')?.textContent === '2'));
+  await pg.click('#vp-bm-list-AAAAAAAAAAA [data-bm-idx="1"] .vp-bm-drill'); await wait(150);
+  await pg.evaluate(() => [...document.querySelectorAll('#drl-bm-pop [data-edit]')].pop().click()); await wait(200);
+  ck('②A 「直す」でそのドリルの区間を直すカード', /区間を直す/.test(await pg.textContent('#vp-drill-slot')));
+  await pg.click('#vp-drill-slot .dr-x'); await wait(150);
+  { const st0 = await store(); for (const d of alive(st0).filter(d => d.title === 'デラヒーバフック')) await pg.evaluate(id => window.wkDrillDelete(id), d.id); await wait(150); }
+  ck('③D 絵文字ではなく文字の DRILL（行・見出し）', await pg.evaluate(() => !/🏋/.test(document.getElementById('vp-bm-section-AAAAAAAAAAA').textContent) && /DRILL ここから/.test(document.getElementById('vp-drill-tap-AAAAAAAAAAA').textContent)));
 
   console.log('── ④ 動画のデータに触らない ──');
   let vv = await pg.evaluate(() => ({ bms: window.videos[0].bookmarks, saves: window.__saveStacks.filter(x => !/openVPanel|closeVPanel/.test(x)).length }));
@@ -183,36 +203,71 @@ const FAKE_YT = () => {
   await pg.click('.dr-save'); await wait(200);
   await pg.evaluate(() => window.closeVPanel());
 
-  console.log('── ⑥ Drill タブ ──');
+  console.log('── ⑥ Drill タブ（ライブラリと同じ部品・v52.991） ──');
   await pg.evaluate(() => window.switchTab('drills')); await wait(300);
-  let names = await pg.$$eval('#drillsTab .drl-tt', a => a.map(x => x.textContent));
-  ck('⑥ 一覧に3本', names.length === 3, names);
-  await pg.evaluate(() => window.wkDrillSort('video')); await wait(100);
-  names = await pg.$$eval('#drillsTab .drl-tt', a => a.map(x => x.textContent));
-  ck('⑥ 動画ごと: 動画の名前の順・同じ動画は時刻の順', names.join('|') === 'フックの出し入れ|仕上げ|エビ', names);
-  await pg.evaluate(() => window.wkDrillSort('old'));
-  await pg.locator('#drillsTab .drl-more').first().click(); await wait(100);
+  const parts = await pg.evaluate(() => ['.lib-sidebar', '.lib-sb-cv-box .lvt-inner-btn', '.wk-seg.wk-seg-full', '.lib-sb-search', '.fs-acc-hdr', '.results-header .toolbar-normal', '.results-header .bulk-inline', '.lib-sb-toggle', '.card-list .card .card-thumb', '.card-actions .ca-btn']
+    .filter(q => !document.querySelector('#drillsTab ' + q)));
+  ck('⑥ ライブラリと同じ部品で組んである（左の欄・リスト・ビュー・検索・フィルター・上のバー・一括・カード）', parts.length === 0, parts);
+  const cardNames = () => pg.$$eval('#drillsTab .card-list .card-title', a => a.map(x => x.textContent));
+  let names = await cardNames();
+  ck('⑥ マスタードリルに3本', names.length === 3 && /3本/.test(await pg.textContent('#drl-rc')), names);
+  await pg.evaluate(() => window.wkDrillSortKey('video')); await wait(100);
+  names = await cardNames();
+  ck('⑥ 並べ替え「元の動画」: 動画の名前の順・同じ動画は時刻の順', names.join('|') === 'フックの出し入れ|仕上げ|エビ', names);
+  await pg.evaluate(() => window.wkDrillSortKey('last'));
   promptAns = ['新しい名前'];
-  await pg.click('#drillsTab .drl-acts button:has-text("名前を変える")'); await wait(200);
-  ck('⑥ 名前を変える', alive(await store()).some(d => d.title === '新しい名前'));
+  await pg.locator('#drillsTab .card-actions .ca-btn:has-text("⋯")').first().click(); await wait(100);
+  await pg.click('#drl-pop button[data-act="rename"]'); await wait(200);
+  ck('⑥ ⋯ から名前を変える', alive(await store()).some(d => d.title === '新しい名前'));
+  await pg.evaluate(() => window.wkDrillView('table')); await wait(150);
+  ck('⑥ テーブルでも同じ本数（.org-table）', await pg.evaluate(() => document.querySelectorAll('#drillsTab .org-table tbody tr.org-tr').length) === 3);
+  await pg.evaluate(() => window.wkDrillView('card')); await wait(100);
+  // カスタムドリル（リストの窓はライブラリの .cv-picker-modal と同じ）
+  await pg.click('#drillsTab .results-header .lib-sb-toggle'); await wait(350);   // ライブラリと同じく ≡ で左の欄を開く
+  await pg.click('#drillsTab .lib-sb-cv-box .lvt-inner-btn'); await wait(150);
+  ck('⑥ リストの窓: マスタードリル／カスタムドリル／新しく作る', await pg.evaluate(() => { const o = document.querySelector('#drl-picker-overlay .cv-picker-modal'); return !!o && /マスタードリル/.test(o.textContent) && /カスタムドリル/.test(o.textContent) && /新しいカスタムドリルを作成/.test(o.textContent); }));
   promptAns = ['空のメニュー'];
-  ck('④ 何も選んでいなければ「＋ 新しいメニュー」', /新しいメニュー/.test(await pg.textContent('#drillsTab .drl-menu-add')));
-  await pg.click('#drillsTab .drl-menu-add'); await wait(200);
+  await pg.click('#drl-picker-overlay .cv-picker-new'); await wait(250);
   const em = Object.values((await store()).menus).find(m => m.name === '空のメニュー');
-  ck('④ 空のメニューを作れる（回すボタンは押せない）', em && em.ids.length === 0 && await pg.evaluate(() => [...document.querySelectorAll('#drillsTab .drl-menu-run')].find(b => /空のメニュー/.test(b.textContent))?.disabled === true), em);
-  // （「名前を変える」で開いた1行目の操作の行がまだ開いている）
-  await pg.selectOption('#drillsTab .drl-acts select', { label: '空のメニュー' }); await wait(200);
-  ck('④ 空のメニューに、行の「メニューに入れる…」で足せる', Object.values((await store()).menus).find(m => m.name === '空のメニュー')?.ids.length === 1);
-  await pg.locator('#drillsTab .drl-more').first().click(); await wait(100);
-  await pg.locator('#drillsTab .drl-ck').nth(0).check(); await pg.locator('#drillsTab .drl-ck').nth(1).check(); await wait(100);
+  ck('④ 空のカスタムドリルを作れる・作るとそれを開く', em && em.ids.length === 0 && /このカスタムドリルは空です/.test(await pg.textContent('#drl-body')), em);
+  await pg.evaluate(() => window.wkDrillPick('master')); await wait(150);
+  await pg.locator('#drillsTab .card-actions .ca-btn:has-text("⋯")').first().click(); await wait(100);
+  await pg.click('#drl-pop button[data-act="menu"]'); await wait(150);
+  await pg.click(`#drl-pop button[data-act="m:${em.id}"]`); await wait(200);
+  ck('④ ⋯ の「カスタムドリルに入れる」で足せる', Object.values((await store()).menus).find(m => m.name === '空のメニュー')?.ids.length === 1);
+  // 一括編集で選んで、新しいカスタムドリルを作って入れる
+  await pg.evaluate(() => window.wkDrillBulk(true)); await wait(100);
+  await pg.locator('#drillsTab .sel-circle').nth(0).click(); await pg.locator('#drillsTab .sel-circle').nth(1).click(); await wait(100);
   await shot(pg, '2-list');
-  ck('⑥ 選ぶと下に「▶ 回す」の帯', /2本を選択/.test(await pg.textContent('#drillsTab .drl-bar')));
+  ck('⑥ 一括編集で選ぶと上のバーが「2本選択」になる（ライブラリと同じ .bulk-inline）', /2本選択/.test(await pg.textContent('#drillsTab .bulk-inline.active')));
   promptAns = ['朝のガード'];
-  await pg.click('#drillsTab .drl-menu-add'); await wait(200);
+  await pg.click('#drillsTab .bulk-inline .bbt:has-text("カスタムドリルに入れる")'); await wait(150);
+  await pg.click('#drl-pop button[data-act="new"]'); await wait(250);
   s = await store();
   const menu = Object.values(s.menus).find(m => !m.del && m.name === '朝のガード');
-  ck('⑥ 選んだものでメニューを作る', menu && menu.name === '朝のガード' && menu.ids.length === 2, s.menus);
-  ck('⑥ メニューが棚に出る', /朝のガード/.test(await pg.textContent('#drillsTab .drl-menus')));
+  ck('⑥ 選んだものでカスタムドリルを作る', menu && menu.ids.length === 2, s.menus);
+  // カスタムドリルから外しても、ドリルは消えない
+  await pg.evaluate(id => window.wkDrillPick(id), em.id); await wait(150);
+  await pg.evaluate(() => window.wkDrillBulk(true)); await pg.locator('#drillsTab .sel-circle').nth(0).click(); await wait(100);
+  await pg.click('#drillsTab .bulk-inline .bbt:has-text("このカスタムドリルから外す")'); await wait(200);
+  s = await store();
+  ck('⑥ 「このカスタムドリルから外す」はリストから外すだけ（ドリルは残る）', Object.values(s.menus).find(m => m.name === '空のメニュー').ids.length === 0 && alive(s).length === 3);
+  await pg.evaluate(() => { window.wkDrillBulk(false); window.wkDrillPick('master'); }); await wait(150);
+  // フィルターの窓（ライブラリと同じ uniOpen）。ドリルの絞り込みはライブラリの絞り込みに漏れない
+  const libBefore = await pg.evaluate(() => JSON.stringify({ f: Object.fromEntries(Object.entries(window.filters || {}).map(([k, v]) => [k, v instanceof Set ? [...v] : v])), q: window._uniVideoQ || '' }));
+  await pg.click('#drillsTab .results-header .lib-sb-toggle'); await wait(350);
+  await pg.click('#drillsTab .fs-acc-hdr:has-text("その他")'); await wait(200);
+  ck('⑥ フィルターの「その他」はライブラリと同じ窓で、ドリルの項目（まだやっていない・1週間以上・反転）', await pg.evaluate(() => { const p = document.getElementById('uni-popup'); return p?.classList.contains('open') && /まだやっていない/.test(p.textContent) && /1週間以上やっていない/.test(p.textContent) && /該当ドリル/.test(p.textContent); }));
+  await pg.click('#uni-popup .uni-row:has-text("反転")'); await wait(200);
+  ck('⑥ 反転で絞ると、反転のドリルだけが出る（窓の件数も同じ）', (await cardNames()).join('|') === '新しい名前' && /1 本/.test(await pg.textContent('#uni-hit')), await cardNames());
+  ck('⑥ ドリルの絞り込みはライブラリの絞り込み（filters・タイトル検索）を変えない', await pg.evaluate(() => JSON.stringify({ f: Object.fromEntries(Object.entries(window.filters || {}).map(([k, v]) => [k, v instanceof Set ? [...v] : v])), q: window._uniVideoQ || '' })) === libBefore);
+  ck('⑥ 左の欄の「その他」に件数が出る', await pg.evaluate(() => document.getElementById('drl-uni-state-badge')?.textContent === '1'));
+  await pg.evaluate(() => window.uniClose()); await wait(100);
+  await pg.click('#drillsTab .tab-bar-btn:has-text("フィルターをリセット")'); await wait(150);
+  ck('⑥ フィルターをリセットで全部に戻る', (await cardNames()).length === 3);
+  await pg.fill('#drl-si', 'エビ'); await wait(150);   // 左の欄の検索（まだ開いている）
+  ck('⑥ 検索はドリルの名前と元の動画の名前に効く', (await cardNames()).join('|') === 'エビ', await cardNames());
+  await pg.fill('#drl-si', ''); await wait(100);
   const delId = alive(s).find(d => !menu.ids.includes(d.id)).id;
   await pg.evaluate(id => window.wkDrillDelete(id), delId); await wait(200);
   s = await store();

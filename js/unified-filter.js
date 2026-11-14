@@ -22,6 +22,9 @@
   let _vlBlockTarget = null; // null = 通常, { noteId, path } = vidlistブロック条件編集モード
   let _vlFilterBackup = null; // 編集前のフィルタ状態（保存・キャンセルで復元）
   let _cvMode = null; // null = 通常, viewId = カスタムビュー動画選択モード
+  // ドリル（v52.991・js/drills.js）: 同じ窓を Drill タブの絞り込みにも使う。_ctx === 'drill' のときだけ通る。
+  // 状態は window._drillUni（drills.js）が持つ。ライブラリ（filters）・整理の表（orgFilters）には触らない。
+  const _D = () => (_ctx === 'drill' ? window._drillUni || null : null);
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -41,6 +44,7 @@
   // タグ1〜3やメモにだけある語・「-除外」「"完全一致"」で、このパネルの件数と実際の結果が食い違っていた。
   // 検索語は1回だけ読む（動画ごとに画面の入力欄を読みに行かない）。
   function _mainQMatcher() {
+    if (_D()) return () => true;   // ドリルの検索語はドリルの名前に効かせる（drills.js）。動画の数え方には使わない
     const isOrg = _ctx === 'org';
     const raw = isOrg
       ? (window.wkSearchWord ? window.wkSearchWord() : '')
@@ -60,6 +64,7 @@
 
   // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
   function _getCvBase() {
+    if (_D()) return _D().base();   // ドリルがある動画だけ（今のリストの範囲）
     const cvIds = !_cvMode && (window._cvVideoIds || window._cvCardVideoIds);
     if (cvIds && cvIds.size > 0) {
       return (window.videos || []).filter(v => cvIds.has(v.id));
@@ -70,19 +75,19 @@
   // ── ファセット用: excludeKey 以外の全フィルターを適用した動画 ──
   // _ctx='org' 時は orgFilters / orgXxxOnly を参照する
   function _ctxVideos(excludeKey) {
-    const isOrg = _ctx === 'org';
-    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
-    const unw   = isOrg ? window.orgUnwOnly     : window.unwOnly;
-    const wat   = isOrg ? window.orgWatchedOnly : window.watchedOnly;
-    const bm    = isOrg ? window.orgBmOnly      : window.bmOnly;
-    const memo  = isOrg ? window.orgMemoOnly    : window.memoOnly;
-    const img   = isOrg ? window.orgImgOnly     : window.imgOnly;
+    const isOrg = _ctx === 'org', D = _D();
+    const f = D ? D.f : isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    const unw   = D ? false : isOrg ? window.orgUnwOnly     : window.unwOnly;
+    const wat   = D ? false : isOrg ? window.orgWatchedOnly : window.watchedOnly;
+    const bm    = D ? false : isOrg ? window.orgBmOnly      : window.bmOnly;
+    const memo  = D ? false : isOrg ? window.orgMemoOnly    : window.memoOnly;
+    const img   = D ? false : isOrg ? window.orgImgOnly     : window.imgOnly;
     // タグの条件は1回だけ組み立てる。excludeKey がタグの列（tb/cat/pos/tags）ならそのグループだけ外す
     const _exGid = ['tb','cat','pos','tags'].includes(excludeKey) ? _gidC(excludeKey) : (excludeKey ? _TF().gidForKey(excludeKey, _sch()) : null);
     const _tagOk = _TF().compile(f, _sch(), { except: _exGid });
     const _mq = _mainQMatcher();
     // タイトルタブの検索クエリ — 他タブのファセット計算にも適用して双方向連動させる
-    const _vidTabQ = _queries['video'];
+    const _vidTabQ = D ? '' : _queries['video'];
     return _getCvBase().filter(v => {
       if (v.archived) return false;
       if (!_mq(v)) return false;
@@ -301,6 +306,8 @@
 
   // ── アクティブフィルター判定 ──
   function _hasActiveFilters() {
+    const D = _D();
+    if (D) return D.stateCount() > 0 || ['platform','channel','playlist'].some(k => D.f[k]?.size > 0) || _TF().hasAny(D.f, 'lib');
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     return (isOrg ? window.orgBmOnly   : window.bmOnly)   ||
@@ -313,6 +320,7 @@
   // ── 該当動画カラム ──
   function _mkVideoCol() {
     const raw = _ctxVideos(null);
+    if (_D()) return _D().colHtml(raw);   // 該当ドリル（drills.js が同じ列の形で作る）
 
     const sorted = [...raw].sort((a, b) => {
       let av, bv;
@@ -437,6 +445,12 @@
   // ── レンダリング ──
   function _badges(ctx) {
     const c = ctx || _ctx;
+    if (c === 'drill') {
+      const D = window._drillUni; if (!D) return { state: 0, src: 0, tag: 0, video: 0 };
+      const f = D.f;
+      return { state: D.stateCount(), src: (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0),
+        tag: _TF().groups().reduce((n, g) => n + _TF().selected(f, g.id, 'lib').size, 0), video: 0 };
+    }
     const isOrg = c === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const stateN = ((isOrg ? window.orgBmOnly : window.bmOnly) ? 1 : 0)
@@ -450,9 +464,10 @@
 
   function _render() {
     // タイトルタブのクエリをグローバルに同期（filter.js の filt() が参照する）
-    window._uniVideoQ = _queries['video'] || '';
+    const D = _D();
+    if (!D) window._uniVideoQ = _queries['video'] || '';   // ドリルの窓はライブラリのタイトル検索に触らない
     const isOrg = _ctx === 'org';
-    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    const f = D ? D.f : isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const tabsEl = document.getElementById('uni-tabs');
     const bd = _badges();
     const _tsTabVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
@@ -461,7 +476,7 @@
     const _tagTabVisible = _R0
       ? _R0.slots().some(g => g && (g.store === 'map' || (['tb', 'cat', 'pos', 'tags'].includes(g.store) && _tsTabVis(g.store))))
       : (_tsTabVis('tb') || _tsTabVis('cat') || _tsTabVis('pos') || _tsTabVis('tags'));
-    const _visibleMain = MAIN.filter(m => m.k !== 'tag' || _tagTabVisible);
+    const _visibleMain = MAIN.filter(m => (m.k !== 'tag' || _tagTabVisible) && !(D && m.k === 'video'));
     tabsEl.innerHTML = _visibleMain.map(m =>
       `<div class="uni-tab${_tab===m.k?' on':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`
     ).join('');
@@ -478,7 +493,7 @@
     if (_tab === 'state') {
       // ══ 1列目: ブックマーク・メモ・画像（進捗ランク・最終カウント日は v52.890 で廃止）══
       // マーク（★・Next・ドリル）と習得は v52.876 から普通のタググループ。タグのタブで絞る。
-      const markItems = [
+      const markItems = D ? D.stateItems(_ctxVideos) : [
         { name:'📌 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),       key:'@bm'    },
         { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!(isOrg ? window.orgMemoOnly : window.memoOnly), key:'@memo'},
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
@@ -498,7 +513,7 @@
         const sections = [];
         if (markRows) sections.push(markRows);
 
-        const colHdr   = 'その他';
+        const colHdr   = D ? 'ドリル' : 'その他';
 
         return `<div class="uni-col">
           <div class="uni-col-hdr"><span>${colHdr}</span></div>
@@ -532,7 +547,7 @@
         </div>`;
       };
 
-      content.innerHTML = `<div class="uni-cols">${mkCol1()}${mkCol3()}</div>`;
+      content.innerHTML = D ? `<div class="uni-cols">${mkCol1()}${_mkVideoCol()}</div>` : `<div class="uni-cols">${mkCol1()}${mkCol3()}</div>`;
       _restoreColScrolls();
       window.loadGdriveCardThumbs?.();
     }
@@ -696,12 +711,13 @@
 
     // ── Pills ──
     const pills = [];
-    const _bm    = isOrg ? window.orgBmOnly    : window.bmOnly;
-    const _memo  = isOrg ? window.orgMemoOnly  : window.memoOnly;
-    const _img   = isOrg ? window.orgImgOnly   : window.imgOnly;
+    const _bm    = D ? false : isOrg ? window.orgBmOnly    : window.bmOnly;
+    const _memo  = D ? false : isOrg ? window.orgMemoOnly  : window.memoOnly;
+    const _img   = D ? false : isOrg ? window.orgImgOnly   : window.imgOnly;
     if (_bm)   pills.push(['@bm',   '📌 ブックマーク']);
     if (_memo) pills.push(['@memo', '💬 メモ']);
     if (_img)  pills.push(['@img',  '🖼 画像あり']);
+    if (D) D.statePills().forEach(p => pills.push(p));
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
@@ -720,12 +736,12 @@
 
     // Hit
     const hitEl = document.getElementById('uni-hit');
-    if (hitEl) hitEl.textContent = _ctxVideos(null).length + ' 件';
+    if (hitEl) hitEl.textContent = D ? D.hitLabel(_ctxVideos(null)) : _ctxVideos(null).length + ' 件';
 
     // CVモード時はフッターの「検索条件を保存」を非表示にし、代替ボタンを表示
     const saveMdBtn = document.getElementById('uni-save-modal-btn') || document.querySelector('.uni-save-modal-btn');
     const cvFtrBtn = document.getElementById('uni-cv-ftr-btn');
-    if (saveMdBtn) saveMdBtn.style.display = _cvMode ? 'none' : '';
+    if (saveMdBtn) saveMdBtn.style.display = (_cvMode || D) ? 'none' : '';
     if (cvFtrBtn) {
       const isCvCondNow = !!_cvMode && window._cvSelectionMode === 'condition';
       if (_cvMode) {
@@ -765,6 +781,13 @@
     upd('org-uni-state-badge', orgBd.state);
     upd('org-uni-src-badge',   orgBd.src);
     upd('org-uni-tag-badge',   orgBd.tag);
+    // Drill badges
+    if (window._drillUni) {
+      const dBd = _ctx === 'drill' ? bd : _badges('drill');
+      upd('drl-uni-state-badge', dBd.state);
+      upd('drl-uni-src-badge',   dBd.src);
+      upd('drl-uni-tag-badge',   dBd.tag);
+    }
   }
 
   // ── グローバル公開 ──
@@ -938,6 +961,12 @@
   };
   window.uniToggleEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n); };
   window.uniToggle = function (key, val) {
+    const D = _D();
+    if (D) {
+      if (String(key).startsWith('@')) D.toggleState(key);
+      else { const _g = _TF().gidForKey(key, 'lib'); const set = _g ? _TF().setFor(D.f, _g, 'lib') : (D.f[key] || (D.f[key] = new Set())); set.has(val) ? set.delete(val) : set.add(val); }
+      D.refresh(); _render(); return;
+    }
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const refresh = isOrg ? () => window.renderOrg?.() : () => { window.AF?.(); window.buildSidebarFovRows?.(); };
@@ -955,6 +984,7 @@
     _render();
   };
   window.uniClearAll = function () {
+    if (_D()) { _D().clear(); _render(); return; }
     window._uniVideoQ = '';  // clearAll() が AF() を呼ぶ前にクリアしておく
     _ctx === 'org' ? window.clearOrgFilters?.() : window.clearAll?.();
     Object.keys(_queries).forEach(k => _queries[k] = '');

@@ -1053,7 +1053,7 @@ function _bmRowHTML(id, bm, i) {
         })()}
         ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
         <span style="flex:1"></span>
-        ${isExpanded ? '' : `<button class="vp-bm-drill${window.wkDrillHas?.(id, Number(bm.time)) ? ' on' : ''}" onclick="event.stopPropagation();wkDrillFromBm('${id}',${i})" title="この区間をドリルにする">🏋️</button>`}
+        ${isExpanded ? '' : `<button class="vp-bm-drill${window.wkDrillBmCount?.(id, i) ? ' on' : ''}" onclick="event.stopPropagation();wkDrillFromBm('${id}',${i},this)" title="この区間をドリルにする">${window.wkDrillBmLabel?.(id, i) || '<span class="drl-pill">DRILL</span>'}</button>`}
         <button class="vp-bm-star${lv ? ' on' : ''}" data-lv="${lv}" onclick="event.stopPropagation();vpBmStar('${id}',${i})" aria-label="星 ${lv}" title="押すたびに星が増える（★★★の次は外れる）">${lv ? '★'.repeat(lv) : '☆'}</button>
         <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
@@ -1556,7 +1556,7 @@ function _bookmarkSectionHTML(id) {
           ${chapBtn}
           ${sumBtn}
           <button onclick="wkDrillTap('${id}')" id="vp-drill-tap-${id}" title="再生しながら、ドリルにしたい所の始まりで1回・終わりでもう1回押す"
-            style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">🏋️ ここから</button>
+            style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;"><span class="drl-pill">DRILL</span> ここから</button>
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
       </div>
