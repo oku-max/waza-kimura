@@ -248,9 +248,11 @@
     }
     document.querySelectorAll('[id^="vp-drill-tap-"]').forEach(b => { b.innerHTML = PILL + ' ここから'; });
     if (!MK || MK.vid !== window.openVPanelId) { el.innerHTML = ''; return; }
-    const edge = (k, lab) => `<div class="dr-edge"><span class="dr-k">${lab}</span><div class="dr-adj">
-        <button onclick="wkDrillNudge('${k}',-1)">−1s</button><span class="dr-v" id="vp-drill-${k}">${fmt(MK[k])}</span><button onclick="wkDrillNudge('${k}',1)">+1s</button>
-        <button class="dr-now" onclick="wkDrillSetNow('${k}')">今の位置</button></div></div>`;
+    // 端の調整（v52.994・オーナー「1・3・10・30秒、1分。動画のスキップとおなじ」）: スキップの列と同じ部品（.ab-skip-bar / .ab-skip-btn）・同じ並び
+    const STEPS = [[60, '1m'], [30, '30s'], [10, '10s'], [3, '3s'], [1, '1s']];
+    const skipRow = k => `<div class="ab-skip-bar dr-skip">${STEPS.map(([n, l]) => `<button onclick="wkDrillNudge('${k}',-${n})" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>${l}</button>`).join('')}<div class="ab-skip-sep"></div>${STEPS.slice().reverse().map(([n, l]) => `<button onclick="wkDrillNudge('${k}',${n})" class="ab-skip-btn ab-skip-plus">${l}<span class="ab-skip-arrow">▶</span></button>`).join('')}</div>`;
+    const edge = (k, lab) => `<div class="dr-edge2"><div class="dr-edge-hd"><span class="dr-k">${lab}</span><span class="dr-v" id="vp-drill-${k}">${fmt(MK[k])}</span>
+        <button class="dr-now" onclick="wkDrillSetNow('${k}')">今の位置</button></div>${skipRow(k)}</div>`;
     el.innerHTML = `<div class="dr-card">
       <div class="dr-card-hd">${PILL} ${MK.id ? 'ドリルの区間を直す' : 'ドリルを作る'}<span id="vp-drill-loops">🔁 ${MK.loops + 1}回目</span></div>
       <input class="dr-name" id="vp-drill-name" value="${esc(MK.title)}" maxlength="120" placeholder="ドリルの名前" oninput="wkDrillName(this.value)">

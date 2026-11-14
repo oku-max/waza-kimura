@@ -115,6 +115,21 @@ const FAKE_YT = () => {
   let y = await yt();
   ck('② 終わりに来たら開始へ戻る（ループ）', y.t >= 60 && y.t < 62, y);
   ck('② 何回目かを出す', /2回目/.test(await pg.textContent('#vp-drill-loops')));
+  // 端の調整は動画のスキップと同じ部品・刻み（v52.994）: ◀1m ◀30s ◀10s ◀3s ◀1s | 1s▶ 3s▶ 10s▶ 30s▶ 1m▶
+  const labels = await pg.evaluate(() => [...document.querySelector('#vp-drill-slot .dr-edge2').querySelectorAll('.ab-skip-btn')].map(b => b.textContent.replace(/\s/g, '')).join(' '));
+  ck('② 端の調整はスキップの列と同じ形（1s・3s・10s・30s・1m）', labels === '◀1m ◀30s ◀10s ◀3s ◀1s 1s▶ 3s▶ 10s▶ 30s▶ 1m▶', labels);
+  const nb = (row, lab) => pg.locator(`#vp-drill-slot .dr-edge2:nth-child(${row}) .ab-skip-btn`, { hasText: lab }).first();
+  const rows = await pg.evaluate(() => [...document.querySelectorAll('#vp-drill-slot .dr-card > *')].findIndex(e => e.classList.contains('dr-edge2')) + 1);
+  await nb(rows, '◀10s').click(); await nb(rows + 1, '30s▶').click(); await wait(100);
+  let cd = await pg.evaluate(() => [document.getElementById('vp-drill-a').textContent, document.getElementById('vp-drill-b').textContent]);
+  ck('② ◀10s で開始が10秒前・30s▶ で終了が30秒後', cd.join() === '0:50,3:50', cd);
+  await nb(rows, '1m▶').click(); await nb(rows, '1m▶').click(); await nb(rows, '1m▶').click(); await nb(rows, '1m▶').click(); await wait(100);
+  cd = await pg.evaluate(() => [document.getElementById('vp-drill-a').textContent, document.getElementById('vp-drill-b').textContent]);
+  ck('② 1m で詰めても開始は終了の1秒前で止まる', cd.join() === '3:49,3:50', cd);
+  ck('② 390px でも横にはみ出さない', await pg.evaluate(() => document.documentElement.scrollWidth <= 390 && [...document.querySelectorAll('#vp-drill-slot .ab-skip-btn')].every(b => b.getBoundingClientRect().right <= 390)));
+  await pg.evaluate(() => { window.wkDrillNudge('a', -169); window.wkDrillNudge('b', -30); });   // 3:49→1:00・3:50→3:20
+  card = await pg.evaluate(() => ({ a: document.getElementById('vp-drill-a')?.textContent, b: document.getElementById('vp-drill-b')?.textContent }));
+  ck('（検査の準備: 開始 1:00・終了 3:20 に戻す）', card.a === '1:00' && card.b === '3:20', card);
   await pg.evaluate(() => { window.wkDrillNudge('b', 1); window.wkDrillNudge('a', -1); });
   card = await pg.evaluate(() => ({ a: document.getElementById('vp-drill-a')?.textContent, b: document.getElementById('vp-drill-b')?.textContent, len: document.getElementById('vp-drill-len')?.textContent }));
   ck('② ±1秒で端が動き、長さも変わる', card.a === '0:59' && card.b === '3:21' && /2:22/.test(card.len), card);
