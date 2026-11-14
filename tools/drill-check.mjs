@@ -238,6 +238,32 @@ const FAKE_YT = () => {
   const cc = (await store()).conf?.cols;
   ck('⑥ 列設定は conf.cols に1件で持つ（全部の列が残る・並べ替えと隠すだけ）', cc && cc.order.length === 8 && new Set(cc.order).size === 8 && cc.hide.join() === 'mir', cc);
   await pg.evaluate(() => document.getElementById('drl-col-menu')?.remove());
+  // 列幅（v52.993）: 見出しの右端（.rh）をドラッグ。ライブラリと同じ addResizeHandle・この端末だけに覚える
+  const thW = k => pg.evaluate(k => Math.round(document.querySelector(`#drillsTab .org-table th[data-col="${k}"]`).getBoundingClientRect().width), k);
+  const sortBefore = await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs') || '{}').msort);
+  const w0 = await thW('video');
+  { await pg.evaluate(() => document.querySelector('#drillsTab .org-table th[data-col="video"] .rh').scrollIntoView({ inline: 'center', block: 'nearest' })); await wait(100);
+    const r = await pg.locator('#drillsTab .org-table th[data-col="video"] .rh').boundingBox();
+    await pg.mouse.move(r.x + 2, r.y + r.height / 2); await pg.mouse.down();
+    for (let k = 1; k <= 6; k++) await pg.mouse.move(r.x + 2 + 15 * k, r.y + r.height / 2);
+    await pg.mouse.up(); await wait(300); }
+  const w1 = await thW('video');
+  ck('⑥ 見出しの右端をドラッグすると列幅が変わる', w1 >= w0 + 70, [w0, w1]);
+  ck('⑥ 行のセルも同じ幅', await pg.evaluate(() => Math.round(document.querySelector('#drillsTab .org-table td[data-col="video"]').getBoundingClientRect().width)) === w1);
+  // 狭める（同じ見出しの中で離す＝クリックが見出しに届く場面）
+  { await pg.evaluate(() => document.querySelector('#drillsTab .org-table th[data-col="video"] .rh').scrollIntoView({ inline: 'center', block: 'nearest' })); await wait(100);
+    const r = await pg.locator('#drillsTab .org-table th[data-col="video"] .rh').boundingBox();
+    await pg.mouse.move(r.x + 2, r.y + r.height / 2); await pg.mouse.down();
+    for (let k = 1; k <= 4; k++) await pg.mouse.move(r.x + 2 - 10 * k, r.y + r.height / 2);
+    await pg.mouse.up(); await wait(300); }
+  const w2 = await thW('video');
+  ck('⑥ 狭めることもできる', w2 <= w1 - 30, [w1, w2]);
+  ck('⑥ 離した直後のクリックで並べ替えが動かない（見出しの中で離しても）', await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs') || '{}').msort) === sortBefore);
+  const w1b = w1;
+  { const savedW = await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs') || '{}').colW?.video), cols1 = (await store()).conf?.cols || {};
+    ck('⑥ 列幅はこの端末だけに覚える（wk_drillPrefs.colW・ドリルの文書には書かない）', savedW === w2 && !('colW' in cols1) && !JSON.stringify(cols1).includes(String(w2)), [savedW, w2, cols1]); }
+  await pg.evaluate(() => { window.wkDrillView('card'); window.wkDrillView('table'); }); await wait(150);
+  ck('⑥ 表示を切り替えても列幅が残る', await thW('video') === w2, await thW('video'));
   await pg.evaluate(() => window.wkDrillView('card')); await wait(100);
   // カスタムドリル（リストの窓はライブラリの .cv-picker-modal と同じ）
   await pg.click('#drillsTab .results-header .lib-sb-toggle'); await wait(350);   // ライブラリと同じく ≡ で左の欄を開く

@@ -606,8 +606,15 @@
       const { order, hide } = colsConf(), vis = order.filter(k => !hide.includes(k));
       const sk = sortOf(), asc = ascOf(), man = manualOn();
       const sortable = { title: 'title', video: 'video', len: 'len', last: 'last', n: 'n', created: 'created' };
-      const th = (k, l) => `<th class="org-th" data-col="${k}"${sortable[k] ? ` style="cursor:pointer" onclick="wkDrillSortKey('${sortable[k]}',true)"` : ''}><span>${l}</span>${sortable[k] ? `<span class="org-sort-ind" style="margin-left:3px;font-size:9px;opacity:${sk === sortable[k] ? 1 : .4}">${sk === sortable[k] ? (asc ? '▲' : '▼') : '⇅'}</span>` : ''}</th>`;
-      const cell = (k, d, v) => k === 'video' ? `<td class="org-td" data-col="video" style="font-size:11px;color:var(--text2)" data-user-text="1">${v ? esc(v.title) : '<span style="color:var(--danger)">元の動画がありません</span>'}</td>`
+      // 列幅（v52.993・オーナー「列幅変えれるように」）: 見出しの右端をドラッグ。ライブラリと同じ addResizeHandle を使い、
+      // 幅はライブラリの列幅と同じくこの端末だけに覚える（prefs.colW。スマホと PC で画面の幅が違うため）
+      const cw = prefs.colW && typeof prefs.colW === 'object' ? prefs.colW : {};
+      // 表は列ごとに幅を決める（table-layout:fixed・ライブラリの表と同じ）。決めていない列は既定の幅
+      const DEFW = { title: 200, video: 200, range: 100, len: 64, mir: 56, sp: 60, last: 124, n: 60, created: 100 };
+      const wOf = k => { const w = Number(cw[k]); return w >= 40 && w <= 800 ? w : DEFW[k] || 100; };
+      const ws = k => `width:${wOf(k)}px;overflow:hidden;text-overflow:ellipsis;`;
+      const th = (k, l) => `<th class="org-th" data-col="${k}" style="${ws(k)}${sortable[k] ? 'cursor:pointer' : ''}"${sortable[k] ? ` onclick="if(event.target.closest('.rh')||Date.now()-(window._drlResizedAt||0)<400)return;wkDrillSortKey('${sortable[k]}',true)"` : ''}><span>${l}</span>${sortable[k] ? `<span class="org-sort-ind" style="margin-left:3px;font-size:9px;opacity:${sk === sortable[k] ? 1 : .4}">${sk === sortable[k] ? (asc ? '▲' : '▼') : '⇅'}</span>` : ''}</th>`;
+      const cell0 = (k, d, v) => k === 'video' ? `<td class="org-td" data-col="video" style="font-size:11px;color:var(--text2)" data-user-text="1">${v ? esc(v.title) : '<span style="color:var(--danger)">元の動画がありません</span>'}</td>`
         : k === 'range' ? `<td class="org-td" data-col="range" style="font-size:11px;white-space:nowrap">${fmt(d.a)}–${fmt(d.b)}</td>`
         : k === 'len' ? `<td class="org-td" data-col="len" style="font-size:11px;white-space:nowrap;text-align:right">${fmt(d.b - d.a)}</td>`
         : k === 'mir' ? `<td class="org-td" data-col="mir" style="font-size:11px">${d.mir ? '<span class="drl-mir-b">⇋</span>' : '—'}</td>`
@@ -615,18 +622,31 @@
         : k === 'last' ? `<td class="org-td" data-col="last" style="font-size:11px;white-space:nowrap">${ago(lastDone(d))}</td>`
         : k === 'n' ? `<td class="org-td" data-col="n" style="font-size:11px;text-align:right">${Number(d.n) || 0}</td>`
         : k === 'created' ? `<td class="org-td" data-col="created" style="font-size:11px;white-space:nowrap;color:var(--text3)">${d.created ? new Date(d.created).toISOString().slice(0, 10) : '—'}</td>` : '';
-      body.innerHTML = `<div class="org-table-wrap drl-table-wrap"><table class="org-table"><thead><tr>
+      const cell = (k, d, v) => cell0(k, d, v).replace('style="', `style="${ws(k)}`);
+      const fixedW = (man ? 28 : 0) + (L.bulk ? 40 : 0) + 76 + 44;
+      const tableW = fixedW + wOf('title') + vis.reduce((n, k) => n + wOf(k), 0);
+      body.innerHTML = `<div class="org-table-wrap drl-table-wrap"><table class="org-table" style="table-layout:fixed;width:${tableW}px"><thead><tr>
         ${man ? '<th class="org-th" style="width:28px"></th>' : ''}${L.bulk ? '<th class="org-th" style="width:40px"></th>' : ''}<th class="org-th" style="width:76px"></th>
-        ${th('title', 'ドリル')}${vis.map(k => th(k, colLabel(k))).join('')}<th class="org-th"></th></tr></thead><tbody>
+        ${th('title', 'ドリル')}${vis.map(k => th(k, colLabel(k))).join('')}<th class="org-th" style="width:44px"></th></tr></thead><tbody>
         ${arr.map(d => { const v = videoOf(d.vid), tn = thumbOf(v);
           return `<tr class="org-tr"${man ? ` data-cv-sort="drillrows" data-cv-id="${esc(d.id)}"` : ''}>
             ${man ? '<td class="org-td" style="padding:0 2px"><div class="cv-drag-handle" title="つかんで並べ替え"></div></td>' : ''}
             ${L.bulk ? `<td class="org-td" style="padding:6px"><input type="checkbox" ${sel.has(d.id) ? 'checked' : ''} onchange="wkDrillSel('${esc(d.id)}',this.checked)" style="accent-color:var(--accent);width:16px;height:16px"></td>` : ''}
             <td class="org-td" style="padding:6px 8px">${tn ? `<img class="org-thumb" src="${esc(tn)}" onclick="wkDrillRun(['${esc(d.id)}'])" onerror="this.style.background='var(--surface3)'">` : ''}</td>
-            <td class="org-td" onclick="wkDrillRun(['${esc(d.id)}'])" style="cursor:pointer"><div class="org-title-text" data-user-text="1">${esc(d.title)}</div></td>
+            <td class="org-td" data-col="title" onclick="wkDrillRun(['${esc(d.id)}'])" style="${ws('title')}cursor:pointer"><div class="org-title-text" data-user-text="1">${esc(d.title)}</div></td>
             ${vis.map(k => cell(k, d, v)).join('')}
             <td class="org-td"><button class="ca-btn" onclick="wkDrillAct('${esc(d.id)}',this)">⋯</button></td>
           </tr>`; }).join('')}</tbody></table></div>`;
+      const tbl = body.querySelector('.org-table');
+      // ドラッグ中は表の幅を列幅の合計に合わせ直す（ほかの列が押されて縮まないように）
+      const fitTable = () => { tbl.style.width = [...tbl.querySelectorAll('thead th')].reduce((n, x) => n + (parseFloat(x.style.width) || x.offsetWidth), 0) + 'px'; };
+      if (window.addResizeHandle) body.querySelectorAll('.org-table th[data-col]').forEach(h => window.addResizeHandle(h, fitTable, () => {
+        window._drlResizedAt = Date.now();   // 離した直後のクリックで並べ替えが動かないように
+        const w = Math.round(h.offsetWidth), k = h.dataset.col;
+        if (!(w >= 40)) return;
+        prefs.colW = { ...(prefs.colW && typeof prefs.colW === 'object' ? prefs.colW : {}), [k]: Math.min(800, w) };
+        savePrefs(); setTimeout(renderMain, 0);
+      }));
       return;
     }
     body.innerHTML = `<div class="card-list">${arr.map(d => { const v = videoOf(d.vid), th = thumbOf(v), last = lastDone(d);

@@ -54,10 +54,10 @@ body.dark .dr-save{color:#111}
 @media(max-width:767px){#drillsTab .results-header select{max-width:88px}#drillsTab .drl-run-all{padding:4px 8px}#drillsTab .toolbar-normal>div:first-child{overflow:hidden}}
 .drl-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
 .drl-table-wrap{flex:1;min-height:0}
-.drl-table-wrap .org-table{width:max-content;min-width:100%}
-.drl-table-wrap .org-th{white-space:nowrap}
-.drl-table-wrap .org-title-text{min-width:150px;max-width:260px;white-space:normal}
-.drl-table-wrap td[data-col=video]{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drl-table-wrap .org-th{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drl-table-wrap .org-td{overflow:hidden;text-overflow:ellipsis}
+.drl-table-wrap .org-title-text{white-space:normal;overflow:hidden}
+.drl-table-wrap td[data-col=video]{white-space:nowrap}
 .drl-run-all{font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-family:inherit;white-space:nowrap}
 .drl-tool-btn{white-space:nowrap}
 @media(max-width:767px){#drillsTab .drl-tl{display:none}#drillsTab .drl-tool-btn{padding:4px 7px}}
