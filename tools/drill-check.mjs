@@ -251,7 +251,77 @@ const FAKE_YT = () => {
   await drag('#drl-col-menu-panel [data-cv-id="n"] .cv-drag-handle', '#drl-col-menu-panel [data-cv-id="video"] .cv-drag-handle');
   ck('⑥ ⠿ をドラッグして列を並べ替える', (await heads()).startsWith('title,n,video'), await heads());
   const cc = (await store()).conf?.cols;
-  ck('⑥ 列設定は conf.cols に1件で持つ（全部の列が残る・並べ替えと隠すだけ）', cc && cc.order.length === 8 && new Set(cc.order).size === 8 && cc.hide.join() === 'mir', cc);
+  const BASE8 = ['video', 'range', 'len', 'mir', 'sp', 'last', 'n', 'created'];
+  ck('⑥ 列設定は conf.cols に1件で持つ（全部の列が残る・並べ替えと隠すだけ）', cc && BASE8.every(k => cc.order.includes(k)) && new Set(cc.order).size === cc.order.length && cc.hide.includes('mir') && !cc.hide.includes('created') && BASE8.filter(k => cc.hide.includes(k)).join() === 'mir', cc);
+  await pg.evaluate(() => document.getElementById('drl-col-menu')?.remove());
+  // ── ⑥b 足した列（v52.997・オーナー決定 mock-drill-cols.html）: チャンネル・プレイリスト・タグ1〜4・カスタム列（動画の値）・ドリル専用の列・サムネイルを隠す ──
+  await pg.evaluate(() => {
+    const A = window.videos.find(v => v.id === 'AAAAAAAAAAA'); A.ch = 'チャンネルA'; A.pl = 'プレイリストA'; A.tb = ['トップ'];
+    window._cvApplySharedRemote({ cols: [{ id: 'gc_t1', type: 'checkbox', label: '今週やった' }], deleted: [], master: { columns: [], unifiedOrder: [] } });
+    window.renderDrills();
+  }); await wait(150);
+  await pg.click('#drillsTab .drl-tool-btn:has-text("列設定")'); await wait(150);
+  const menuKeys = await pg.$$eval('#drl-col-menu-panel [data-cv-sort="drillcols"]', a => a.map(x => x.dataset.cvId));
+  ck('⑥b 列設定に チャンネル・プレイリスト・タグ1〜4・カスタム列 が並ぶ', ['channel', 'playlist', 'tag0', 'tag1', 'tag2', 'tag3', 'cf:gc_t1'].every(k => menuKeys.includes(k)), menuKeys);
+  await shot(pg, 'drl-cols-menu');
+  ck('⑥b 足した列は最初は隠れている（表が勝手に広がらない）', !/channel|playlist|tag0|cf:/.test(await heads()), await heads());
+  for (const k of ['channel', 'tag0', 'cf:gc_t1']) { await pg.click(`#drl-col-menu-panel [data-cv-id="${k}"] input`); await wait(150); }
+  const hs = await heads();
+  ck('⑥b チェックを入れると出る', /channel/.test(hs) && /tag0/.test(hs) && /cf:gc_t1/.test(hs), hs);
+  const cellTxt = k => pg.$$eval(`#drillsTab .org-table td[data-col="${k}"]`, a => a.map(x => x.textContent.trim()));
+  ck('⑥b チャンネルは元の動画の値', (await cellTxt('channel')).filter(x => x === 'チャンネルA').length === 2, await cellTxt('channel'));
+  ck('⑥b タグ1は元の動画の値', (await cellTxt('tag0')).filter(x => x === 'トップ').length === 2, await cellTxt('tag0'));
+  await pg.evaluate(() => document.getElementById('drl-col-menu')?.remove());
+  // カスタム列: マスターの表と同じセル。変えると元の動画の v.cf が変わる（ドリルには書かない）。同じ動画のほかの行も同じ値になる
+  const drBefore = JSON.stringify((await store()).items);
+  const sv0 = await pg.evaluate(() => window.__saves);
+  const stk0 = await pg.evaluate(() => window.__saveStacks.length);
+  const rowsA = await pg.evaluate(() => [...document.querySelectorAll('#drillsTab .org-table td[data-col="cf:gc_t1"]')].map((td, i) => td.dataset.vid === 'AAAAAAAAAAA' ? i : -1).filter(i => i >= 0));
+  await pg.locator('#drillsTab .org-table td[data-col="cf:gc_t1"] input[type=checkbox]').nth(rowsA[0]).click(); await wait(900);
+  const cfA = await pg.evaluate(() => window.videos.find(v => v.id === 'AAAAAAAAAAA').cf);
+  ck('⑥b カスタム列を押すと元の動画の値が変わり、動画の保存が呼ばれる', cfA && cfA.gc_t1 === true && await pg.evaluate(() => window.__saves) > sv0, [cfA]);
+  ck('⑥b カスタム列の値はドリルのデータに書かない', JSON.stringify((await store()).items) === drBefore);
+  const chk = await pg.$$eval('#drillsTab .org-table td[data-col="cf:gc_t1"] input[type=checkbox]', a => a.map(x => x.checked));
+  ck('⑥b 同じ動画から作ったほかの行も同じ値になる', rowsA.every(i => chk[i] === true) && chk.filter(Boolean).length === rowsA.length, chk);
+  // ここで呼んだ動画の保存はカスタム列の値（意図したもの）。後の「④ 動画のデータは変わらない」の数えからは外す
+  await pg.evaluate(n => { window.__saveStacks.length = n; }, stk0);
+  // サムネイル（この端末だけ）
+  await pg.click('#drillsTab .drl-tool-btn:has-text("列設定")'); await wait(150);
+  await pg.click('#drl-col-menu-panel .drl-thumb-row input'); await wait(150);
+  ck('⑥b サムネイルを隠せる', await pg.evaluate(() => !document.querySelector('#drillsTab .org-table img.org-thumb')));
+  ck('⑥b サムネイルの表示はこの端末だけ（ドリルの文書に書かない）', await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs') || '{}').thumb) === false && !JSON.stringify((await store()).conf).includes('thumb'));
+  await pg.click('#drl-col-menu-panel .drl-thumb-row input'); await wait(150);
+  ck('⑥b サムネイルを戻せる', await pg.evaluate(() => !!document.querySelector('#drillsTab .org-table img.org-thumb')));
+  // ドリル専用の列: 作る → 表に出る → 値はドリルの d.cf（動画は変わらない）→ 削除しても値は消さない
+  await pg.click('#drl-col-menu-panel .drl-col-add'); await wait(200);
+  await pg.fill('#drl-dc-name', '相手'); await pg.dispatchEvent('#drl-dc-name', 'input');
+  await pg.click('#drl-dc-sheet .drl-dc-type:has-text("セレクト")'); await wait(100);
+  await pg.fill('#drl-dc-opts', 'ひとり\nパートナー'); await pg.dispatchEvent('#drl-dc-opts', 'input');
+  await shot(pg, 'drl-dc-sheet');
+  await pg.click('#drl-dc-sheet .drl-dc-ok'); await wait(250);
+  const dc = Object.values((await store()).conf).find(e => /^dc_/.test(e.id));
+  ck('⑥b ドリル専用の列を作れる（定義は conf の1件）', dc && dc.type === 'select' && dc.label === '相手' && dc.options.join() === 'ひとり,パートナー', dc);
+  ck('⑥b 作った列はすぐ表に出る', (await heads()).includes('dc:' + dc?.id), await heads());
+  const vBefore = await pg.evaluate(() => JSON.stringify(window.videos));
+  const dcRow0 = await pg.evaluate(id => document.querySelector(`#drillsTab .org-table td[data-col="dc:${id}"]`).dataset.row, dc.id);
+  await pg.locator(`#drillsTab .org-table td[data-col="dc:${dc.id}"]`).first().locator('div').first().click(); await wait(150);
+  await pg.locator('#cv-popup .cv-popup-item:has-text("パートナー")').click(); await wait(900);
+  await shot(pg, 'drl-table-cols');
+  const s6 = await store();
+  ck('⑥b ドリル専用の列の値はそのドリルに入る', s6.items[dcRow0]?.cf?.[dc.id] === 'パートナー', s6.items[dcRow0]?.cf);
+  ck('⑥b ほかのドリルには入らない', Object.values(s6.items).filter(d => d.id !== dcRow0 && d.cf && d.cf[dc.id] != null).length === 0);
+  ck('⑥b ドリル専用の列は動画を1文字も変えない', await pg.evaluate(() => JSON.stringify(window.videos)) === vBefore);
+  ck('⑥b 表にその値が出る', /パートナー/.test(await pg.evaluate(([id, row]) => document.querySelector(`#drillsTab .org-table td[data-col="dc:${id}"][data-row="${row}"]`)?.textContent || '', [dc.id, dcRow0])));
+  await pg.click('#drillsTab .drl-tool-btn:has-text("列設定")'); await wait(150);
+  await pg.click(`#drl-col-menu-panel [data-cv-id="dc:${dc.id}"] .drl-col-edit`); await wait(200);
+  ck('⑥b 直すときは種類を変えられない', await pg.evaluate(() => [...document.querySelectorAll('#drl-dc-sheet .drl-dc-type')].every(b => b.disabled)));
+  await pg.click('#drl-dc-sheet .drl-dc-del'); await wait(250);
+  const s7 = await store();
+  ck('⑥b 列の削除は定義に印を付けるだけ・ドリルの値は消さない', s7.conf[dc.id]?.del === true && s7.items[dcRow0]?.cf?.[dc.id] === 'パートナー', [s7.conf[dc.id], s7.items[dcRow0]?.cf]);
+  ck('⑥b 削除した列は表から消える', !(await heads()).includes('dc:'), await heads());
+  // 足した列を隠して元に戻す（この後の検査のため）
+  await pg.click('#drillsTab .drl-tool-btn:has-text("列設定")'); await wait(150);
+  for (const k of ['channel', 'tag0', 'cf:gc_t1']) { await pg.click(`#drl-col-menu-panel [data-cv-id="${k}"] input`); await wait(120); }
   await pg.evaluate(() => document.getElementById('drl-col-menu')?.remove());
   // 列幅（v52.993）: 見出しの右端（.rh）をドラッグ。ライブラリと同じ addResizeHandle・この端末だけに覚える
   const thW = k => pg.evaluate(k => Math.round(document.querySelector(`#drillsTab .org-table th[data-col="${k}"]`).getBoundingClientRect().width), k);
@@ -510,6 +580,21 @@ console.log('── ⑧ 同期 ──');
   t0 = Date.now(); got = false;
   while (Date.now() - t0 < 5000) { if ((await B.pg.evaluate(() => window.wkDrills.raw().conf?.cols?.hide || [])).includes('sp')) { got = true; break; } await wait(250); }
   ck('⑧ 列設定がほかの端末に届く', got);
+  // ドリル専用の列（v52.997）: 定義は conf の1件・値はそのドリルの items.{id}。どちらもほかの端末に届く
+  await A.pg.evaluate(() => document.getElementById('drl-col-menu')?.remove());
+  await A.pg.evaluate(() => { window.wkDrillOwnColEdit(); window.wkDrillDc('label', 'メモ'); window.wkDrillDc('type', 'text'); }); await wait(100);
+  globalThis.__LOG = [];
+  await A.pg.evaluate(() => window.wkDrillOwnColSave()); await wait(600);
+  const dcw = (globalThis.__LOG || []).filter(x => x.p === DRILL_DOC).flatMap(x => Object.keys(x.d).filter(k => !['savedBy', 'updatedAt'].includes(k)));
+  const dcId = Object.keys(CLOUD[DRILL_DOC].conf || {}).find(k => /^dc_/.test(k));
+  ck('⑧ ドリル専用の列を作ると conf の定義1件と列設定だけを書く', dcId && dcw.every(k => k === 'conf.' + dcId || k === 'conf.cols') && dcw.includes('conf.' + dcId), dcw);
+  globalThis.__LOG = [];
+  await A.pg.evaluate(([dc, id]) => { const td = document.createElement('td'); window._cvExtCell(td, '__drill_own__', dc, id); window._cvSetCell('__drill_own__', id, dc, '左から'); }, [dcId, newId]); await wait(900);
+  const vw = (globalThis.__LOG || []).filter(x => x.p === DRILL_DOC).flatMap(x => Object.keys(x.d).filter(k => !['savedBy', 'updatedAt'].includes(k)));
+  ck('⑧ ドリル専用の列の値は、そのドリル1件だけを書く', vw.length === 1 && vw[0] === 'items.' + newId && CLOUD[DRILL_DOC].items[newId]?.cf?.[dcId] === '左から', vw);
+  t0 = Date.now(); got = false;
+  while (Date.now() - t0 < 5000) { const r = await B.pg.evaluate(([dc, id]) => ({ def: window.wkDrills.raw().conf?.[dc]?.label, v: window.wkDrills.raw().items?.[id]?.cf?.[dc] }), [dcId, newId]); if (r.def === 'メモ' && r.v === '左から') { got = true; break; } await wait(250); }
+  ck('⑧ ドリル専用の列の定義と値がほかの端末に届く', got);
   // B で消す → A に届き、A がその後に何か保存しても復活しない
   await B.pg.evaluate(id => window.wkDrillDelete(id), newId); await wait(600);
   ck('⑧ 消すのは欄を消さず、消した印を書く', CLOUD[DRILL_DOC].items[newId]?.del === true);

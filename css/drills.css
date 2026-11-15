@@ -153,3 +153,23 @@ body.dark .drr-ctl2 .did{color:#111}
 .drr-done-btns button{font-size:13px;padding:9px 16px;border-radius:8px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-family:inherit}
 .drr-done-btns .pri{background:#6b9cff;border-color:#6b9cff;color:#fff;font-weight:700}
 @media (max-width:380px){.drr-bigs button{font-size:13px;padding:14px 2px}}
+
+/* ── v52.997: ドリルの表に足した列（列設定・ドリル専用の列を作る窓） ── */
+.drl-thumb-row{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:6px 2px 10px;margin-bottom:8px;border-bottom:1px solid var(--border)}
+.drl-col-kind{flex:none;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--surface2);color:var(--text3);white-space:nowrap}
+.drl-col-kind.drl-col-own{background:rgba(107,63,212,.1);color:var(--accent)}
+.drl-col-edit{flex:none;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer}
+.drl-col-add{display:block;width:100%;margin-top:10px;padding:9px;border-radius:8px;border:1.5px dashed var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer}
+.drl-col-note{margin-top:10px;font-size:11px;line-height:1.6;color:var(--text3)}
+.drl-dc-lbl{font-size:11px;font-weight:700;color:var(--text3);margin:10px 0 5px}
+.drl-dc-in{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit}
+textarea.drl-dc-in{resize:vertical;font-size:13px}
+.drl-dc-types{display:flex;flex-wrap:wrap;gap:5px}
+.drl-dc-type{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;cursor:pointer}
+.drl-dc-type.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.drl-dc-type:disabled{cursor:default;opacity:.55}
+.drl-dc-type.on:disabled{opacity:1}
+.drl-dc-btns{display:flex;gap:8px;align-items:center;margin-top:16px}
+.drl-dc-btns button{font-size:13px;padding:8px 14px;border-radius:8px;font-family:inherit;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.drl-dc-btns .drl-dc-ok{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.drl-dc-btns .drl-dc-del{color:var(--danger,#c0392b);background:transparent}

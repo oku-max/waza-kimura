@@ -47,16 +47,34 @@
   const okDrill = (e, id) => e && typeof e === 'object' && e.id === id && (e.del === true ||
     (typeof e.vid === 'string' && isFinite(e.a) && isFinite(e.b) && Number(e.b) > Number(e.a)));
   const okMenu = (e, id) => e && typeof e === 'object' && e.id === id && (e.del === true || Array.isArray(e.ids));
-  const okConf = (e, id) => e && typeof e === 'object' && e.id === id && id === 'cols' && Array.isArray(e.order) && Array.isArray(e.hide);
+  // conf: 'cols' = テーブルの列の表示と並び／'dc_…' = ドリル専用の列の定義（v52.997。消すときは {id, del:true}）
+  const DC_TYPES = ['checkbox', 'select', 'multiselect', 'text', 'number', 'stars', 'progress', 'date'];
+  const okConf = (e, id) => e && typeof e === 'object' && e.id === id && (
+    (id === 'cols' && Array.isArray(e.order) && Array.isArray(e.hide)) ||
+    (/^dc_[a-z0-9]+$/.test(id) && (e.del === true || (DC_TYPES.includes(e.type) && typeof e.label === 'string'))));
   const okOf = kind => kind === 'items' ? okDrill : kind === 'menus' ? okMenu : okConf;
   const KINDS = ['items', 'menus', 'conf'];
-  function put(kind, entry) {
+  function stamp(kind, entry) {
     entry.at = Math.max(Date.now(), (Number(S[kind][entry.id]?.at) || 0) + 1);
     S[kind][entry.id] = entry;
     if (!S.uid) S.uid = window._currentUserUid?.() || null;
     persist();
+  }
+  function put(kind, entry) {
+    stamp(kind, entry);
     window._drillPush?.(kind, entry.id, entry);
     refreshAll();
+  }
+  // ドリル専用の列の値（d.cf[列id]）。表のセルを押すたびに描き直す・送ると、つまみのドラッグ中に何十回も書くので、
+  // 端末にはすぐ保存し、送る・描き直すのは手が止まってから（0.6秒）。送れないまま閉じても、次の読み込みで手元の新しい方を送る
+  let cfTimer = null; const cfPend = new Set();
+  function setOwnVal(id, colId, val) {
+    const d = drill(id); if (!d) return;
+    const cf = { ...(d.cf && typeof d.cf === 'object' ? d.cf : {}), [colId]: val };
+    stamp('items', { ...d, cf });
+    cfPend.add(id);
+    clearTimeout(cfTimer);
+    cfTimer = setTimeout(() => { cfPend.forEach(i => { if (S.items[i]) window._drillPush?.('items', i, S.items[i]); }); cfPend.clear(); refreshAll(); }, 600);
   }
   // クラウドから受け取る（firebase.js）。新しい方を採る。first=true のときは、手元の方が新しい分を送る候補として返す
   window._drillApplyRemote = function (cloud, uid, first) {
@@ -333,7 +351,7 @@
   const F = { platform: new Set(), channel: new Set(), playlist: new Set(), videoIds: new Set() };   // タグの集合は tagFilter が足す
   const ST = { never: false, week: false, mir: false };
   if (!['card', 'table'].includes(prefs.view)) prefs.view = 'card';
-  const SORTS = [['menu', 'カスタムドリルの順'], ['last', '最後にやった日'], ['created', '作った日'], ['title', '名前'], ['n', '回数'], ['len', '長さ'], ['video', '元の動画']];
+  const SORTS = [['menu', 'カスタムドリルの順'], ['last', '最後にやった日'], ['created', '作った日'], ['title', '名前'], ['n', '回数'], ['len', '長さ'], ['video', '元の動画'], ['channel', 'チャンネル'], ['playlist', 'プレイリスト']];
   const sortOf = () => { const k = L.list === 'master' ? (prefs.msort || 'last') : (prefs.csort || 'menu'); return SORTS.some(x => x[0] === k) && !(k === 'menu' && L.list === 'master') ? k : 'last'; };
   const ascOf = () => L.list === 'master' ? (prefs.masc ?? true) : (prefs.casc ?? true);
   const curMenu = () => (L.list !== 'master' && S.menus[L.list] && !S.menus[L.list].del) ? S.menus[L.list] : null;
@@ -377,7 +395,9 @@
     const k = sortOf(), asc = ascOf();
     if (k === 'menu') return asc ? arr : arr.reverse();
     const val = d => k === 'last' ? (lastDone(d) || 0) : k === 'created' ? (d.created || 0) : k === 'n' ? (Number(d.n) || 0)
-      : k === 'len' ? d.b - d.a : k === 'title' ? String(d.title) : (videoOf(d.vid)?.title || '') + '\u0000' + String(d.a).padStart(8, '0');
+      : k === 'len' ? d.b - d.a : k === 'title' ? String(d.title)
+      : k === 'channel' ? String(videoOf(d.vid)?.ch || videoOf(d.vid)?.channel || '') : k === 'playlist' ? String(videoOf(d.vid)?.pl || '')
+      : (videoOf(d.vid)?.title || '') + '\u0000' + String(d.a).padStart(8, '0');
     arr = arr.slice().sort((x, y) => { const a = val(x), b = val(y); const c = typeof a === 'string' ? a.localeCompare(b, 'ja') : a - b; return asc ? c : -c; });
     return arr;
   }
@@ -425,24 +445,125 @@
   // ── テーブルの列（v52.992・オーナー「列設定」）: 表示する列と並び。S.conf.cols に1件で持つ（端末をまたいで同じ） ──
   const COLS = [['video', '元の動画'], ['range', '区間'], ['len', '長さ'], ['mir', '反転'], ['sp', '速度'], ['last', '最後にやった日'], ['n', '回数'], ['created', '作った日']];
   const COL_DEF_HIDE = ['created'];
-  function colsConf() {
-    const c = S.conf.cols, known = COLS.map(x => x[0]);
-    const order = (c && Array.isArray(c.order) ? c.order.filter(k => known.includes(k)) : []).filter((k, i, a) => a.indexOf(k) === i);
-    known.forEach(k => { if (!order.includes(k)) order.push(k); });   // 知らない・欠けた列は足す（列が消えることはない）
-    const hide = c && Array.isArray(c.hide) ? c.hide.filter(k => known.includes(k)) : COL_DEF_HIDE.slice();
-    return { order, hide };
+  // v52.997（オーナー決定 mock-drill-cols.html）: 元の動画の チャンネル・プレイリスト・タグ1〜4、カスタム列（cf:列id・値は動画の v.cf）、
+  // ドリル専用の列（dc:列id・値はドリルの d.cf）。後から出てきた列は隠れた状態で並びの最後に入る（勝手に表が広がらない）
+  const dcDefs = () => Object.values(S.conf).filter(e => e && !e.del && /^dc_/.test(e.id) && DC_TYPES.includes(e.type)).sort((a, b) => (a.created || 0) - (b.created || 0));
+  function allCols() {
+    const R = window.tagRegistry, sl = R?.slots?.() || [];
+    const out = COLS.slice();
+    out.push(['channel', 'チャンネル'], ['playlist', 'プレイリスト']);
+    [0, 1, 2, 3].forEach(k => { const g = sl[k]; if (g) out.push(['tag' + k, g.name || ('タグ' + (k + 1))]); });
+    (window._cvDrillCfCols?.() || []).forEach(c => out.push(['cf:' + c.id, c.label || '']));
+    dcDefs().forEach(c => out.push(['dc:' + c.id, c.label || '']));
+    return out;
   }
-  const colLabel = k => (COLS.find(x => x[0] === k) || [k, k])[1];
-  function putCols(order, hide) { put('conf', { id: 'cols', order: order.slice(), hide: hide.slice() }); }
+  function colsConf() {
+    const c = S.conf.cols, known = allCols().map(x => x[0]);
+    const saved = c && Array.isArray(c.order) ? c.order : null;
+    const order = (saved ? saved.filter(k => known.includes(k)) : []).filter((k, i, a) => a.indexOf(k) === i);
+    const fresh = known.filter(k => !order.includes(k));
+    order.push(...fresh);   // 知らない・欠けた列は足す（列が消えることはない）
+    const hide = c && Array.isArray(c.hide) ? c.hide.filter(k => known.includes(k)) : COL_DEF_HIDE.slice();
+    // 保存した並びに無かった列（新しく出てきた列）は隠す。前の版の基本の列だけは今までどおり出す
+    fresh.forEach(k => { if (!hide.includes(k) && (saved ? true : !COLS.some(x => x[0] === k))) hide.push(k); });
+    return { order, hide, saved: c };
+  }
+  const colLabel = k => (allCols().find(x => x[0] === k) || [k, k])[1];
+  const isUserCol = k => /^(cf|dc):/.test(k);
+  // 今は見えていない列（定義がまだ届いていない等）の位置と隠す印は消さずに残す（届いたときに元の位置で出る）
+  function putCols(order, hide) {
+    const prev = S.conf.cols, known = new Set(allCols().map(x => x[0]));
+    const keepO = prev && Array.isArray(prev.order) ? prev.order.filter(k => typeof k === 'string' && !known.has(k)) : [];
+    const keepH = prev && Array.isArray(prev.hide) ? prev.hide.filter(k => typeof k === 'string' && !known.has(k)) : [];
+    put('conf', { id: 'cols', order: [...order, ...keepO], hide: [...hide, ...keepH] });
+  }
+  const thumbOn = () => prefs.thumb !== false;   // サムネイルの列（この端末だけ・ライブラリの wk_orgThumbVis と同じ扱い）
+  const colKind = k => k.startsWith('cf:') ? '<span class="drl-col-kind">カスタム列</span>' : k.startsWith('dc:') ? '<span class="drl-col-kind drl-col-own">ドリル専用</span>' : '';
   function colMenuHTML() {
     const { order, hide } = colsConf();
-    return '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（⠿ をつかんで並べ替え）</div>'
-      + order.map(k => `<div class="cv-colmenu-row" data-cv-sort="drillcols" data-cv-id="${k}">
+    return `<label class="drl-thumb-row"><input type="checkbox" ${thumbOn() ? 'checked' : ''} onchange="wkDrillThumb(this.checked)" style="accent-color:var(--accent);width:14px;height:14px"><span>サムネイルを表示</span></label>`
+      + '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（⠿ をつかんで並べ替え）</div>'
+      + order.map(k => `<div class="cv-colmenu-row" data-cv-sort="drillcols" data-cv-id="${esc(k)}">
         <div class="cv-drag-handle" title="つかんで並べ替え"></div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
-          <input type="checkbox" ${hide.includes(k) ? '' : 'checked'} onchange="wkDrillColVis('${k}',this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
-          <span>${esc(colLabel(k))}</span></label></div>`).join('');
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
+          <input type="checkbox" ${hide.includes(k) ? '' : 'checked'} onchange="wkDrillColVis('${esc(k)}',this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
+          <span${isUserCol(k) ? ' data-user-text="1"' : ''} style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(colLabel(k))}</span>${colKind(k)}</label>
+        ${k.startsWith('dc:') ? `<button class="drl-col-edit" onclick="wkDrillOwnColEdit('${esc(k.slice(3))}')">編集</button>` : ''}</div>`).join('')
+      + `<button class="drl-col-add" onclick="wkDrillOwnColEdit()">＋ ドリル専用の列を作る</button>
+        <div class="drl-col-note">カスタム列はライブラリと同じ列です。ドリルの表で値を変えると、元の動画の値が変わります（ライブラリにも同じ値が出ます）。<br>ドリル専用の列は、ドリルごとに別の値を持ちます（動画の値は変わりません）。</div>`;
   }
+  window.wkDrillThumb = on => { prefs.thumb = !!on; savePrefs(); renderMain(); };
+
+  // ── ドリル専用の列を作る・直す（v52.997）。定義は S.conf の 'dc_…'（端末をまたいで同じ）、値は各ドリルの d.cf ──
+  const DC_LABEL = { checkbox: 'チェックボックス', select: 'セレクト', multiselect: 'マルチセレクト', text: 'テキスト', number: '数値', stars: '星', progress: '進捗', date: '日付' };
+  let DCE = null;   // 編集中 {id?, type, label, options}
+  function ownColHTML() {
+    const e = DCE, opt = e.type === 'select' || e.type === 'multiselect';
+    return `<div style="font-size:13px;font-weight:800;margin-bottom:10px">${e.id ? 'ドリル専用の列を直す' : 'ドリル専用の列を作る'}</div>
+      <div class="drl-dc-lbl">名前</div>
+      <input id="drl-dc-name" class="drl-dc-in" value="${esc(e.label)}" placeholder="例: 相手が要る" oninput="wkDrillDc('label',this.value)">
+      <div class="drl-dc-lbl">種類${e.id ? '（作った後は変えられません）' : ''}</div>
+      <div class="drl-dc-types">${DC_TYPES.map(t => `<button class="drl-dc-type${e.type === t ? ' on' : ''}"${e.id ? ' disabled' : ''} onclick="wkDrillDc('type','${t}')">${DC_LABEL[t]}</button>`).join('')}</div>
+      ${opt ? `<div class="drl-dc-lbl">選択肢（1行に1つ）</div><textarea id="drl-dc-opts" class="drl-dc-in" rows="4" oninput="wkDrillDc('options',this.value)">${esc(e.options.join('\n'))}</textarea>` : ''}
+      <div class="drl-dc-btns">
+        ${e.id ? '<button class="drl-dc-del" onclick="wkDrillOwnColDel()">この列を削除</button>' : ''}
+        <span style="flex:1"></span>
+        <button class="drl-dc-cancel" onclick="wkDrillOwnColClose()">キャンセル</button>
+        <button class="drl-dc-ok" onclick="wkDrillOwnColSave()">${e.id ? '保存' : '作る'}</button>
+      </div>`;
+  }
+  window.wkDrillOwnColEdit = id => {
+    const d = id ? S.conf[id] : null;
+    if (id && (!d || d.del)) return;
+    DCE = d ? { id, type: d.type, label: d.label, options: Array.isArray(d.options) ? d.options.slice() : [] } : { type: 'checkbox', label: '', options: [] };
+    document.getElementById('drl-col-menu')?.remove();
+    document.getElementById('drl-dc-sheet')?.remove();
+    sheet('drl-dc-sheet', ownColHTML());
+    setTimeout(() => document.getElementById('drl-dc-name')?.focus(), 30);
+  };
+  window.wkDrillDc = (k, v) => {
+    if (!DCE) return;
+    if (k === 'options') { DCE.options = String(v).split('\n').map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i).slice(0, 50); return; }
+    if (k === 'label') { DCE.label = String(v); return; }
+    if (k === 'type' && !DCE.id && DC_TYPES.includes(v)) { DCE.type = v; const p = document.getElementById('drl-dc-sheet-panel'); if (p) p.innerHTML = ownColHTML(); }
+  };
+  window.wkDrillOwnColClose = () => { DCE = null; document.getElementById('drl-dc-sheet')?.remove(); };
+  window.wkDrillOwnColSave = () => {
+    const e = DCE; if (!e) return;
+    const label = e.label.trim().slice(0, 40);
+    if (!label) { toast('名前を入れてください'); return; }
+    if ((e.type === 'select' || e.type === 'multiselect') && !e.options.length) { toast('選択肢を1つ以上入れてください'); return; }
+    const old = e.id ? S.conf[e.id] : null;
+    const id = e.id || newId('dc_');
+    const entry = { ...(old || {}), id, type: e.type, label, created: old?.created || Date.now() };
+    if (e.type === 'select' || e.type === 'multiselect') entry.options = e.options.slice(); else delete entry.options;
+    put('conf', entry);
+    if (!e.id) {   // 作った列はすぐ表に出す（並びの最後）
+      const { order, hide } = colsConf(), k = 'dc:' + id;
+      putCols([...order.filter(x => x !== k), k], hide.filter(x => x !== k));
+    }
+    window.wkDrillOwnColClose();
+    toast(e.id ? '列を直しました' : `「${label}」の列を作りました`);
+  };
+  // 削除は定義に削除の印を付けるだけ。各ドリルに入っている値（d.cf）は消さない
+  window.wkDrillOwnColDel = () => {
+    const e = DCE; if (!e?.id) return;
+    const used = drills().filter(d => d.cf && d.cf[e.id] != null && d.cf[e.id] !== '' && !(Array.isArray(d.cf[e.id]) && !d.cf[e.id].length)).length;
+    if (!confirm(tr(used ? `列「${e.label}」を削除します。値が入っているドリル: ${used}本（表に出なくなります）` : `列「${e.label}」を削除します`))) return;
+    put('conf', { id: e.id, del: true });
+    window.wkDrillOwnColClose();
+    toast('列を削除しました');
+  };
+  // custom-view.js のセル（_renderCell）にドリル専用の列を描いてもらうための表。値の読み書きだけここで持つ
+  const OWN_VIEW = { id: '__drill_own__', isDrill: true, rowData: {},
+    get columns() { return dcDefs().map(c => ({ id: c.id, type: c.type, label: c.label, options: c.options || [] })); },
+    getVal: (id, col) => { const d = drill(id); return d && d.cf && typeof d.cf === 'object' ? d.cf[col.id] : undefined; },
+    setVal: (id, col, val) => setOwnVal(id, col.id, val) };
+  const regOwn = () => window._cvRegisterExtView?.(OWN_VIEW);
+  regOwn();
+  // カスタム列（動画の値）を変えたら、同じ動画から作ったほかの行も描き直す（手が止まってから）
+  let cfvTimer = null;
+  window._drillCfChanged = () => { clearTimeout(cfvTimer); cfvTimer = setTimeout(() => { if (document.getElementById('drillsTab')?.classList.contains('active') && prefs.view === 'table') renderMain(); }, 600); };
   // 下から出る窓（ライブラリの列設定 toggleOrgColMenu と同じ作り）
   function sheet(id, html) {
     let ov = document.getElementById(id);
@@ -607,13 +728,15 @@
     if (prefs.view === 'table') {
       const { order, hide } = colsConf(), vis = order.filter(k => !hide.includes(k));
       const sk = sortOf(), asc = ascOf(), man = manualOn();
-      const sortable = { title: 'title', video: 'video', len: 'len', last: 'last', n: 'n', created: 'created' };
+      const sortable = { title: 'title', video: 'video', len: 'len', last: 'last', n: 'n', created: 'created', channel: 'channel', playlist: 'playlist' };
+      regOwn();
+      const tn0 = thumbOn(), slotG = window.tagRegistry?.slots?.() || [];
       // 列幅（v52.993・オーナー「列幅変えれるように」）: 見出しの右端をドラッグ。ライブラリと同じ addResizeHandle を使い、
       // 幅はライブラリの列幅と同じくこの端末だけに覚える（prefs.colW。スマホと PC で画面の幅が違うため）
       const cw = prefs.colW && typeof prefs.colW === 'object' ? prefs.colW : {};
       // 表は列ごとに幅を決める（table-layout:fixed・ライブラリの表と同じ）。決めていない列は既定の幅
-      const DEFW = { title: 200, video: 200, range: 100, len: 64, mir: 56, sp: 60, last: 124, n: 60, created: 100 };
-      const wOf = k => { const w = Number(cw[k]); return w >= 40 && w <= 800 ? w : DEFW[k] || 100; };
+      const DEFW = { title: 200, video: 200, range: 100, len: 64, mir: 56, sp: 60, last: 124, n: 60, created: 100, channel: 140, playlist: 150 };
+      const wOf = k => { const w = Number(cw[k]); return w >= 40 && w <= 800 ? w : DEFW[k] || (/^tag/.test(k) ? 150 : isUserCol(k) ? 130 : 100); };
       const ws = k => `width:${wOf(k)}px;overflow:hidden;text-overflow:ellipsis;`;
       const th = (k, l) => `<th class="org-th" data-col="${k}" style="${ws(k)}${sortable[k] ? 'cursor:pointer' : ''}"${sortable[k] ? ` onclick="if(event.target.closest('.rh')||Date.now()-(window._drlResizedAt||0)<400)return;wkDrillSortKey('${sortable[k]}',true)"` : ''}><span>${l}</span>${sortable[k] ? `<span class="org-sort-ind" style="margin-left:3px;font-size:9px;opacity:${sk === sortable[k] ? 1 : .4}">${sk === sortable[k] ? (asc ? '▲' : '▼') : '⇅'}</span>` : ''}</th>`;
       const cell0 = (k, d, v) => k === 'video' ? `<td class="org-td" data-col="video" style="font-size:11px;color:var(--text2)" data-user-text="1">${v ? esc(v.title) : '<span style="color:var(--danger)">元の動画がありません</span>'}</td>`
@@ -623,23 +746,31 @@
         : k === 'sp' ? `<td class="org-td" data-col="sp" style="font-size:11px">×${d.sp || 1}</td>`
         : k === 'last' ? `<td class="org-td" data-col="last" style="font-size:11px;white-space:nowrap">${ago(lastDone(d))}</td>`
         : k === 'n' ? `<td class="org-td" data-col="n" style="font-size:11px;text-align:right">${Number(d.n) || 0}</td>`
-        : k === 'created' ? `<td class="org-td" data-col="created" style="font-size:11px;white-space:nowrap;color:var(--text3)">${d.created ? new Date(d.created).toISOString().slice(0, 10) : '—'}</td>` : '';
+        : k === 'created' ? `<td class="org-td" data-col="created" style="font-size:11px;white-space:nowrap;color:var(--text3)">${d.created ? new Date(d.created).toISOString().slice(0, 10) : '—'}</td>`
+        : k === 'channel' || k === 'playlist' ? `<td class="org-td" data-col="${k}" style="font-size:11px;white-space:nowrap" data-user-text="1">${esc((v && (k === 'channel' ? (v.ch || v.channel) : v.pl)) || '—')}</td>`
+        : /^tag[0-3]$/.test(k) ? `<td class="org-td" data-col="${k}" style=""><div class="org-tag-cell">${(() => { const g = slotG[+k[3]], vals = g && v && window.tagRegistry ? window.tagRegistry.valuesOf(v, g.id) : [];
+            return vals.length ? vals.map(t => `<span class="org-tag-chip" data-user-text="1">${esc(t)}</span>`).join('') : '<span style="font-size:10px;color:var(--text3)">—</span>'; })()}</div></td>`
+        : k.startsWith('cf:') ? (v ? `<td class="org-td cv-custom-td" data-col="${esc(k)}" data-drl-cf="${esc(k.slice(3))}" data-vid="${esc(d.vid)}" style=""></td>` : `<td class="org-td" data-col="${esc(k)}" style="color:var(--text3)">—</td>`)
+        : k.startsWith('dc:') ? `<td class="org-td cv-custom-td" data-col="${esc(k)}" data-drl-dc="${esc(k.slice(3))}" data-row="${esc(d.id)}" style=""></td>` : '';
       const cell = (k, d, v) => cell0(k, d, v).replace('style="', `style="${ws(k)}`);
-      const fixedW = (man ? 28 : 0) + (L.bulk ? 40 : 0) + 76 + 44;
+      const fixedW = (man ? 28 : 0) + (L.bulk ? 40 : 0) + (tn0 ? 76 : 0) + 44;
       const tableW = fixedW + wOf('title') + vis.reduce((n, k) => n + wOf(k), 0);
       body.innerHTML = `<div class="org-table-wrap drl-table-wrap"><table class="org-table" style="table-layout:fixed;width:${tableW}px"><thead><tr>
-        ${man ? '<th class="org-th" style="width:28px"></th>' : ''}${L.bulk ? '<th class="org-th" style="width:40px"></th>' : ''}<th class="org-th" style="width:76px"></th>
+        ${man ? '<th class="org-th" style="width:28px"></th>' : ''}${L.bulk ? '<th class="org-th" style="width:40px"></th>' : ''}${tn0 ? '<th class="org-th" style="width:76px"></th>' : ''}
         ${th('title', 'ドリル')}${vis.map(k => th(k, colLabel(k))).join('')}<th class="org-th" style="width:44px"></th></tr></thead><tbody>
         ${arr.map(d => { const v = videoOf(d.vid), tn = thumbOf(v);
           return `<tr class="org-tr"${man ? ` data-cv-sort="drillrows" data-cv-id="${esc(d.id)}"` : ''}>
             ${man ? '<td class="org-td" style="padding:0 2px"><div class="cv-drag-handle" title="つかんで並べ替え"></div></td>' : ''}
             ${L.bulk ? `<td class="org-td" style="padding:6px"><input type="checkbox" ${sel.has(d.id) ? 'checked' : ''} onchange="wkDrillSel('${esc(d.id)}',this.checked)" style="accent-color:var(--accent);width:16px;height:16px"></td>` : ''}
-            <td class="org-td" style="padding:6px 8px">${tn ? `<img class="org-thumb" src="${esc(tn)}" onclick="wkDrillRun(['${esc(d.id)}'])" onerror="this.style.background='var(--surface3)'">` : ''}</td>
+            ${tn0 ? `<td class="org-td" style="padding:6px 8px">${tn ? `<img class="org-thumb" src="${esc(tn)}" onclick="wkDrillRun(['${esc(d.id)}'])" onerror="this.style.background='var(--surface3)'">` : ''}</td>` : ''}
             <td class="org-td" data-col="title" onclick="wkDrillRun(['${esc(d.id)}'])" style="${ws('title')}cursor:pointer"><div class="org-title-text" data-user-text="1">${esc(d.title)}</div></td>
             ${vis.map(k => cell(k, d, v)).join('')}
             <td class="org-td"><button class="ca-btn" onclick="wkDrillAct('${esc(d.id)}',this)">⋯</button></td>
           </tr>`; }).join('')}</tbody></table></div>`;
       const tbl = body.querySelector('.org-table');
+      // カスタム列・ドリル専用の列のセルは、ライブラリの表と同じ部品（custom-view.js の _renderCell）で描く
+      tbl.querySelectorAll('td[data-drl-cf]').forEach(td => window._cvDrillCfCell?.(td, td.dataset.drlCf, td.dataset.vid));
+      tbl.querySelectorAll('td[data-drl-dc]').forEach(td => window._cvExtCell?.(td, OWN_VIEW.id, td.dataset.drlDc, td.dataset.row));
       // ドラッグ中は表の幅を列幅の合計に合わせ直す（ほかの列が押されて縮まないように）
       const fitTable = () => { tbl.style.width = [...tbl.querySelectorAll('thead th')].reduce((n, x) => n + (parseFloat(x.style.width) || x.offsetWidth), 0) + 'px'; };
       if (window.addResizeHandle) body.querySelectorAll('.org-table th[data-col]').forEach(h => window.addResizeHandle(h, fitTable, () => {

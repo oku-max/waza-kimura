@@ -432,17 +432,20 @@ function _purgeDeletedValues(onlyId) {
 function _videoOf(vid) { return _cvVideoById(window.videos || []).get(vid) || null; }
 function _cellVal(view, vid, col) {
   if (!col) return undefined;
+  if (view.getVal) return view.getVal(vid, col);   // ドリル専用の列（drills.js が値を持つ）
   if (col.shared) { const v = _videoOf(vid); return (v && v.cf && typeof v.cf === 'object') ? v.cf[col.id] : undefined; }
   return ((view.rowData || {})[vid] || {})[col.id];
 }
 function _setCellVal(view, vid, col, val) {
   if (!col) return;
+  if (view.setVal) { view.setVal(vid, col, val); return; }   // ドリル専用の列（drills.js が保存する）
   if (col.shared) {
     const v = _videoOf(vid);
     if (!v) return;
     if (!v.cf || typeof v.cf !== 'object') v.cf = {};
     v.cf[col.id] = val;
     window.debounceSave?.();   // 動画データとして保存（videos.json）
+    view.onSet?.(vid, col.id);   // ドリルの表: 同じ動画のほかの行も描き直す
     return;
   }
   if (!view.rowData) view.rowData = {};
@@ -451,7 +454,35 @@ function _setCellVal(view, vid, col, val) {
   _save();
 }
 
-function _findView(id) { return id === _MASTER_ID ? _masterView : _views.find(v => v.id === id); }
+function _findView(id) { return id === _MASTER_ID ? _masterView : id === _DRILL_CF_ID ? _drillCfSync() : _extViews.get(id) || _views.find(v => v.id === id); }
+
+// ── ドリルの表（js/drills.js）から使う（v52.997・オーナー決定 mock-drill-cols.html）──
+// カスタム列: マスターの表と同じセル（_renderCell）・同じ値（動画の v.cf）・同じ保存（debounceSave）。
+//   ドリルの表で値を変えると元の動画の値が変わる（ライブラリにも同じ値が出る）。定義には触らない。
+// ドリル専用の列: 見た目と操作は同じセルを使い、値の読み書きだけ drills.js に任せる（getVal/setVal を持つ表）。
+const _DRILL_CF_ID = '__drill_cf__';
+const _drillCfView = { id: _DRILL_CF_ID, isDrill: true, columns: [], rowData: {},
+  onSet: (vid, colId) => window._drillCfChanged?.(vid, colId) };
+const _extViews = new Map();
+function _drillCfSync() {
+  _drillCfView.columns = _shared.cols.filter(d => d.type && !d.off && !_isDeleted(d.id)).map(d => _mkRef({ id: d.id }));
+  return _drillCfView;
+}
+window._cvDrillCfCols = () => _shared.cols.filter(d => d.type && !d.off && !_isDeleted(d.id)).map(d => ({ id: d.id, label: d.label, type: d.type }));
+window._cvDrillCfCell = function(td, colId, vid) {
+  const view = _drillCfSync(), col = view.columns.find(c => c.id === colId);
+  if (!td || !col) return;
+  td.dataset.vid = vid; td.dataset.colId = colId;
+  _renderCell(td, col, _cellVal(view, vid, col), view);
+};
+// view = {id, columns:[{id,type,label,options}], getVal(rowId, col), setVal(rowId, col, val)}
+window._cvRegisterExtView = view => { if (view && view.id && view.getVal && view.setVal) _extViews.set(view.id, view); };
+window._cvExtCell = function(td, viewId, colId, rowId) {
+  const view = _extViews.get(viewId), col = view && (view.columns || []).find(c => c.id === colId);
+  if (!td || !col) return;
+  td.dataset.vid = rowId; td.dataset.colId = colId;
+  _renderCell(td, col, view.getVal(rowId, col), view);
+};
 // 列メニュー等が相手にする「いま表示中のテーブル」。マスターは共有列を持つときだけ
 // （持たないときは従来の列メニューのまま）。
 function _activeTableView() {
@@ -2193,6 +2224,7 @@ window._cvCounterStep = function(viewId, videoId, colId, dir) {
   window.debounceSave?.();
   // その行のセルだけ描き直す（表全体は描き直さない）
   document.querySelectorAll(`tr#org-row-${CSS.escape(videoId)} .cv-custom-td[data-col-id="${CSS.escape(colId)}"]`).forEach(td => _renderCell(td, col, v.cf[colId], view));
+  view.onSet?.(videoId, colId);
 };
 
 window._cvSetCell = function(viewId, videoId, colId, val) {
