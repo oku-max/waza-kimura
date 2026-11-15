@@ -862,29 +862,48 @@
   function loadSubs(v) {
     if (!v || SUBS.has(v.id) || !KIT()?.subCues) return;
     SUBS.set(v.id, 'loading');
-    KIT().subCues(v).then(r => { SUBS.set(v.id, r || { cues: [], why: 'none' }); if (r?.why === 'auth' || r?.why === 'fetch') SUBS.delete(v.id); paintRun(); renderRunSet(); })
+    KIT().subCues(v).then(r => { SUBS.set(v.id, r || { tracks: [], why: 'none' }); if (r?.why === 'auth' || r?.why === 'fetch') SUBS.delete(v.id); subLast = null; paintRun(); renderRunSet(); })
       .catch(() => { SUBS.delete(v.id); });
+  }
+  // 字幕が2つ以上あるとき（v52.996・オーナー「字幕2種類以上あるのは？」）: 「字幕」を押すたびに オフ → 1つ目 → 2つ目 → … → オフ。
+  // 選んだ言語は回す画面だけで覚える（prefs.subLang＝字幕の名前）。動画パネルの記憶には書かない
+  // （書くと、回す画面で「オフ」にしただけで動画パネルの字幕まで全動画で消える）。最初は動画パネルで選んでいる字幕。
+  function subTrack(sub) {
+    if (!sub || sub === 'loading' || !sub.tracks?.length) return null;
+    const i = prefs.subLang ? sub.tracks.findIndex(x => x.label === prefs.subLang) : -1;
+    return sub.tracks[i >= 0 ? i : (sub.pick || 0)];
   }
   function paintSub(t) {
     const el = document.getElementById('drr-sub'); if (!el) return;
-    const d = cur(), sub = d && SUBS.get(d.vid);
+    const d = cur(), sub = d && SUBS.get(d.vid), tr = subTrack(sub);
     let html = '';
-    if (prefs.sub !== false && sub && sub !== 'loading' && t != null) {
+    if (prefs.sub !== false && tr && t != null) {
       const o = sub.opts || {}, frame = document.getElementById('drr-frame');
       const scale = Math.min(3, Math.max(0.3, Number(o.fontScale) || 1)), bg = Math.min(1, Math.max(0, o.bgOpacity ?? 0.6));
       const px = Math.max(9, Math.round((frame?.clientHeight || 200) * 0.052 * scale));
       el.style.cssText = `${o.position === 'top' ? 'top:5%;' : 'bottom:6%;'}font-size:${px}px`;
-      const lines = sub.cues.filter(c => c.start <= t && t < c.end).flatMap(c => String(c.text).split('\n')).filter(l => l.trim());
+      const lines = tr.cues.filter(c => c.start <= t && t < c.end).flatMap(c => String(c.text).split('\n')).filter(l => l.trim());
       html = lines.map(l => `<span style="background:rgba(0,0,0,${bg})">${esc(l)}</span>`).join('');
     }
     if (html !== subLast) { el.innerHTML = html; subLast = html; }
   }
-  window.wkDrillSub = () => { prefs.sub = prefs.sub === false; savePrefs(); subLast = null; renderRunSet(); paintRun(); };
+  window.wkDrillSub = () => {
+    const d = cur(), sub = d && SUBS.get(d.vid), tracks = sub && sub !== 'loading' ? sub.tracks || [] : [];
+    if (!tracks.length) return;
+    if (prefs.sub === false) { prefs.sub = true; prefs.subLang = tracks[0].label; }        // オフ → 1つ目
+    else {
+      const i = tracks.indexOf(subTrack(sub));
+      if (i + 1 < tracks.length) prefs.subLang = tracks[i + 1].label;                     // 次の字幕
+      else prefs.sub = false;                                                              // 最後の次はオフ
+    }
+    savePrefs(); subLast = null; renderRunSet(); paintRun();
+  };
   function subBtn() {
     const d = cur(), sub = d && SUBS.get(d.vid);
     if (!sub || sub === 'loading') return '';
-    if (!sub.cues.length) return '<button disabled title="この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）">字幕なし</button>';
-    return `<button class="${prefs.sub !== false ? 'on' : ''}" onclick="wkDrillSub()" title="${esc(sub.label || '')}">字幕</button>`;
+    if (!sub.tracks?.length) return '<button disabled title="この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）">字幕なし</button>';
+    const on = prefs.sub !== false, tr = subTrack(sub);
+    return `<button class="${on ? 'on' : ''}" onclick="wkDrillSub()" title="押すたびに切り替え（オフ・${sub.tracks.map(x => esc(x.label)).join('・')}）">字幕: <span>${on ? esc(tr?.label || '') : ''}</span>${on ? '' : 'オフ'}</button>`;
   }
   function renderRunSet() { const el = document.getElementById('drr-subbtn'); if (el) el.innerHTML = subBtn(); }
 

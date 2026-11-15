@@ -367,7 +367,7 @@ const FAKE_YT = () => {
     // 実際の字幕と同じく短い字幕が続く（整形で1つは最長7秒になるので、長い1つにしない）
     const tc = n => `00:${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')},000`;
     const SRT = Array.from({ length: 360 }, (_, i) => `${i + 1}\n${tc(i * 5)} --> ${tc(i * 5 + 5)}\nフックを入れる\n`).join('\n');
-    const docOf = id => ({ get: async () => /AAAAAAAAAAA/.test(id) ? { exists: true, data: () => ({ tracks: { ja: { srt: SRT } } }) } : { exists: false, data: () => null } });
+    const docOf = id => ({ get: async () => /AAAAAAAAAAA/.test(id) ? { exists: true, data: () => ({ tracks: { ja: { srt: SRT }, en: { srt: SRT.replace(/フックを入れる/g, 'Insert the hook') } } }) } : { exists: false, data: () => null } });
     window.firebase.firestore = () => ({ collection: () => ({ doc: () => ({ collection: () => ({ doc: docOf }) }) }) });
   });
   await pg.evaluate(id => { window.switchTab('drills'); window.wkDrillRunMenu(id); }, m.id);
@@ -383,10 +383,17 @@ const FAKE_YT = () => {
     ck('⑦ 字幕が出る（動画パネルと同じ字幕・同じ読み込み）', !firstHasSub || subTxt === 'フックを入れる', { vid: first.vid, subTxt });
     if (firstHasSub) {
       ck('⑦ 反転しても字幕は鏡文字にならない（反転する枠の外に重ねる）', await pg.evaluate(() => !document.getElementById('drr-sub').closest('.mir') && !!document.querySelector('#drr-frame')));
-      await pg.click('#drr-subbtn button'); await wait(300);
-      ck('⑦ 「字幕」で消せる（この端末の好み）', (await pg.textContent('#drr-sub')) === '' && await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs')).sub === false));
-      await pg.click('#drr-subbtn button'); await wait(300);
-      ck('⑦ もう一度押すと出る', (await pg.textContent('#drr-sub')) === 'フックを入れる');
+      // 字幕が2つ以上（v52.996）: 押すたびに 日本語 → 2つ目 → オフ → 日本語
+      const sb = async () => ({ btn: (await pg.textContent('#drr-subbtn button')).replace(/\s/g, ''), sub: await pg.textContent('#drr-sub') });
+      let st = await sb();
+      ck('⑦ ボタンに今の字幕の名前が出る（最初は日本語）', /^字幕:日本語/.test(st.btn) && st.sub === 'フックを入れる', st);
+      await pg.click('#drr-subbtn button'); await wait(300); st = await sb();
+      ck('⑦ 押すと2つ目の字幕に切り替わる', !/日本語/.test(st.btn) && st.sub === 'Insert the hook', st);
+      await pg.click('#drr-subbtn button'); await wait(300); st = await sb();
+      ck('⑦ 最後の次はオフ（この端末の好み）', /オフ/.test(st.btn) && st.sub === '' && await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs')).sub === false), st);
+      await pg.click('#drr-subbtn button'); await wait(300); st = await sb();
+      ck('⑦ オフの次は1つ目に戻る', /^字幕:日本語/.test(st.btn) && st.sub === 'フックを入れる', st);
+      ck('⑦ 回す画面の選択は動画パネルの字幕の記憶に書かない', await pg.evaluate(() => !Object.keys(localStorage).some(k => /sub/i.test(k) && k !== 'wk_drillPrefs' && /off|en/.test(localStorage.getItem(k) || ''))));
     } }
   ck('⑦ 区間の頭から・ドリルの速度と反転で始まる', Math.abs(r.yt.t - first.a) < 2 && r.yt.rate === (first.sp || 1) && r.mir === !!first.mir, { r, first });
   await shot(pg, '3-runA');

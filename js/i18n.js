@@ -2020,6 +2020,9 @@
     // ドリル（v52.995）
     'この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）':'This video has no subtitles (create them with 💬 Subtitles in the video panel)',
 
+    // ドリル（v52.996）
+    '字幕:':'Subtitles:',
+
   };
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
@@ -2336,6 +2339,7 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    [/^押すたびに切り替え（オフ・(.+)）$/, (m, l) => `Press to switch (Off · ${l})`],
     [/^カスタムドリル「(.+)」を削除しますか？$/, (m, n) => `Delete the custom drill “${n}”?`],
     [/^「(.+)」に(\d+)本入れました$/, (m, n, k) => `Added ${k} to “${n}”`],
     // ── ドリル（v52.989・js/drills.js）。ユーザーが付けた名前が入る（名前は訳さない） ──
