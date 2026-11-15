@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — ドリルの列設定（列の種類の見分け方 4案）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない。押した結果はこのページの中だけ。
+  オーナー（2026-11-15）: v52.998 の右端の色バッジは「わかりにくい。ほかの提案して ４つ モックで」
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e4;--accent:#c9a24a;--text:#111;--text2:#555;--text3:#77776f;--border:#e0e0dc}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#444446;--accent:#e5c47a;--text:#e5e5e7;--text2:#b5b5b8;--text3:#8e8e93;--border:#48484a}}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;padding-bottom:40px}
+button{font-family:inherit;color:inherit;cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.7;padding:10px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;padding:16px;max-width:1500px;margin:0 auto}
+.col h2{font-size:15px;margin-bottom:3px}
+.col .why{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:8px;min-height:58px}
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 12px 16px;box-shadow:0 4px 18px rgba(0,0,0,.25);max-height:640px;overflow-y:auto}
+.ttl{font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px;margin:2px 2px 8px}
+.row{display:flex;align-items:center;gap:8px;padding:7px 4px;font-size:13px;border-radius:7px}
+.grip{width:10px;height:14px;flex:none;background:radial-gradient(circle,var(--text3) 1.2px,transparent 1.4px) 0 0/5px 5px;opacity:.7}
+.row input{accent-color:var(--accent);width:15px;height:15px;flex:none}
+.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .sub{font-size:10px;color:var(--text3);margin-left:4px}
+/* A セクション */
+.sec{margin-top:12px}
+.sec:first-child{margin-top:0}
+.sec-h{display:flex;align-items:baseline;gap:8px;padding:6px 4px 4px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.sec-h b{font-size:12px}
+.sec-h span{font-size:10.5px;color:var(--text3)}
+.sec-add{font-size:12px;margin:4px 4px 0;padding:6px;border:1.5px dashed var(--border);border-radius:7px;background:none;width:calc(100% - 8px)}
+/* B タブ */
+.tabs{display:flex;gap:4px;overflow-x:auto;margin-bottom:6px;padding-bottom:2px}
+.tabs button{flex:none;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:#1a1a1a;font-weight:700}
+.tabs button small{opacity:.7;margin-left:3px}
+.tab-desc{font-size:11px;color:var(--text3);line-height:1.6;padding:6px 6px 8px}
+/* C 名前の前に出どころ */
+.src{flex:none;font-size:11px;color:var(--text3);min-width:76px}
+.src::after{content:' ›';opacity:.6}
+.row.c-grp-start{margin-top:6px;border-top:1px solid var(--border);border-radius:0;padding-top:10px}
+/* D 表示中／追加できる */
+.d-h{font-size:11px;font-weight:800;color:var(--text3);margin:4px 2px 6px;letter-spacing:.4px}
+.d-shown .row{background:var(--surface2);margin-bottom:4px}
+.d-shown .row .x{border:none;background:none;color:var(--text3);font-size:15px;padding:0 4px}
+.d-grp{margin:10px 2px 4px;font-size:11px;color:var(--text2);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px}
+.chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px dashed var(--border);background:none;color:var(--text)}
+.chip::before{content:'＋ ';color:var(--text3)}
+.from{font-size:10px;color:var(--text3);margin-left:6px;white-space:nowrap}
+.note{max-width:1500px;margin:0 auto;padding:0 16px;font-size:12px;color:var(--text2);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です（押しても本物のデータには何も書きません）。<br>ドリルの列設定で「どの列が何の列か」の見せ方を4案並べました。チェックやタブは実際に押せます。良いものを A〜D で教えてください。</div>
+<div class="grid" id="grid"></div>
+<p class="note">どの案でも、何の列かと、値をどこに書くか（カスタム列＝元の動画に書く／ドリル専用＝そのドリルだけに書く）は今と同じです。並べ替えの決まり（A・B は種類の中だけ・C・D は全部の中）だけが案によって違います。</p>
+<script>
+const G = {
+  drl: { name: 'ドリル', desc: 'ドリルそのものの記録', short: 'ドリル' },
+  vid: { name: '元の動画', desc: '元の動画の情報（見るだけ）', short: '動画' },
+  tag: { name: '元の動画のタグ', desc: '元の動画に付けたタグ（見るだけ）', short: 'タグ' },
+  cf:  { name: 'カスタム列', desc: 'ライブラリと同じ列。変えると元の動画の値も変わる', short: 'カスタム' },
+  own: { name: 'ドリル専用の列', desc: 'ドリルごとに別の値。動画は変わらない', short: 'ドリル専用' },
+};
+const COLS = [
+  ['drl','元の動画',1],['drl','区間',1],['drl','長さ',1],['drl','反転',0],['drl','速度',0],['drl','最後にやった日',1],['drl','回数',1],['drl','作った日',0],
+  ['vid','チャンネル',0],['vid','プレイリスト',0],
+  ['tag','ブックマーク',0],['tag','TOP/BOTTOM',0],['tag','Position',0],['tag','テクニック',0],
+  ['cf','評価',0],['cf','見た',0],
+  ['own','相手',0],
+];
+// 案ごとに別の状態（見本の中だけ）
+const S = {}; ['A','B','C','D'].forEach(k => S[k] = COLS.map(c => ({ g: c[0], n: c[1], on: !!c[2] })));
+let tabB = 'drl';
+const row = (k, i, extra = '') => { const c = S[k][i];
+  return `<label class="row"><span class="grip"></span><input type="checkbox" ${c.on ? 'checked' : ''} data-k="${k}" data-i="${i}">${extra}<span class="nm">${c.n}</span></label>`; };
+const ORDER = ['drl','vid','tag','cf','own'];
+function A() {
+  return `<div class="ttl">表示する列（⠿ で並べ替え）</div>` + ORDER.map(g => `<div class="sec"><div class="sec-h"><b>${G[g].name}</b><span>${G[g].desc}</span></div>
+    ${S.A.map((c, i) => c.g === g ? row('A', i) : '').join('')}
+    ${g === 'own' ? '<button class="sec-add">＋ ドリル専用の列を作る</button>' : ''}</div>`).join('');
+}
+function B() {
+  const cnt = g => S.B.filter(c => c.g === g && c.on).length;
+  return `<div class="tabs">${ORDER.map(g => `<button class="${tabB === g ? 'on' : ''}" data-tab="${g}">${G[g].short}<small>${cnt(g) || ''}</small></button>`).join('')}</div>
+    <div class="tab-desc">${G[tabB].desc}</div>
+    ${S.B.map((c, i) => c.g === tabB ? row('B', i) : '').join('')}
+    ${tabB === 'own' ? '<button class="sec-add">＋ ドリル専用の列を作る</button>' : ''}`;
+}
+function C() {
+  let prev = null;
+  return `<div class="ttl">表示する列（⠿ で並べ替え）</div>` + S.C.map((c, i) => { const start = prev && prev !== c.g; prev = c.g;
+    return row('C', i, `<span class="src">${G[c.g].short}</span>`).replace('class="row"', `class="row${start ? ' c-grp-start' : ''}"`); }).join('')
+    + '<button class="sec-add">＋ ドリル専用の列を作る</button>';
+}
+function D() {
+  const shown = S.D.map((c, i) => [c, i]).filter(([c]) => c.on);
+  return `<div class="d-h">表に出している列（⠿ で並べ替え・× で外す）</div><div class="d-shown">
+    ${shown.map(([c, i]) => `<div class="row"><span class="grip"></span><span class="nm">${c.n}<span class="from">${G[c.g].short}</span></span><button class="x" data-dx="${i}">×</button></div>`).join('')}</div>
+    <div class="d-h" style="margin-top:14px">足せる列（押すと表の最後に入る）</div>
+    ${ORDER.map(g => { const hid = S.D.map((c, i) => [c, i]).filter(([c]) => c.g === g && !c.on);
+      return `<div class="d-grp">${G[g].name}<span class="from">${G[g].desc}</span></div><div class="chips">${hid.map(([c, i]) => `<button class="chip" data-da="${i}">${c.n}</button>`).join('') || '<span class="from">（全部出しています）</span>'}${g === 'own' ? '<button class="chip" style="border-style:solid">新しく作る</button>' : ''}</div>`; }).join('')}`;
+}
+const PLAN = {
+  A: ['A　種類ごとの見出しで分ける', '種類ごとに見出しと一言の説明。並べ替えは見出しの中だけ。いちばん素直で、今の一覧に見出しを挟むだけ。', A],
+  B: ['B　上のタブで切り替える', 'タブで種類を1つずつ見せる。タブの数字は出している列の数。一度に見る量が少なく、スマホで長くスクロールしない。', B],
+  C: ['C　名前の前に出どころを書く', '「動画 › チャンネル」「タグ › Position」のように名前の前に出どころを薄く書く。種類が変わるところに線。並べ替えは全部の中で自由。', C],
+  D: ['D　「出している列」と「足せる列」に分ける', '上は表に出している列だけ（並べ替え・×で外す）。下は足せる列を種類ごとに並べ、押すと表に入る。チェックの列が長く続かない。', D],
+};
+function render() {
+  grid.innerHTML = Object.entries(PLAN).map(([k, [t, w, f]]) => `<div class="col"><h2>${t}</h2><p class="why">${w}</p><div class="sheet" data-plan="${k}">${f()}</div></div>`).join('');
+}
+document.addEventListener('change', e => { const t = e.target; if (t.dataset.k) { S[t.dataset.k][+t.dataset.i].on = t.checked; render(); } });
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.tab) { tabB = b.dataset.tab; render(); }
+  if (b.dataset.dx) { S.D[+b.dataset.dx].on = false; render(); }
+  if (b.dataset.da) { const i = +b.dataset.da, [c] = S.D.splice(i, 1); c.on = true; S.D.push(c); render(); }
+});
+render();
+</script>
+</body>
+</html>
