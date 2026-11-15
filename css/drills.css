@@ -105,6 +105,10 @@ body.drill-run-open{overflow:hidden}
 .drr-msg{position:absolute;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;color:#ccc;font-size:13px;text-align:center;padding:16px}
 .drr-frame.mir .drr-msg{transform:scaleX(-1)}
 .drr-msg button{font-size:13px;padding:8px 14px;border-radius:8px;border:0;background:#eee;color:#111;cursor:pointer;font-family:inherit}
+.drr-sub{position:absolute;left:0;right:0;z-index:3;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:0 4%;box-sizing:border-box;text-align:center;line-height:1.35}
+.drr-sub span{display:inline-block;color:#fff;padding:0 .3em;border-radius:2px;text-shadow:0 1px 2px rgba(0,0,0,.85);white-space:pre-wrap}
+.drr-subbtn{display:contents}
+.drr-set button:disabled{opacity:.45;cursor:default}
 .drr-prog{height:3px;background:rgba(127,127,127,.3);border-radius:2px;margin:6px 0 2px;overflow:hidden}
 .drr-prog i{display:block;height:100%;width:0;background:#6b9cff}
 .drr-dots{display:flex;gap:4px;margin:8px 0 2px}

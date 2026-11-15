@@ -361,6 +361,15 @@ const FAKE_YT = () => {
   }, BMS);
   s = await store();
   const m = Object.values(s.menus).find(x => !x.del && x.name === '朝のガード');
+  // 字幕（v52.995）: 動画パネルと同じ所（users/{uid}/data/ytsub_<動画>）から読む。AAAAAAAAAAA にだけ字幕がある
+  await pg.evaluate(() => {
+    window._firebaseCurrentUser = () => ({ uid: 'u1' });
+    // 実際の字幕と同じく短い字幕が続く（整形で1つは最長7秒になるので、長い1つにしない）
+    const tc = n => `00:${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')},000`;
+    const SRT = Array.from({ length: 360 }, (_, i) => `${i + 1}\n${tc(i * 5)} --> ${tc(i * 5 + 5)}\nフックを入れる\n`).join('\n');
+    const docOf = id => ({ get: async () => /AAAAAAAAAAA/.test(id) ? { exists: true, data: () => ({ tracks: { ja: { srt: SRT } } }) } : { exists: false, data: () => null } });
+    window.firebase.firestore = () => ({ collection: () => ({ doc: () => ({ collection: () => ({ doc: docOf }) }) }) });
+  });
   await pg.evaluate(id => { window.switchTab('drills'); window.wkDrillRunMenu(id); }, m.id);
   await pg.waitForFunction(() => window.__yt.some(p => !p.__st.dead && p.__st.t > 0)); await wait(400);
   const run = () => pg.evaluate(() => ({ cls: document.getElementById('drill-run')?.className, title: document.querySelector('.drr-title')?.textContent, pos: document.querySelector('.drr-pos')?.textContent,
@@ -369,6 +378,16 @@ const FAKE_YT = () => {
   let r = await run();
   const first = alive(s).find(d => d.id === m.ids[0]);
   ck('⑦ 全画面で開き、道場モードは大きい3つのボタン', /drr-A/.test(r.cls) && r.bigs === 3 && r.pos === '1/2' && r.title === first.title, r);
+  { const firstHasSub = first.vid === 'AAAAAAAAAAA';
+    let subTxt = ''; for (let k = 0; k < 20 && firstHasSub && !subTxt; k++) { await wait(150); subTxt = await pg.textContent('#drr-sub'); }
+    ck('⑦ 字幕が出る（動画パネルと同じ字幕・同じ読み込み）', !firstHasSub || subTxt === 'フックを入れる', { vid: first.vid, subTxt });
+    if (firstHasSub) {
+      ck('⑦ 反転しても字幕は鏡文字にならない（反転する枠の外に重ねる）', await pg.evaluate(() => !document.getElementById('drr-sub').closest('.mir') && !!document.querySelector('#drr-frame')));
+      await pg.click('#drr-subbtn button'); await wait(300);
+      ck('⑦ 「字幕」で消せる（この端末の好み）', (await pg.textContent('#drr-sub')) === '' && await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_drillPrefs')).sub === false));
+      await pg.click('#drr-subbtn button'); await wait(300);
+      ck('⑦ もう一度押すと出る', (await pg.textContent('#drr-sub')) === 'フックを入れる');
+    } }
   ck('⑦ 区間の頭から・ドリルの速度と反転で始まる', Math.abs(r.yt.t - first.a) < 2 && r.yt.rate === (first.sp || 1) && r.mir === !!first.mir, { r, first });
   await shot(pg, '3-runA');
   for (let i = 0; i < 2; i++) { await setT(first.b - 0.1); await wait(600); }
@@ -378,6 +397,8 @@ const FAKE_YT = () => {
   r = await run();
   const second = alive(s).find(d => d.id === m.ids[1]);
   ck('⑦ 3回で次のドリルへ（別の動画なら読み込み直す）', r.pos === '2/2' && r.title === second.title && r.yt?.vid === second.vid, r);
+  if (second.vid !== 'AAAAAAAAAAA') { await wait(800);
+    ck('⑦ 字幕の無い動画は「字幕なし」（押せない）・前の動画の字幕が残らない', await pg.evaluate(() => document.querySelector('#drr-subbtn button')?.disabled === true && /字幕なし/.test(document.querySelector('#drr-subbtn').textContent) && document.getElementById('drr-sub').textContent === '')); }
   await pg.click('.drr-bigs .did'); await wait(200);
   s = await store();
   const sd = s.items[second.id];

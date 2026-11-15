@@ -9430,6 +9430,36 @@ window._vpDrillKit = {
   mirrored: () => !!window._vpMirrored,
   setMirror(on) { if (!!window._vpMirrored !== !!on) window.vpToggleMirror(); },
   fmt: (s) => _formatTime(Math.floor(Math.max(0, s))),
+  // 動画1本の字幕（v52.995・オーナー「ドリル動画に字幕がでてこない」）。読むだけ・どこにも書かない。
+  // 動画パネルと同じ所から同じ形で読む: YouTube はこのアプリが作った字幕（_ytSubFetch）、Drive は動画と同じ名前の字幕ファイル。
+  // 整形（折り返し・最短/最長・ずれの補正）も動画パネルと同じ _reflowVtt を通す。選ぶ言語も動画パネルの選び方を優先する。
+  // 返すのは {cues:[{start,end,text}], label, opts}。字幕が無い・読めないときは null（理由は why に入れる）。
+  async subCues(v) {
+    if (!v) return null;
+    const o = subOpts();
+    const yt = _vYtId(v);
+    if (yt) {
+      const list = _ytSubList(await _ytSubFetch(yt));
+      if (!list.length) return { cues: [], why: 'none' };
+      const pref = _ytSubPref();
+      const t = (pref.startsWith('gen:') && list.find(x => 'gen:' + x.lang === pref)) || list[0];
+      return { cues: _parseVtt(_reflowVtt(_srtToVtt(t.srt), o, _subOffsetGet(yt))), label: t.label, opts: o };
+    }
+    if (v.pt === 'gdrive') {
+      const fileId = String(v.id || '').replace(/^gd-/, '');
+      const token = window.getDriveTokenIfAvailable?.();
+      if (!fileId || !token) return { cues: [], why: 'auth' };
+      const cands = await _gdFindSubtitleFiles(fileId, token);
+      if (!cands.length) return { cues: [], why: 'none' };
+      const pref = _gdSubPref();
+      const c = cands.find(x => x.label === pref) || cands[0];
+      const res = await fetch(`/api/drive?fileId=${encodeURIComponent(c.id)}&token=${encodeURIComponent(token)}`);
+      if (!res.ok) return { cues: [], why: 'fetch' };
+      const vtt = _srtToVtt(_gdSubDecode(await res.arrayBuffer()));
+      return { cues: _parseVtt(_reflowVtt(vtt, o, _subOffsetGet(fileId))), label: c.label, opts: o };
+    }
+    return { cues: [], why: 'none' };
+  },
 };
 
 // ── 部分だけの要約（js/vp-sum-range.js）が使う読み出し口（v52.987） ──

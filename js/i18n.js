@@ -2017,6 +2017,9 @@
     // ドリル（v52.992）
     'このカスタムドリルの順を、つかんで並べ替える':"Drag to reorder this custom drill",'列を全部隠すことはできません':"You can't hide every column",'表示する列':"Columns to show",' の順（⠿ をつかんで並べ替え）':" order (drag ⠿ to reorder)",'並べ替え':"Reorder",
 
+    // ドリル（v52.995）
+    'この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）':'This video has no subtitles (create them with 💬 Subtitles in the video panel)',
+
   };
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）

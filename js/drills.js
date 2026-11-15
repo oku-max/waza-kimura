@@ -854,10 +854,45 @@
     Object.assign(P, { kind: null, vid: null, yt: null, ytReady: false, video: null, playing: false });
   }
   const box = () => document.getElementById('drr-player');
+  // ── 字幕（v52.995・オーナー「ドリル動画に字幕がでてこない」）──
+  // 動画パネルと同じ字幕を、動画パネルと同じ窓口（_vpDrillKit.subCues）から読む。読むだけ・どこにも書かない。
+  // 反転する枠（#drr-frame）の外に重ねるので、反転しても鏡文字にならない。出す/出さないはこの端末の好み（prefs.sub・既定は出す）
+  const SUBS = new Map();   // 動画id → {cues, label, opts, why} / 'loading'
+  let subLast = null;
+  function loadSubs(v) {
+    if (!v || SUBS.has(v.id) || !KIT()?.subCues) return;
+    SUBS.set(v.id, 'loading');
+    KIT().subCues(v).then(r => { SUBS.set(v.id, r || { cues: [], why: 'none' }); if (r?.why === 'auth' || r?.why === 'fetch') SUBS.delete(v.id); paintRun(); renderRunSet(); })
+      .catch(() => { SUBS.delete(v.id); });
+  }
+  function paintSub(t) {
+    const el = document.getElementById('drr-sub'); if (!el) return;
+    const d = cur(), sub = d && SUBS.get(d.vid);
+    let html = '';
+    if (prefs.sub !== false && sub && sub !== 'loading' && t != null) {
+      const o = sub.opts || {}, frame = document.getElementById('drr-frame');
+      const scale = Math.min(3, Math.max(0.3, Number(o.fontScale) || 1)), bg = Math.min(1, Math.max(0, o.bgOpacity ?? 0.6));
+      const px = Math.max(9, Math.round((frame?.clientHeight || 200) * 0.052 * scale));
+      el.style.cssText = `${o.position === 'top' ? 'top:5%;' : 'bottom:6%;'}font-size:${px}px`;
+      const lines = sub.cues.filter(c => c.start <= t && t < c.end).flatMap(c => String(c.text).split('\n')).filter(l => l.trim());
+      html = lines.map(l => `<span style="background:rgba(0,0,0,${bg})">${esc(l)}</span>`).join('');
+    }
+    if (html !== subLast) { el.innerHTML = html; subLast = html; }
+  }
+  window.wkDrillSub = () => { prefs.sub = prefs.sub === false; savePrefs(); subLast = null; renderRunSet(); paintRun(); };
+  function subBtn() {
+    const d = cur(), sub = d && SUBS.get(d.vid);
+    if (!sub || sub === 'loading') return '';
+    if (!sub.cues.length) return '<button disabled title="この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）">字幕なし</button>';
+    return `<button class="${prefs.sub !== false ? 'on' : ''}" onclick="wkDrillSub()" title="${esc(sub.label || '')}">字幕</button>`;
+  }
+  function renderRunSet() { const el = document.getElementById('drr-subbtn'); if (el) el.innerHTML = subBtn(); }
+
   function loadCur() {
     const d = cur(); if (!d) return;
     RUN.playedSec = 0; RUN.loops = 0;
     const v = videoOf(d.vid);
+    loadSubs(v);
     const ytId = v ? window._wkVYtId?.(v) : '';
     if (P.vid === d.vid && ((P.kind === 'yt' && P.ytReady) || (P.kind === 'gd' && P.video))) { setRate(d.sp || 1); seek(d.a); play(); return; }
     destroyPlayer();
@@ -988,7 +1023,7 @@
     if (first || !document.getElementById('drr-player')) {
       ov.innerHTML = `<div class="drr-in">
         <div class="drr-top" id="drr-top"></div>
-        <div class="drr-stage"><div class="drr-mirtag" id="drr-mirtag">⇋ 反転中</div><div id="drr-frame" class="drr-frame"><div id="drr-player" class="drr-player"></div></div></div>
+        <div class="drr-stage"><div class="drr-mirtag" id="drr-mirtag">⇋ 反転中</div><div id="drr-frame" class="drr-frame"><div id="drr-player" class="drr-player"></div></div><div id="drr-sub" class="drr-sub"></div></div>
         <div class="drr-prog"><i id="drr-prog"></i></div>
         <div id="drr-body"></div></div>`;
     }
@@ -1010,7 +1045,7 @@
     if (stage) stage.style.display = '';
     const nextD = drill(RUN.ids[RUN.i + 1]);
     const setRow = `<div class="drr-set">
-      <button class="drr-mir${d?.mir ? ' on' : ''}" onclick="wkDrillRunMir()">⇋ 反転</button>
+      <button class="drr-mir${d?.mir ? ' on' : ''}" onclick="wkDrillRunMir()">⇋ 反転</button><span id="drr-subbtn" class="drr-subbtn">${subBtn()}</span>
       ${[0.5, 0.75, 1].map(s => `<button class="${(d?.sp || 1) === s ? 'on' : ''}" onclick="wkDrillRunSp(${s})">×${s}</button>`).join('')}
       <span class="drr-br"></span><span class="drr-lab">次へ:</span>
       ${[['loops', `${prefs.n}回で`], ['time', `${prefs.secs}秒で`], ['hand', '手で']].map(([k, l]) => `<button class="${prefs.adv === k ? 'on' : ''}" onclick="wkDrillAdv('${k}')">${l}</button>`).join('')}
@@ -1041,6 +1076,7 @@
   function paintRun() {
     if (!RUN || RUN.done) return;
     const d = cur(); if (!d) return;
+    paintSub(now());
     const lp = document.getElementById('drr-loop'); if (lp) lp.textContent = (RUN.loops || 0) + 1;
     const pp = document.getElementById('drr-pp'); if (pp) pp.textContent = P.playing ? '❚❚ 止める' : '▶ 再生';
     const left = document.getElementById('drr-left');
