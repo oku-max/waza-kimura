@@ -478,11 +478,18 @@
     put('conf', { id: 'cols', order: [...order, ...keepO], hide: [...hide, ...keepH] });
   }
   const thumbOn = () => prefs.thumb !== false;   // サムネイルの列（この端末だけ・ライブラリの wk_orgThumbVis と同じ扱い）
-  const colKind = k => k.startsWith('cf:') ? '<span class="drl-col-kind">カスタム列</span>' : k.startsWith('dc:') ? '<span class="drl-col-kind drl-col-own">ドリル専用</span>' : '';
+  // 列の種類の印（v52.998・オーナー「ドリル専用列、カスタム列、など区別してわかるように」）。全部の行に付ける
+  const colKind = k => {
+    const [c, l] = k.startsWith('cf:') ? ['cf', 'カスタム列'] : k.startsWith('dc:') ? ['own', 'ドリル専用'] : /^tag[0-3]$/.test(k) ? ['tag', 'タグ']
+      : k === 'channel' || k === 'playlist' ? ['vid', '元の動画'] : ['drl', 'ドリル'];
+    return `<span class="drl-col-kind drl-k-${c}">${l}</span>`;
+  };
   function colMenuHTML() {
     const { order, hide } = colsConf();
     return `<label class="drl-thumb-row"><input type="checkbox" ${thumbOn() ? 'checked' : ''} onchange="wkDrillThumb(this.checked)" style="accent-color:var(--accent);width:14px;height:14px"><span>サムネイルを表示</span></label>`
       + '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（⠿ をつかんで並べ替え）</div>'
+      + `<div class="drl-col-legend">${[['drl', 'ドリル', 'ドリルの記録'], ['vid', '元の動画', '元の動画の情報'], ['tag', 'タグ', '元の動画のタグ'], ['cf', 'カスタム列', 'ライブラリと同じ値'], ['own', 'ドリル専用', 'ドリルごとの値']]
+        .map(([c, l, d]) => `<span class="drl-col-lg"><span class="drl-col-kind drl-k-${c}">${l}</span><span>${d}</span></span>`).join('')}</div>`
       + order.map(k => `<div class="cv-colmenu-row" data-cv-sort="drillcols" data-cv-id="${esc(k)}">
         <div class="cv-drag-handle" title="つかんで並べ替え"></div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">

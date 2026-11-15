@@ -264,6 +264,9 @@ const FAKE_YT = () => {
   const menuKeys = await pg.$$eval('#drl-col-menu-panel [data-cv-sort="drillcols"]', a => a.map(x => x.dataset.cvId));
   ck('⑥b 列設定に チャンネル・プレイリスト・タグ1〜4・カスタム列 が並ぶ', ['channel', 'playlist', 'tag0', 'tag1', 'tag2', 'tag3', 'cf:gc_t1'].every(k => menuKeys.includes(k)), menuKeys);
   await shot(pg, 'drl-cols-menu');
+  const kinds = await pg.$$eval('#drl-col-menu-panel [data-cv-sort="drillcols"]', a => Object.fromEntries(a.map(x => [x.dataset.cvId, (x.querySelector('.drl-col-kind')?.className.match(/drl-k-(\w+)/) || [])[1]])));
+  ck('⑥b 列設定の全部の行に種類の印（ドリル・元の動画・タグ・カスタム列・ドリル専用）が付き、見分けられる（v52.998）',
+    kinds.video === 'drl' && kinds.n === 'drl' && kinds.channel === 'vid' && kinds.playlist === 'vid' && kinds.tag0 === 'tag' && kinds['cf:gc_t1'] === 'cf' && Object.values(kinds).every(Boolean), kinds);
   ck('⑥b 足した列は最初は隠れている（表が勝手に広がらない）', !/channel|playlist|tag0|cf:/.test(await heads()), await heads());
   for (const k of ['channel', 'tag0', 'cf:gc_t1']) { await pg.click(`#drl-col-menu-panel [data-cv-id="${k}"] input`); await wait(150); }
   const hs = await heads();
@@ -313,6 +316,7 @@ const FAKE_YT = () => {
   ck('⑥b ドリル専用の列は動画を1文字も変えない', await pg.evaluate(() => JSON.stringify(window.videos)) === vBefore);
   ck('⑥b 表にその値が出る', /パートナー/.test(await pg.evaluate(([id, row]) => document.querySelector(`#drillsTab .org-table td[data-col="dc:${id}"][data-row="${row}"]`)?.textContent || '', [dc.id, dcRow0])));
   await pg.click('#drillsTab .drl-tool-btn:has-text("列設定")'); await wait(150);
+  ck('⑥b ドリル専用の列は「ドリル専用」の印', await pg.evaluate(id => !!document.querySelector(`#drl-col-menu-panel [data-cv-id="dc:${id}"] .drl-col-kind.drl-k-own`), dc.id));
   await pg.click(`#drl-col-menu-panel [data-cv-id="dc:${dc.id}"] .drl-col-edit`); await wait(200);
   ck('⑥b 直すときは種類を変えられない', await pg.evaluate(() => [...document.querySelectorAll('#drl-dc-sheet .drl-dc-type')].every(b => b.disabled)));
   await pg.click('#drl-dc-sheet .drl-dc-del'); await wait(250);
