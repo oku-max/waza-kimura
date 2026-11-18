@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>メモの要約に仕切り モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f2f2f6;--text:#1a1a1a;--text2:#555;--text3:#999;--border:#e2e2e8;--accent:#2050c0;--div:#6a3fc4}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);padding:16px;max-width:900px;margin:0 auto}
+h1{font-size:18px;margin-bottom:14px}
+h2{font-size:16px;margin:28px 0 10px}
+.pair{display:flex;gap:18px;flex-wrap:wrap}
+.col{flex:1;min-width:300px}
+.cap{font-size:14px;font-weight:800;margin-bottom:6px}
+.cap small{font-weight:500;color:var(--text2);font-size:12px;margin-left:4px}
+.phone{background:#fff;border:8px solid #222;border-radius:24px;padding:10px;font-size:13px;line-height:1.6}
+.memo{background:#f4f4f4;border:1.5px solid var(--border);border-radius:8px;padding:10px}
+.st{font-weight:800;font-size:14px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.dv{display:flex;align-items:center;gap:8px;margin:12px 0 2px;padding:6px 8px;border-radius:7px;background:#efe8fb;color:var(--div);font-weight:800;cursor:pointer}
+.ch{display:flex;align-items:center;gap:7px;font-weight:800;margin:8px 0 2px;padding-bottom:4px;border-bottom:2px solid var(--text);cursor:pointer}
+.in{margin-left:14px}
+.f{width:18px;height:18px;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0}
+.no{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--text);color:#fff;font-size:11px;flex-shrink:0}
+.n{margin-left:auto;font-size:11px;color:var(--text3);font-weight:600}
+.it{margin:3px 0 3px 4px;font-size:12.5px}
+.ts{color:var(--accent);font-weight:700;font-size:11.5px}
+.note{font-size:12.5px;line-height:1.8;color:var(--text2);margin-top:8px}
+.note b{color:var(--text)}
+.q{background:#fff;border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.8;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.opt{flex:1;min-width:300px;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.opt h3{font-size:15px;margin-bottom:6px}
+.mini{background:#f4f4f4;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;line-height:1.5;margin:6px 0}
+.mini .lbl{font-size:11px;color:var(--text3);font-weight:700;margin-bottom:2px}
+.mini .d{color:var(--div);font-weight:800}
+.mini .b{font-weight:700;margin-left:12px}
+.mini .x{color:var(--text3);font-weight:700}
+.ok{color:#2a8050}.ng{color:#c0392b}
+</style>
+</head>
+<body>
+<h1>メモの要約に「仕切り」を入れるとこうなる</h1>
+
+<div class="pair">
+  <div class="col">
+    <div class="cap">今<small>ブックマークの見出しだけが並ぶ</small></div>
+    <div class="phone"><div class="memo" id="now"></div></div>
+  </div>
+  <div class="col">
+    <div class="cap">仕切りを入れると<small>紫の見出し＝仕切り（押すと開閉）</small></div>
+    <div class="phone"><div class="memo" id="new"></div></div>
+    <div class="note">・仕切りを押すと、その中のブックマークをまとめて開閉。<br>・仕切りの右の ⋯ からも「さらにくわしく」「ドリルにする」ができる（範囲はその仕切りの区間）。</div>
+  </div>
+</div>
+
+<h2>決めてほしいことは1つだけ</h2>
+<div class="q"><b>すでにメモに入っている要約にも、仕切りを付けますか？</b><br>
+<span style="font-size:12.5px;color:var(--text2)">（これから作る要約には、どちらでも付きます）</span></div>
+
+<div class="pair" style="margin-top:12px">
+  <div class="opt">
+    <h3>① 付ける</h3>
+    <div style="font-size:12.5px;line-height:1.7">今の仕切りを見て、表示するときに当てはめる。メモの文字には入れない。</div>
+    <div class="mini"><div class="lbl">前に作った要約</div><span class="d">■ 基本概念</span><br><span class="b">❶ エリートの…</span><br><span class="d">■ 一般原則</span><br><span class="b">❹ 練習方法</span></div>
+    <div style="font-size:12.5px;line-height:1.8">
+      <span class="ok">◯</span> 前に作った要約にも付く<br>
+      <span class="ok">◯</span> 仕切りを後から動かす・名前を変えると、メモの方もついてくる<br>
+      <span class="ng">×</span> メモの中で仕切りの文字を直接書き換えられない（ブックマーク欄で直す）</div>
+  </div>
+  <div class="opt">
+    <h3>② 付けない</h3>
+    <div style="font-size:12.5px;line-height:1.7">これから作る要約だけ、作るときに仕切りの名前をメモの文字として入れる。</div>
+    <div class="mini"><div class="lbl">前に作った要約</div><span class="x">（今のまま・仕切りなし）</span><br><span class="b">❶ エリートの…</span><br><span class="b">❹ 練習方法</span></div>
+    <div style="font-size:12.5px;line-height:1.8">
+      <span class="ng">×</span> 前に作った要約には付かない（作り直せば付く）<br>
+      <span class="ng">×</span> 仕切りを後から動かしても、メモは作ったときのまま<br>
+      <span class="ok">◯</span> メモの中で仕切りの文字を自由に書き換えられる</div>
+  </div>
+</div>
+
+<script>
+const DIV = [['ガードリテンションの基本概念',[0,1,2]],['ガードリテンションの一般原則',[3,4]],['フレームと足のポジショニング',[5,6]]];
+const BM = [['エリートのガードリテンション','8:29',['▶8:52 ガードパスやバックを晒すのを防ぐこと。']],['ガードリテンションの重要性','10:29',['▶10:45 ガードからのアタックを安全に行える。']],['教則動画のセクション構成','12:05',['▶12:40 ガードパスは3種類に分かれる。']],
+  ['ガードリテンションの練習方法','16:31',['▶16:42 両足を外側にリカバリーする。','▶17:13 不利な状況から戻ることを繰り返す。']],['一般的なコンセプトの適用','18:52',['▶19:41 腰を相手から遠ざける。']],
+  ['上半身のフレーム','22:34',['▶22:41 ハンドフレームが最も好ましい。']],['プッシュとプルのバランス','23:22',['▶23:40 引く力も使って重心を揺らす。']]];
+const open = {};
+const it = s => `<div class="it"><span class="ts">${s.split(' ')[0]}</span> ${s.split(' ').slice(1).join(' ')}</div>`;
+const ch = (i, key) => { const o = open[key]; return `<div class="ch" onclick="t('${key}')"><span class="f">${o?'▾':'▸'}</span><span class="no">${i+1}</span>${BM[i][0]}<span class="ts">▶${BM[i][1]}</span>${o?'':`<span class="n">${BM[i][2].length}件</span>`}</div>${o?BM[i][2].map(it).join(''):''}`; };
+function render() {
+  document.getElementById('now').innerHTML = '<div class="st">✂️ 要約　ガードリテンション</div>' + BM.map((_, i) => ch(i, 'a' + i)).join('');
+  document.getElementById('new').innerHTML = '<div class="st">✂️ 要約　ガードリテンション</div>' + DIV.map(([name, ids], k) => {
+    const key = 'd' + k, o = open[key] ?? true;
+    return `<div class="dv" onclick="t('${key}', true)"><span class="f">${o?'▾':'▸'}</span>■ ${name}${o?'':`<span class="n">${ids.length}見出し</span>`}<span class="n" style="color:#8a6cc8">⋯</span></div>` + (o ? `<div class="in">${ids.map(i => ch(i, 'b' + i)).join('')}</div>` : '');
+  }).join('');
+}
+window.t = (k, def) => { open[k] = !(open[k] ?? !!def); render(); };
+render();
+</script>
+</body>
+</html>
