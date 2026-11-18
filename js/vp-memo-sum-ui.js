@@ -108,12 +108,15 @@
     cur.style.textContent = css;
     // 位置は画面上の座標の差で測る（層はメモ欄の親＝行に重ねている）
     const el = cur.el, cs = getComputedStyle(el), padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    // 設定の「表示の大きさ」（body.style.zoom）が 1 以外だと、画面上の座標は拡大された値になる。
+    // 帯の top/left は拡大前の単位なので、層の見た目の高さ÷本来の高さで割り戻す（v53.003。割らないと下にずれて見出しに重なった）
     const base = L.getBoundingClientRect(), er = el.getBoundingClientRect();
-    const left = er.left - base.left + el.clientLeft + padL, width = el.clientWidth - padL - padR;
-    const place = (list, bottom) => list.map((bar, k) => ({ bar, top: bottom - (list.length - k) * BAR_H }));
+    const k = (L.offsetHeight && base.height) ? base.height / L.offsetHeight : 1;
+    const left = (er.left - base.left) / k + el.clientLeft + padL, width = el.clientWidth - padL - padR;
+    const place = (list, bottom) => list.map((bar, n) => ({ bar, top: bottom - (list.length - n) * BAR_H }));
     const rows = [];
-    at.forEach((list, j) => rows.push(...place(list, kids[j].getBoundingClientRect().top - base.top - 4)));
-    if (tail.length) rows.push(...place(tail, er.bottom - base.top - el.clientTop - 6));
+    at.forEach((list, j) => rows.push(...place(list, (kids[j].getBoundingClientRect().top - base.top) / k - 4)));
+    if (tail.length) rows.push(...place(tail, (er.bottom - base.top) / k - el.clientTop - 6));
     cur.bars = rows.map(r => r.bar);
     const en = window.WK_LANG?.() === 'en';
     L.innerHTML = rows.map((r, i) => `<div class="memo-dv" data-i="${i}" style="top:${r.top}px;left:${left}px;width:${width}px">

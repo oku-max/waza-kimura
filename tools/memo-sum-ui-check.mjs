@@ -225,6 +225,15 @@ await pg.evaluate(() => document.getElementById('memo-act-pop')?.remove()); awai
 d9 = await dv();
 ck('⑧ スマホ幅でも仕切りの帯がメモの文字に重ならず、メモ欄に収まる', d9.bars.length === 2 && d9.bars.every(b => b.bot - b.top > 20) && d9.bars.every(b => !overlap(b, d9.kids).length && b.l >= d9.er.l - 1 && b.r <= d9.er.r + 1), { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)) });
 await shot('8-sp-div');
+console.log('── ⑩ 表示の大きさ（body.style.zoom）を変えても帯がずれない（v53.003・オーナーの画面で帯が見出しに重なった）──');
+for (const z of ['1.3', '0.85']) {
+  await pg.evaluate((z) => { document.body.style.zoom = z; window.wkMemoSumRepaint(); }, z); await pg.waitForTimeout(400);
+  d9 = await dv();
+  ck(`⑩ zoom ${z}: 帯が見出しのすぐ上・メモの文字に重ならない・メモ欄に収まる`, d9.bars.length === 2 && d9.bars.every(b => b.bot - b.top > 20 && !overlap(b, d9.kids).length && b.l >= d9.er.l - 2 && b.r <= d9.er.r + 2)
+    && d9.bars[0].bot <= d9.kids.find(k => k.k === 'ch' && k.tx.includes('姿勢')).top + 2, { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)), er: d9.er });
+  await shot('10-zoom-' + z);
+}
+await pg.evaluate(() => { document.body.style.zoom = ''; window.wkMemoSumRepaint(); });
 ck('ページのエラーが無い', errs.length === 0, errs);
 console.log(fail ? `✗ ${fail} 件` : '✓ すべて通過');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);
