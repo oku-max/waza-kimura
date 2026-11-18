@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>メモの全画面とNOTES モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f2f2f6;--card:#fff;--text:#1a1a1a;--text2:#555;--text3:#999;--border:#e2e2e8;--accent:#2050c0;--hl:#fffde7}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);padding:14px;max-width:1100px;margin:0 auto}
+h1{font-size:17px;margin-bottom:4px}
+.lead{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px}
+h2{font-size:15px;margin:22px 0 8px;padding-left:8px;border-left:4px solid var(--accent)}
+.grid{display:flex;flex-wrap:wrap;gap:16px}
+.opt{flex:1 1 300px;min-width:290px;max-width:340px}
+.opt-h{font-size:14px;font-weight:800;margin-bottom:4px}
+.opt-d{font-size:11.5px;color:var(--text2);line-height:1.65;margin-bottom:8px;min-height:56px}
+.opt-d b{color:var(--text)}
+.pros{font-size:11px;line-height:1.6;margin-top:8px}
+.pros .p{color:#2a8050}.pros .c{color:#c0392b}
+.hint{font-size:10.5px;color:var(--accent);margin:6px 0 0;font-weight:700}
+/* phone */
+.phone{position:relative;width:100%;height:560px;background:var(--card);border:8px solid #222;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;font-size:12px}
+.vid{background:#111;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:#888;font-size:28px;flex-shrink:0}
+.vid.mini{aspect-ratio:auto;height:96px;font-size:18px}
+.ttl{padding:6px 10px;font-weight:700;font-size:12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sect{padding:6px 10px;color:var(--text3);font-size:11px;border-bottom:1px solid var(--border);flex-shrink:0}
+.mhead{display:flex;align-items:center;gap:5px;padding:6px 10px 4px;flex-shrink:0}
+.mhead .lbl{font-weight:800;font-size:12px}
+.b{font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);cursor:pointer}
+.b.full{border-color:var(--accent);color:var(--accent);font-weight:800;margin-left:auto}
+.b.pulse{animation:pl 1.6s infinite}
+@keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(32,80,192,.5)}50%{box-shadow:0 0 0 5px rgba(32,80,192,0)}}
+.tb{display:flex;gap:3px;padding:3px 10px 5px;flex-shrink:0;flex-wrap:wrap}
+.tb span{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--text2);background:#fafafa}
+.memo{margin:0 10px 8px;border:1px solid var(--border);border-radius:8px;padding:8px;line-height:1.7;font-size:12px;overflow:hidden;height:88px}
+.memo.tall{height:auto;flex:1;overflow:auto}
+.memo .h{font-weight:800;background:#eef2fb;padding:1px 5px;border-radius:4px;margin:4px 0 2px}
+.memo .ts{color:var(--accent);font-weight:700}
+.memo .mk{background:#fff176}
+.shot{display:inline-block;width:46px;height:26px;background:#556;border-radius:3px;vertical-align:middle;margin-right:4px}
+.fade{position:relative}
+.fade:after{content:'… 続きが読めない';position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(transparent,#fff 70%);font-size:10px;color:#c0392b;text-align:center;padding-top:20px}
+/* overlay full */
+.ov{position:absolute;inset:0;background:#fff;display:none;flex-direction:column;z-index:5}
+.ov.show{display:flex}
+.ovbar{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0;background:#fafafa}
+.ovbar .t{font-weight:800;font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovbar .x{font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;border:1px solid #1a1a1a;background:#1a1a1a;color:#fff;cursor:pointer}
+.saved{font-size:10px;color:#2a8050}
+.pane{flex:1;display:flex;flex-direction:column;min-height:0}
+/* notes */
+.nnav{display:flex;gap:4px;padding:6px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.nnav span{font-size:10.5px;padding:3px 8px;border-radius:12px;background:#eee;color:var(--text2)}
+.nnav span.on{background:var(--text);color:#fff}
+.nbody{flex:1;overflow:auto;padding:8px 10px}
+.np{font-size:12px;line-height:1.7;margin-bottom:8px}
+.nh{font-size:14px;font-weight:800;margin:4px 0 6px}
+.mblk{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.mblk-h{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f6f7fb;border-bottom:1px solid var(--border)}
+.mblk-h .th{width:44px;height:25px;background:#334;border-radius:3px;flex-shrink:0}
+.mblk-h .tt{font-weight:700;font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mblk .memo{margin:6px 8px;border:none;padding:0;height:auto;max-height:140px;overflow:auto}
+.raw{font-family:monospace;font-size:10px;color:#a33;background:#fff6f6;border:1px solid #f0c8c8;border-radius:6px;padding:6px;margin:6px 8px;word-break:break-all;line-height:1.5}
+.lst{border-bottom:1px solid var(--border);padding:7px 2px;display:flex;gap:8px;cursor:pointer}
+.lst .th{width:52px;height:30px;background:#334;border-radius:3px;flex-shrink:0}
+.lst .tt{font-weight:700;font-size:11px}
+.lst .ex{font-size:10.5px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.srch{margin:0 0 6px;border:1px solid var(--border);border-radius:16px;padding:5px 10px;font-size:11px;color:var(--text3)}
+.note{background:#fff8e1;border:1px solid #f0d890;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.75;margin:10px 0}
+.note b{color:#8a5a00}
+.q{background:#fff;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.8;margin-top:18px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+</style>
+</head>
+<body>
+
+<h1>📝 メモの全画面表示・編集 ／ NOTES に動画メモを出す（モック）</h1>
+<div class="lead">中の文字・動きは見本です。<b>青く光る「⛶」や行を押す</b>と、開いたときの画面になります。<br>
+どの案でも、メモは<b>今と同じ1つ（v.memo）</b>を見て書きます。写しを作らないので、動画パネル・NOTES・全画面のどこで書いても同じメモです。</div>
+
+<!-- ============ 1 ============ -->
+<h2>① 動画パネルのメモを全画面で読む・書く</h2>
+<div class="grid">
+
+  <div class="opt">
+    <div class="opt-h">A. メモだけを全画面</div>
+    <div class="opt-d">Memo の見出しの右に <b>⛶</b>。押すとメモが画面いっぱいに。書式のボタン・⏱・🖼 も上にそのまま。<b>閉じる</b>で元の場所へ。</div>
+    <div class="phone" id="pA">
+      <div class="vid">▶</div>
+      <div class="ttl">ハーフガードからのスイープ集</div>
+      <div class="sect">📌 ブックマーク 12件 ⌄</div>
+      <div class="mhead"><span class="lbl">Memo</span><span class="b">⏱</span><span class="b">🖼</span><span class="b full pulse" onclick="ov('pA',1)">⛶</span></div>
+      <div class="tb"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span></div>
+      <div class="memo fade" data-memo></div>
+      <div class="ov" data-ov>
+        <div class="ovbar"><span class="t">📝 ハーフガードからのスイープ集</span><span class="saved">保存済み</span><span class="x" onclick="ov('pA',0)">閉じる</span></div>
+        <div class="tb" style="padding-top:6px"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span><span>⏱</span><span>🖼</span></div>
+        <div class="memo tall" data-memo></div>
+      </div>
+    </div>
+    <div class="pros"><div class="p">＋ いちばん広く読める・書ける</div><div class="c">− 書いている間は動画が見えない（▶ 時刻を押すと全画面を閉じて動画へ飛ぶ）</div></div>
+  </div>
+
+  <div class="opt">
+    <div class="opt-h">B. 動画を上に小さく残して全画面</div>
+    <div class="opt-d">⛶ を押すと、上に<b>小さな動画</b>、その下ぜんぶがメモ。メモの <b>▶ 時刻</b>を押せばその場で再生。見ながら書ける。</div>
+    <div class="phone" id="pB">
+      <div class="vid">▶</div>
+      <div class="ttl">ハーフガードからのスイープ集</div>
+      <div class="sect">📌 ブックマーク 12件 ⌄</div>
+      <div class="mhead"><span class="lbl">Memo</span><span class="b">⏱</span><span class="b">🖼</span><span class="b full pulse" onclick="ov('pB',1)">⛶</span></div>
+      <div class="tb"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span></div>
+      <div class="memo fade" data-memo></div>
+      <div class="ov" data-ov>
+        <div class="vid mini">▶ 12:40</div>
+        <div class="ovbar"><span class="t">📝 Memo</span><span class="saved">保存済み</span><span class="x" onclick="ov('pB',0)">閉じる</span></div>
+        <div class="tb" style="padding-top:6px"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span><span>⏱</span><span>🖼</span></div>
+        <div class="memo tall" data-memo></div>
+      </div>
+    </div>
+    <div class="pros"><div class="p">＋ 動画を見ながら・⏱ を押しながら書ける</div><div class="c">− メモの広さは A より動画ぶん狭い</div></div>
+  </div>
+
+  <div class="opt">
+    <div class="opt-h">C. パネルの中でメモ欄を伸ばす</div>
+    <div class="opt-d">全画面にはせず、⛶ で<b>メモ欄の高さの制限を外す</b>（中身ぶん伸びる）。ブックマーク等は上に畳む。もう一度押すと元の高さ。</div>
+    <div class="phone" id="pC">
+      <div class="vid">▶</div>
+      <div class="ttl">ハーフガードからのスイープ集</div>
+      <div class="sect">📌 ブックマーク 12件 ⌄</div>
+      <div class="pane" data-pane style="overflow:auto">
+        <div class="mhead"><span class="lbl">Memo</span><span class="b">⏱</span><span class="b">🖼</span><span class="b full pulse" onclick="grow('pC')">⛶</span></div>
+        <div class="tb"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span></div>
+        <div class="memo fade" data-memo></div>
+      </div>
+    </div>
+    <div class="pros"><div class="p">＋ 画面の作りが変わらない</div><div class="c">− スマホでは動画の下の狭い所をスクロールして読むのは今と大差ない</div></div>
+  </div>
+</div>
+
+<!-- ============ 2 ============ -->
+<h2>② NOTES に好きな動画のメモを出す</h2>
+
+<div class="note"><b>調べて分かったこと（今の NOTES）</b><br>
+NOTES の「動画」ブロックには、すでに「📝 動画メモ（Vパネルと共有）」の欄があります。ただし<b>ただの文字の欄</b>なので、
+書式・見出し・画像・▶時刻の入ったメモ（AI要約など）は、下のように<b>中身の記号（HTML）がそのまま</b>出ます。
+<div class="raw">&lt;div class="memo-h"&gt;ハーフからのスイープ&lt;/div&gt;&lt;a class="ts-link" contenteditable="false" data-sec="760"&gt;▶ 12:40&lt;/a&gt; 膝を&lt;span style="background-color:#fff176"&gt;内側に&lt;/span&gt;…</div>
+ここで書き直すと、その記号ごと文字として保存されます（壊れはしませんが読めません）。<b>どの案でも、ここを動画パネルと同じ見た目・同じ書き方に直します。</b></div>
+
+<div class="grid">
+
+  <div class="opt">
+    <div class="opt-h">D. 新しいブロック「📝 動画メモ」</div>
+    <div class="opt-d">ノートに<b>動画を選んで</b>メモだけのブロックを置く（動画プレーヤーは出さない）。動画パネルと同じ見た目で読める。<b>⛶</b> で①の全画面へ。何本でも置ける。</div>
+    <div class="phone" id="pD">
+      <div class="nnav"><span class="on">ノート</span><span>Journal</span></div>
+      <div class="nbody">
+        <div class="nh">ハーフガード まとめ</div>
+        <div class="np">今月はハーフのボトムを固める。下は参考にしている動画のメモ。</div>
+        <div class="mblk"><div class="mblk-h"><span class="th"></span><span class="tt">ハーフガードからのスイープ集</span><span class="b">▶</span><span class="b full pulse" onclick="ov('pD',1)">⛶</span></div><div class="memo" data-memo></div></div>
+        <div class="mblk"><div class="mblk-h"><span class="th"></span><span class="tt">ロックダウンの基本</span><span class="b">▶</span><span class="b full">⛶</span></div><div class="memo" data-memo2></div></div>
+        <div class="np" style="color:var(--text3)">＋ ブロックを追加 → 📝 動画メモ</div>
+      </div>
+      <div class="ov" data-ov>
+        <div class="ovbar"><span class="t">📝 ハーフガードからのスイープ集</span><span class="saved">保存済み</span><span class="x" onclick="ov('pD',0)">閉じる</span></div>
+        <div class="tb" style="padding-top:6px"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span></div>
+        <div class="memo tall" data-memo></div>
+      </div>
+    </div>
+    <div class="pros"><div class="p">＋ 自分のノートの好きな位置に、好きな動画のメモを並べられる</div><div class="c">− ブロックを1つずつ置く手間</div></div>
+  </div>
+
+  <div class="opt">
+    <div class="opt-h">E. 今の「動画」ブロックのメモを直すだけ</div>
+    <div class="opt-d">新しいブロックは作らない。ノートの動画ブロックの「📝 メモ」を<b>読める形</b>にし、<b>⛶</b> で全画面編集。メモを見たい動画は動画ブロックとして置く。</div>
+    <div class="phone" id="pE">
+      <div class="nnav"><span class="on">ノート</span><span>Journal</span></div>
+      <div class="nbody">
+        <div class="nh">ハーフガード まとめ</div>
+        <div class="mblk"><div class="vid" style="font-size:20px">▶</div>
+          <div class="mblk-h"><span class="tt">📝 動画メモ（Vパネルと共有）</span><span class="b full pulse" onclick="ov('pE',1)">⛶</span></div><div class="memo" data-memo></div></div>
+      </div>
+      <div class="ov" data-ov>
+        <div class="ovbar"><span class="t">📝 ハーフガードからのスイープ集</span><span class="saved">保存済み</span><span class="x" onclick="ov('pE',0)">閉じる</span></div>
+        <div class="tb" style="padding-top:6px"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span></div>
+        <div class="memo tall" data-memo></div>
+      </div>
+    </div>
+    <div class="pros"><div class="p">＋ 足すものがいちばん少ない</div><div class="c">− メモだけ読みたいときも大きなプレーヤーが付く</div></div>
+  </div>
+
+  <div class="opt">
+    <div class="opt-h">F. NOTES に「動画メモ」の一覧</div>
+    <div class="opt-d">NOTES の上に「<b>動画メモ</b>」の切り替え。メモのある動画が<b>新しく書いた順</b>に並び、検索できる。押すと全画面で読む・書く。ノートには置かない。</div>
+    <div class="phone" id="pF">
+      <div class="nnav"><span>ノート</span><span>Journal</span><span class="on">動画メモ</span></div>
+      <div class="nbody">
+        <div class="srch">🔍 メモ・タイトルを検索</div>
+        <div class="lst" onclick="ov('pF',1)"><span class="th"></span><div><div class="tt">ハーフガードからのスイープ集 <span class="b full pulse" style="font-size:9px;padding:0 4px">押す</span></div><div class="ex">ハーフからのスイープ ▶12:40 膝を内側に入れてから下の脚でフックを作る…</div></div></div>
+        <div class="lst"><span class="th"></span><div><div class="tt">ロックダウンの基本</div><div class="ex">足首を外に向けて相手のふくらはぎを挟む。ウィップアップで…</div></div></div>
+        <div class="lst"><span class="th"></span><div><div class="tt">ニースライスの崩し</div><div class="ex">クロスフェイスを先に。頭の位置が…</div></div></div>
+        <div class="lst"><span class="th"></span><div><div class="tt">デラヒーバからのバックテイク</div><div class="ex">▶ 3:12 ベリンボロに入る前に…</div></div></div>
+      </div>
+      <div class="ov" data-ov>
+        <div class="ovbar"><span class="t">📝 ハーフガードからのスイープ集</span><span class="saved">保存済み</span><span class="x" onclick="ov('pF',0)">閉じる</span></div>
+        <div class="tb" style="padding-top:6px"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span></div>
+        <div class="memo tall" data-memo></div>
+      </div>
+    </div>
+    <div class="pros"><div class="p">＋ 動画を開かずに、メモを横断して読める・探せる</div><div class="c">− ノートの中に並べることはできない（D と両方も可）</div></div>
+  </div>
+</div>
+
+<div class="q">
+<b>決めてほしいこと</b><br>
+① 全画面は <b>A / B / C</b> のどれにしますか。（おすすめは B：要約を読みながら ▶ 時刻で動画を確かめられる）<br>
+② NOTES は <b>D / E / F</b> のどれにしますか（D＋F のように組み合わせも可）。E の「記号がそのまま出る」直しは、どれを選んでも一緒に入れます。
+</div>
+
+<script>
+const MEMO = `<div class="h">◾ ハーフからのスイープ</div><span class="ts">▶ 12:40</span> 膝を<span class="mk">内側に</span>入れてから、下の脚でフックを作る。<br><span class="shot"></span>上の相手の重心が前に来た瞬間に<b>脚を伸ばす</b>。<br><div class="h">◾ よくある失敗</div><span class="ts">▶ 18:05</span> 頭が下がると潰される。<b>頭は相手の胸より上</b>。<br>・アンダーフックを先に取る<br>・腰を切ってから脚を入れる<br><div class="h">◾ ロックダウンからの連携</div><span class="ts">▶ 24:30</span> ウィップアップで相手の脚を伸ばし、そのまま <span class="mk">オールドスクール</span> へ。<br>相手がベースを広げたら <b>エレクトリックチェア</b>。<br><div class="h">◾ ドリルのポイント</div>・左右10回ずつ<br>・フックを外されたら最初から<br>・最後は相手を立たせて終わる<br><span class="ts">▶ 31:12</span> まとめ`;
+document.querySelectorAll('[data-memo]').forEach(e=>e.innerHTML=MEMO);
+document.querySelectorAll('[data-memo2]').forEach(e=>e.innerHTML=`<div class="h">◾ 入り方</div>足首を外に向けて相手のふくらはぎを挟む。<br><span class="ts">▶ 4:10</span> ウィップアップ…`);
+function ov(id,on){document.querySelector('#'+id+' [data-ov]').classList.toggle('show',!!on)}
+function grow(id){const m=document.querySelector('#'+id+' [data-pane] [data-memo]');const big=m.classList.toggle('tall');m.classList.toggle('fade',!big);m.style.height=big?'auto':'';m.style.overflow='visible'}
+</script>
+</body>
+</html>
