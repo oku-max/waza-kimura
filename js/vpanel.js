@@ -1769,6 +1769,7 @@ export function vpAbSetFromBm(time, point) {
 }
 
 function _refreshBmList(id, flashIdx) {
+  if (!window._srVpOpen) window.wkMemoSumRepaint?.();   // メモの要約の仕切りの帯も今の仕切りで描き直す（v53.002・見た目だけ）
   // Search VP が開いている場合はそのコンテナ内を優先検索
   let el = null;
   if (window._srVpOpen) {

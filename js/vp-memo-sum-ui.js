@@ -9,10 +9,24 @@
 //   ▾ と ⋯ は CSS の ::before / ::after で描き、開閉は「#vp-memo-ID > :nth-child(n) を隠す」<style> を作って効かせる。
 //   メモ欄の要素にクラスや属性を付けないので、vpSaveMemo が保存する innerHTML に開閉の状態が混ざらない。
 //   開閉の状態は画面の中だけ（WeakMap。開き直すと最初の形＝見出しは閉じている）。
+//
+// 【仕切り】（v53.002・オーナー決定 mock-memo-divider.html の ①「表示するときに今の仕切りから当てはめる」）
+//   要約のブックマークの見出し（.memo-sum-ch）を、今の仕切り（v.bmDividers）ごとに紫の大見出しでまとめる。
+//   大見出しはメモの外（メモ欄の上に重ねた層 .memo-dv-layer）に描き、場所はメモの要素に余白を足す <style> で空ける。
+//   メモの文字には入れない＝前に作った要約にも付き、仕切りを動かす・名前を変えるとついてくる。
+//   仕切りは最初は開いている。押すと中のブックマークをまとめて開閉。右の ⋯ で その仕切りの区間の さらにくわしく／ドリル。
 (() => {
   const OPEN = new WeakMap();   // 見出しの要素 → 開いているか
   const SEEN = new WeakSet();   // 最初に見た見出し（これより後に現れた見出し＝今入った要約・くわしく は開いて出す）
-  let cur = null;               // { id, el, mo, style }
+  let cur = null;               // { id, el, mo, style, layer, ro }
+  const DV_OPEN = new WeakMap();  // 要約の題（.memo-sum-t）→ Map(仕切りのキー → 開いているか)。既定は開
+  const BAR_H = 36;               // 仕切りの帯1本ぶんの高さ（すき間込み）
+  const toS = t => typeof t === 'number' ? t : String(t ?? '').split(':').map(Number).reduce((p, q) => p * 60 + (q || 0), 0);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtT = s => window._vpSumKit?.fmtSec?.(Math.floor(s)) || String(Math.floor(s));
+  const videoOf = () => (window.videos || []).find(x => x.id === cur?.id) || null;
+  const durOf = v => window._vpDrillKit?.duration?.(cur.id) || Number(v?.duration) || 0;
+  const dividers = v => (v?.bmDividers || []).map(d => ({ t: toS(d.time), label: String(d.label || '') })).filter(d => isFinite(d.t)).sort((a, b) => a.t - b.t);
 
   const kind = e => e.classList.contains('memo-sum-t') ? 'T' : e.classList.contains('memo-sum-ch') ? 'C'
     : e.classList.contains('memo-sum-dh') ? 'D' : e.classList.contains('memo-sum-it') ? 'I' : 'O';
@@ -53,8 +67,73 @@
       const cnt = n ? (window.WK_LANG?.() === 'en' ? `${n} items` : `${n}件`) : '';
       css += `${sel}(${i + 1})::after{content:'${cnt}${k === 'C' ? '　⋯' : ''}'}`;
     });
-    if (hid.size) css += [...hid].map(j => `${sel}(${j + 1})`).join(',') + '{display:none!important}';
+    // ── 仕切り: 要約ごとに、ブックマークの見出しを今の仕切りでまとめる ──
+    const v = videoOf(), D = dividers(v), dur = durOf(v), bars = [], indent = new Map();
+    if (D.length) kids.forEach((e, ti) => {
+      if (kind(e) !== 'T' || hid.has(ti) || !isOpen(e, 'T')) return;
+      let end = ti + 1; while (end < kids.length && !['T', 'O'].includes(kind(kids[end]))) end++;   // この要約の範囲 (ti, end)
+      const divOf = t => { let k = -1; D.forEach((d, i) => { if (d.t <= t + 0.5) k = i; }); return k; };
+      let g = null; const groups = [];
+      for (let j = ti + 1; j < end; j++) {
+        if (kind(kids[j]) !== 'C') continue;
+        const s = secOf(kids[j]), k = s == null ? (g ? g.k : -1) : divOf(s);
+        if (!g || k !== g.k) { if (g) g.end = j - 1; g = { k, start: j }; groups.push(g); }
+      }
+      if (g) g.end = end - 1;
+      const st = DV_OPEN.get(e) || new Map(); DV_OPEN.set(e, st);
+      groups.filter(x => x.k >= 0).forEach(x => {
+        const d = D[x.k], key = d.t + '|' + d.label, open = st.has(key) ? st.get(key) : true;
+        const cs = []; for (let j = x.start; j <= x.end; j++) if (kind(kids[j]) === 'C') cs.push(j);
+        if (!open) for (let j = x.start; j <= x.end; j++) hid.add(j);
+        else for (let j = x.start; j <= x.end; j++) indent.set(j, 14 + lvOf(kids[j]) * 14);
+        bars.push({ T: e, key, open, start: x.start, end: x.end, n: cs.length, label: d.label, a: d.t, b: x.k + 1 < D.length ? D[x.k + 1].t : (dur > d.t ? dur : null) });
+      });
+    });
+    const hide = hid.size ? [...hid].map(j => `${sel}(${j + 1})`).join(',') + '{display:none!important}' : '';
+    css += [...indent].map(([j, px]) => `${sel}(${j + 1}){margin-left:${px}px!important}`).join('');
+    cur.style.textContent = css + hide;
+    layoutBars(kids, hid, bars, css + hide, sel);
+  }
+
+  // 仕切りの帯を、メモの要素のすき間（余白を足して空ける）に重ねて描く。帯はメモの外の要素なので保存されない
+  function layoutBars(kids, hid, bars, baseCss, sel) {
+    const L = cur.layer; if (!L) return;
+    if (!bars.length) { L.innerHTML = ''; return; }
+    // 帯を置く相手: 区間の最初の見える要素（閉じた区間なら、その後ろの最初の見える要素）。無ければメモの最後
+    const at = new Map(); let tail = [];
+    bars.forEach(bar => { let j = bar.start; while (j < kids.length && hid.has(j)) j++; if (j < kids.length) { if (!at.has(j)) at.set(j, []); at.get(j).push(bar); } else tail.push(bar); });
+    let css = baseCss;
+    at.forEach((list, j) => { const mt = parseFloat(getComputedStyle(kids[j]).marginTop) || 0; css += `${sel}(${j + 1}){margin-top:${Math.max(mt, 10) + list.length * BAR_H}px!important}`; });
+    if (tail.length) css += `#${CSS.escape(cur.el.id)}{padding-bottom:${tail.length * BAR_H + 10}px!important}`;
     cur.style.textContent = css;
+    // 位置は画面上の座標の差で測る（層はメモ欄の親＝行に重ねている）
+    const el = cur.el, cs = getComputedStyle(el), padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    const base = L.getBoundingClientRect(), er = el.getBoundingClientRect();
+    const left = er.left - base.left + el.clientLeft + padL, width = el.clientWidth - padL - padR;
+    const place = (list, bottom) => list.map((bar, k) => ({ bar, top: bottom - (list.length - k) * BAR_H }));
+    const rows = [];
+    at.forEach((list, j) => rows.push(...place(list, kids[j].getBoundingClientRect().top - base.top - 4)));
+    if (tail.length) rows.push(...place(tail, er.bottom - base.top - el.clientTop - 6));
+    cur.bars = rows.map(r => r.bar);
+    const en = window.WK_LANG?.() === 'en';
+    L.innerHTML = rows.map((r, i) => `<div class="memo-dv" data-i="${i}" style="top:${r.top}px;left:${left}px;width:${width}px">
+      <button class="memo-dv-f" data-a="fold" aria-expanded="${r.bar.open}">${r.bar.open ? '▾' : '▸'}</button>
+      <span class="memo-dv-n" data-a="fold">■ <span data-user-text="1">${esc(r.bar.label || '（名前なし）')}</span></span>
+      ${r.bar.open ? '' : `<span class="memo-dv-c">${en ? r.bar.n + ' headings' : r.bar.n + '見出し'}</span>`}
+      <button class="memo-dv-m" data-a="menu" title="この仕切りの区間で">⋯</button></div>`).join('');
+  }
+  function onBar(ev) {
+    const b = ev.target.closest('[data-a]'), row = ev.target.closest('.memo-dv'); if (!b || !row || !cur) return;
+    const bar = cur.bars?.[+row.dataset.i]; if (!bar) return;
+    ev.preventDefault();
+    if (b.dataset.a === 'fold') { const st = DV_OPEN.get(bar.T); st.set(bar.key, !bar.open); paint(); return; }
+    const v = videoOf(), dur = durOf(v), a = bar.a, z = bar.b ?? (dur > a + 1 ? dur : a + 60);
+    const kids = [...cur.el.children], last = kids[bar.end];
+    popMenu({ a, b: z }, b.getBoundingClientRect(), {
+      play: () => window._vpDrillKit?.seek?.(a),
+      more: () => window.vpSumRangeOpen?.(cur.id, { a, b: z, anchor: last, lv: 0, label: bar.label }),   // 仕切りの区間の最後に一段下げて入れる
+      drill: () => window.wkDrillFromRange?.(cur.id, a, z, bar.label),
+    });
   }
 
   // 押した場所: 見出しの左の ▾（28px）／見出し・行の右の ⋯（28px）
@@ -96,16 +175,26 @@
   }
 
   function menu(z) {
-    document.getElementById('memo-act-pop')?.remove();
     const r = rangeOf(z); if (!r) { window.toast?.('この行には時刻がありません'); return; }
-    const fmt = s => window._vpSumKit?.fmtSec?.(Math.floor(s)) || String(s);
-    const id = cur.id, pop = document.createElement('div');
+    const id = cur.id;
+    popMenu(r, z.e.getBoundingClientRect(), {
+      play: () => z.e.querySelector('a.ts-link')?.click(),   // 行の ▶時刻 を押したのと同じ
+      more: () => window.vpSumRangeOpen?.(id, { a: r.a, b: r.b, anchor: z.e, lv: r.lv, label: r.label }),
+      drill: btn => {
+        if (z.k === 'C' && r.bmIdx != null) window.wkDrillFromBm?.(id, r.bmIdx, btn && btn.isConnected ? btn : z.e);   // ブックマークの行の DRILL と同じ
+        else window.wkDrillFromRange?.(id, r.a, r.b);
+      },
+    });
+  }
+  function popMenu(r, er, act) {
+    document.getElementById('memo-act-pop')?.remove();
+    const fmt = fmtT, pop = document.createElement('div');
     pop.id = 'memo-act-pop'; pop.className = 'memo-act-pop';
     pop.innerHTML = `<button data-a="play">▶ ここから再生<small>${fmt(r.a)}</small></button>
       <button data-a="more">🔍 さらにくわしく<small>${fmt(r.a)}–${fmt(r.b)}</small></button>
       <button data-a="drill"><span class="drl-pill">DRILL</span> ドリルにする<small>${fmt(r.a)}–${fmt(r.b)}</small></button>`;
     document.body.appendChild(pop);
-    const er = z.e.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    const w = pop.offsetWidth, h = pop.offsetHeight;
     pop.style.left = Math.max(8, Math.min(er.right - w, window.innerWidth - w - 8)) + 'px';
     const top = er.top + Math.min(er.height, 28) + 2;
     pop.style.top = (top + h > window.innerHeight - 8 ? Math.max(8, er.top - h - 2) : top) + 'px';
@@ -115,12 +204,7 @@
     pop.addEventListener('click', e => {
       const b = e.target.closest('button[data-a]'); if (!b) return;
       const a = b.dataset.a; close();
-      if (a === 'play') z.e.querySelector('a.ts-link')?.click();   // 行の ▶時刻 を押したのと同じ
-      else if (a === 'more') window.vpSumRangeOpen?.(id, { a: r.a, b: r.b, anchor: z.e, lv: r.lv, label: r.label });
-      else if (a === 'drill') {
-        if (z.k === 'C' && r.bmIdx != null) window.wkDrillFromBm?.(id, r.bmIdx, b.isConnected ? b : z.e);   // ブックマークの行の DRILL と同じ
-        else window.wkDrillFromRange?.(id, r.a, r.b);
-      }
+      act[a]?.(b);
     });
   }
 
@@ -137,20 +221,32 @@
   window.wkMemoSumUi = function (id) {
     const el = document.getElementById('vp-memo-' + id); if (!el || !el.isContentEditable) return;
     if (cur?.el === el) { paint(); return; }
-    cur?.mo?.disconnect(); cur?.style?.remove();
+    cur?.mo?.disconnect(); cur?.ro?.disconnect(); cur?.style?.remove(); cur?.layer?.remove();
     document.getElementById('memo-act-pop')?.remove();
     const style = document.createElement('style'); style.id = 'vp-memo-fold-style';
     document.head.appendChild(style);
-    cur = { id, el, style, ready: false };
+    // 仕切りの帯を重ねる層（メモ欄の外・同じ行の中。メモと一緒にスクロールする）
+    const row = el.parentElement, layer = document.createElement('div');
+    layer.className = 'memo-dv-layer';
+    if (row && getComputedStyle(row).position === 'static') row.style.position = 'relative';
+    row?.appendChild(layer);
+    layer.addEventListener('click', onBar);
+    cur = { id, el, style, layer, ready: false };
     el.classList.add('vp-memo-sumui');
     el.addEventListener('mousedown', onDown, true);
     el.addEventListener('click', onClick, true);
     let raf = 0;
     cur.mo = new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); });
     cur.mo.observe(el, { childList: true });
+    // 文字を打つ・画像が読み込まれる・幅が変わると見出しの位置が動くので、帯を置き直す
+    let lastH = -1, lastW = -1;
+    cur.ro = new ResizeObserver(() => { if (el.offsetHeight === lastH && el.offsetWidth === lastW) return; lastH = el.offsetHeight; lastW = el.offsetWidth; cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); });
+    cur.ro.observe(el);
     paint(); cur.ready = true;
   };
   // 全部開く／全部閉じる（検査・将来のボタン用）
+  // 仕切りを直したとき（ブックマーク欄）に帯を描き直す
+  window.wkMemoSumRepaint = () => { if (cur) paint(); };
   window.wkMemoSumFoldAll = function (open) {
     if (!cur) return;
     [...cur.el.children].forEach(e => { const k = kind(e); if (isHead(k) && k !== 'T') OPEN.set(e, !!open); });

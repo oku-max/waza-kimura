@@ -178,11 +178,12 @@
   };
   // メモの要約の行から（v53.001・mock-memo-actions.html）。範囲はメモの行の時刻〜次の行の時刻。
   // 作るカードは2回押し・ブックマークと同じ（openCard）。名前も2回押しと同じ決まり（トラック名・番号）。
-  window.wkDrillFromRange = function (vid, a, b) {
+  // name を渡したとき（メモの仕切りの帯から）は その名前（同じ名前があれば番号）。
+  window.wkDrillFromRange = function (vid, a, b, name) {
     if (!guard(vid)) return;
     a = Math.max(0, Number(a) || 0); b = Number(b) || 0;
     if (!(b > a + 1)) b = a + 30;
-    openCard({ vid, title: trackName(vid, a), a, b, from: 'メモ' });
+    openCard({ vid, title: String(name || '').trim() ? numberedName(vid, name) : trackName(vid, a), a, b, from: 'メモ' });
   };
   window.wkDrillTap = function (vid) {
     if (!guard(vid)) return;
