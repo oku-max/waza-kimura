@@ -2231,6 +2231,7 @@ export function openVPanel(id) {
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
     _initMemoEditor(vid, vd?.memo||'');
+    window.wkMemoSumUi?.(vid);   // 要約の見出しの開閉・⋯（v53.001。メモの中身は変えない）
     if (window.initSnapshotSection) {
       window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
     }
@@ -9540,6 +9541,24 @@ window._vpSumKit = {
   fmtSec: (s) => _fmtSec(s),
   tsLinkHtml: (sec) => _tsLinkHtml(sec, _fmtSec(sec)),
   thumbHtml: (snapId, sec, url) => _thumbHtml(snapId, sec, url, 'inline'),
+  // メモの行（anchor）のすぐ下に足して保存する（v53.001・さらにくわしく）。今のメモの文字は消さない・書き換えない。
+  // その行に前に入れた「くわしく」（一段深いもの）があれば、その後ろに入れる。行がもうメモに無ければ 'gone'。
+  insertMemoAfter(id, anchor, html, lv) {
+    const el = document.getElementById('vp-memo-' + id);
+    if (!el) return false;
+    if (!anchor || anchor.parentElement !== el) return 'gone';
+    const lvOf = e => Number(e.dataset?.lv) || 0;
+    let at = anchor;
+    for (let n = at.nextElementSibling; n && (n.classList.contains('memo-sum-dh') || n.classList.contains('memo-sum-it')) && lvOf(n) > (lv || 0); n = n.nextElementSibling) at = n;
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const first = tmp.firstElementChild;
+    at.after(...tmp.childNodes);
+    _bindTsLinks(el);
+    vpSaveMemo(id);
+    const snapSec = document.getElementById('vp-snap-section-' + id);
+    if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
+    return first || true;
+  },
   // メモの最後に足して保存する（今のメモは消さない・書き換えない）
   appendMemo(id, html) {
     const el = document.getElementById('vp-memo-' + id);

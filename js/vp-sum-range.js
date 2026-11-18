@@ -27,6 +27,9 @@
   // ── 状態（画面の中だけ。動画ごとに選び直す） ──
   let vid = null, mode = 'div', selDiv = new Set(), selBm = new Set(), starMin = 1, tA = null, tB = null;
   let nItems = 0, nShots = 5, ownI = '', ownS = '', phase = 'pick', cancelTok = 0, ov = null, nowTimer = null, noAuth = '';
+  // メモの要約の行の「さらにくわしく」から開いたとき（v53.001・mock-memo-actions.html の X）: 範囲を入れた「時刻を指定」で開き、
+  // できた要約はメモの最後ではなく、その行（見出し）のすぐ下に入れる。{anchor: メモの行の要素, lv: その行の深さ, label}
+  let det = null;
 
   const data = () => {
     const v = (window.videos || []).find(x => x.id === vid) || null;
@@ -49,11 +52,13 @@
     return tA != null && tB != null && tB > tA ? [{ a: tA, b: tB, labels: [] }] : [];
   }
 
-  window.vpSumRangeOpen = function (id) {
+  window.vpSumRangeOpen = function (id, opts) {
     if (!window._vpSumKit) { window.toast?.('動画パネルを開き直してください'); return; }
     if (vid !== id) { vid = id; selDiv = new Set(); selBm = new Set(); tA = tB = null; }
     const D = data();
-    if (!selDiv.size && !selBm.size) { if (D.divs.length) { mode = 'div'; selDiv.add(0); } else if (D.bms.length) { mode = 'bm'; selBm.add(0); } else mode = 'time'; }
+    det = null;
+    if (opts && opts.a != null && opts.b > opts.a) { mode = 'time'; tA = opts.a; tB = opts.b; det = { anchor: opts.anchor || null, lv: opts.lv || 0, label: opts.label || '' }; }
+    else if (!selDiv.size && !selBm.size) { if (D.divs.length) { mode = 'div'; selDiv.add(0); } else if (D.bms.length) { mode = 'bm'; selBm.add(0); } else mode = 'time'; }
     phase = 'pick';
     ov?.remove();
     ov = document.createElement('div'); ov.className = 'vsr-ov'; ov.id = 'vsr-ov'; ov.innerHTML = '<div class="vsr-sh" role="dialog" aria-label="要約"></div>';
@@ -71,7 +76,7 @@
   function render() {
     if (!ov) return;
     const D = data(), sh = ov.querySelector('.vsr-sh'), isGd = !!K().isGdPlaying?.();
-    let h = `<div class="vsr-hd"><b>✨ 要約</b><div class="sub">選んだ部分の字幕だけを AI に送って要約し、メモの最後に入れます。</div>
+    let h = `<div class="vsr-hd"><b>✨ 要約</b><div class="sub">${det ? `選んだ部分の字幕だけを AI に送って要約し、メモの「${esc(det.label || '選んだ行')}」のすぐ下に入れます。` : '選んだ部分の字幕だけを AI に送って要約し、メモの最後に入れます。'}</div>
       <div class="vsr-tabs">${TABS.map(([k, l]) => `<button class="${k === mode ? 'on' : ''}" data-tab="${k}" ${phase !== 'pick' ? 'disabled' : ''}>${l}</button>`).join('')}</div></div><div class="vsr-bd">`;
     if (phase === 'busy') { sh.innerHTML = h + `<div class="vsr-busy" id="vsr-busy">準備しています…</div></div><div class="vsr-ft"><button class="vsr-cancel" data-act="stop">やめる（結果を受け取らない）</button></div>`; bind(); return; }
     // ログインしていない・Drive の認証が切れていると字幕を読めない。そのときは「字幕が無い」ではなく、ログインを案内する
@@ -188,8 +193,9 @@
     const tok = ++cancelTok; phase = 'busy'; render();
     const setMsg = m => { const el = ov?.querySelector('#vsr-busy'); if (el) el.textContent = m; };
     const isGd = !!K().isGdPlaying?.(), wantShots = isGd ? nShots : 0;
+    const dt = det;
     const names = rs.flatMap(r => r.labels).filter(Boolean).join('・');
-    const label = mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : (names.length > 60 ? names.slice(0, 60) + '…' : names);
+    const label = dt ? dt.label : mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : (names.length > 60 ? names.slice(0, 60) + '…' : names);
     setMsg(`AIが要約しています…（字幕 ${cues.length}行）`);
     let items = [], err = '';
     try {
@@ -226,11 +232,21 @@
       html += p ? `<div class="memo-sum-it">${ts(x.t)}&nbsp;${K().thumbHtml(p.snapId, x.t, p.url)}&nbsp;<span class="snap-cap" data-snap-id="${p.snapId}">${esc(x.text)}</span></div>`
                 : `<div class="memo-sum-it">${ts(x.t)}&nbsp;${esc(x.text)}</div>`;
     });
-    const ok = K().appendMemo(id, html);
+    // さらにくわしく: その行のすぐ下に、一段下げて入れる（前の行の文字は変えない）。行が消えていたら今までどおり最後に足す
+    let ok;
+    if (dt && dt.anchor && K().insertMemoAfter) {
+      const L = dt.lv + 1;
+      let dh = `<div class="memo-sum-dh" data-lv="${L}">🔍 くわしく${label ? '　' + esc(label) : ''}<span class="memo-sum-rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · 合計 ${lenTxt(tot)}</span></div>`;
+      items.forEach(x => { const p = pics[x.t];
+        dh += p ? `<div class="memo-sum-it" data-lv="${L}">${ts(x.t)}&nbsp;${K().thumbHtml(p.snapId, x.t, p.url)}&nbsp;<span class="snap-cap" data-snap-id="${p.snapId}">${esc(x.text)}</span></div>`
+                : `<div class="memo-sum-it" data-lv="${L}">${ts(x.t)}&nbsp;${esc(x.text)}</div>`; });
+      ok = K().insertMemoAfter(id, dt.anchor, dh, dt.lv);
+      if (ok === 'gone') ok = K().appendMemo(id, dh);
+    } else ok = K().appendMemo(id, html);
     close();
     const nPic = Object.keys(pics).filter(k => k !== '__err').length;
     if (!ok) { window.toast?.('メモ欄が見つかりませんでした（パネルを開き直してください）', 7000); return; }
     window.toast?.(`✂️ 要約をメモに入れました（${items.length}項目${nPic ? `・写真${nPic}枚` : ''}）` + (pics.__err ? ` ／写真を撮れませんでした: ${pics.__err}` : ''), 6000);
-    [...(document.getElementById("vp-memo-" + id)?.querySelectorAll(".memo-sum-t") || [])].pop()?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    ((ok && ok.nodeType === 1) ? ok : [...(document.getElementById("vp-memo-" + id)?.querySelectorAll(".memo-sum-t") || [])].pop())?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
 })();

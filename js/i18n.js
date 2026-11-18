@@ -889,6 +889,7 @@
     '今の動画フレームを撮影してメモ・写真に追加する':'Capture the current frame and add it to the memo/photos',
     '太字':'Bold','斜体':'Italic','下線':'Underline','取り消し線':'Strikethrough',
     '文字サイズ':'Font size','文字色':'Text color','蛍光ペン':'Highlighter','書式リセット':'Clear formatting',
+    '▶ ここから再生':'▶ Play from here','🔍 さらにくわしく':'🔍 More detail','ドリルにする':'Make a drill','この行には時刻がありません':'This line has no timestamp',
     'メモを大きく':'Enlarge memo','動画を残したまま、メモを大きく表示する。もう一度（閉じる）で元に戻る':'Shows the memo large while keeping the video. Press again (Close) to go back','メモを大きく表示（動画はそのまま）':'Show the memo large (video stays)','メモを元の大きさに戻す':'Return the memo to normal size',
     'タイムスタンプ':'Timestamp','元に戻す':'Undo','やり直し':'Redo',
     '直前の編集を取り消す':'Undo the last edit','取り消した編集をやり直す':'Redo the undone edit',
@@ -2342,6 +2343,7 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    [/^選んだ部分の字幕だけを AI に送って要約し、メモの「(.+)」のすぐ下に入れます。$/, (m, n) => `Sends only the selected part's subtitles to AI and inserts the summary right below “${n}” in the memo.`],
     [/^押すたびに切り替え（オフ・(.+)）$/, (m, l) => `Press to switch (Off · ${l})`],
     [/^カスタムドリル「(.+)」を削除しますか？$/, (m, n) => `Delete the custom drill “${n}”?`],
     [/^「(.+)」に(\d+)本入れました$/, (m, n, k) => `Added ${k} to “${n}”`],

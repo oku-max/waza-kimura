@@ -1923,5 +1923,22 @@ body.dark .vsr-pick .st{color:#f2c94c}
 .memo-sum-no{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:var(--text);color:var(--surface);font-size:.78em;font-weight:800;margin-right:7px;vertical-align:.1em}
 .memo-sum-ch .ts-link{font-size:.75em;font-weight:600;margin-left:6px}
 .memo-sum-it{margin:4px 0;line-height:1.65}
+/* くわしく（v53.001・js/vp-sum-range.js の さらにくわしく）: 一段下げる。data-lv はメモの中身（保存される） */
+.memo-sum-dh{font-size:.95em;font-weight:800;color:var(--accent);line-height:1.45;margin:8px 0 3px}
+.memo-sum-dh .memo-sum-rg{display:inline;margin-left:8px}
+.memo-sum-dh[data-lv="1"],.memo-sum-it[data-lv="1"]{margin-left:14px}
+.memo-sum-dh[data-lv="2"],.memo-sum-it[data-lv="2"]{margin-left:28px}
+.memo-sum-dh[data-lv="3"],.memo-sum-it[data-lv="3"]{margin-left:42px}
+.memo-sum-it[data-lv]{border-left:3px solid #9bb3e6;padding-left:8px}
+/* 開閉の ▾ と ⋯（v53.001・js/vp-memo-sum-ui.js）。動画パネルのメモ欄だけ。::before/::after で描くのでメモの中身には入らない */
+.vp-memo-sumui>.memo-sum-t,.vp-memo-sumui>.memo-sum-ch,.vp-memo-sumui>.memo-sum-dh{position:relative;padding-left:28px}
+.vp-memo-sumui>.memo-sum-t::before,.vp-memo-sumui>.memo-sum-ch::before,.vp-memo-sumui>.memo-sum-dh::before{content:'▾';position:absolute;left:0;top:.1em;width:20px;height:20px;box-sizing:border-box;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:400;line-height:18px;text-align:center;cursor:pointer;user-select:none}
+.vp-memo-sumui>.memo-sum-ch,.vp-memo-sumui>.memo-sum-it{position:relative;padding-right:30px}
+.vp-memo-sumui>.memo-sum-ch::after,.vp-memo-sumui>.memo-sum-it::after{content:'⋯';position:absolute;right:0;top:0;min-width:26px;height:22px;line-height:22px;text-align:right;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap}
+.vp-memo-sumui>.memo-sum-t::after,.vp-memo-sumui>.memo-sum-dh::after{content:'';position:absolute;right:0;top:.2em;color:var(--text3);font-size:11px;font-weight:600}
+.memo-act-pop{position:fixed;z-index:10050;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 22px rgba(0,0,0,.2);padding:4px;min-width:230px;display:flex;flex-direction:column}
+.memo-act-pop button{display:flex;align-items:center;gap:8px;padding:9px 10px;border:none;background:transparent;border-radius:7px;font:inherit;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;text-align:left}
+.memo-act-pop button:hover{background:var(--surface2)}
+.memo-act-pop small{margin-left:auto;font-size:11px;color:var(--text3);font-weight:500;padding-left:12px}
 /* 色地のボタンの文字は地と反対の色（.vsr-sh button の color:inherit より強く） */
 .vsr-sh .vsr-go,.vsr-sh .vsr-o.on,.vsr-sh .vsr-o.on small,.vsr-sh .vsr-tabs button.on{color:var(--surface)}

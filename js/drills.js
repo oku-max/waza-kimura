@@ -176,6 +176,14 @@
       else if (b.dataset.edit) { const d = drill(b.dataset.edit); if (d) openCard({ vid: d.vid, id: d.id, title: d.title, a: d.a, b: d.b, mir: !!d.mir, sp: d.sp || 1, from: '一覧' }); }
     });
   };
+  // メモの要約の行から（v53.001・mock-memo-actions.html）。範囲はメモの行の時刻〜次の行の時刻。
+  // 作るカードは2回押し・ブックマークと同じ（openCard）。名前も2回押しと同じ決まり（トラック名・番号）。
+  window.wkDrillFromRange = function (vid, a, b) {
+    if (!guard(vid)) return;
+    a = Math.max(0, Number(a) || 0); b = Number(b) || 0;
+    if (!(b > a + 1)) b = a + 30;
+    openCard({ vid, title: trackName(vid, a), a, b, from: 'メモ' });
+  };
   window.wkDrillTap = function (vid) {
     if (!guard(vid)) return;
     if (MK && MK.vid === vid) { slot()?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
