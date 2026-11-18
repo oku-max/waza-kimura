@@ -889,6 +889,7 @@
     '今の動画フレームを撮影してメモ・写真に追加する':'Capture the current frame and add it to the memo/photos',
     '太字':'Bold','斜体':'Italic','下線':'Underline','取り消し線':'Strikethrough',
     '文字サイズ':'Font size','文字色':'Text color','蛍光ペン':'Highlighter','書式リセット':'Clear formatting',
+    'メモを大きく':'Enlarge memo','動画を残したまま、メモを大きく表示する。もう一度（閉じる）で元に戻る':'Shows the memo large while keeping the video. Press again (Close) to go back','メモを大きく表示（動画はそのまま）':'Show the memo large (video stays)','メモを元の大きさに戻す':'Return the memo to normal size',
     'タイムスタンプ':'Timestamp','元に戻す':'Undo','やり直し':'Redo',
     '直前の編集を取り消す':'Undo the last edit','取り消した編集をやり直す':'Redo the undone edit',
     '選択した文字を太字にする':'Make the selected text bold',

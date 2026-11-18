@@ -1976,6 +1976,7 @@ window.vpOpenAt = function(id, t) {
   if (!(window.videos || []).find(v => v.id === id && v.pt === 'gdrive')) _vpStartOnce = null;
 };
 export function openVPanel(id) {
+  _vpMemoFocus(false);   // メモを大きくした状態は、次の動画に持ち越さない
   // ふだんの開き方（サムネを押す等）では、前のプレビューの位置を持ち越さない
   if (!_vpStartFresh) _vpStartOnce = null;
   _vpStartFresh = false;
@@ -2216,10 +2217,12 @@ export function openVPanel(id) {
       ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
            style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
       : '';
+    // ⛶ = メモを大きく（v53.000・オーナー決定 mock-memo-full.html の B）。見た目だけ。メモの中身・保存は今と同じ
+    const _memoFocusBtn = `<button id="vp-memo-full-${vid}" class="vp-memo-full-btn" onclick="vpMemoFocusToggle()" title="メモを大きく表示（動画はそのまま）">⛶</button>`;
     bmContainer.innerHTML = _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl">Memo${_tsBtn}${_snapBtn}${_subGenBtn}</span>
+            <span class="vp-lbl" style="display:flex;align-items:center;width:100%">Memo${_tsBtn}${_snapBtn}${_subGenBtn}${_memoFocusBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
@@ -2533,6 +2536,7 @@ window.vpToggleMirror = function () {
 
 export function closeVPanel() {
   try {
+    _vpMemoFocus(false);
     _recordPlayhead(true);   // 閉じる位置を確定させてクラウドへ送る
     _phCurrentId = null;
     // ボトムシートを閉じる
@@ -8611,6 +8615,39 @@ function _memoToolbarHTML(id) {
   </div>`;
 }
 
+// ── メモを大きく（v53.000・オーナー決定 mock-memo-full.html の B「動画を残してメモを大きく」） ──
+// 動画パネルの形を CSS のクラス（#vpanelInner.vp-memo-focus）だけで切り替える。
+//   横長（PC・タブレット横）: 動画の列を 40% に・右の列はメモだけ（間の線のドラッグで幅を変えられる）
+//   縦長（スマホ・タブレット縦）: 動画は上に小さめで残し、スキップの列を隠して下ぜんぶメモ
+// 要素は動かさない（iframe を動かすと再生が止まる・メモの欄はそのまま＝保存の道も今と同じ）。
+// 動画のデータには何も書かない。状態は画面の中だけ。
+let _memoFocusPrevW = null;
+function _vpMemoFocus(on) {
+  const inner = document.getElementById('vpanelInner');
+  if (!inner || inner.classList.contains('vp-memo-focus') === !!on) return;
+  inner.classList.toggle('vp-memo-focus', !!on);
+  const left = document.getElementById('vpanel-left-col');
+  if (left) {
+    if (on) { _memoFocusPrevW = left.style.width; left.style.width = '40%'; }
+    else { left.style.width = _memoFocusPrevW || ''; _memoFocusPrevW = null; }
+  }
+  const id = window.openVPanelId;
+  const btn = id && document.getElementById('vp-memo-full-' + id);
+  if (btn) { btn.textContent = on ? '閉じる' : '⛶'; btn.title = on ? 'メモを元の大きさに戻す' : 'メモを大きく表示（動画はそのまま）'; }
+  if (on && id) {
+    const wrap = document.getElementById('vpanel-edit-wrap'), row = document.getElementById('vp-memo-row-' + id);
+    if (wrap && row) wrap.scrollTop = Math.max(0, row.offsetTop - wrap.offsetTop);
+    if (!inner.classList.contains('is-portrait')) {
+      const rc = document.getElementById('vpanel-right-col');
+      if (rc) rc.scrollTop = 0;
+    }
+  }
+}
+window.vpMemoFocusToggle = function() {
+  const inner = document.getElementById('vpanelInner');
+  _vpMemoFocus(!inner?.classList.contains('vp-memo-focus'));
+};
+
 // メモ書式ツールバー各ボタンのヘルプポップアップ（三点メニュー風）
 window.vpMemoHelp = function(e) {
   if (e) e.stopPropagation();
@@ -8630,6 +8667,7 @@ window.vpMemoHelp = function(e) {
     { ic: '<b style="color:#e53935">T</b>',                      label: '文字色',         sub: '文字の色を変える' },
     { ic: '<b style="background:#fff176;color:#555;padding:0 3px;border-radius:2px">M</b>', label: '蛍光ペン', sub: '文字に蛍光ペン（ハイライト）を引く' },
     { ic: '✕',                                                   label: '書式リセット',   sub: '選択範囲の書式をすべて消す' },
+    { ic: '⛶',                                                  label: 'メモを大きく',   sub: '動画を残したまま、メモを大きく表示する。もう一度（閉じる）で元に戻る' },
     { ic: '⏱',                                                  label: 'タイムスタンプ', sub: 'ボタンを押したときの時間に移動できるリンクをメモに挿入' },
     { ic: '🗑',                                                  label: 'メモを全て削除', sub: 'このメモの内容をすべて消す（確認あり）' },
   ];
