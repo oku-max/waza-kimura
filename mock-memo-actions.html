@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>メモの開閉・くわしく・ドリル モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f2f2f6;--surface:#fff;--surface2:#f4f4f4;--text:#1a1a1a;--text2:#555;--text3:#999;--border:#e2e2e8;--accent:#2050c0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);padding:14px;max-width:1300px;margin:0 auto}
+h1{font-size:17px;margin-bottom:4px}
+.lead{font-size:12px;color:var(--text2);line-height:1.75;margin-bottom:10px;max-width:980px}
+.lead b{color:var(--text)}
+.ctl{position:sticky;top:0;z-index:60;background:var(--bg);padding:8px 0 10px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid #ddd;margin-bottom:12px}
+.ctl .r{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl .k{font-size:11.5px;font-weight:800;min-width:150px}
+.ctl button{font-size:12px;font-weight:700;padding:5px 12px;border-radius:16px;border:1px solid #ccc;background:#fff;color:var(--text2);cursor:pointer}
+.ctl button.on{background:var(--text);color:#fff;border-color:var(--text)}
+.wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.side{flex:1;min-width:280px;max-width:420px;font-size:12px;line-height:1.75}
+.side h3{font-size:13px;margin:12px 0 4px}
+.side .box{background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.side .box b{color:#000}
+.side .warn{background:#fff8e1;border:1px solid #f0d890}
+.side ol,.side ul{padding-left:18px}
+/* device */
+.frame{position:relative;background:var(--surface);overflow:hidden;display:flex;font-size:13px}
+.f-phone{width:360px;height:740px;border:9px solid #222;border-radius:28px;flex-direction:column}
+.f-pc{width:1000px;height:640px;border:1px solid #bbb;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.12);flex-direction:row}
+.vcol{display:flex;flex-direction:column;flex-shrink:0;background:#fafafa}
+.f-phone .vcol{width:100%}
+.f-pc .vcol{width:40%;border-right:5px solid var(--border)}
+.vid{background:#111;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:#999;font-size:20px;flex-shrink:0;position:relative}
+.vid .now{position:absolute;left:8px;bottom:6px;font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:4px}
+.ttl{padding:6px 10px;font-weight:700;font-size:11.5px;border-bottom:1px solid var(--border);background:#fff}
+.mcol{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0}
+.mhead{display:flex;align-items:center;gap:6px;padding:8px 12px 4px;flex-shrink:0;background:#fff}
+.mhead .lbl{font-weight:800;font-size:10px;letter-spacing:1px;color:var(--text3)}
+.b{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
+.b.dark{background:var(--text);color:#fff;border-color:var(--text);font-weight:800}
+.tb{display:flex;gap:3px;padding:2px 12px 6px;flex-shrink:0;flex-wrap:wrap;background:#fff}
+.tb span{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--text2);background:#fafafa}
+.memo{flex:1;overflow:auto;margin:0 12px 10px;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface2);line-height:1.65}
+/* summary pieces (同じ見た目: style.css の memo-sum-*) */
+.st{font-size:1.1em;font-weight:800;line-height:1.4;margin:4px 0 4px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:flex-start}
+.st .rg{display:block;font-size:.72em;font-weight:600;color:var(--text3);margin-top:1px}
+.ch{font-size:1.04em;font-weight:800;line-height:1.45;margin:14px 0 5px;padding-bottom:5px;border-bottom:2px solid var(--text);display:flex;align-items:center;gap:6px;position:relative}
+.no{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:var(--text);color:#fff;font-size:.78em;font-weight:800;flex-shrink:0}
+.ts{display:inline-block;font-size:.78em;font-weight:700;color:var(--accent);border:1px solid #b8c8f0;border-radius:4px;padding:0 5px;background:#f4f7ff;white-space:nowrap;cursor:pointer;vertical-align:1px}
+.it{margin:5px 0;display:flex;gap:6px;align-items:flex-start;position:relative}
+.it .tx{flex:1;min-width:0}
+.thumb{width:52px;height:30px;border-radius:4px;background:linear-gradient(135deg,#34406a,#6a7aa0);flex-shrink:0}
+.fold{flex-shrink:0;width:22px;height:22px;border-radius:5px;border:1px solid var(--border);background:#fff;font-size:11px;cursor:pointer;color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-family:inherit;padding:0}
+.cnt{font-size:.7em;color:var(--text3);font-weight:600;white-space:nowrap}
+.more{flex-shrink:0;margin-left:auto;font-size:13px;line-height:1;padding:2px 6px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text3);cursor:pointer}
+.more:hover,.more.pulse{border-color:var(--border);background:#fff}
+.pulse{animation:pl 1.6s infinite}
+@keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(32,80,192,.55)}50%{box-shadow:0 0 0 6px rgba(32,80,192,0)}}
+.drl{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.5px;border:1.5px solid var(--text);border-radius:3px;padding:0 3px;line-height:1.3;color:var(--text)}
+.drl-n{font-size:10px;font-weight:800;margin-left:2px}
+.hit{animation:hit 1.4s}
+@keyframes hit{0%{background:#fff3b0}100%{background:transparent}}
+/* actions bar (案B) */
+.bar{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 8px 28px}
+.bar button{font-size:11.5px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-family:inherit;color:var(--text)}
+.bar button .s{color:var(--text3);font-size:10px;margin-left:3px}
+/* popup menu (案A) */
+.menu{position:absolute;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 22px rgba(0,0,0,.18);padding:4px;min-width:230px;font-size:12.5px;font-weight:600}
+.menu div{padding:8px 10px;border-radius:7px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.menu div:hover{background:#f2f4fa}
+.menu .s{margin-left:auto;font-size:10.5px;color:var(--text3);font-weight:500}
+/* detail block */
+.dt{margin:6px 0 10px 14px;border-left:3px solid #9bb3e6;padding:2px 0 4px 10px;background:#f7f9ff;border-radius:0 6px 6px 0}
+.dt-h{font-size:.92em;font-weight:800;color:#2050c0;display:flex;gap:6px;align-items:center;margin:4px 0}
+.dt-h .rg{font-size:.8em;color:var(--text3);font-weight:600}
+.dt .it{font-size:.95em}
+.backref{font-size:10.5px;color:var(--accent);cursor:pointer;margin-left:4px;font-weight:700;white-space:nowrap}
+/* sheets */
+.ov{position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center;z-index:40}
+.f-pc .ov{align-items:center}
+.sh{background:#fff;width:100%;max-width:440px;border-radius:16px 16px 0 0;padding:14px 16px 16px;font-size:13px}
+.f-pc .sh{border-radius:14px}
+.sh h4{font-size:14px;margin-bottom:2px}
+.sh .sub{font-size:11px;color:var(--text3);margin-bottom:10px}
+.sh .lab{font-size:11px;font-weight:800;color:var(--text2);margin:10px 0 5px}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chips span{font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);cursor:pointer}
+.chips span.on{background:var(--text);color:#fff;border-color:var(--text)}
+.rbar{height:8px;border-radius:4px;background:#e8e8ee;position:relative;margin:6px 0 2px}
+.rbar i{position:absolute;top:0;bottom:0;background:#2050c0;border-radius:4px}
+.sh .row{display:flex;gap:8px;margin-top:14px}
+.sh .row button{flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.sh .row button.go{background:var(--text);color:#fff;border-color:var(--text)}
+.busy{font-size:12px;color:var(--text2);padding:20px 0;text-align:center}
+/* drill card (動画パネルの #vp-drill-slot と同じ所・同じ形) */
+.dcard{margin:8px;border:1.5px solid var(--text);border-radius:10px;background:#fff;padding:8px 10px;font-size:12px}
+.dcard .t{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.dcard input{flex:1;min-width:0;font-size:12.5px;font-weight:700;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-family:inherit}
+.dcard .rng{font-size:12px;font-weight:700;margin:2px 0 4px}
+.dcard .loop{font-size:10.5px;color:#2a8050;font-weight:700}
+.nud{display:flex;gap:2px;flex-wrap:wrap;margin:3px 0}
+.nud span{font-size:9.5px;border:1px solid #9bb3e6;color:#2050c0;border-radius:4px;padding:1px 3px;cursor:pointer}
+.nud span.f{border-color:#e0b080;color:#c07020}
+.nud .k{border:none;color:var(--text3);font-weight:800;padding:1px 2px;cursor:default}
+.dcard .row{display:flex;gap:6px;margin-top:6px}
+.dcard .row button{flex:1;padding:6px;border-radius:7px;border:1px solid var(--border);background:#fff;font-weight:800;cursor:pointer;font-family:inherit}
+.dcard .row button.go{background:var(--text);color:#fff}
+.toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#222;color:#fff;font-size:12px;padding:8px 14px;border-radius:14px;z-index:50;width:max-content;max-width:88%;text-align:center;line-height:1.5}
+.plain{margin:10px 0 2px;color:var(--text)}
+</style>
+</head>
+<body>
+<h1>📝 メモの開閉・「さらにくわしく」・「ドリルにする」（モック）</h1>
+<div class="lead">
+✨要約で入れたメモの<b>見出し（❶❷…＝ブックマーク）と各行（▶時刻）</b>から、そのまま「さらにくわしく」「ドリルにする」ができる形です。
+右の画面は実際に押せます：<b>▾ で開閉</b>、<b>⋯（または見出しを押す）</b>で操作、くわしくを作る・ドリルにする、まで動きます（中身は見本・AIは呼びません）。<br>
+上の切り替えで、<b>呼び出し方・くわしくの入る場所・最初の開閉</b>の案を見比べてください。
+</div>
+
+<div class="ctl">
+  <div class="r"><span class="k">端末</span><button data-g="dev" data-v="phone" class="on">📱 スマホ</button><button data-g="dev" data-v="pc">🖥 PC（⛶ で大きくした状態）</button></div>
+  <div class="r"><span class="k">① 呼び出し方</span><button data-g="trig" data-v="A" class="on">A. 行の右の「⋯」</button><button data-g="trig" data-v="B">B. 見出し・行を押すと下に帯</button></div>
+  <div class="r"><span class="k">② くわしくの入る場所</span><button data-g="put" data-v="X" class="on">X. その見出し・行のすぐ下</button><button data-g="put" data-v="Y">Y. メモの最後（今の✨要約と同じ）</button></div>
+  <div class="r"><span class="k">③ 開閉の最初</span><button data-g="fold0" data-v="open" class="on">ぜんぶ開いている</button><button data-g="fold0" data-v="closed">見出しだけ（閉じている）</button></div>
+</div>
+
+<div class="wrap">
+  <div id="stage"></div>
+  <div class="side">
+    <div class="box"><h3>🔽 開閉（アコーディオン）</h3>
+      <ul><li>見出しの左の <b>▾</b> で、その見出しの行を開閉。閉じると「3件」と出る。</li>
+      <li>一番上のタイトルの ▾ で、その要約ぜんぶを開閉。</li>
+      <li>MEMO の右の <b>全部開く／全部閉じる</b>。</li>
+      <li>ブックマークの仕切りの開閉と同じく、<b>開閉の状態はメモに書かない</b>（画面の中だけ。メモの文字は1文字も変わらない）。</li></ul></div>
+    <div class="box"><h3>🔍 さらにくわしく</h3>
+      <ul><li>範囲は自動で決まる：<b>見出し</b>＝そのブックマークの区間（次のブックマークまで）／<b>行</b>＝その行の時刻〜次の行の時刻。</li>
+      <li>押すと、今の ✨要約 と同じ窓が<b>範囲を入れた状態</b>で開く。項目の数・写真を選んで「作る」。</li>
+      <li>送るのはその区間の字幕だけ（今の✨要約と同じ）。できた行も ▶時刻・写真・ドリル・くわしく がそのまま使える（くわしくの、さらにくわしくもできる）。</li>
+      <li>入った「くわしく」も開閉できる。</li></ul></div>
+    <div class="box"><h3><span class="drl">DRILL</span> ドリルにする</h3>
+      <ul><li>範囲の決まり方は「くわしく」と同じ。<b>見出しからは、ブックマークの行の DRILL を押したのとまったく同じ</b>（同じ区間・同じ名前の付き方）。</li>
+      <li>動画の下（今のドリルを作るカードの場所）に<b>ループしながら端を ±で合わせるカード</b>が出て、「保存」で入る。</li>
+      <li>入れた見出し・行には DRILL と本数が付く（ブックマークの行と同じ印）。押すとそのドリル。</li>
+      <li>ドリルは動画とは別に保存。メモにも動画のデータにも書かない。</li></ul></div>
+    <div class="box warn"><h3>決めてほしいこと</h3>
+      <ol><li>呼び出し方は <b>A（⋯）／B（押すと帯）</b>のどちら？</li>
+      <li>くわしくは <b>X（すぐ下）／Y（最後）</b>のどちら？<br><span style="font-size:11px;color:var(--text2)">X は前の行の文字は変えずに、間に差し込みます。Y は今と同じで最後に足すだけ（元の見出しに「↓ くわしく」の印）。</span></li>
+      <li>開閉の最初は <b>開いている／閉じている</b>？（ブックマークの仕切りは今「閉じている」）</li>
+      <li>手で書いた行（⏱ で入れた ▶時刻 で始まる行）にも同じ ⋯ を出しますか？</li></ol></div>
+  </div>
+</div>
+
+<script>
+const S = { dev:'phone', trig:'A', put:'X', fold0:'open', open:{}, menu:null, bar:null, sheet:null, drill:null, details:[], drills:{}, toast:'', hit:null };
+const CH = [
+  { id:'c1', name:'エリートのガードリテンション', t:'8:29', end:'10:29', items:[
+    { id:'i11', t:'8:52', pic:1, tx:'ガードリテンションとは、相手がコントロールポジションに入りガードパスすることや、バックを晒してチェストトゥバックになるのを防ぐこと。' } ] },
+  { id:'c2', name:'ガードリテンションの重要性', t:'10:29', end:'12:05', items:[
+    { id:'i21', t:'10:45', pic:1, tx:'ガードリテンションに自信があれば、ガードからのアタックを安全に行え、一本負けを避けることができる。' } ] },
+  { id:'c3', name:'教則動画のセクション構成', t:'12:05', end:'16:31', items:[
+    { id:'i31', t:'12:40', tx:'柔術のガードパスは主に「スルー・ザ・レッグス」「アラウンド・ザ・レッグス」「アンダー・ザ・レッグス」の3種類に分かれる。' } ] },
+  { id:'c4', name:'ガードリテンションの練習方法', t:'16:31', end:'18:52', items:[
+    { id:'i41', t:'16:42', pic:1, tx:'グリップなしでガードを練習し、常に両足を外側にリカバリーして相手を引き離すことに集中する。' },
+    { id:'i42', t:'17:13', pic:1, tx:'意図的に不利な状況を作り、良いポジションに戻ることを繰り返す。' } ] },
+  { id:'c5', name:'一般的なコンセプトの適用', t:'18:52', end:'24:10', items:[
+    { id:'i51', t:'19:34', tx:'インバートする際は、体の小さな部分だけを地面につけて回転を容易にする。' },
+    { id:'i52', t:'19:41', pic:1, tx:'足を回復させるスペースを作るため、腰を相手から遠ざける。' },
+    { id:'i53', t:'20:47', tx:'足を異なるプレーンに配置し、相手に両足を同時にコントロールさせないようにする。' } ] },
+];
+const DETAIL = {
+  c4: [ ['16:31','練習の前提：相手はパスだけを狙い、こちらは攻めない。勝ち負けではなくリカバリーの回数で見る。',1],
+        ['16:50','グリップを持たないので、使えるのは足・すね・腰の位置だけ。相手との距離を足で作る。',0],
+        ['17:13','わざと腰が潰れる・足が内側に入る形から始め、そこから外側に戻す。',1],
+        ['17:40','戻すときは先に腰を切って横を向く。正面のまま足を戻そうとすると潰される。',0],
+        ['18:05','相手が回り込んだら、近い方の足を先に外に出す（遠い足からだと間に合わない）。',1],
+        ['18:30','1本の目安は30秒。疲れてくると腰が床に落ちるので、そこを意識する。',0] ],
+  i52: [ ['19:41','腰を遠ざけるのは「足を戻す空間」を作るため。肩を床につけたまま腰だけを引く。',1],
+         ['19:58','腰を引くときは床を足の裏で押す。手で押すと腕を取られる。',0],
+         ['20:20','空間ができたら、膝を胸に寄せてすねを相手の腰に当て直す。',1] ],
+};
+const DEF_DETAIL = t => [[t,'（見本）この区間の字幕から、要点をもう一段こまかく分けた行が入ります。',1],[t,'（見本）写真を選べば、各行に写真も付きます。',0]];
+const toSec = s => { const p = s.split(':').map(Number); return p.length===3 ? p[0]*3600+p[1]*60+p[2] : p[0]*60+p[1]; };
+const fmt = n => `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;
+function rangeOf(kind, id) {
+  if (kind === 'ch') { const c = CH.find(c => c.id === id); return { a:c.t, b:c.end, name:c.name, chId:c.id }; }
+  for (const c of CH) { const k = c.items.findIndex(i => i.id === id); if (k >= 0) { const it = c.items[k]; return { a:it.t, b:(c.items[k+1]||{}).t || c.end, name:c.name, chId:c.id, line:it.tx }; } }
+  const d = S.details.find(d => d.rows.some(r => r.id === id)); if (d) { const k = d.rows.findIndex(r => r.id === id); return { a:d.rows[k].t, b:(d.rows[k+1]||{}).t || d.b, name:d.name, chId:d.chId, line:d.rows[k].tx }; }
+}
+const isOpen = k => S.open[k] ?? (S.fold0 === 'open' || k === 'sum');
+
+function actBtns(kind, id) {
+  if (S.trig === 'A') return `<button class="more ${id==='c4'||id==='i52'?'pulse':''}" contenteditable="false" onclick="ev(event);openMenu('${kind}','${id}')">⋯</button>` + (S.menu && S.menu.id === id ? menuHTML(kind, id) : '');
+  return '';
+}
+function menuHTML(kind, id) {
+  const r = rangeOf(kind, id);
+  return `<div class="menu" contenteditable="false" onclick="ev(event)">
+    <div onclick="act('play','${kind}','${id}')">▶ ここから再生<span class="s">${r.a}</span></div>
+    <div onclick="act('more','${kind}','${id}')">🔍 さらにくわしく<span class="s">${r.a}–${r.b}</span></div>
+    <div onclick="act('drill','${kind}','${id}')"><span class="drl">DRILL</span> ドリルにする<span class="s">${r.a}–${r.b}</span></div></div>`;
+}
+function barHTML(kind, id) {
+  if (S.trig !== 'B' || !S.bar || S.bar.id !== id) return '';
+  const r = rangeOf(kind, id);
+  return `<div class="bar" contenteditable="false"><button onclick="act('play','${kind}','${id}')">▶ 再生<span class="s">${r.a}</span></button><button onclick="act('more','${kind}','${id}')">🔍 さらにくわしく<span class="s">${r.a}–${r.b}</span></button><button onclick="act('drill','${kind}','${id}')"><span class="drl">DRILL</span> ドリルにする</button><button onclick="S.bar=null;render()">✕</button></div>`;
+}
+const tapB = (kind, id) => S.trig === 'B' ? `onclick="tapRow('${kind}','${id}')" style="cursor:pointer"` : '';
+const drillMark = id => S.drills[id] ? `<span contenteditable="false" style="flex-shrink:0;cursor:pointer" onclick="ev(event);toast('このドリルを開きます（Drill タブと同じ）')"><span class="drl">DRILL</span><b class="drl-n">${S.drills[id]}</b></span>` : '';
+function itemHTML(it, kind='it') {
+  return `<div class="it ${S.hit===it.id?'hit':''}" id="r-${it.id}" ${tapB('it', it.id)}><span class="ts">▶ ${it.t}</span>${it.pic?'<span class="thumb"></span>':''}<span class="tx">${it.tx}${backref(it.id)}</span>${drillMark(it.id)}${actBtns('it', it.id)}</div>${barHTML('it', it.id)}${detailsAt(it.id)}`;
+}
+function detailBlock(d) {
+  const k = 'd-' + d.key, op = isOpen(k);
+  return `<div class="dt ${S.hit===d.key?'hit':''}" id="d-${d.key}"><div class="dt-h"><button class="fold" contenteditable="false" onclick="ev(event);tog('${k}')">${op?'▾':'▸'}</button>🔍 くわしく　${S.put==='Y'?d.name+'　':''}<span class="rg">${d.a}–${d.b}</span>${op?'':`<span class="cnt">${d.rows.length}件</span>`}</div>
+    ${op ? d.rows.map(r => itemHTML(r)).join('') : ''}</div>`;
+}
+const detailsAt = id => S.put === 'X' ? S.details.filter(d => d.at === id).map(detailBlock).join('') : (S.details.some(d => d.at === id) ? '' : '');
+const backref = id => S.put === 'Y' && S.details.some(d => d.at === id) ? `<span class="backref" contenteditable="false" onclick="ev(event);jump('${S.details.find(d=>d.at===id).key}')">↓ くわしく</span>` : '';
+
+function memoHTML() {
+  const so = isOpen('sum');
+  let h = `<div class="st"><button class="fold" contenteditable="false" onclick="ev(event);tog('sum')">${so?'▾':'▸'}</button><div>✂️ 要約　ガードリテンションの基本概念・一般原則・フレームと足のポジショニング<span class="rg">8:29–1:08:10 · 1か所 · 合計 60分</span></div></div>`;
+  if (so) CH.forEach((c, n) => {
+    const op = isOpen(c.id);
+    h += `<div class="ch ${S.hit===c.id?'hit':''}" id="r-${c.id}" ${tapB('ch', c.id)}><button class="fold" contenteditable="false" onclick="ev(event);tog('${c.id}')">${op?'▾':'▸'}</button><span class="no">${n+1}</span><span>${c.name}</span><span class="ts">▶ ${c.t}</span>${op?'':`<span class="cnt">${c.items.length}件</span>`}${backref(c.id)}${drillMark(c.id)}${actBtns('ch', c.id)}</div>${barHTML('ch', c.id)}`;
+    if (op) { h += detailsAt(c.id); h += c.items.map(i => itemHTML(i)).join(''); }
+  });
+  h += `<div class="plain">（ここから下は手で書いたメモ。今までどおり自由に書ける）<br>スパーで試す：16:42 の形から左右どちらにも戻れるか。</div>`;
+  if (S.put === 'Y') S.details.forEach(d => h += `<div style="margin-top:14px">${detailBlock(d)}</div>`);
+  return h;
+}
+function sheetHTML() {
+  const s = S.sheet; if (!s) return '';
+  if (s.busy) return `<div class="ov"><div class="sh"><h4>🔍 さらにくわしく</h4><div class="sub">${s.r.name}　${s.r.a}–${s.r.b}</div><div class="busy">字幕から作成中…（見本なので1秒で終わります）</div></div></div>`;
+  const len = toSec(s.r.b) - toSec(s.r.a), mins = Math.max(1, Math.round(len/60));
+  const L = toSec('8:29'), T = toSec('1:08:10') - L;
+  return `<div class="ov" onclick="S.sheet=null;render()"><div class="sh" onclick="ev(event)">
+    <h4>🔍 さらにくわしく</h4><div class="sub">${s.kind==='ch'?'❶ 見出し':'行'}：${s.r.name}${s.kind==='it'?'　「'+s.r.line.slice(0,22)+'…」':''}</div>
+    <div class="lab">範囲（自動で入る・今の✨要約と同じ窓）</div>
+    <div style="font-weight:800">${s.r.a} – ${s.r.b}　<span style="font-weight:500;color:var(--text3);font-size:12px">${mins}分</span></div>
+    <div class="rbar"><i style="left:${(toSec(s.r.a)-L)/T*100}%;width:${Math.max(1.5,len/T*100)}%"></i></div>
+    <div class="lab">項目の数</div><div class="chips">${['おまかせ（約'+Math.max(2,Math.round(len/30))+'）','5','10','20'].map((x,i)=>`<span class="${i===0?'on':''}">${x}</span>`).join('')}</div>
+    <div class="lab">写真</div><div class="chips"><span>なし</span><span class="on">半分</span><span>全部</span></div>
+    <div class="row"><button onclick="S.sheet=null;render()">やめる</button><button class="go" onclick="makeDetail()">作る</button></div></div></div>`;
+}
+function drillHTML() {
+  const d = S.drill; if (!d) return '';
+  const n = d.n > 1 ? ' ' + d.n : '';
+  return `<div class="dcard"><div class="t"><span class="drl">DRILL</span><input value="${d.r.name}${n}"><button class="b" onclick="S.drill=null;render()">✕</button></div>
+    <div class="rng">${d.a} – ${d.b}　<span class="loop">↻ ループ再生中</span></div>
+    <div class="nud"><span class="k">始</span><span>◀1m</span><span>◀10s</span><span>◀1s</span><span class="f">1s▶</span><span class="f">10s▶</span><span class="f">1m▶</span></div>
+    <div class="nud"><span class="k">終</span><span>◀1m</span><span>◀10s</span><span>◀1s</span><span class="f">1s▶</span><span class="f">10s▶</span><span class="f">1m▶</span></div>
+    <div class="row"><button>⇋ 反転</button><button>1x</button><button class="go" onclick="saveDrill()">保存</button></div></div>`;
+}
+function render() {
+  const f = S.dev; const keep = document.getElementById('memo')?.scrollTop || 0;
+  document.getElementById('stage').innerHTML = `<div class="frame f-${f}" onclick="closeAll()">
+    <div class="vcol"><div class="vid">▶<span class="now">${S.now||'12:40'}</span></div>
+      ${f==='pc'?'<div class="ttl">ガードリテンション完全ガイド Vol.1</div>':''}${drillHTML()}</div>
+    <div class="mcol"><div class="mhead"><span class="lbl">MEMO</span><span class="b">⏱</span><span class="b">🖼</span>
+      <button class="b" style="margin-left:auto" onclick="ev(event);allFold(true)">全部開く</button><button class="b" onclick="ev(event);allFold(false)">全部閉じる</button><span class="b dark">閉じる</span></div>
+      <div class="tb"><span>↶</span><span>↷</span><span>B</span><span>I</span><span>U</span><span>A</span><span>T</span><span>M</span><span>✕</span><span>🗑</span></div>
+      <div class="memo" id="memo">${memoHTML()}</div></div>
+    ${sheetHTML()}${S.toast?`<div class="toast">${S.toast}</div>`:''}</div>`;
+  const m = document.getElementById('memo'); if (m) m.scrollTop = keep;
+}
+window.ev = e => e.stopPropagation();
+window.closeAll = () => { if (S.menu) { S.menu = null; render(); } };
+window.tog = k => { S.open[k] = !isOpen(k); render(); };
+window.allFold = on => { ['sum',...CH.map(c=>c.id),...S.details.map(d=>'d-'+d.key)].forEach(k => S.open[k] = on); if (!on) S.open.sum = true; render(); };
+window.openMenu = (kind, id) => { S.menu = S.menu && S.menu.id === id ? null : { kind, id }; render(); };
+window.tapRow = (kind, id) => { S.bar = S.bar && S.bar.id === id ? null : { kind, id }; render(); };
+window.act = (a, kind, id) => {
+  const r = rangeOf(kind, id); S.menu = null; S.bar = null;
+  if (a === 'play') { S.now = r.a; toast(`▶ ${r.a} から再生`); }
+  if (a === 'more') S.sheet = { kind, id, r };
+  if (a === 'drill') { const n = Object.entries(S.drills).filter(([k]) => (rangeOf(k.startsWith('c')?'ch':'it',k)||{}).chId === r.chId).reduce((s,[,v])=>s+v,0) + 1; S.drill = { kind, id, r, a:r.a, b:r.b, n }; S.now = r.a; }
+  render();
+};
+window.makeDetail = () => { S.sheet.busy = true; render(); setTimeout(() => {
+  const s = S.sheet; const key = s.id + '-' + (S.details.length+1);
+  const rows = (DETAIL[s.id] || DEF_DETAIL(s.r.a)).map((x, k) => ({ id: key + 'r' + k, t:x[0], tx:x[1], pic:x[2] }));
+  S.details.push({ key, at:s.id, a:s.r.a, b:s.r.b, name:s.r.name, chId:s.r.chId, rows });
+  if (s.kind === 'ch') S.open[s.id] = true; S.sheet = null; S.hit = key; toast('メモに「くわしく」を入れました（前の行は1文字も変えていません）'); jump(key, true);
+}, 1000); };
+window.saveDrill = () => { const d = S.drill; S.drills[d.id] = (S.drills[d.id]||0) + 1; S.drill = null; S.hit = d.id; render(); toast('ドリルに入れました（Drill タブ）'); };
+window.jump = (key, quiet) => { const el = document.getElementById('d-' + key); if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' }); if (!quiet) { S.hit = key; render(); document.getElementById('d-' + key)?.scrollIntoView({ block:'nearest' }); } };
+let tt; window.toast = m => { S.toast = m; render(); clearTimeout(tt); tt = setTimeout(() => { S.toast = ''; S.hit = null; render(); }, 2600); };
+document.querySelectorAll('.ctl button').forEach(b => b.onclick = () => {
+  S[b.dataset.g] = b.dataset.v;
+  document.querySelectorAll(`.ctl button[data-g="${b.dataset.g}"]`).forEach(x => x.classList.toggle('on', x === b));
+  if (b.dataset.g === 'fold0') S.open = {};
+  S.menu = S.bar = S.sheet = null; render();
+});
+render();
+</script>
+</body>
+</html>
