@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v53.007</title>
+<title>WAZA KIMURA v53.008</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -463,7 +463,9 @@
     // だがマスターのテーブルは orgFilt() が org 状態(orgFilters / si-org)を読むため、
     // ここで lib→org を同期して renderOrg しないとサイドパネルのフィルタが一切効かない
     // （カードにだけ効いてテーブルに効かない不整合の根本原因）。
-    if (window._libViewMode === 'org' && !window._cvVideoIds && !window._cvCardVideoIds) {
+    // テーブル表示のリストも同じ（v53.008）。テーブルは orgFilters を読むので、ここで写さないと
+    // サイドパネルで外した絞り込みがテーブルに残り、リストの中身が条件より少なく出ていた（リロードまで直らない）。
+    if (window._libViewMode === 'org' && !window._cvCardVideoIds) {
       _syncLibFilters('lib'); // lib 状態 → org 状態へコピー（切替時 _libView と同じ橋渡し）
       window.wkSetSearchWord?.(window.wkSearchWord?.() || '');   // 検索語を4つの欄にそろえる
       window.renderOrg?.();

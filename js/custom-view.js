@@ -4044,16 +4044,6 @@ window._cvClearFilters = function() {
   if (_curId && filterState[_curId]) {
     Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
   }
-  // リストを開いているときは、テーブル用の絞り込み（orgFilters）も空にする（v53.007）。
-  // リストを開くと覚えていた絞り込みはカード用（filters）とテーブル用の両方に戻る（_uniRestoreFilters）。
-  // ところがリセットはカード用しか消さなかったので、テーブル表示のリストでは押しても外れず、
-  // 覚えていた絞り込みが掛かったままになっていた。画面の中の絞り込みだけで、リスト・動画には触らない。
-  if (_curId) {
-    const of = window.orgFilters;
-    if (of) Object.keys(of).forEach(k => { if (of[k] instanceof Set) of[k].clear(); });
-    ['orgUnwOnly','orgWatchedOnly','orgBmOnly','orgMemoOnly','orgImgOnly'].forEach(k => { window[k] = false; });
-    window.orgPrRank = null; window.orgPrDate = null;
-  }
   // 永続保存した検索ワードもリセット（次回開いたときに残らないように）
   if (_curId) {
     const v = _views.find(x => x.id === _curId);
