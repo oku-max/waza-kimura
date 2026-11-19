@@ -197,7 +197,7 @@
     const names = rs.flatMap(r => r.labels).filter(Boolean).join('・');
     const label = dt ? dt.label : mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : (names.length > 60 ? names.slice(0, 60) + '…' : names);
     setMsg(`AIが要約しています…（字幕 ${cues.length}行）`);
-    // 章（ブックマーク）: 範囲に入っているもの＋範囲の頭を含むもの。章ごとの要点（1〜3文）を見出しの下に入れる（v53.004）。
+    // 章（ブックマーク）: 範囲に入っているもの＋範囲の頭を含むもの。章ごとの要点（1〜3文）を見出しの下に入れる（v53.005）。
     // さらにくわしく（dt）は一段下の細かい要約なので章の要点は付けない
     const chOf0 = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
     const chapters = dt ? [] : [...new Set([...rs.map(r => chOf0(r.a)), ...D.bms.filter(b => rs.some(r => b.t >= r.a && b.t < r.b))].filter(Boolean))].sort((a, b) => a.t - b.t);

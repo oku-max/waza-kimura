@@ -211,7 +211,7 @@ await pg.evaluate(() => { window.videos[0].bmDividers = [{ time: 120, label: '�
 d9 = await dv();
 ck('⑨ 仕切りを動かすと帯もついてくる（腕の使い方を 10:00 へ → 帯は1本）', d9.bars.length === 1 && /前半の型/.test(d9.bars[0].t), d9.bars);
 await pg.evaluate(() => { window.videos[0].bmDividers = [{ time: 120, label: '前半の型' }, { time: 300, label: '腕の使い方' }]; window.wkMemoSumRepaint(); });
-console.log('── ⑪ 章の要点（v53.004・見出しの下に1〜3文、その後に写真と説明）──');
+console.log('── ⑪ 章の要点（v53.005・見出しの下に1〜3文、その後に写真と説明）──');
 const H11 = await pg.evaluate((M) => document.querySelector(M).innerHTML.replace(/ style=""/g, ''), M);
 await pg.evaluate((ID) => window.vpSumRangeOpen(ID), ID); await pg.waitForSelector('#vsr-ov');
 await pg.click('#vsr-ov [data-tab="bm"]');

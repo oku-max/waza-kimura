@@ -30,7 +30,7 @@
 
   const kind = e => e.classList.contains('memo-sum-t') ? 'T' : e.classList.contains('memo-sum-ch') ? 'C'
     : e.classList.contains('memo-sum-dh') ? 'D' : e.classList.contains('memo-sum-it') ? 'I'
-    : e.classList.contains('memo-sum-pt') ? 'P' : 'O';   // P＝章の要点（見出しの下の1〜3文・v53.004）。見出しと一緒に開閉する
+    : e.classList.contains('memo-sum-pt') ? 'P' : 'O';   // P＝章の要点（見出しの下の1〜3文・v53.005）。見出しと一緒に開閉する
   const lvOf = e => Number(e.dataset?.lv) || 0;
   const isHead = k => k === 'T' || k === 'C' || k === 'D';
   const defOpen = k => k === 'T';   // 題は開いている・見出しは閉じている（オーナー決定 ③）

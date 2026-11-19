@@ -759,7 +759,7 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
 // ── 部分だけの要約（v52.987・js/vp-sum-range.js）─────────────────
 // 受け取るのは範囲の字幕の行（[M:SS] 本文）だけ。動画は送らない。
 // 返すのは {items:[{t:"M:SS", text, shot}]}。t は字幕に書かれた時刻から選ばせる（推測させない）。
-// chapters（ブックマーク＝章の一覧 [{t:"M:SS", label}]）を受け取ったら、章ごとの要点も返す（v53.004）:
+// chapters（ブックマーク＝章の一覧 [{t:"M:SS", label}]）を受け取ったら、章ごとの要点も返す（v53.005）:
 //   {points:[{i:章の番号, text:"1〜3文"}], items:[…]}。章は番号で返させる（時刻を推測させない）。
 const RANGESUM_MAX = 60000;
 async function _aiRangeSummary(env, body, title, channel, playlist) {

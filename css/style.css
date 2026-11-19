@@ -1923,7 +1923,7 @@ body.dark .vsr-pick .st{color:#f2c94c}
 .memo-sum-no{display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:var(--text);color:var(--surface);font-size:.78em;font-weight:800;margin-right:7px;vertical-align:.1em}
 .memo-sum-ch .ts-link{font-size:.75em;font-weight:600;margin-left:6px}
 .memo-sum-it{margin:4px 0;line-height:1.65}
-/* 章の要点（v53.004）: 見出しの下に1〜3文。行（写真と説明）より先に読む */
+/* 章の要点（v53.005）: 見出しの下に1〜3文。行（写真と説明）より先に読む */
 .memo-sum-pt{margin:4px 0 8px;padding:6px 10px;border-left:3px solid var(--text);background:var(--surface);border-radius:0 6px 6px 0;font-weight:600;line-height:1.7}
 /* くわしく（v53.001・js/vp-sum-range.js の さらにくわしく）: 一段下げる。data-lv はメモの中身（保存される） */
 .memo-sum-dh{font-size:.95em;font-weight:800;color:var(--accent);line-height:1.45;margin:8px 0 3px}
