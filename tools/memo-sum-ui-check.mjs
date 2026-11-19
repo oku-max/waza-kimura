@@ -52,7 +52,8 @@ await pg.route('**/api/ai-summary', async r => {
   const cs = lastReq.cues, n = Math.min(3, cs.length);
   const items = Array.from({ length: n }, (_, k) => { const t = Math.floor(cs[Math.floor(k * cs.length / n)].t);
     return { t: Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'), text: 'くわしい要点' + k, shot: false }; });
-  r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ summary: JSON.stringify({ items }) }) });
+  const points = (lastReq.chapters || []).map((c, i) => ({ i: i + 1, text: `章の要点${i + 1}（${c.label}）。いちばん大事なこと。` }));
+  r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ summary: JSON.stringify(points.length ? { points, items } : { items }) }) });
 });
 await pg.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded', timeout: 20000 });
 let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') + n + (!ok && d !== undefined ? '  → ' + JSON.stringify(d).slice(0, 500) : '')); if (!ok) fail++; };
@@ -210,6 +211,22 @@ await pg.evaluate(() => { window.videos[0].bmDividers = [{ time: 120, label: '�
 d9 = await dv();
 ck('⑨ 仕切りを動かすと帯もついてくる（腕の使い方を 10:00 へ → 帯は1本）', d9.bars.length === 1 && /前半の型/.test(d9.bars[0].t), d9.bars);
 await pg.evaluate(() => { window.videos[0].bmDividers = [{ time: 120, label: '前半の型' }, { time: 300, label: '腕の使い方' }]; window.wkMemoSumRepaint(); });
+console.log('── ⑪ 章の要点（v53.004・見出しの下に1〜3文、その後に写真と説明）──');
+const H11 = await pg.evaluate((M) => document.querySelector(M).innerHTML.replace(/ style=""/g, ''), M);
+await pg.evaluate((ID) => window.vpSumRangeOpen(ID), ID); await pg.waitForSelector('#vsr-ov');
+await pg.click('#vsr-ov [data-tab="bm"]');
+for (const k of ['1', '2']) { if (!(await pg.evaluate(k => document.querySelector(`#vsr-ov [data-bm="${k}"]`)?.classList.contains('on'), k))) await pg.click(`#vsr-ov [data-bm="${k}"]`); }
+await pg.click('#vsr-ov [data-act="go"]'); await pg.waitForFunction(() => !document.getElementById('vsr-ov'), null, { timeout: 8000 }); await pg.waitForTimeout(300);
+ck('⑪ AI に章（範囲に入っているブックマーク）を名前と時刻で渡す', JSON.stringify(lastReq.chapters) === JSON.stringify([{ t: '2:00', label: '姿勢' }, { t: '5:00', label: '腕の角度' }]), lastReq.chapters);
+const s11 = await pg.evaluate((M) => { const kids = [...document.querySelector(M).children]; const ti = kids.map(e => e.className).lastIndexOf('memo-sum-t');
+  return kids.slice(ti).map(e => (getComputedStyle(e).display === 'none' ? '-' : '') + e.className.replace('memo-sum-', '') + ':' + e.textContent.replace(/\s+/g, '').slice(0, 12)); }, M);
+ck('⑪ 見出しのすぐ下に章の要点、その後に行', /^t:[^|]*\|ch:1姿勢[^|]*\|pt:章の要点1（姿勢）[^|]*\|(it:[^|]*\|)+ch:2腕の角度[^|]*\|pt:章の要点2（腕の角[^|]*\|it:/.test(s11.join('|')), s11);
+const strip11 = await pg.evaluate((M) => { const c = document.querySelector(M).cloneNode(true); const kids = [...c.children]; const ti = kids.map(e => e.className).lastIndexOf('memo-sum-t'); kids.slice(ti).forEach(e => e.remove()); return c.innerHTML.replace(/ style=""/g, ''); }, M);
+ck('⑪ 前のメモは1文字も変えない（最後に足すだけ）', strip11 === H11);
+const ch11 = await pg.evaluate((M) => { const kids = [...document.querySelector(M).children]; const ti = kids.map(e => e.className).lastIndexOf('memo-sum-t'); return ti + kids.slice(ti).findIndex(e => e.classList.contains('memo-sum-ch')); }, M);
+await press(ch11, 'L');
+const s11b = await pg.evaluate(([M, i]) => { const kids = [...document.querySelector(M).children]; return getComputedStyle(kids[i + 1]).display; }, [M, ch11]);
+ck('⑪ 見出しを閉じると章の要点も一緒に隠れる', s11b === 'none', s11b);
 console.log('── ⑦ 保存の中身 ──');
 const memoNow = await pg.evaluate(() => window.videos[0].memo);
 ck('⑦ 保存されたメモに開閉の印・仕切りの帯が混ざらない', !/vp-memo-sumui|display\s*:\s*none|memo-act-pop|memo-dv|■ 前半の型|■ 腕の使い方/.test(memoNow), memoNow.slice(0, 200));
@@ -223,13 +240,13 @@ await shot('8-sp');
 ck('⑧ 横にはみ出さない', await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await pg.evaluate(() => document.getElementById('memo-act-pop')?.remove()); await pg.waitForTimeout(300);
 d9 = await dv();
-ck('⑧ スマホ幅でも仕切りの帯がメモの文字に重ならず、メモ欄に収まる', d9.bars.length === 2 && d9.bars.every(b => b.bot - b.top > 20) && d9.bars.every(b => !overlap(b, d9.kids).length && b.l >= d9.er.l - 1 && b.r <= d9.er.r + 1), { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)) });
+ck('⑧ スマホ幅でも仕切りの帯がメモの文字に重ならず、メモ欄に収まる（⑪で足した要約にも帯が付き4本）', d9.bars.length === 4 && d9.bars.every(b => b.bot - b.top > 20) && d9.bars.every(b => !overlap(b, d9.kids).length && b.l >= d9.er.l - 1 && b.r <= d9.er.r + 1), { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)) });
 await shot('8-sp-div');
 console.log('── ⑩ 表示の大きさ（body.style.zoom）を変えても帯がずれない（v53.003・オーナーの画面で帯が見出しに重なった）──');
 for (const z of ['1.3', '0.85']) {
   await pg.evaluate((z) => { document.body.style.zoom = z; window.wkMemoSumRepaint(); }, z); await pg.waitForTimeout(400);
   d9 = await dv();
-  ck(`⑩ zoom ${z}: 帯が見出しのすぐ上・メモの文字に重ならない・メモ欄に収まる`, d9.bars.length === 2 && d9.bars.every(b => b.bot - b.top > 20 && !overlap(b, d9.kids).length && b.l >= d9.er.l - 2 && b.r <= d9.er.r + 2)
+  ck(`⑩ zoom ${z}: 帯が見出しのすぐ上・メモの文字に重ならない・メモ欄に収まる`, d9.bars.length === 4 && d9.bars.every(b => b.bot - b.top > 20 && !overlap(b, d9.kids).length && b.l >= d9.er.l - 2 && b.r <= d9.er.r + 2)
     && d9.bars[0].bot <= d9.kids.find(k => k.k === 'ch' && k.tx.includes('姿勢')).top + 2, { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)), er: d9.er });
   await shot('10-zoom-' + z);
 }

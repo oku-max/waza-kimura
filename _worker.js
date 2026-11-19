@@ -759,6 +759,8 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
 // ── 部分だけの要約（v52.987・js/vp-sum-range.js）─────────────────
 // 受け取るのは範囲の字幕の行（[M:SS] 本文）だけ。動画は送らない。
 // 返すのは {items:[{t:"M:SS", text, shot}]}。t は字幕に書かれた時刻から選ばせる（推測させない）。
+// chapters（ブックマーク＝章の一覧 [{t:"M:SS", label}]）を受け取ったら、章ごとの要点も返す（v53.004）:
+//   {points:[{i:章の番号, text:"1〜3文"}], items:[…]}。章は番号で返させる（時刻を推測させない）。
 const RANGESUM_MAX = 60000;
 async function _aiRangeSummary(env, body, title, channel, playlist) {
   const lines = (Array.isArray(body.cues) ? body.cues : []).map(c => {
@@ -774,14 +776,21 @@ async function _aiRangeSummary(env, body, title, channel, playlist) {
   const nItems = Number(body.items) > 0 ? items : 0;
   const ctx = _ctxStr(title, channel, playlist);
   const label = String(body.label || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const chs = (Array.isArray(body.chapters) ? body.chapters : []).slice(0, 60)
+    .map((c, i) => `${i + 1}. [${String(c?.t || '').replace(/[^\d:]/g, '').slice(0, 9)}〜] ${String(c?.label || '').replace(/\s+/g, ' ').trim().slice(0, 80) || '（名前なし）'}`);
   const prompt = `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
 以下は教則動画の一部分（${label ? `「${label}」` : '指定された範囲'}）の字幕です。各行は「[開始時刻] 話している内容」です。
 この部分を、あとで読み返して練習に使えるメモとして要約してください。
 ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
 【字幕】
 ${text}
-
-【決まり】
+${chs.length ? `
+【章】（それぞれ、その時刻から次の章の始まりまで）
+${chs.join('\n')}
+` : ''}
+【決まり】${chs.length ? `
+- points は【章】の各章について1つずつ。i は章の番号。text はその章で語られている最も大事な点（考え方・コツ・注意点）を言い切りで1〜3文。章の名前の言い直し・予告（〜について説明します）にしない。章の中で字幕がほとんど無ければ書かない（その章を入れない）
+- items の項目は、その章の要点を細かく補う具体的な点にする（points と同じ文を繰り返さない）` : ''}
 - 項目は${nItems ? `ちょうど${nItems}個` : `この部分の長さに合わせて、おおよそ1分に1個`}。部分の最初から最後までまんべんなく拾い、後半を省かない
 - 各項目の t は、その内容を話し始めた字幕行の時刻を、字幕に書かれているとおりに書く（自分で計算しない）。早い順に並べ、同じ時刻を2回使わない
 - text は語られている中身（要点・コツ・注意点・体の使い方）を言い切りで1〜2文。60文字程度まで
@@ -790,7 +799,7 @@ ${text}
 - shot は、その項目に動画の画面の写真を付けるなら true。${shots ? `ちょうど${shots}個を true にする。形や位置関係が写真で分かると役に立つ項目（姿勢・グリップ・足の位置など）を選ぶ` : 'すべて false にする'}
 - 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
 
-{"items":[{"t":"M:SS","text":"要点","shot":false}]}`;
+${chs.length ? '{"points":[{"i":1,"text":"章の要点"}],"items":[{"t":"M:SS","text":"要点","shot":false}]}' : '{"items":[{"t":"M:SS","text":"要点","shot":false}]}'}`;
   const result = await _geminiGenerate(env, [{ text: prompt }], { json: true, maxOutputTokens: 16384, thinkingBudget: 2048, temperature: 0.3, what: '要約' });
   if (result.error) return jsonRes(result, 502);
   return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd, via: 'rangesum', clipped });

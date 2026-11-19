@@ -29,7 +29,8 @@
   const dividers = v => (v?.bmDividers || []).map(d => ({ t: toS(d.time), label: String(d.label || '') })).filter(d => isFinite(d.t)).sort((a, b) => a.t - b.t);
 
   const kind = e => e.classList.contains('memo-sum-t') ? 'T' : e.classList.contains('memo-sum-ch') ? 'C'
-    : e.classList.contains('memo-sum-dh') ? 'D' : e.classList.contains('memo-sum-it') ? 'I' : 'O';
+    : e.classList.contains('memo-sum-dh') ? 'D' : e.classList.contains('memo-sum-it') ? 'I'
+    : e.classList.contains('memo-sum-pt') ? 'P' : 'O';   // P＝章の要点（見出しの下の1〜3文・v53.004）。見出しと一緒に開閉する
   const lvOf = e => Number(e.dataset?.lv) || 0;
   const isHead = k => k === 'T' || k === 'C' || k === 'D';
   const defOpen = k => k === 'T';   // 題は開いている・見出しは閉じている（オーナー決定 ③）
@@ -42,7 +43,7 @@
     for (let j = i + 1; j < kids.length; j++) {
       const x = kids[j], t = kind(x);
       if (k === 'T') { if (t === 'T' || t === 'O') break; }
-      else if (k === 'C') { if (t !== 'I' && t !== 'D') break; }
+      else if (k === 'C') { if (t !== 'I' && t !== 'D' && t !== 'P') break; }
       else if (!((t === 'I' && lvOf(x) >= n) || (t === 'D' && lvOf(x) > n))) break;
       out.push(j);
     }

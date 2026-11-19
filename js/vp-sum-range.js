@@ -197,17 +197,22 @@
     const names = rs.flatMap(r => r.labels).filter(Boolean).join('・');
     const label = dt ? dt.label : mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : (names.length > 60 ? names.slice(0, 60) + '…' : names);
     setMsg(`AIが要約しています…（字幕 ${cues.length}行）`);
-    let items = [], err = '';
+    // 章（ブックマーク）: 範囲に入っているもの＋範囲の頭を含むもの。章ごとの要点（1〜3文）を見出しの下に入れる（v53.004）。
+    // さらにくわしく（dt）は一段下の細かい要約なので章の要点は付けない
+    const chOf0 = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
+    const chapters = dt ? [] : [...new Set([...rs.map(r => chOf0(r.a)), ...D.bms.filter(b => rs.some(r => b.t >= r.a && b.t < r.b))].filter(Boolean))].sort((a, b) => a.t - b.t);
+    let items = [], points = new Map(), err = '';
     try {
       const user = window._firebaseCurrentUser?.(); if (!user) throw new Error('ログインが必要です');
       const idToken = await user.getIdToken();
       const res = await fetch('/api/ai-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, source: 'rangesum', cues, items: nItems, shots: wantShots, label, title: D.v.title || '', channel: D.v.channel || '', playlist: D.v.playlist || '' }) });
+        body: JSON.stringify({ idToken, source: 'rangesum', cues, items: nItems, shots: wantShots, label, chapters: chapters.map(b => ({ t: fmt(b.t), label: b.label })), title: D.v.title || '', channel: D.v.channel || '', playlist: D.v.playlist || '' }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j.error) throw new Error(j.error ? (j.error + (j.detail ? ': ' + j.detail : '')) : 'HTTP ' + res.status);
       const obj = JSON.parse(String(j.summary || '').replace(/^```(?:json)?\s*|\s*```$/g, ''));
       items = (obj.items || []).map(x => ({ t: parse(x.t), text: String(x.text || '').trim(), shot: !!x.shot })).filter(x => x.t != null && x.text).sort((a, b) => a.t - b.t);
       if (!items.length) throw new Error('AIの返事に項目がありませんでした');
+      (Array.isArray(obj.points) ? obj.points : []).forEach(p => { const c = chapters[Math.round(Number(p?.i)) - 1], tx = String(p?.text || '').trim(); if (c && tx && !points.has(c)) points.set(c, tx.slice(0, 300)); });
     } catch (e) { err = e?.message || String(e); }
     if (tok !== cancelTok) return;
     if (err) { phase = 'pick'; render(); window.toast?.('⚠️ 要約に失敗しました: ' + err, 8000); return; }
@@ -226,8 +231,11 @@
     const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2; let no = 0;
     const tot = rs.reduce((s, r) => s + r.b - r.a, 0);
     let html = `<div class="memo-sum-t">✂️ 要約${label ? '　' + esc(label) : ''}<span class="memo-sum-rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · ${rs.length}か所 · 合計 ${lenTxt(tot)}</span></div>`;
+    // 章の要点（見出しの下・1〜3文）。見出しが出ない（章が1つだけ）ときは題の下に
+    const pt = c => c && points.has(c) ? `<div class="memo-sum-pt">${esc(points.get(c))}</div>` : '';
+    if (!many) html += pt(chs.find(Boolean));
     items.forEach((x, k) => {
-      if (many && chs[k] && chs[k] !== chs[k - 1]) html += `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">${++no}</span>${esc(chs[k].label || '（名前なし）')}${ts(chs[k].t)}</div>`;
+      if (many && chs[k] && chs[k] !== chs[k - 1]) html += `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">${++no}</span>${esc(chs[k].label || '（名前なし）')}${ts(chs[k].t)}</div>` + pt(chs[k]);
       const p = pics[x.t];
       html += p ? `<div class="memo-sum-it">${ts(x.t)}&nbsp;${K().thumbHtml(p.snapId, x.t, p.url)}&nbsp;<span class="snap-cap" data-snap-id="${p.snapId}">${esc(x.text)}</span></div>`
                 : `<div class="memo-sum-it">${ts(x.t)}&nbsp;${esc(x.text)}</div>`;
