@@ -1846,12 +1846,13 @@ window._cvRestoreCond = (list) => {
   return n;
 };
 
+// アーカイブした動画は入れない（v53.013。ランダムに1本の範囲の本数がアーカイブも数えていた）
 window._cvResolveVideos = (viewId) => {
   const v = _views.find(x => x.id === viewId);
   if (!v) return null;
-  if (v.saveMode === 'dynamic') return _dynamicList(v) || [];
+  if (v.saveMode === 'dynamic') return (_dynamicList(v) || []).filter(x => !x.archived);
   const byId = _cvVideoById(window.videos || []);
-  return (v.videoIds || []).map(id => byId.get(id)).filter(Boolean);
+  return (v.videoIds || []).map(id => byId.get(id)).filter(x => x && !x.archived);
 };
 
 // id→動画 の対応表。ピッカーは行ごとに引くので、videos が変わらない限り使い回す。
