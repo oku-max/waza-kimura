@@ -70,7 +70,33 @@
       if (n && D2.dur && s != null) n.style.left = (s / D2.dur * 100) + '%'; if (l && s != null) l.textContent = '赤い線＝今の位置 ' + fmt(s); }, 500);
     render();
   };
-  const close = () => { cancelTok++; clearInterval(nowTimer); ov?.remove(); ov = null; };
+  const close = () => { cancelTok++; clearInterval(nowTimer); ov?.remove(); ov = null; hidden = false; clearInterval(busyClock); busyClock = null; chipSync(); };
+
+  // ── 閉じて続ける（v53.006・オーナー「チャプター作成のときみたいに縮小できるように」）──
+  // 作成中の窓を隠し、左下の帯（チャプター作成と同じ見た目 .vp-chap-chip）に経過を出す。帯を押すと窓に戻る。
+  // 作業はそのまま続き、終わればいつもどおりメモに入れる（入れる先は今と同じ。動画パネルを閉じた・別の動画にしたら入れない）。
+  // 状態は画面の中だけ（保存しない）。
+  let hidden = false, busyAt = 0, busyMsg = '', busyClock = null, busyTitle = '';
+  const elapsed = () => { const s = busyAt ? Math.max(0, Math.floor((Date.now() - busyAt) / 1000)) : 0; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  function chipSync(done) {
+    let chip = document.getElementById('vsr-chip');
+    if (done) {
+      if (!chip) { chip = document.createElement('button'); chip.id = 'vsr-chip'; chip.className = 'vp-chap-chip'; document.body.appendChild(chip); }
+      chip.innerHTML = `<span>✔</span><span class="vp-chap-chip-t"><b>要約をメモに入れました</b><small>${esc(busyTitle)}</small></span><i>見る</i>`;
+      chip.onclick = () => { chip.remove(); done(); };
+      setTimeout(() => { if (chip.isConnected && chip.textContent.includes('入れました')) chip.remove(); }, 20000);
+    } else if (!(ov && hidden && phase === 'busy')) { if (chip && !chip.textContent.includes('入れました')) chip.remove(); return; }
+    else {
+      if (!chip) { chip = document.createElement('button'); chip.id = 'vsr-chip'; chip.className = 'vp-chap-chip'; document.body.appendChild(chip); }
+      chip.innerHTML = `<span class="vp-flow-spin"></span><span class="vp-chap-chip-t"><b>要約を作成中</b> · <span class="vsr-el">${elapsed()}</span><small>${esc(busyMsg)}${busyTitle ? ' · ' + esc(busyTitle) : ''}</small></span><i>開く</i>`;
+      chip.onclick = () => showSheet();
+    }
+    // チャプター作成の帯と重ならないよう、出ていればその上に
+    chip.style.transform = document.getElementById('vp-chap-chip') ? 'translateY(-62px)' : '';
+  }
+  function hideSheet() { if (!ov) return; ov.style.display = 'none'; hidden = true; chipSync(); }
+  function showSheet() { if (!ov) return; ov.style.display = ''; hidden = false; chipSync(); }
+  window.addEventListener('beforeunload', e => { if (ov && phase === 'busy') { e.preventDefault(); e.returnValue = ''; } });
 
   const TABS = [['div', '仕切り'], ['bm', 'ブックマーク'], ['star', '★の所'], ['time', '時刻を指定']];
   function render() {
@@ -78,7 +104,9 @@
     const D = data(), sh = ov.querySelector('.vsr-sh'), isGd = !!K().isGdPlaying?.();
     let h = `<div class="vsr-hd"><b>✨ 要約</b><div class="sub">${det ? `選んだ部分の字幕だけを AI に送って要約し、メモの「${esc(det.label || '選んだ行')}」のすぐ下に入れます。` : '選んだ部分の字幕だけを AI に送って要約し、メモの最後に入れます。'}</div>
       <div class="vsr-tabs">${TABS.map(([k, l]) => `<button class="${k === mode ? 'on' : ''}" data-tab="${k}" ${phase !== 'pick' ? 'disabled' : ''}>${l}</button>`).join('')}</div></div><div class="vsr-bd">`;
-    if (phase === 'busy') { sh.innerHTML = h + `<div class="vsr-busy" id="vsr-busy">準備しています…</div></div><div class="vsr-ft"><button class="vsr-cancel" data-act="stop">やめる（結果を受け取らない）</button></div>`; bind(); return; }
+    if (phase === 'busy') { sh.innerHTML = h + `<div class="vsr-busy" id="vsr-busy">${esc(busyMsg || '準備しています…')}</div><div class="vsr-hint" style="text-align:center">経過 <span class="vsr-el">${elapsed()}</span></div>
+        <div class="vsr-hint">「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯に出て、終わるとメモに入ります。<b>動画パネルを閉じる・ほかの動画に変える・アプリを閉じると、メモには入りません。</b></div></div>
+      <div class="vsr-ft"><button class="vsr-go" data-act="hide">閉じて続ける</button><button class="vsr-cancel" data-act="stop">やめる（結果を受け取らない）</button></div>`; bind(); return; }
     // ログインしていない・Drive の認証が切れていると字幕を読めない。そのときは「字幕が無い」ではなく、ログインを案内する
     if (phase === 'noauth') { const gd = noAuth === 'drive';
       sh.innerHTML = h + `<div class="vsr-warn">${gd ? 'Google ドライブの認証が切れているため、動画も字幕も読み込めていません。Google にログインして動画を再生してから、もう一度「✨ 要約」を押してください。'
@@ -151,7 +179,8 @@
         const pos = el.selectionStart; keep(() => {}); const e2 = ov.querySelector('#' + id); if (e2) { e2.focus(); try { e2.setSelectionRange(pos, pos); } catch (_) {} } }; });
     q('[data-act]', b => b.onclick = () => { const a = b.dataset.act;
       if (a === 'close') close();
-      else if (a === 'stop') { cancelTok++; phase = 'pick'; render(); window.toast?.('やめました（AIへの依頼は止まらないので、料金はかかることがあります）'); }
+      else if (a === 'stop') { cancelTok++; phase = 'pick'; clearInterval(busyClock); busyClock = null; render(); window.toast?.('やめました（AIへの依頼は止まらないので、料金はかかることがあります）'); }
+      else if (a === 'hide') hideSheet();
       else if (a === 'back') { phase = 'pick'; render(); }
       else if (a === 'gdauth') { const btn = document.getElementById('gd-auth-play-btn'); close(); btn?.click(); }   // 動画の所の「Googleで認証して再生」を押したのと同じ
       else if (a === 'mksub') { const id = vid; close(); window.vpGenSubtitle?.(id); }
@@ -190,8 +219,10 @@
     const inR = t => rs.some(r => t >= r.a - 1 && t < r.b);
     const cues = sub.cues.filter(c => inR(c.start)).map(c => ({ t: c.start, text: c.text }));
     if (!cues.length) { window.toast?.('選んだ範囲に字幕の行がありません'); return; }
+    busyAt = Date.now(); busyMsg = ''; busyTitle = D.v.title || '';
     const tok = ++cancelTok; phase = 'busy'; render();
-    const setMsg = m => { const el = ov?.querySelector('#vsr-busy'); if (el) el.textContent = m; };
+    clearInterval(busyClock); busyClock = setInterval(() => { if (phase !== 'busy' || !ov) { clearInterval(busyClock); busyClock = null; return; } document.querySelectorAll('.vsr-el').forEach(e => { e.textContent = elapsed(); }); }, 1000);
+    const setMsg = m => { busyMsg = m; const el = ov?.querySelector('#vsr-busy'); if (el) el.textContent = m; chipSync(); };
     const isGd = !!K().isGdPlaying?.(), wantShots = isGd ? nShots : 0;
     const dt = det;
     const names = rs.flatMap(r => r.labels).filter(Boolean).join('・');
@@ -215,7 +246,7 @@
       (Array.isArray(obj.points) ? obj.points : []).forEach(p => { const c = chapters[Math.round(Number(p?.i)) - 1], tx = String(p?.text || '').trim(); if (c && tx && !points.has(c)) points.set(c, tx.slice(0, 300)); });
     } catch (e) { err = e?.message || String(e); }
     if (tok !== cancelTok) return;
-    if (err) { phase = 'pick'; render(); window.toast?.('⚠️ 要約に失敗しました: ' + err, 8000); return; }
+    if (err) { phase = 'pick'; clearInterval(busyClock); busyClock = null; if (hidden) showSheet(); render(); window.toast?.('⚠️ 要約に失敗しました: ' + err, 8000); return; }
     // 開いている動画が変わっていたら入れない（ほかの動画のメモに入れない）
     if (window.openVPanelId !== id || !document.getElementById('vp-memo-' + id)) { close(); window.toast?.('動画パネルを閉じたので、メモには入れませんでした', 7000); return; }
     // 写真: AI が shot にした項目。数がずれていたら指定の枚数に合わせる（多ければ先から・足りなければ間をあけて足す）
@@ -251,10 +282,13 @@
       ok = K().insertMemoAfter(id, dt.anchor, dh, dt.lv);
       if (ok === 'gone') ok = K().appendMemo(id, dh);
     } else ok = K().appendMemo(id, html);
+    const wasHidden = hidden;
     close();
     const nPic = Object.keys(pics).filter(k => k !== '__err').length;
     if (!ok) { window.toast?.('メモ欄が見つかりませんでした（パネルを開き直してください）', 7000); return; }
     window.toast?.(`✂️ 要約をメモに入れました（${items.length}項目${nPic ? `・写真${nPic}枚` : ''}）` + (pics.__err ? ` ／写真を撮れませんでした: ${pics.__err}` : ''), 6000);
-    ((ok && ok.nodeType === 1) ? ok : [...(document.getElementById("vp-memo-" + id)?.querySelectorAll(".memo-sum-t") || [])].pop())?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    const goTo = () => ((ok && ok.nodeType === 1 && ok.isConnected) ? ok : [...(document.getElementById("vp-memo-" + id)?.querySelectorAll(".memo-sum-t") || [])].pop())?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    // 閉じて続けていたときは、読んでいる所を勝手に動かさない。帯の「見る」で入れた所へ
+    if (wasHidden) chipSync(goTo); else goTo();
   }
 })();

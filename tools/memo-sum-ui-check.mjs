@@ -46,9 +46,10 @@ const pg = await ctx.newPage();
 const errs = [];
 pg.on('pageerror', e => { const s = String(e); if (!/firebase|gstatic|YT is not|google is not/i.test(s)) errs.push(s.split('\n')[0]); });
 pg.on('dialog', d => d.accept().catch(() => {}));
-let lastReq = null;
+let lastReq = null, aiDelay = 0;
 await pg.route('**/api/ai-summary', async r => {
   lastReq = JSON.parse(r.request().postData() || '{}');
+  if (aiDelay) await new Promise(x => setTimeout(x, aiDelay));
   const cs = lastReq.cues, n = Math.min(3, cs.length);
   const items = Array.from({ length: n }, (_, k) => { const t = Math.floor(cs[Math.floor(k * cs.length / n)].t);
     return { t: Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'), text: 'くわしい要点' + k, shot: false }; });
@@ -227,6 +228,25 @@ const ch11 = await pg.evaluate((M) => { const kids = [...document.querySelector(
 await press(ch11, 'L');
 const s11b = await pg.evaluate(([M, i]) => { const kids = [...document.querySelector(M).children]; return getComputedStyle(kids[i + 1]).display; }, [M, ch11]);
 ck('⑪ 見出しを閉じると章の要点も一緒に隠れる', s11b === 'none', s11b);
+console.log('── ⑫ 閉じて続ける（v53.006・チャプター作成と同じく窓を隠して左下の帯に経過）──');
+aiDelay = 1800;
+const n12 = await pg.evaluate((M) => document.querySelectorAll(M + ' > .memo-sum-t').length, M);
+await pg.evaluate((ID) => window.vpSumRangeOpen(ID), ID); await pg.waitForSelector('#vsr-ov');
+await pg.click('#vsr-ov [data-tab="bm"]');
+await pg.click('#vsr-ov [data-act="go"]'); await pg.waitForSelector('#vsr-ov [data-act="hide"]');
+await pg.click('#vsr-ov [data-act="hide"]'); await pg.waitForTimeout(150);
+let c12 = await pg.evaluate(() => ({ ov: getComputedStyle(document.getElementById('vsr-ov')).display, chip: document.getElementById('vsr-chip')?.textContent.replace(/\s+/g, ' ') || null }));
+ck('⑫ 「閉じて続ける」で窓が隠れ、左下の帯に「要約を作成中」と経過', c12.ov === 'none' && /要約を作成中 · \d+:\d\d/.test(c12.chip || '') && /開く/.test(c12.chip), c12);
+await pg.click('#vsr-chip'); await pg.waitForTimeout(100);
+c12 = await pg.evaluate(() => ({ ov: getComputedStyle(document.getElementById('vsr-ov')).display, chip: !!document.getElementById('vsr-chip') }));
+ck('⑫ 帯を押すと窓に戻り、帯は消える', c12.ov !== 'none' && !c12.chip, c12);
+await pg.click('#vsr-ov [data-act="hide"]');
+await pg.waitForFunction(() => /入れました/.test(document.getElementById('vsr-chip')?.textContent || ''), null, { timeout: 8000 });
+c12 = await pg.evaluate((M) => ({ ov: !!document.getElementById('vsr-ov'), n: document.querySelectorAll(M + ' > .memo-sum-t').length, chip: document.getElementById('vsr-chip')?.textContent.replace(/\s+/g, ' ') }), M);
+ck('⑫ 隠している間に終わるとメモに入り、帯が「要約をメモに入れました・見る」になる', !c12.ov && c12.n === n12 + 1 && /見る/.test(c12.chip), { c12, n12 });
+await pg.click('#vsr-chip'); await pg.waitForTimeout(150);
+ck('⑫ 「見る」で帯が消える', !(await pg.evaluate(() => !!document.getElementById('vsr-chip'))));
+aiDelay = 0;
 console.log('── ⑦ 保存の中身 ──');
 const memoNow = await pg.evaluate(() => window.videos[0].memo);
 ck('⑦ 保存されたメモに開閉の印・仕切りの帯が混ざらない', !/vp-memo-sumui|display\s*:\s*none|memo-act-pop|memo-dv|■ 前半の型|■ 腕の使い方/.test(memoNow), memoNow.slice(0, 200));
@@ -240,13 +260,13 @@ await shot('8-sp');
 ck('⑧ 横にはみ出さない', await pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await pg.evaluate(() => document.getElementById('memo-act-pop')?.remove()); await pg.waitForTimeout(300);
 d9 = await dv();
-ck('⑧ スマホ幅でも仕切りの帯がメモの文字に重ならず、メモ欄に収まる（⑪で足した要約にも帯が付き4本）', d9.bars.length === 4 && d9.bars.every(b => b.bot - b.top > 20) && d9.bars.every(b => !overlap(b, d9.kids).length && b.l >= d9.er.l - 1 && b.r <= d9.er.r + 1), { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)) });
+ck('⑧ スマホ幅でも仕切りの帯がメモの文字に重ならず、メモ欄に収まる（後で足した要約にも帯が付く）', d9.bars.length >= 4 && d9.bars.every(b => b.bot - b.top > 20) && d9.bars.every(b => !overlap(b, d9.kids).length && b.l >= d9.er.l - 1 && b.r <= d9.er.r + 1), { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)) });
 await shot('8-sp-div');
 console.log('── ⑩ 表示の大きさ（body.style.zoom）を変えても帯がずれない（v53.003・オーナーの画面で帯が見出しに重なった）──');
 for (const z of ['1.3', '0.85']) {
   await pg.evaluate((z) => { document.body.style.zoom = z; window.wkMemoSumRepaint(); }, z); await pg.waitForTimeout(400);
   d9 = await dv();
-  ck(`⑩ zoom ${z}: 帯が見出しのすぐ上・メモの文字に重ならない・メモ欄に収まる`, d9.bars.length === 4 && d9.bars.every(b => b.bot - b.top > 20 && !overlap(b, d9.kids).length && b.l >= d9.er.l - 2 && b.r <= d9.er.r + 2)
+  ck(`⑩ zoom ${z}: 帯が見出しのすぐ上・メモの文字に重ならない・メモ欄に収まる`, d9.bars.length >= 4 && d9.bars.every(b => b.bot - b.top > 20 && !overlap(b, d9.kids).length && b.l >= d9.er.l - 2 && b.r <= d9.er.r + 2)
     && d9.bars[0].bot <= d9.kids.find(k => k.k === 'ch' && k.tx.includes('姿勢')).top + 2, { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)), er: d9.er });
   await shot('10-zoom-' + z);
 }
