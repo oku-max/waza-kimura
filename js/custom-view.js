@@ -3990,6 +3990,11 @@ function _init() {
   _load();
   if (!_curId && !window._cvAfterRender) window._cvAfterRender = _masterAfterRender;
   _renderViewBar();
+  // 前回開いていたリストは、この端末の控え（wk_cv_views・wk_cv_lastView）から起動してすぐ開く（v53.010）。
+  // 以前はクラウドからリストの一覧が届くまで待っていたので、再読み込みから開くまで十数秒かかり、
+  // その間に触ると、出ている動画と選んでいるリストがずれた。動画が後から届いたら、絞り込みが描き直す。
+  // 「全端末で共有」の設定のときは前回のリストがクラウドにあるので、今までどおり届いてから開く。
+  if (window._startupCfg.scope !== 'shared') setTimeout(_restoreLastViewOnce, 0);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _init);
