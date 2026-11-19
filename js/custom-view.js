@@ -1784,13 +1784,15 @@ function _dynamicList(v, all0, fc0) {
 // ピッカーに出す「N本 · 合計時間」。手動選択は videoIds を実体に引き当てて数える。
 // 合計時間の書式は一覧の件数バーと共通（organize.js の _orgTotalDurLabel）。
 // 本数で並べるときにも使う。動画がまだ読み込めていなければ null（手動選択は本数だけの配列）。
+// アーカイブした動画は数えない（v53.012）。開いたリスト・マスターはアーカイブを出さないのに、
+// ここだけ数えていたので、一覧の本数が開いたときより多かった（オーナー「Miky musmeci 163本、実際は98本」）
 function _cvPickerList(v) {
   const all = window.videos || [];
-  if (v.saveMode === 'dynamic') return _dynamicList(v) || null;
+  if (v.saveMode === 'dynamic') { const l = _dynamicList(v); return l ? l.filter(x => !x.archived) : null; }
   const ids = v.videoIds || [];
   if (!all.length) return null;
   const byId = _cvVideoById(all);
-  return ids.map(id => byId.get(id)).filter(Boolean);
+  return ids.map(id => byId.get(id)).filter(x => x && !x.archived);
 }
 function _cvPickerCountLabel(v) {
   const all = window.videos || [];
