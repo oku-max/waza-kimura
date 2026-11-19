@@ -20,6 +20,9 @@ function _loadOrgColPrefs() {
     const v = localStorage.getItem('wk_orgColVisibility');
     const w = localStorage.getItem('wk_orgColWidths');
     let order  = o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER];
+    // 空で保存されていたら標準の並びで読む（v53.011）。v53.010 で、列の並びを読み込む前にリストを開いたため
+    // 空の並びがマスターに戻され、そのまま保存された端末がある。空だと標準の列が列設定にも出ず、足し直せない。
+    if (!Array.isArray(order) || !order.length) order = [..._ORG_DEFAULT_ORDER];
     let vis    = v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS};
     let widths = w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS};
     // マイグレーション v4: status列追加

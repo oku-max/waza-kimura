@@ -65,7 +65,7 @@
   // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
   function _getCvBase() {
     if (_D()) return _D().base();   // ドリルがある動画だけ（今のリストの範囲）
-    const cvIds = !_cvMode && (window.wkListScope ? window.wkListScope() : (window._cvVideoIds || window._cvCardVideoIds));
+    const cvIds = !_cvMode && (window._cvVideoIds || window._cvCardVideoIds);
     if (cvIds && cvIds.size > 0) {
       return (window.videos || []).filter(v => cvIds.has(v.id));
     }

@@ -244,7 +244,9 @@ function _restoreFilterSnapshot(key) {
   // 条件で作ったリスト（dynamic）は、語もそのリストの定義の一部なので戻す。
   // 手で選んだリスト（manual）は、語は一時的な操作でしかないので戻さない（v52.872）。
   const _defQ = (view && view.saveMode === 'dynamic') ? (view.searchQuery || '') : '';
-  const q = (snap && typeof snap._search === 'string') ? snap._search : _defQ;
+  // 前回の検索語が空なら、条件で作ったリストに保存してある語を使う（v53.011。v52.959 より前の、開くと語が入る形に戻す）。
+  // 空の検索語が優先されると、語で作ったリストは定義の語が使われず、全部の動画が出ていた
+  const q = (snap && typeof snap._search === 'string' && snap._search) ? snap._search : _defQ;
   // ワードは _uniRestoreFilters より先に確定する。_uniRestoreFilters は AF→_cvUpdateSearch を
   // 誘発することがあり、その時点で _cvSrchQ が未設定(空)だと searchQuery を空で上書きしてしまうため。
   _cvSrchQ = q;
@@ -884,22 +886,7 @@ window._cvRenameView = function(id) {
 // filt() は _cvCardVideoIds だけ、orgFilt() は _cvVideoIds だけを見ていたので、
 // カード型のリストを開いてテーブルに切り替えると **リストに入っていない動画まで出ていた**。
 // どちらか入っている方を返す（両方 null なら範囲なし＝全部）。
-//
-// カード型のリストの範囲は、読むたびに今の動画とリストから数え直す（v53.007）。
-// 以前は開いた瞬間に1回だけ数えて、そのまま持ち続けていた。条件で作ったリストを
-// カードで開いている間に、条件に合う動画を足しても出ず、条件から外れた動画も残っていた
-// （開き直すまで直らない。テーブル型は絞り込みのたびに数え直していたので正しかった）。
-// 手で選んだリストも、ほかの端末で中身が変わったときに同じことが起きていた。
-// ここは画面の中の変数だけを変える（リスト・動画・保存には触らない）。
-function _cvCardScopeFresh() {
-  if (!_curId || !window._cvCardVideoIds || window._cvVideoIds) return;
-  const view = _views.find(v => v.id === _curId);
-  if (!view || (view.viewType || 'table') !== 'card') return;
-  if (!(window.videos || []).length) return;   // 動画がまだ読めていないときは数え直さない（空で置き換えない）
-  window._cvCardVideoIds = new Set(_getViewVideos(view).map(v => v.id));
-}
 window.wkListScope = function () {
-  _cvCardScopeFresh();
   return window._cvVideoIds || window._cvCardVideoIds || null;
 };
 
@@ -1361,21 +1348,15 @@ function _showView(id) {
     window.orgColOrder      = view.colOrder ? [...view.colOrder] : [..._cvSavedOrgColOrder];
     window.orgColVisibility = view.colVis   ? {...view.colVis}   : {..._cvSavedOrgColVis};
     // _saveOrgColPrefs をビュー保存にオーバーライド
-    // 書く先・読む先は、そのときの _views から id で引き直す（v53.007）。
-    // ほかの端末の変更が届くと _views は新しいオブジェクトに入れ替わる（_cvApplyLoadedViews）。
-    // 以前は開いたときのオブジェクトを握ったままだったので、その後に変えた列の並び・表示は
-    // 一覧から外れた古いオブジェクトに書かれ、保存されずに消えていた。
-    const _live = () => _views.find(x => x.id === view.id) || view;
     window._saveOrgColPrefs = () => {
-      const lv = _live();
-      lv.colOrder = [...window.orgColOrder];
-      lv.colVis   = {...window.orgColVisibility};
+      view.colOrder = [...window.orgColOrder];
+      view.colVis   = {...window.orgColVisibility};
       _save();
     };
     const siOrg = document.getElementById('si-org');
     if (siOrg) {
       // 打った語は4つの入力欄すべてに配る（ここだけに入れるとカードに届かない）
-      siOrg.oninput = () => { _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord(siOrg.value, { silent: true }) : siOrg.value; _cvUpdateSearch(_live()); };
+      siOrg.oninput = () => { _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord(siOrg.value, { silent: true }) : siOrg.value; _cvUpdateSearch(view); };
     }
     if (window._libViewMode === 'org') {
       _cvUpdateSearch(view);
@@ -1718,12 +1699,11 @@ function _addCvCols(view) {
 
 function _getViewVideos(view) {
   const all = window.videos || [];
-  // 条件で作ったリストは、条件が無い（null）なら「絞り込みなし＝全部」。リストの窓の本数（_dynamicList）と同じ決まり。
-  // 以前はここだけ 0本 にしていたので、窓では N本 と出るのに開くと空だった（v53.007）
-  if (view.saveMode === 'dynamic') return _applyConditions(view.filterConditions, all);
+  if (view.saveMode === 'dynamic' && view.filterConditions) {
+    return _applyConditions(view.filterConditions, all);
+  }
   if (view.videoIds && view.videoIds.length) {
-    const ids = new Set(view.videoIds);
-    return all.filter(v => ids.has(v.id));
+    return all.filter(v => view.videoIds.includes(v.id));
   }
   return [];
 }
@@ -3990,11 +3970,6 @@ function _init() {
   _load();
   if (!_curId && !window._cvAfterRender) window._cvAfterRender = _masterAfterRender;
   _renderViewBar();
-  // 前回開いていたリストは、この端末の控え（wk_cv_views・wk_cv_lastView）から起動してすぐ開く（v53.010）。
-  // 以前はクラウドからリストの一覧が届くまで待っていたので、再読み込みから開くまで十数秒かかり、
-  // その間に触ると、出ている動画と選んでいるリストがずれた。動画が後から届いたら、絞り込みが描き直す。
-  // 「全端末で共有」の設定のときは前回のリストがクラウドにあるので、今までどおり届いてから開く。
-  if (window._startupCfg.scope !== 'shared') setTimeout(_restoreLastViewOnce, 0);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _init);
@@ -4008,11 +3983,8 @@ Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _view
 // 現在選択中のカスタムビューID（master のとき null）。_syncURL 等が「CV 表示中か」を
 // _cvVideoIds 確定前でも判定できるように公開する。
 Object.defineProperty(window, '_cvActiveViewId', { get: () => _curId, configurable: true });
-// リストの中身を決める欄（これが変わったら、開いている画面の中身を数え直す）
-const _cvDefSig = v => v ? JSON.stringify([v.saveMode, v.filterConditions || null, v.videoIds || null, v.viewType || 'table']) : '';
 window._cvApplyLoadedViews = function(views) {
   if (!Array.isArray(views)) return;
-  const _prevDef = _curId ? _cvDefSig(_views.find(v => v.id === _curId)) : '';
   _views = views;
   _views.forEach(v => { if (!v.rowData) v.rowData = {}; _hydrateView(v); });
   _cvFpRemember();
@@ -4024,15 +3996,6 @@ window._cvApplyLoadedViews = function(views) {
     if (v && (v.viewType || 'table') === 'table') {
       window._cvAfterRender = () => _addCvCols(v);
       window._cvAfterRender();
-    }
-  }
-  // 開いているリストの中身（条件・手で選んだ動画）がほかの端末で変わったら、画面の中身も数え直す（v53.007）。
-  // 以前は開き直すまで古い中身のままだった。画面の中の変数だけで、リスト・動画には書かない。
-  if (_curId) {
-    const v = _views.find(x => x.id === _curId);
-    if (v && _cvDefSig(v) !== _prevDef) {
-      if ((v.viewType || 'table') === 'card') { if (window._cvCardVideoIds) window.AF?.(); }
-      else if (window._cvVideoIds) _cvUpdateSearch(v);
     }
   }
   // 初回ロード時、直前に開いていたカスタムビューへ復帰（動画・ビュー読込後の初回のみ）
@@ -4067,11 +4030,8 @@ window._cvClearFilters = function() {
   if (_curId && filterState[_curId]) {
     Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
   }
-  // 永続保存した検索ワードもリセット（次回開いたときに残らないように）
-  if (_curId) {
-    const v = _views.find(x => x.id === _curId);
-    if (v && v.searchQuery) { v.searchQuery = ''; _cvPersistSoon(); }
-  }
+  // リストに保存してある語（view.searchQuery）には触らない（v53.011）。以前はここで空にして保存していたので、
+  // 語で作った条件リストはリセットのたびに定義の語が消え、全部の動画が出るようになっていた（クラウドにも空で保存）。
   // 再描画は呼び出し元の AF() → _cvOnAfCalled に委ねる
 };
 

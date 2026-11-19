@@ -13,8 +13,6 @@
 //   ② ほかの端末で同じリストを開いていても、編集中の状態で絞られない
 //   ③ 保存すれば新しい条件で出る／✕で閉じれば何も変わらない／編集の後も、ふつうの絞り込みは今までどおり覚える
 //   ④ すでに途中の状態を覚えてしまったリストは「フィルターをリセット」1回で条件どおりに戻り、ほかの端末にも届く
-//   ⑤ カード型の条件リストは、開いたまま動画が増えた・条件から外れたときに数え直す（以前は開き直すまで固まっていた）
-//   ⑥ ほかの端末の変更が届いた後に変えた列の表示・並びも保存される（以前は古いリストに書いて消えていた）
 // 本物の index.html と js/firebase.js を、クラウドの代わり（node 側の入れ物）につないで踏む。
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
@@ -136,8 +134,6 @@ ck('★ A が編集している間、B の画面は条件どおりのまま', aw
 console.log('── ③ 保存・✕・ふつうの絞り込み ──');
 await A.evaluate(() => window._cvSaveDynamic()); await wait(2500);
 ck('保存すると新しい条件（P1・P4）で出る', await shown(A) === await A.evaluate(() => window.videos.filter(v => ['P1','P4'].includes(v.pl)).map(v => v.id).sort().join(',')), await shown(A));
-let got = false; for (let i = 0; i < 20 && !got; i++) { await wait(300); got = await n(B) === 3 + 6; }
-ck('B にも新しい条件が届く', got, await n(B));
 await A.evaluate(() => window.cvOpenConditionEditor('_d1')); await wait(500);
 await A.evaluate(() => window.uniToggle('playlist', 'P1')); await wait(1000);
 await A.evaluate(() => window.uniClose()); await wait(1200);
@@ -156,22 +152,6 @@ ck('★ フィルターをリセット1回で条件どおり 18本', await n(A) 
 ck('★ 空にしたことをクラウドに覚える', snapPl('_d1') === '[]', JSON.stringify(cvf()._d1));
 await reload(B); await openList(B, '_d1');
 ck('★ ほかの端末で開き直しても 18本', await n(B) === ALL, await n(B));
-
-console.log('── ⑤ カード型の条件リストが、開いたまま動画の変化について来る ──');
-await openList(A, '_c1');
-ck('開くと P1 の3本', await n(A) === 3, await shown(A));
-await A.evaluate(() => { window.videos.push({ id:'n1', title:'new', channel:'LG', pl:'P1', addedAt:'2026-01-20' }); window.AF(); }); await wait(800);
-ck('★ 条件に合う動画を足すと出る', (await shown(A)).split(',').includes('n1'), await shown(A));
-await A.evaluate(() => { window.videos.find(v => v.id === 'v1').pl = 'P2'; window.AF(); }); await wait(800);
-ck('★ 条件から外れた動画は消える', !(await shown(A)).split(',').includes('v1'), await shown(A));
-
-console.log('── ⑥ ほかの端末の変更が届いた後の列の設定 ──');
-await openList(A, '_m1');
-await A.evaluate(() => { window._cvApplyLoadedViews(JSON.parse(JSON.stringify(window._cvViews))); });
-await A.evaluate(() => { window.orgColVisibility = { ...(window.orgColVisibility || {}), __probe: false }; window._saveOrgColPrefs(); });
-await wait(800);
-ck('★ 列の表示の変更が今のリストに入り、保存される', await A.evaluate(() => { const v = window._cvViews.find(x => x.id === '_m1'); const s = JSON.parse(localStorage.getItem('wk_cv_views') || '[]').find(x => x.id === '_m1');
-  return !!(v.colVis && v.colVis.__probe === false && s && s.colVis && s.colVis.__probe === false); }), '');
 
 for (const p of [A, B]) await p.context().close();
 await b.close(); srv.close();
