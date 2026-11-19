@@ -172,12 +172,18 @@ const _cvEditingNow = () => !!window._uniCvEditing?.();
 function _cvFiltRecordSoon() {
   clearTimeout(_cvFiltT);
   if (_cvEditingNow()) return;
-  _cvFiltT = setTimeout(() => { if (window._uniSnapshotFilters && !_cvEditingNow()) _cvFiltRecord(_curId || 'master', _cvFiltCurrent()); }, 600);
+  _cvFiltT = setTimeout(() => { if (window._uniSnapshotFilters && !_cvEditingNow() && _cvFiltShown === (_curId || 'master')) _cvFiltRecord(_curId || 'master', _cvFiltCurrent()); }, 600);
 }
+// 覚えた分を画面に戻した先（v53.009）。戻す前の画面を、そのリスト・マスターの分として記録しない。
+// 以前は起動直後、まだ何も戻していない空の画面を「マスターの分」として記録し、時刻が新しいので
+// クラウドの正しい分より優先して全端末へ送っていた（再読み込みのたびにマスターの絞り込みが消えた）。
+let _cvFiltShown = null, _cvFiltApplied = false;
 function _cvFiltCurrent() {
   const snap = window._uniSnapshotFilters();   // window.filters + boolean + titleQ
   // そのリストの検索ワードも覚える（カード/テーブルの検索を1つにまとめる）。_uniVideoQ は別物なので混ぜない
-  snap._search = (window.wkSearchWord ? window.wkSearchWord() : '') || _cvSrchQ || '';
+  // 語は1か所（wkSearchWord）からだけ読む（v53.009）。以前は空のとき _cvSrchQ を代わりに使っていたが、
+  // サイドパネルの検索欄は _cvSrchQ を更新しない（silent）ので、語を消しても古い語が記録され、開き直すと戻ってきた
+  snap._search = window.wkSearchWord ? window.wkSearchWord() : (_cvSrchQ || '');
   return snap;
 }
 // クラウドから来た分を入れる。リストごとに新しい方を採り、今開いているリストが変わったら画面にも戻す
@@ -192,6 +198,16 @@ window._cvFiltApplyRemote = function(snaps) {
     _viewFilterSnapshots[k] = e.snap; _cvFiltAt[k] = Number(e.at); changed = true;
     if (k === cur) curChanged = true;
   });
+  // クラウドを読み終えた最初の1回は、いま開いている方の覚えた分を画面に戻す（v53.009）。
+  // 戻すまでは記録しない（上の _cvFiltShown）。覚えた分が無ければ、いまの画面がその分
+  if (!_cvFiltApplied) {
+    _cvFiltApplied = true;
+    if (changed) _cvFiltCacheSave();
+    if (_cvEditingNow()) return;
+    if (_viewFilterSnapshots[cur]) { clearTimeout(_cvFiltT); _restoreFilterSnapshot(cur); }
+    else _cvFiltShown = cur;
+    return;
+  }
   if (!changed) return;
   _cvFiltCacheSave();
   if (curChanged) { clearTimeout(_cvFiltT); _restoreFilterSnapshot(cur); }
@@ -212,6 +228,7 @@ function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   clearTimeout(_cvFiltT);
   if (_cvEditingNow()) return;   // 編集中の条件をリストの絞り込みとして覚えない（v53.007）
+  if (_cvFiltShown !== (_curId || 'master')) return;   // まだ覚えた分を戻していない画面は記録しない（v53.009）
   _cvFiltRecord(_curId || 'master', _cvFiltCurrent());
   // リストの持ち物（view.searchQuery）としては保存しない（v52.872）。
   // 一度テストで打った「-quick」がリストに焼き付き、リロードのたびに復活して
@@ -243,6 +260,7 @@ function _restoreFilterSnapshot(key) {
   // window.filters + boolean + titleQ を復元（記憶が無ければ空＝完全クリア）。
   // 条件ビューの filterConditions は window.filters に入れない（絞り込みは
   // _getViewVideos→_applyConditions→_cvVideoIds で行う。入れると次リストへ漏れる）。
+  _cvFiltShown = key;
   if (window._uniRestoreFilters) window._uniRestoreFilters(snap || {});
 }
 

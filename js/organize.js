@@ -1980,7 +1980,7 @@ export function openOrgColFilter(col, thEl) {
           cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
           cb.addEventListener('change', () => {
             cb.checked ? filterSet.add(val) : filterSet.delete(val);
-            renderOrg();
+            _orgColFiltChanged();
             _syncFiltIcon(col);
           });
           const txt = document.createElement('span');
@@ -2003,12 +2003,12 @@ export function openOrgColFilter(col, thEl) {
       btnSelAll.addEventListener('click', () => {
         sortedVals.forEach(v => filterSet.add(v));
         renderList(searchBox ? searchBox.value : '');
-        renderOrg(); _syncFiltIcon(col);
+        _orgColFiltChanged(); _syncFiltIcon(col);
       });
       btnClear.addEventListener('click', () => {
         filterSet.clear();
         renderList(searchBox ? searchBox.value : '');
-        renderOrg(); _syncFiltIcon(col);
+        _orgColFiltChanged(); _syncFiltIcon(col);
       });
     }
 
@@ -2029,6 +2029,14 @@ export function openOrgColFilter(col, thEl) {
     };
     document.addEventListener('mousedown', closeHandler);
   }, 50);
+}
+
+// 列の ▾ で変えた絞り込みを、サイドパネルの絞り込み（window.filters）にも写してから描く（v53.009）。
+// ▾ はテーブル用（orgFilters）にだけ書いていたので、次にサイドパネルを触ると、サイドパネル側からの写しで消えていた。
+// 写した後は、サイドパネルで絞ったのと同じ道（AF）を通す。リストの「前回の絞り込み」にも入る。
+function _orgColFiltChanged() {
+  if (window._libViewMode === 'org' && window._wkSyncFilters) { window._wkSyncFilters('org'); window.AF?.(); }
+  else renderOrg();
 }
 
 function _syncFiltIcon(col) {

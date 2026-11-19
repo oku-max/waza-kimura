@@ -1,31 +1,20 @@
-// ═══ リストの絞り込みが効くこと（足す・外す・リセット・切り替え）を、本物の画面でランダムに踏む（v53.008）═══
-// 使い方: node tools/cv-filter-fuzz-check.mjs   （SEEDS=1,2,3 で回す回を変えられる）
-// オーナー「リストの内容がただしくない」「フィルタリングが機能してねえんじゃねえのか」（2026-11-19）。
-// テーブル表示のリストは orgFilters（テーブル用の絞り込み）で絞るのに、サイドパネルの絞り込みは
-// window.filters にだけ書かれ、テーブル用へ写すのはマスターのときだけだった（index.html の AF の包み）。
-// リストを開いたときに入ったテーブル用の絞り込みがそのまま残り、サイドパネルで外しても外れない
-// （足した分は効く）。リロードでテーブル用が空に戻るので「リロードで直る」ように見えた。
-// 見ること: リストを開く・マスター・カード⇔テーブル・サイドパネルで足す/外す・リセット・条件の編集（保存/✕）・
-// 再読み込みをランダムに60手。毎手「画面に見えている絞り込み（サイドパネル＝window.filters と検索語）と
-// リストの条件から計算した動画」と「実際に出ている動画」が同じか。違ったら、その1手と手順を出す。
-// 修正前の版で SEED 1 が22手目で赤くなることを確認済み。
-// ═══ リストごとの絞り込み（検索語も含む）を、開き直しても・ほかの端末でも覚えていること（v52.959）═══
-// 使い方: node tools/cv-filter-memory-check.mjs
-// オーナー「カスタムビューのフィルターが毎回リセットされてる」「検索語も含む」「端末横断にすべき」。
-// 以前は開いている間だけのメモ（_viewFilterSnapshots）にしか覚えず、開き直すたびに消えていた。
-// 覚える場所は users/{uid}/data/cvFilters（リストの本体とは別の文書）と、この端末の控え wk_cvFilterSnaps。
-// 見ること:
-//   ① 絞り込みと検索語を変えると、そのリストの分だけクラウドに覚える（ほかのリストの分・リストの本体には触らない）
-//   ② 開き直すと戻る（手で選んだリストでも。リストの本体 view.searchQuery には書かない）
-//   ③ ほかの端末で同じリストを開くと戻る
-//   ④ 何も覚えていないリストを開いて空のまま離れても、空を記録しない（ほかの端末の分を空で上書きしない）
-//   ⑤ 開いたままのほかの端末に、変更が届く
-//   ⑥ 消した（空にした）ことも覚える
-//   ⑦ クラウドを読めなかった端末は、クラウドへ書かない
-//   ⑧ マスターの検索語も覚える（以前はマスターに戻るたびに消していた）
-// 本物の index.html と js/firebase.js を、クラウドの代わり（node 側の1つの入れ物）につないで、
-// 2つの端末（別のブラウザ）を開いたまま、片方で変えたものがもう片方に再読み込みなしで届くかを見る。
-// クラウドの代わりの onSnapshot は、doc が変わったら知らせる（本物と同じく最初の1回も知らせる）。
+// ═══ 絞り込みが正しく効くこと（マスター・リスト × カード・テーブル × 絞り込みの種類 × 操作）（v53.008〜009）═══
+// 使い方: node tools/cv-filter-fuzz-check.mjs   （SEEDS=1,2,3 で回す回を変えられる。STEPS=50 で手数）
+// オーナー「リストの内容がただしくない」「フィルタリングが正しく機能してるのかどうか調べろよ」（2026-11-19）。
+// 本物の index.html と firebase.js を偽のクラウドにつなぎ、次の操作をランダムに踏む:
+//   リスト（条件・表／条件・カード／手動・表／手動・カード）を開く・マスターへ戻る・カード／テーブルのボタン・
+//   サイドパネルでチャンネル／プレイリスト／タグ1／タグ4・未視聴だけ・ブックマークあり・メモあり・
+//   検索（alpha・-alpha・消す）・フィルターをリセット・列の見出しの ▾（プレイリスト）・再読み込み
+// 検査の側で「掛けているつもりの絞り込み」を持ち（リストを離れて戻る・再読み込みは v52.959 の決まりどおり
+// そのリスト・マスターの分に戻る）、毎手、①アプリに掛かっている絞り込み ②画面に並んでいる動画
+// （カードの並び・テーブルの行）が、つもりの絞り込みとリストの条件から独立に計算したものと同じかを見る。
+// 違ったら、その1手と手順を出す。
+// この検査で見つけて直したもの（どれも修正前の版で赤くなることを確認済み）:
+//   v53.008 テーブル表示のリストで、サイドパネルで外した絞り込みがテーブルに残る
+//   v53.009 起動して最初にカード／テーブルのボタンを押すと、サイドパネルの絞り込みが消える
+//   v53.009 列の ▾ で絞った後にサイドパネルを触ると、▾ の絞り込みが消える
+//   v53.009 再読み込みのたびに、マスターで覚えた絞り込みが空で上書きされ全端末に送られる
+//   v53.009 検索語を消しても消したことが記録されず、開き直すと消した語が戻る
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
 const { execSync } = await import('child_process');
@@ -34,7 +23,7 @@ for (const c of ['playwright', path.join(execSync('npm root -g',{encoding:'utf8'
   try { chromium = (await import(c)).chromium; break; } catch {} }
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8263;
-setTimeout(() => { console.log('⏱ 打ち切り'); process.exit(3); }, 900000).unref?.();
+setTimeout(() => { console.log('⏱ 打ち切り'); process.exit(3); }, 1500000).unref?.();
 const MIME = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml'};
 const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split('?')[0]); if (p === '/') p = '/index.html';
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); return r.end(''); }
@@ -61,13 +50,15 @@ await ctx.exposeFunction('__fsUpdate', (p, dj) => { if (!CLOUD[p]) return 'not-f
 return ctx; }
 
 const VIEWS = [
-  { id:'L1', label:'L1', saveMode:'dynamic', viewType:'table', videoIds:[], filterConditions:{ ch:['LG'], pl:['P1','P2','P3','P4'] }, columns:[], rowData:{} },
-  { id:'L2', label:'L2', saveMode:'dynamic', viewType:'card', videoIds:[], filterConditions:{ pl:['P2','Q'] }, columns:[], rowData:{} },
-  { id:'M1', label:'M1', saveMode:'static', viewType:'table', videoIds:['v1','v5','v9','x1'], columns:[], rowData:{} },
+  { id:'DT', label:'条件・表', saveMode:'dynamic', viewType:'table', videoIds:[], filterConditions:{ ch:['C1'] }, columns:[], rowData:{} },
+  { id:'DC', label:'条件・カード', saveMode:'dynamic', viewType:'card', videoIds:[], filterConditions:{ pl:['P1','P2'], tech:['T1'] }, columns:[], rowData:{} },
+  { id:'ST', label:'手動・表', saveMode:'static', viewType:'table', videoIds:['v1','v2','v3','v4','v6','v9','v12','v15','v24'], columns:[], rowData:{} },
+  { id:'SC', label:'手動・カード', saveMode:'static', viewType:'card', videoIds:['v2','v5','v8','v11','v14','v17','v20','v23'], columns:[], rowData:{} },
 ];
+const VIDEOS = [{"id": "v1", "title": "vid1", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-02", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v2", "title": "vid2", "channel": "C1", "pl": "P3", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-03", "memo": "m"}, {"id": "v3", "title": "alpha vid3", "channel": "C2", "pl": "P1", "tb": ["ボトム"], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-04"}, {"id": "v4", "title": "beta vid4", "channel": "C1", "pl": "P2", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-05"}, {"id": "v5", "title": "vid5", "channel": "C2", "pl": "P3", "tb": [], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-06", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v6", "title": "alpha vid6", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-07"}, {"id": "v7", "title": "vid7", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-08", "memo": "m"}, {"id": "v8", "title": "beta vid8", "channel": "C1", "pl": "P3", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-09"}, {"id": "v9", "title": "alpha vid9", "channel": "C2", "pl": "P1", "tb": ["ボトム"], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-10", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v10", "title": "vid10", "channel": "C1", "pl": "P2", "tb": [], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-11"}, {"id": "v11", "title": "vid11", "channel": "C2", "pl": "P3", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-12"}, {"id": "v12", "title": "alpha beta vid12", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-13", "memo": "m"}, {"id": "v13", "title": "vid13", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-14", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v14", "title": "vid14", "channel": "C1", "pl": "P3", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-15"}, {"id": "v15", "title": "alpha vid15", "channel": "C2", "pl": "P1", "tb": [], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-16"}, {"id": "v16", "title": "beta vid16", "channel": "C1", "pl": "P2", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-17"}, {"id": "v17", "title": "vid17", "channel": "C2", "pl": "P3", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-18", "bookmarks": [{"time": 1, "label": "b"}], "memo": "m"}, {"id": "v18", "title": "alpha vid18", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-19"}, {"id": "v19", "title": "vid19", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-20"}, {"id": "v20", "title": "beta vid20", "channel": "C1", "pl": "P3", "tb": [], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-21"}, {"id": "v21", "title": "alpha vid21", "channel": "C2", "pl": "P1", "tb": ["ボトム"], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-22", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v22", "title": "vid22", "channel": "C1", "pl": "P2", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-23", "memo": "m"}, {"id": "v23", "title": "vid23", "channel": "C2", "pl": "P3", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-24"}, {"id": "v24", "title": "alpha beta vid24", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-25", "archived": true}];
 const SEED = { 'users/u1/data/settings': { customViews: VIEWS, updatedAt:'2026-09-01' },
   
-  'users/u1/videos.json': { videos:[{id:'v1',title:'t1',channel:'LG',pl:'P1',addedAt:'2026-01-02'},{id:'v2',title:'t2',channel:'LG',pl:'P1',addedAt:'2026-01-03'},{id:'v3',title:'t3',channel:'LG',pl:'P1',addedAt:'2026-01-04'},{id:'v4',title:'t4',channel:'LG',pl:'P2',addedAt:'2026-01-05'},{id:'v5',title:'t5',channel:'LG',pl:'P2',addedAt:'2026-01-06'},{id:'v6',title:'t6',channel:'LG',pl:'P2',addedAt:'2026-01-07'},{id:'v7',title:'t7',channel:'LG',pl:'P2',addedAt:'2026-01-08'},{id:'v8',title:'t8',channel:'LG',pl:'P3',addedAt:'2026-01-09'},{id:'v9',title:'t9',channel:'LG',pl:'P3',addedAt:'2026-01-10'},{id:'v10',title:'t10',channel:'LG',pl:'P3',addedAt:'2026-01-11'},{id:'v11',title:'t11',channel:'LG',pl:'P3',addedAt:'2026-01-12'},{id:'v12',title:'t12',channel:'LG',pl:'P3',addedAt:'2026-01-13'},{id:'v13',title:'t13',channel:'LG',pl:'P4',addedAt:'2026-01-14'},{id:'v14',title:'t14',channel:'LG',pl:'P4',addedAt:'2026-01-15'},{id:'v15',title:'t15',channel:'LG',pl:'P4',addedAt:'2026-01-16'},{id:'v16',title:'t16',channel:'LG',pl:'P4',addedAt:'2026-01-17'},{id:'v17',title:'t17',channel:'LG',pl:'P4',addedAt:'2026-01-18'},{id:'v18',title:'t18',channel:'LG',pl:'P4',addedAt:'2026-01-19'},{id:'x0',title:'x0',channel:'Other',pl:'Q',addedAt:'2026-01-01'},{id:'x1',title:'x1',channel:'Other',pl:'Q',addedAt:'2026-01-01'},{id:'x2',title:'x2',channel:'Other',pl:'Q',addedAt:'2026-01-01'},{id:'x3',title:'x3',channel:'Other',pl:'Q',addedAt:'2026-01-01'}], updatedAt:'x' } };
+  'users/u1/videos.json': { videos:[{"id": "v1", "title": "vid1", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-02", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v2", "title": "vid2", "channel": "C1", "pl": "P3", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-03", "memo": "m"}, {"id": "v3", "title": "alpha vid3", "channel": "C2", "pl": "P1", "tb": ["ボトム"], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-04"}, {"id": "v4", "title": "beta vid4", "channel": "C1", "pl": "P2", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-05"}, {"id": "v5", "title": "vid5", "channel": "C2", "pl": "P3", "tb": [], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-06", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v6", "title": "alpha vid6", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-07"}, {"id": "v7", "title": "vid7", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-08", "memo": "m"}, {"id": "v8", "title": "beta vid8", "channel": "C1", "pl": "P3", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-09"}, {"id": "v9", "title": "alpha vid9", "channel": "C2", "pl": "P1", "tb": ["ボトム"], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-10", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v10", "title": "vid10", "channel": "C1", "pl": "P2", "tb": [], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-11"}, {"id": "v11", "title": "vid11", "channel": "C2", "pl": "P3", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-12"}, {"id": "v12", "title": "alpha beta vid12", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-13", "memo": "m"}, {"id": "v13", "title": "vid13", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-14", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v14", "title": "vid14", "channel": "C1", "pl": "P3", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-15"}, {"id": "v15", "title": "alpha vid15", "channel": "C2", "pl": "P1", "tb": [], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-16"}, {"id": "v16", "title": "beta vid16", "channel": "C1", "pl": "P2", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-17"}, {"id": "v17", "title": "vid17", "channel": "C2", "pl": "P3", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-18", "bookmarks": [{"time": 1, "label": "b"}], "memo": "m"}, {"id": "v18", "title": "alpha vid18", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-19"}, {"id": "v19", "title": "vid19", "channel": "C2", "pl": "P2", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-20"}, {"id": "v20", "title": "beta vid20", "channel": "C1", "pl": "P3", "tb": [], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-21"}, {"id": "v21", "title": "alpha vid21", "channel": "C2", "pl": "P1", "tb": ["ボトム"], "tags": [], "pt": "youtube", "watched": false, "addedAt": "2026-01-22", "bookmarks": [{"time": 1, "label": "b"}]}, {"id": "v22", "title": "vid22", "channel": "C1", "pl": "P2", "tb": ["トップ"], "tags": ["T1"], "pt": "youtube", "watched": true, "addedAt": "2026-01-23", "memo": "m"}, {"id": "v23", "title": "vid23", "channel": "C2", "pl": "P3", "tb": ["ボトム"], "tags": ["T2"], "pt": "youtube", "watched": false, "addedAt": "2026-01-24"}, {"id": "v24", "title": "alpha beta vid24", "channel": "C1", "pl": "P1", "tb": ["トップ"], "tags": [], "pt": "youtube", "watched": true, "addedAt": "2026-01-25", "archived": true}], updatedAt:'x' } };
 const INIT = seed => {
   const K = '__fs';
   const all = async () => JSON.parse(await window.__fsAll());
@@ -114,44 +105,109 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 // 書いた後、相手の端末が見張り（onSnapshot）で拾うまで待つ。再読み込みはしない
 const live = async (pg, fn, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn(await views(pg))) return true; await wait(250); } return false; };
 
-const cvf = () => CLOUD['users/u1/data/cvFilters']?.snaps || {};
-let fails = 0;
-for (const SEEDN of String(process.env.SEEDS || '1,2,3').split(',').map(Number)) { let rs = SEEDN; const rnd = n => { rs = (rs * 1103515245 + 12345) & 0x7fffffff; return rs % n; };
-const A = await open(await newCtx());
-const probe = () => A.evaluate(() => {
-  const cur = window._cvActiveViewId; const mode = window._libViewMode;
-  const shown = (mode === 'org' ? window.orgFilt(window.videos) : window.filt(window.videos)).map(v => v.id).sort();
-  const lib = { pl: [...(window.filters.playlist||[])], ch: [...(window.filters.channel||[])] };
-  const org = { pl: [...(window.orgFilters?.playlist||[])], ch: [...(window.orgFilters?.channel||[])] };
-  const q = window.wkSearchWord ? window.wkSearchWord() : '';
-  let base = cur ? window._cvResolveVideos(cur) : window.videos.filter(v => !v.archived);
-  const parsed = window._parseQuery(q);
-  const exp = base.filter(v => (!lib.pl.length || lib.pl.includes(v.pl)) && (!lib.ch.length || lib.ch.includes(v.channel)) && window._matchQuery(v, parsed, null)).map(v => v.id).sort();
-  return { cur, mode, shown: shown.join(','), exp: exp.join(','), lib: JSON.stringify(lib), org: JSON.stringify(org), q };
+// ── 独立した期待値（アプリの関数を使わない）──
+const VMAP = new Map(VIDEOS.map(v => [v.id, v]));
+const base = ctx => {
+  const all = VIDEOS.filter(v => !v.archived);
+  if (ctx === 'master') return all;
+  const vw = VIEWS.find(x => x.id === ctx);
+  if (vw.saveMode === 'static') return all.filter(v => vw.videoIds.includes(v.id));
+  const fc = vw.filterConditions;
+  return all.filter(v => (!fc.ch || fc.ch.includes(v.channel)) && (!fc.pl || fc.pl.includes(v.pl)) && (!fc.tech || (v.tags||[]).some(t => fc.tech.includes(t))));
+};
+const empty = () => ({ ch: [], pl: [], tb: [], tags: [], unw: false, bm: false, memo: false, q: '' });
+const apply = (list, m) => list.filter(v => {
+  if (m.ch.length && !m.ch.includes(v.channel)) return false;
+  if (m.pl.length && !m.pl.includes(v.pl)) return false;
+  if (m.tb.length && !(v.tb||[]).some(x => m.tb.includes(x))) return false;
+  if (m.tags.length && !(v.tags||[]).some(x => m.tags.includes(x))) return false;
+  if (m.unw && v.watched) return false;
+  if (m.bm && !(v.bookmarks && v.bookmarks.length)) return false;
+  if (m.memo && !v.memo) return false;
+  for (const w of m.q.split(/\s+/).filter(Boolean)) {
+    const t = v.title.toLowerCase();
+    if (w.startsWith('-')) { if (t.includes(w.slice(1))) return false; } else if (!t.includes(w)) return false;
+  }
+  return true;
 });
-const ACTS = [
-  ['リストL1を開く', () => A.evaluate(() => window._cvPickerSelect('L1'))],
-  ['リストL2を開く', () => A.evaluate(() => window._cvPickerSelect('L2'))],
-  ['リストM1を開く', () => A.evaluate(() => window._cvPickerSelect('M1'))],
-  ['マスター', () => A.evaluate(() => window._cvClearSelection())],
-  ['カード表示', () => A.evaluate(() => window._libView('card'))],
-  ['テーブル表示', () => A.evaluate(() => window._libView('org'))],
-  ['サイドバーでP1', () => A.evaluate(() => { const s = window.filters.playlist; s.has('P1') ? s.delete('P1') : s.add('P1'); window.AF(); })],
-  ['サイドバーでP3', () => A.evaluate(() => { const s = window.filters.playlist; s.has('P3') ? s.delete('P3') : s.add('P3'); window.AF(); })],
-  ['リセット', () => A.evaluate(() => window.clearAll())],
-  ['L1の条件を編集→P4を外して保存', () => A.evaluate(async () => { window.cvOpenConditionEditor('L1'); await new Promise(r => setTimeout(r, 300)); window.uniToggle('playlist','P4'); await new Promise(r => setTimeout(r, 700)); window._cvSaveDynamic(); })],
-  ['L1の条件を編集→P4を足して保存', () => A.evaluate(async () => { window.cvOpenConditionEditor('L1'); await new Promise(r => setTimeout(r, 300)); const s = window.filters.playlist; if (!s.has('P4')) window.uniToggle('playlist','P4'); await new Promise(r => setTimeout(r, 700)); window._cvSaveDynamic(); })],
-  ['L2の条件を編集→✕で閉じる', () => A.evaluate(async () => { window.cvOpenConditionEditor('L2'); await new Promise(r => setTimeout(r, 300)); window.uniToggle('playlist','P1'); await new Promise(r => setTimeout(r, 700)); window.uniClose(); })],
-  ['再読み込み', async () => { await reload(A); }],
-];
+const tog = (arr, x) => arr.includes(x) ? arr.filter(y => y !== x) : [...arr, x];
+
+let fails = 0;
+for (const SEEDN of String(process.env.SEEDS || '1,2,3').split(',').map(Number)) {
+let rs = SEEDN; const rnd = n => { rs = (rs * 1103515245 + 12345) & 0x7fffffff; return rs % n; };
 const hist = [];
-for (let i = 0; i < 60; i++) {
-  const [name, fn] = ACTS[rnd(ACTS.length)];
-  hist.push(name); await fn(); await wait(900);
-  const p = await probe();
-  if (p.shown !== p.exp) { fails++; console.log(`SEED ${SEEDN} ✗ ${i + 1}手目「${name}」でずれた`); console.log('  手順:', hist.join(' → ')); console.log('  ', JSON.stringify(p)); break; }
-  if (i === 59) console.log(`SEED ${SEEDN} ✓ 60手ずれなし`);
+const VIEWS0 = JSON.stringify(VIEWS);
+Object.keys(CLOUD).forEach(k => delete CLOUD[k]); Object.assign(CLOUD, JSON.parse(JSON.stringify(SEED))); VIEWS.splice(0, VIEWS.length, ...JSON.parse(VIEWS0));
+const A = await open(await newCtx());
+let ctx = 'master', mode = 'card', model = empty(); const mem = {};
+const shownDom = () => A.evaluate(() => {
+  const m = window._libViewMode;
+  const tw = document.querySelector('.org-table-wrap');
+  const ids = m === 'org' ? (tw && tw.style.display === 'none' ? [] : [...document.querySelectorAll('tr.org-tr[id^="org-row-"]')].map(e => e.id.slice(8)))
+                          : [...document.querySelectorAll('#cardList .card[id^="card-"]')].map(e => e.id.slice(5));
+  return { m, ids: ids.sort(), cur: window._cvActiveViewId || 'master' };
+});
+const leave = () => { mem[ctx] = JSON.parse(JSON.stringify(model)); };
+const enter = c => { ctx = c; model = mem[c] ? JSON.parse(JSON.stringify(mem[c])) : empty();
+  if (c !== 'master') mode = (VIEWS.find(x => x.id === c).viewType === 'card') ? 'card' : 'table'; };
+const sidebarSet = (key, val) => A.evaluate(([key, val]) => {
+  const f = window.filters; const TF = window.tagFilter; const s = key === 'tb' ? TF.setFor(f, TF.gidForKey('tbNew', 'lib'), 'lib') : key === 'tags' ? TF.setFor(f, TF.gidForKey('tags', 'lib'), 'lib') : f[key];
+  s.has(val) ? s.delete(val) : s.add(val); window.AF(); }, [key, val]);
+const colSet = (key, val) => A.evaluate(async ([key, val]) => {
+  const th = document.getElementById('org-th-' + key); window.openOrgColFilter(key, th); await new Promise(r => setTimeout(r, 200));
+  const dd = document.getElementById('org-col-filter-dd');
+  const row = dd && [...dd.querySelectorAll('label, div')].find(e => e.querySelector('input[type=checkbox]') && e.textContent.includes(val));
+  if (!row) { window.closeOrgColFilter?.(); return 'skip'; }
+  const cb = row.querySelector('input[type=checkbox]'); cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
+  window.closeOrgColFilter?.(); return 'ok'; }, [key, val]);
+const search = q => A.evaluate(q => { window.wkSetSearchWord(q, { silent: true }); if (window._cvIsTableView?.()) window._cvApplySearch(q); else window.AF(); }, q);
+const OPS = [
+  ['開く:条件・表', async () => { leave(); await A.evaluate(() => window._cvPickerSelect('DT')); enter('DT'); }],
+  ['開く:条件・カード', async () => { leave(); await A.evaluate(() => window._cvPickerSelect('DC')); enter('DC'); }],
+  ['開く:手動・表', async () => { leave(); await A.evaluate(() => window._cvPickerSelect('ST')); enter('ST'); }],
+  ['開く:手動・カード', async () => { leave(); await A.evaluate(() => window._cvPickerSelect('SC')); enter('SC'); }],
+  ['マスター', async () => { leave(); await A.evaluate(() => window._cvClearSelection()); enter('master'); mode = await A.evaluate(() => window._libViewMode === 'org' ? 'table' : 'card'); }],
+  ['カードボタン', async () => { await A.evaluate(() => window._cvSetView('card')); mode = 'card'; if (ctx !== 'master') { const vw = VIEWS.find(x => x.id === ctx); vw.viewType = 'card'; leave(); } }],
+  ['テーブルボタン', async () => { await A.evaluate(() => window._cvSetView('table')); mode = 'table'; if (ctx !== 'master') { const vw = VIEWS.find(x => x.id === ctx); vw.viewType = 'table'; leave(); } }],
+  ['サイド:チャンネルC2', async () => { await sidebarSet('channel', 'C2'); model.ch = tog(model.ch, 'C2'); }],
+  ['サイド:プレイリストP1', async () => { await sidebarSet('playlist', 'P1'); model.pl = tog(model.pl, 'P1'); }],
+  ['サイド:プレイリストP3', async () => { await sidebarSet('playlist', 'P3'); model.pl = tog(model.pl, 'P3'); }],
+  ['サイド:タグ1トップ', async () => { await sidebarSet('tb', 'トップ'); model.tb = tog(model.tb, 'トップ'); }],
+  ['サイド:タグ4 T2', async () => { await sidebarSet('tags', 'T2'); model.tags = tog(model.tags, 'T2'); }],
+  ['未視聴だけ', async () => { await A.evaluate(() => window.togUnw()); model.unw = !model.unw; }],
+  ['ブックマークあり', async () => { await A.evaluate(() => window.togBm()); model.bm = !model.bm; }],
+  ['メモあり', async () => { await A.evaluate(() => window.togMemo()); model.memo = !model.memo; }],
+  ['検索 alpha', async () => { await search('alpha'); model.q = 'alpha'; }],
+  ['検索 -alpha', async () => { await search('-alpha'); model.q = '-alpha'; }],
+  ['検索 消す', async () => { await search(''); model.q = ''; }],
+  ['リセット', async () => { await A.evaluate(() => window.clearAll()); model = empty(); }],
+  ['列の▾:プレイリストP2', async () => { if (mode !== 'table') return 'skip'; if (await colSet('playlist', 'P2') === 'skip') return 'skip'; model.pl = tog(model.pl, 'P2'); }],
+  ['再読み込み', async () => { leave(); await reload(A); const c = await A.evaluate(() => window._cvActiveViewId || 'master'); enter(c); mode = await A.evaluate(() => window._libViewMode === 'org' ? 'table' : 'card'); }],
+];
+let bad = null;
+const STEPS = Number(process.env.STEPS || 50);
+for (let i = 0; i < STEPS && !bad; i++) {
+  const [name, fn] = OPS[rnd(OPS.length)];
+  const r = await fn(); if (r === 'skip') { i--; continue; }
+  hist.push(name); await wait(700);
+  const d = await shownDom();
+  const exp = apply(base(ctx), model).map(v => v.id).sort();
+  const ast = await A.evaluate(() => { const f = window.filters, TF = window.tagFilter;
+    return { ch: [...f.channel].sort(), pl: [...f.playlist].sort(), tb: [...TF.selected(f, TF.gidForKey('tbNew', 'lib'), 'lib')].sort(), tags: [...TF.selected(f, TF.gidForKey('tags', 'lib'), 'lib')].sort(),
+      unw: !!window.unwOnly, bm: !!window.bmOnly, memo: !!window.memoOnly, q: window.wkSearchWord() }; });
+  const mst = { ch: [...model.ch].sort(), pl: [...model.pl].sort(), tb: [...model.tb].sort(), tags: [...model.tags].sort(), unw: model.unw, bm: model.bm, memo: model.memo, q: model.q };
+  if (d.cur !== ctx) { bad = `開いているものが違う（期待 ${ctx}・実際 ${d.cur}）`; }
+  else if (JSON.stringify(ast) !== JSON.stringify(mst)) { bad = `掛かっている絞り込みが違う  画面:${JSON.stringify(ast)}  つもり:${JSON.stringify(mst)}`; }
+  else if (JSON.stringify(d.ids) !== JSON.stringify(exp)) {
+    const extra = d.ids.filter(x => !exp.includes(x)), miss = exp.filter(x => !d.ids.includes(x));
+    bad = `出ている動画が違う  余分:[${extra}] 足りない:[${miss}]  画面:${d.m} 掛けているつもり:${JSON.stringify(model)}`;
+  }
+  if (bad) { const dbg = await A.evaluate(() => { const f = window.filters, of = window.orgFilters; const pick = o => Object.fromEntries(Object.entries(o||{}).filter(([k,v]) => v instanceof Set && v.size).map(([k,v]) => [k,[...v]]));
+      return { lib: pick(f), org: pick(of), unw: window.unwOnly, orgUnw: window.orgUnwOnly, bm: window.bmOnly, orgBm: window.orgBmOnly, cvIds: window._cvVideoIds ? [...window._cvVideoIds].sort() : null, cardIds: window._cvCardVideoIds ? [...window._cvCardVideoIds].sort() : null, q: window.wkSearchWord() }; });
+    console.log('   DBG ' + JSON.stringify(dbg));
+    console.log(`SEED ${SEEDN} ✗ ${hist.length}手目「${name}」 ${ctx}`); console.log('   ' + bad); console.log('   手順: ' + hist.join(' → ')); }
 }
+if (bad) fails++; else console.log(`SEED ${SEEDN} ✓ ${STEPS}手ずれなし`);
 await A.context().close();
 }
 await b.close(); srv.close();

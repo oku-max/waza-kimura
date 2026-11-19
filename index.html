@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v53.008</title>
+<title>WAZA KIMURA v53.009</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -331,8 +331,11 @@
   // 以前は同じ表示のまま呼ばれても（ライブラリに戻る・チップで絞る等）、使っていない方の古い絞り込みで
   // いま使っている方を上書きしていた。テーブル用に残っていたチャンネルが、リセット後のカードに戻ってきて0本になった。
   let _libShown = null;   // 最後に実際に出した表示（'card' | 'org'）。最初の1回は今までどおり写す
+  window._wkSyncFilters = _syncLibFilters;   // 列の ▾（organize.js）が、テーブル用に書いた絞り込みをサイドパネル側にも写すため
   window._libView = function(mode) {
-    const _prevShown = _libShown;
+    // 最初の1回は、いま出ている表示から始める（v53.009）。テーブル用の絞り込みは保存も読み込みもされず
+    // 起動時は必ず空なので、以前の「最初の1回は写す」は、サイドパネルで掛けた絞り込みを空で消すだけだった。
+    const _prevShown = _libShown || (window._libViewMode === 'org' ? 'org' : 'card');
     _libShown = mode === 'card' ? 'card' : 'org';
     window._libViewMode = mode;
     const cardHost = document.getElementById('lib-card-host');
