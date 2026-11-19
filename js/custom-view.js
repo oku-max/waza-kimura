@@ -1699,9 +1699,8 @@ function _addCvCols(view) {
 
 function _getViewVideos(view) {
   const all = window.videos || [];
-  if (view.saveMode === 'dynamic' && view.filterConditions) {
-    return _applyConditions(view.filterConditions, all);
-  }
+  // 条件が無い（null）条件リストは「絞り込みなし＝全部」。一覧の本数（_dynamicList・v52.669）と同じ決まり（v53.014）
+  if (view.saveMode === 'dynamic') return _applyConditions(view.filterConditions, all);
   if (view.videoIds && view.videoIds.length) {
     return all.filter(v => view.videoIds.includes(v.id));
   }
