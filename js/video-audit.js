@@ -52,7 +52,7 @@
     const total    = vids.length;
     const archived = vids.filter(v => v && v.archived).length;
     const active   = total - archived;
-    const scopeSet = window._cvVideoIds || window._cvCardVideoIds || null;
+    const scopeSet = window.wkListScope ? window.wkListScope() : (window._cvVideoIds || window._cvCardVideoIds || null);
     const scoped   = scopeSet ? vids.filter(v => v && !v.archived && !scopeSet.has(v.id)).length : 0;
     // 「画面に出ている本数」は表示中のビューで数える。
     // シート(org)は orgFilt、カード/リストは AF が作った _vpFilteredList。
@@ -212,7 +212,7 @@
     if (!raw || !window._parseQuery || !window._matchQuery) return null;
     const parsed = window._parseQuery(raw);
     if (!parsed.excludes.length && !parsed.includes.length && !parsed.phrase) return null;
-    const scope = window._cvVideoIds || window._cvCardVideoIds || null;
+    const scope = window.wkListScope ? window.wkListScope() : (window._cvVideoIds || window._cvCardVideoIds || null);
     const pool  = (window.videos || []).filter(v => v && !v.archived && (!scope || scope.has(v.id)));
     const gone  = pool.filter(v => !window._matchQuery(v, parsed, null));
     if (!gone.length) return { raw, pool: pool.length, gone: 0, reasons: [] };

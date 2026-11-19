@@ -162,9 +162,17 @@ function _cvFiltRecord(key, snap) {
   window._cvFiltPush?.(key, { snap, at: _cvFiltAt[key] });
 }
 let _cvFiltT = null;
+// 条件の編集画面が開いている間は覚えない（v53.007）。
+// 編集画面は window.filters に「編集中の条件」を入れて動く。以前はチップを押すたびに、それを
+// そのとき開いているリストの「前回の絞り込み」として覚え、クラウドへも送っていた。
+// 保存すれば上書きされたが、編集画面を開いたまま閉じる・再読み込みする・ほかの端末で同じリストを
+// 開いている と途中の状態が残り、リストの条件の上に見えない絞り込みとして掛かり続けた
+// （オーナーの「Lachlan Giles _Guard Retention」: 条件は181件なのに、最初に選んだプレイリストだけの39本）。
+const _cvEditingNow = () => !!window._uniCvEditing?.();
 function _cvFiltRecordSoon() {
   clearTimeout(_cvFiltT);
-  _cvFiltT = setTimeout(() => { if (window._uniSnapshotFilters) _cvFiltRecord(_curId || 'master', _cvFiltCurrent()); }, 600);
+  if (_cvEditingNow()) return;
+  _cvFiltT = setTimeout(() => { if (window._uniSnapshotFilters && !_cvEditingNow()) _cvFiltRecord(_curId || 'master', _cvFiltCurrent()); }, 600);
 }
 function _cvFiltCurrent() {
   const snap = window._uniSnapshotFilters();   // window.filters + boolean + titleQ
@@ -203,6 +211,7 @@ function _cvPersistSoon() { clearTimeout(_cvPersistT); _cvPersistT = setTimeout(
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   clearTimeout(_cvFiltT);
+  if (_cvEditingNow()) return;   // 編集中の条件をリストの絞り込みとして覚えない（v53.007）
   _cvFiltRecord(_curId || 'master', _cvFiltCurrent());
   // リストの持ち物（view.searchQuery）としては保存しない（v52.872）。
   // 一度テストで打った「-quick」がリストに焼き付き、リロードのたびに復活して
@@ -857,7 +866,22 @@ window._cvRenameView = function(id) {
 // filt() は _cvCardVideoIds だけ、orgFilt() は _cvVideoIds だけを見ていたので、
 // カード型のリストを開いてテーブルに切り替えると **リストに入っていない動画まで出ていた**。
 // どちらか入っている方を返す（両方 null なら範囲なし＝全部）。
+//
+// カード型のリストの範囲は、読むたびに今の動画とリストから数え直す（v53.007）。
+// 以前は開いた瞬間に1回だけ数えて、そのまま持ち続けていた。条件で作ったリストを
+// カードで開いている間に、条件に合う動画を足しても出ず、条件から外れた動画も残っていた
+// （開き直すまで直らない。テーブル型は絞り込みのたびに数え直していたので正しかった）。
+// 手で選んだリストも、ほかの端末で中身が変わったときに同じことが起きていた。
+// ここは画面の中の変数だけを変える（リスト・動画・保存には触らない）。
+function _cvCardScopeFresh() {
+  if (!_curId || !window._cvCardVideoIds || window._cvVideoIds) return;
+  const view = _views.find(v => v.id === _curId);
+  if (!view || (view.viewType || 'table') !== 'card') return;
+  if (!(window.videos || []).length) return;   // 動画がまだ読めていないときは数え直さない（空で置き換えない）
+  window._cvCardVideoIds = new Set(_getViewVideos(view).map(v => v.id));
+}
 window.wkListScope = function () {
+  _cvCardScopeFresh();
   return window._cvVideoIds || window._cvCardVideoIds || null;
 };
 
@@ -1319,15 +1343,21 @@ function _showView(id) {
     window.orgColOrder      = view.colOrder ? [...view.colOrder] : [..._cvSavedOrgColOrder];
     window.orgColVisibility = view.colVis   ? {...view.colVis}   : {..._cvSavedOrgColVis};
     // _saveOrgColPrefs をビュー保存にオーバーライド
+    // 書く先・読む先は、そのときの _views から id で引き直す（v53.007）。
+    // ほかの端末の変更が届くと _views は新しいオブジェクトに入れ替わる（_cvApplyLoadedViews）。
+    // 以前は開いたときのオブジェクトを握ったままだったので、その後に変えた列の並び・表示は
+    // 一覧から外れた古いオブジェクトに書かれ、保存されずに消えていた。
+    const _live = () => _views.find(x => x.id === view.id) || view;
     window._saveOrgColPrefs = () => {
-      view.colOrder = [...window.orgColOrder];
-      view.colVis   = {...window.orgColVisibility};
+      const lv = _live();
+      lv.colOrder = [...window.orgColOrder];
+      lv.colVis   = {...window.orgColVisibility};
       _save();
     };
     const siOrg = document.getElementById('si-org');
     if (siOrg) {
       // 打った語は4つの入力欄すべてに配る（ここだけに入れるとカードに届かない）
-      siOrg.oninput = () => { _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord(siOrg.value, { silent: true }) : siOrg.value; _cvUpdateSearch(view); };
+      siOrg.oninput = () => { _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord(siOrg.value, { silent: true }) : siOrg.value; _cvUpdateSearch(_live()); };
     }
     if (window._libViewMode === 'org') {
       _cvUpdateSearch(view);
@@ -1670,11 +1700,12 @@ function _addCvCols(view) {
 
 function _getViewVideos(view) {
   const all = window.videos || [];
-  if (view.saveMode === 'dynamic' && view.filterConditions) {
-    return _applyConditions(view.filterConditions, all);
-  }
+  // 条件で作ったリストは、条件が無い（null）なら「絞り込みなし＝全部」。リストの窓の本数（_dynamicList）と同じ決まり。
+  // 以前はここだけ 0本 にしていたので、窓では N本 と出るのに開くと空だった（v53.007）
+  if (view.saveMode === 'dynamic') return _applyConditions(view.filterConditions, all);
   if (view.videoIds && view.videoIds.length) {
-    return all.filter(v => view.videoIds.includes(v.id));
+    const ids = new Set(view.videoIds);
+    return all.filter(v => ids.has(v.id));
   }
   return [];
 }
@@ -3954,8 +3985,11 @@ Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _view
 // 現在選択中のカスタムビューID（master のとき null）。_syncURL 等が「CV 表示中か」を
 // _cvVideoIds 確定前でも判定できるように公開する。
 Object.defineProperty(window, '_cvActiveViewId', { get: () => _curId, configurable: true });
+// リストの中身を決める欄（これが変わったら、開いている画面の中身を数え直す）
+const _cvDefSig = v => v ? JSON.stringify([v.saveMode, v.filterConditions || null, v.videoIds || null, v.viewType || 'table']) : '';
 window._cvApplyLoadedViews = function(views) {
   if (!Array.isArray(views)) return;
+  const _prevDef = _curId ? _cvDefSig(_views.find(v => v.id === _curId)) : '';
   _views = views;
   _views.forEach(v => { if (!v.rowData) v.rowData = {}; _hydrateView(v); });
   _cvFpRemember();
@@ -3967,6 +4001,15 @@ window._cvApplyLoadedViews = function(views) {
     if (v && (v.viewType || 'table') === 'table') {
       window._cvAfterRender = () => _addCvCols(v);
       window._cvAfterRender();
+    }
+  }
+  // 開いているリストの中身（条件・手で選んだ動画）がほかの端末で変わったら、画面の中身も数え直す（v53.007）。
+  // 以前は開き直すまで古い中身のままだった。画面の中の変数だけで、リスト・動画には書かない。
+  if (_curId) {
+    const v = _views.find(x => x.id === _curId);
+    if (v && _cvDefSig(v) !== _prevDef) {
+      if ((v.viewType || 'table') === 'card') { if (window._cvCardVideoIds) window.AF?.(); }
+      else if (window._cvVideoIds) _cvUpdateSearch(v);
     }
   }
   // 初回ロード時、直前に開いていたカスタムビューへ復帰（動画・ビュー読込後の初回のみ）
@@ -4000,6 +4043,16 @@ window._cvClearFilters = function() {
   _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord('', { silent: true }) : '';
   if (_curId && filterState[_curId]) {
     Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
+  }
+  // リストを開いているときは、テーブル用の絞り込み（orgFilters）も空にする（v53.007）。
+  // リストを開くと覚えていた絞り込みはカード用（filters）とテーブル用の両方に戻る（_uniRestoreFilters）。
+  // ところがリセットはカード用しか消さなかったので、テーブル表示のリストでは押しても外れず、
+  // 覚えていた絞り込みが掛かったままになっていた。画面の中の絞り込みだけで、リスト・動画には触らない。
+  if (_curId) {
+    const of = window.orgFilters;
+    if (of) Object.keys(of).forEach(k => { if (of[k] instanceof Set) of[k].clear(); });
+    ['orgUnwOnly','orgWatchedOnly','orgBmOnly','orgMemoOnly','orgImgOnly'].forEach(k => { window[k] = false; });
+    window.orgPrRank = null; window.orgPrDate = null;
   }
   // 永続保存した検索ワードもリセット（次回開いたときに残らないように）
   if (_curId) {

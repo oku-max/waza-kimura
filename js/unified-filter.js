@@ -65,7 +65,7 @@
   // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
   function _getCvBase() {
     if (_D()) return _D().base();   // ドリルがある動画だけ（今のリストの範囲）
-    const cvIds = !_cvMode && (window._cvVideoIds || window._cvCardVideoIds);
+    const cvIds = !_cvMode && (window.wkListScope ? window.wkListScope() : (window._cvVideoIds || window._cvCardVideoIds));
     if (cvIds && cvIds.size > 0) {
       return (window.videos || []).filter(v => cvIds.has(v.id));
     }
@@ -1157,6 +1157,9 @@
     window.uniClose();
   };
 
+  // リストの条件の編集画面（新しいリストの条件選びも）が開いているか。開いている間の window.filters は
+  // 編集中の条件であって、そのリストの絞り込みではない（custom-view.js が「前回の絞り込み」として覚えないために読む）
+  window._uniCvEditing = () => !!_cvMode;
   // ビュー切替時のフィルタ状態保存・復元（custom-view.js から呼ぶ）
   window._uniSnapshotFilters = _snapshotFilters;
   window._uniRestoreFilters = function(snap) { _restoreFilters(snap || {}); };
