@@ -112,5 +112,25 @@ for (const vw of VIEWS) {
   const ok = n === shown; if (!ok) bad++;
   console.log((ok ? '  ✓ ' : '  ✗ ') + vw.label.padEnd(10) + ` 一覧 ${n}本 ／ 開いたとき ${shown}本`);
 }
+// 絞り込み・検索語を掛けた後も、一覧の本数が開いたときと同じ（v53.015）
+const shownN = () => A.evaluate(() => { const m = window._libViewMode; const tw = document.querySelector('.org-table-wrap');
+  return m === 'org' ? (tw && tw.style.display === 'none' ? 0 : document.querySelectorAll('tr.org-tr[id^="org-row-"]').length) : document.querySelectorAll('#cardList .card[id^="card-"]').length; });
+const pickN = async label => { await A.evaluate(() => window.cvOpenViewPicker()); await wait(600);
+  const t = await A.evaluate(name => [...document.querySelectorAll('.cv-picker-info')].map(e => e.textContent.replace(/\s+/g,' ')).find(t => t.includes(name)), label);
+  await A.evaluate(() => window._closePicker?.()); return Number((t || '').match(/(\d+)本/)?.[1]); };
+for (const [id, label] of [['DT', '条件・表'], ['DC', '条件・カード'], ['ST', '手動・表'], ['DW', '語で作ったリスト']]) {
+  await A.evaluate(id => window._cvPickerSelect(id), id); await wait(1200);
+  await A.evaluate(() => { window.filters.playlist.add('P1'); window.filters.playlist.add('P2'); window.wkSetSearchWord('-alpha', { silent: true }); if (window._cvIsTableView?.()) window._cvApplySearch('-alpha'); window.AF(); }); await wait(1500);
+  const s1 = await shownN(), p1 = await pickN(label);
+  const ok1 = s1 === p1; if (!ok1) bad++;
+  console.log((ok1 ? '  ✓ ' : '  ✗ ') + label.padEnd(10) + ` 絞り込みを掛けた直後  一覧 ${p1}本 ／ 開いている ${s1}本`);
+  await A.evaluate(() => window._cvClearSelection()); await wait(1200);
+  const p2 = await pickN(label);
+  await A.evaluate(id => window._cvPickerSelect(id), id); await wait(1500);
+  const s2 = await shownN();
+  const ok2 = s2 === p2; if (!ok2) bad++;
+  console.log((ok2 ? '  ✓ ' : '  ✗ ') + label.padEnd(10) + ` 離れて戻った後      一覧 ${p2}本 ／ 開いた ${s2}本`);
+  await A.evaluate(() => window.clearAll()); await wait(1200);
+}
 console.log(bad ? `✗ ${bad}件ずれ` : "✓ 全部一致");
 await A.context().close(); await b.close(); srv.close(); process.exit(bad ? 1 : 0);

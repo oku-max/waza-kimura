@@ -1783,15 +1783,41 @@ function _dynamicList(v, all0, fc0) {
 // ピッカーに出す「N本 · 合計時間」。手動選択は videoIds を実体に引き当てて数える。
 // 合計時間の書式は一覧の件数バーと共通（organize.js の _orgTotalDurLabel）。
 // 本数で並べるときにも使う。動画がまだ読み込めていなければ null（手動選択は本数だけの配列）。
-// アーカイブした動画は数えない（v53.012）。開いたリスト・マスターはアーカイブを出さないのに、
-// ここだけ数えていたので、一覧の本数が開いたときより多かった（オーナー「Miky musmeci 163本、実際は98本」）
+// 一覧の本数は、開いたときと同じ計算で数える（v53.015・オーナー「即時で保存されねえとおかしいだろ」）。
+//   リストの条件（条件なしは全部）／手で選んだ動画 → アーカイブを除く → そのリストに保存されている絞り込み・検索語
+// 開いているリストは、いま画面に掛かっている絞り込み・検索語で数える。読むだけ（リスト・動画・覚えた絞り込みに書かない）
+function _cvSnapFilter(list, snap, defQ) {
+  snap = snap || {};
+  const A = k => Array.isArray(snap[k]) ? snap[k] : (snap[k] instanceof Set ? [...snap[k]] : []);
+  const pl = A('playlist'), ch = A('channel'), pf = A('platform'), pr = A('prio'), ids = A('videoIds');
+  const tagOk = window.tagFilter ? window.tagFilter.compile(snap, 'lib') : () => true;
+  const q = (typeof snap._search === 'string' && snap._search) ? snap._search : (defQ || '');
+  const parsed = (q && window._parseQuery && window._matchQuery) ? window._parseQuery(q) : null;
+  return list.filter(v => {
+    if (snap._unwOnly && v.watched) return false;
+    if (snap._watchedOnly && !v.watched) return false;
+    if (snap._bmOnly && !(v.bookmarks && v.bookmarks.length)) return false;
+    if (snap._memoOnly && !v.memo) return false;
+    if (pf.length && !pf.includes(v.pt)) return false;
+    if (pl.length && !pl.includes(v.pl)) return false;
+    if (pr.length && !pr.includes(v.prio)) return false;
+    if (ch.length && !ch.includes(v.channel || v.ch)) return false;
+    if (ids.length && !ids.includes(v.id)) return false;
+    if (!tagOk(v)) return false;
+    if (parsed && !window._matchQuery(v, parsed, null)) return false;
+    return true;
+  });
+}
 function _cvPickerList(v) {
   const all = window.videos || [];
-  if (v.saveMode === 'dynamic') { const l = _dynamicList(v); return l ? l.filter(x => !x.archived) : null; }
-  const ids = v.videoIds || [];
   if (!all.length) return null;
-  const byId = _cvVideoById(all);
-  return ids.map(id => byId.get(id)).filter(x => x && !x.archived);
+  let base;
+  if (v.saveMode === 'dynamic') base = _applyConditions(v.filterConditions, all);
+  else { const byId = _cvVideoById(all); base = (v.videoIds || []).map(id => byId.get(id)).filter(Boolean); }
+  base = base.filter(x => !x.archived);
+  const snap = (v.id === _curId && window._uniSnapshotFilters) ? _cvFiltCurrent() : _viewFilterSnapshots[v.id];
+  const defQ = v.saveMode === 'dynamic' ? (v.searchQuery || '') : '';
+  return _cvSnapFilter(base, snap, defQ);
 }
 function _cvPickerCountLabel(v) {
   const all = window.videos || [];
