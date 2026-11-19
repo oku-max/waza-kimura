@@ -640,9 +640,20 @@ export function gdFavToggle(folderId, folderName) {
 }
 
 export async function gdOpenBrowser() {
-  if (!_token) {
+  if (!getDriveTokenIfAvailable()) {
+    const listEl = document.getElementById('gd-browser-list');
+    if (listEl) listEl.innerHTML = '<div class="gdp-empty">Google ドライブに接続中...</div>';
     const ok = await initDriveAuth();
-    if (!ok) return;
+    if (!ok) {
+      // 黙って戻ると一覧が空白のまま残り、理由も再試行の手段も無くなる
+      if (listEl) {
+        listEl.innerHTML = `<div class="gdp-empty">Google ドライブに接続できませんでした<br>
+          <span style="color:#e74c3c">${_gdEsc(getDriveAuthError() || '')}</span><br>
+          <button class="gdp-link" id="gd-auth-retry" style="margin-top:10px">Google で認証し直す</button></div>`;
+        listEl.querySelector('#gd-auth-retry')?.addEventListener('click', gdOpenBrowser);
+      }
+      return;
+    }
   }
   _browserStack       = [];
   _browserCurrentId   = 'root';
