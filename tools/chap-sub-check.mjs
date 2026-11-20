@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ═══ 自動チャプターからの字幕生成の呼び方チェック ═══
+// ═══ 自動チャプターと字幕生成の関係チェック（v53.024 から: チャプターは字幕を作らない） ═══
 // 使い方: node tools/chap-sub-check.mjs
 //
 // なぜ要るか:
@@ -34,39 +34,33 @@ const grab = (name) => {
   return null;
 };
 
-// ── 1. 自動チャプターからの呼び出しは引数なし ──
+// ── 1. 自動チャプターは字幕を作らない（v53.024・オーナー「字幕がないと進めないものは、字幕がない時点では選べないようにする」）──
+// 以前は字幕が無いまま「字幕から検出」を選ぶと、ここで vpGenSubtitle(id) を呼んでから検出へ進んでいた。
+// いまは字幕が無ければ「字幕から検出」は選べず、字幕は AI のメニューの「字幕生成」から作る。
 const chap = grab('vpGenChapters');
 if (!chap) fail('vpGenChapters が見つからない');
 else {
-  const calls = [...chap.matchAll(/vpGenSubtitle\s*\(([^)]*)\)/g)].map(m => m[1].trim());
-  if (!calls.length) fail('vpGenChapters から vpGenSubtitle を呼んでいない（経路が変わったらこの検査を見直す）');
-  else for (const args of calls) {
-    args === 'id'
-      ? ok('vpGenChapters → vpGenSubtitle(id)（ボタンを押したのと同じ処理）')
-      : fail(`vpGenChapters → vpGenSubtitle(${args}) : preset を渡している。`
-           + '一括処理用の挙動に差し替わり、押した時と違う結果になる');
-  }
+  /vpGenSubtitle\s*\(/.test(chap)
+    ? fail('vpGenChapters が vpGenSubtitle を呼んでいる（字幕が無いときは「字幕から検出」を選べないはず）')
+    : ok('vpGenChapters は字幕を作らない');
+  /if \(via === 'sub' && !subs\.length\) return fail\(/.test(chap)
+    ? ok('字幕が無いまま「字幕から検出」には進まない（念のための止め）')
+    : fail('字幕が無いまま「字幕から検出」に進める');
+}
+{
+  const src2 = grab('_askChapterSource') || '';
+  const win = /hasSubs\s*\n?\s*\?\s*\{ v: 'sub'[^}]*\}\s*:\s*\{ v: 'sub'[^}]*disabled: true \}/.test(src2);
+  const pop = /item\('sub', '字幕から検出', hasSubs \?[\s\S]*?, !hasSubs\)/.test(src2);
+  win && pop ? ok('作り方の画面: 字幕が無ければ「字幕から検出」は押せない')
+             : fail('作り方の画面: 字幕が無くても「字幕から検出」を押せる');
 }
 
-// ── 1.5 聞くことは全部先、長い処理は全部あと ──
-// 以前は「元／細かさ」を聞く前に字幕を作っていた。すると
-//   源を選ぶ → 数分待つ → やっと細かさを聞かれる
-// となり、待たされた先でまた操作を求められる。
-// しかも細かさでキャンセルすると、作った字幕の料金だけ払って何も残らない。
+// ── 1.5 AI のメニューは薄い入口（v53.024）──
+// 実行は、今までのボタンを押したのと同じ関数を、動画の id だけで呼ぶ（preset を渡さない）
 {
-  const body = grab('vpGenChapters');
-  if (!body) fail('vpGenChapters が見つからない');
-  else {
-    const iSrc   = body.indexOf('_askChapterSource(');
-    const iGrain = body.indexOf('_chapGrainDialog(');
-    const iGen   = body.indexOf('vpGenSubtitle(');
-    [['元を選ぶ', iSrc], ['細かさを選ぶ', iGrain], ['字幕を作る', iGen]]
-      .every(([, i]) => i >= 0)
-      ? (iSrc < iGrain && iGrain < iGen
-          ? ok('聞くこと（元→細かさ）を全部終えてから字幕を作る')
-          : fail('字幕の生成が、細かさを聞く前に走る（待たせた先でまた操作を求めることになる）'))
-      : fail('vpGenChapters の中に必要な呼び出しが見当たらない');
-  }
+  const ai = fs.readFileSync(path.join(ROOT, 'js/vp-ai.js'), 'utf8');
+  [['vpGenSubtitle', /window\.vpGenSubtitle\?\.\(vid\)/], ['vpGenChapters', /window\.vpGenChapters\?\.\(vid\)/], ['vpSumRangeOpen', /window\.vpSumRangeOpen\?\.\(vid\)/]]
+    .forEach(([fn, re]) => re.test(ai) ? ok(`AI → ${fn}(id)（ボタンを押したのと同じ処理）`) : fail(`AI から ${fn} を id だけで呼んでいない`));
 }
 
 // ── 2. 依存は一方向であること ──
@@ -74,7 +68,7 @@ else {
 // （書式の正規化など）でも落ちてしまい、意味のある信号にならない。
 // 守るべきは「チャプターが字幕を呼ぶ。字幕はチャプターを知らない」という向きなので、
 // 字幕側にチャプターの都合が入り込んでいないかを見る。
-for (const fn of ['vpGenSubtitle', '_ytGenSubtitle', '_asrGenerateAndSave', '_translateSrtText']) {
+for (const fn of ['vpGenSubtitle', '_vpGenSubtitleBody', '_ytGenSubtitle', '_asrGenerateAndSave', '_translateSrtText', '_askSubtitleLang']) {
   const body = grab(fn);
   if (!body) { fail(`${fn} が見つからない`); continue; }
   const hits = ['vpGenChapters', 'chapOpts', '_chapGrain', 'チャプター']
@@ -102,5 +96,5 @@ for (const fn of ['vpGenSubtitle', '_ytGenSubtitle', '_asrGenerateAndSave', '_tr
   ? ok('一括処理では preset が明示したときだけ入れ替える')
   : fail('一括処理が勝手に入れ替える');
 
-console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 自動チャプターは字幕生成を「押したのと同じ」に呼んでいる');
+console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 自動チャプターは字幕を作らず、字幕が無ければ「字幕から検出」を選べない／AI は押したのと同じに呼ぶ');
 process.exit(ng ? 1 : 0);

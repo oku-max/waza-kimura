@@ -8,6 +8,7 @@
 //  読み取り: window.videos（サジェスト用・読むだけ）
 //            window.POSITIONS / CATEGORIES / TECHNIQUE_BUILTIN（語彙・読むだけ）
 //  既存の videos / notes / settings / カスタムビュー / タグマスターには一切書き込まない。
+//  動画パネルから書いた記録には ref: { vid, t, title }（どの動画の何秒を見ながら書いたか・v53.025）を足す。読むだけで動画には書かない。
 
 // ─────────────────────────────── state
 let _data  = [];     // 記録の配列（新しい順）
@@ -21,6 +22,7 @@ let _deriveFrom = null;
 let _rmTags = new Set();   // 検出されたが手で外したタグ
 let _addTags = new Set();  // 手で足したタグ
 let _resurfId = null;
+let _vref = null;     // 動画パネルから書くとき、その動画と押した瞬間の再生位置 { vid, t, title }（v53.025）
 
 const LS_DATA = 'wk_murmurs';
 const LS_TPLS = 'wk_murmur_tpls';
@@ -458,6 +460,7 @@ function _ensureComposer() {
         <button class="mm-x" id="mm-cp-close" aria-label="閉じる">✕</button>
       </div>
       <div id="mm-cp-quote"><span class="mm-q-h">ここから育てる</span><span id="mm-cp-quote-body"></span></div>
+      <div id="mm-cp-vref"></div>
       <textarea id="mm-cp-text" placeholder="気になることをメモ"></textarea>
       <div class="mm-cp-tpl" id="mm-cp-tpl"></div>
       <div class="mm-cp-det" id="mm-cp-det"></div>
@@ -483,9 +486,12 @@ function _ensureComposer() {
   $m('#mm-cp-all').onclick = () => { closeComposer(); window.switchTab?.('murmurs'); };
 }
 
-export function openComposer(fromId) {
+export function openComposer(fromId, opts) {
   _ensureFab(); _ensureComposer();
   _resetComposer();
+  // 動画パネルから開いたとき: その動画と、押した瞬間の再生位置を記録に付ける（✕ で外せる）
+  if (opts && opts.ref && opts.ref.vid) _vref = { vid: String(opts.ref.vid), t: Number.isFinite(opts.ref.t) ? opts.ref.t : null, title: String(opts.ref.title || '') };
+  _renderVref();
   if (fromId) {
     const src = _data.find(m => m.id === fromId);
     if (src) {
@@ -516,8 +522,25 @@ export function closeComposer() {
 function _resetComposer() {
   const txt = $m('#mm-cp-text');
   if (txt) txt.value = '';
-  _rmTags.clear(); _addTags.clear(); _deriveFrom = null;
+  _rmTags.clear(); _addTags.clear(); _deriveFrom = null; _vref = null;
   const p = $m('#mm-cp-post'); if (p) p.disabled = true;
+  _renderVref();
+}
+function _fmtSec(t) { t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`; }
+// 記録に付いている動画（m.ref）の見出し。今の動画の名前を優先し、消えていれば書いたときの名前
+function _vrefLabel(ref) {
+  const v = (window.videos || []).find(x => x.id === ref.vid);
+  const name = (v && v.title) || ref.title || '動画';
+  return { name, at: Number.isFinite(ref.t) ? _fmtSec(ref.t) : '', gone: !v };
+}
+function _renderVref() {
+  const el = $m('#mm-cp-vref'); if (!el) return;
+  if (!_vref) { el.innerHTML = ''; el.classList.remove('on'); return; }
+  const L = _vrefLabel(_vref);
+  el.classList.add('on');
+  el.innerHTML = `<span class="mm-vref-ic">🎬</span><span class="mm-vref-nm">${_esc(L.name)}</span>${L.at ? `<span class="mm-vref-at">${L.at}</span>` : ''}<button class="mm-vref-x" title="動画のリンクを付けない">✕</button>`;
+  el.querySelector('.mm-vref-x').onclick = () => { _vref = null; _renderVref(); };
 }
 
 function _liveTags() {
@@ -580,7 +603,7 @@ function _renderDetect() {
 }
 
 // 追加はここ1本に集約する。_data の先頭に足すだけで、既存の要素は書き換えない。
-function _commit(body, tags, from) {
+function _commit(body, tags, from, ref) {
   const rec = {
     id: _uid(),
     ts: new Date().toISOString(),
@@ -588,6 +611,7 @@ function _commit(body, tags, from) {
     updatedAt: Date.now()
   };
   if (from) rec.from = from;
+  if (ref) rec.ref = { vid: ref.vid, t: ref.t, title: ref.title };   // どの動画を見ながら書いたか（v53.025・新しい記録に足すだけ）
   _data.unshift(rec);
   _save();
   return rec;
@@ -599,7 +623,7 @@ function _post() {
   if (!body) return;
   const tags = _liveTags();
   const wasDerive = !!_deriveFrom;
-  _commit(body, tags, _deriveFrom);
+  _commit(body, tags, _deriveFrom, _vref);
   _resetComposer();
   closeComposer();
   renderMurmurs();
@@ -607,6 +631,16 @@ function _post() {
   window.toast?.(wasDerive ? '⑂ 育てました'
                 : (n ? `書きました — 関連動画 ${n}本` : '書きました'));
 }
+
+// 記録の 🎬 を押すと、その動画を書いたときの位置から開く（v53.025）
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('[data-mm-vref]'); if (!b) return;
+  const m = _data.find(x => x.id === b.dataset.mmVref); if (!m || !m.ref) return;
+  e.stopPropagation();
+  if (!(window.videos || []).some(v => v.id === m.ref.vid)) { window.toast?.('この動画はライブラリにありません'); return; }
+  if (Number.isFinite(m.ref.t) && m.ref.t >= 1 && window.vpOpenAt) window.vpOpenAt(m.ref.vid, m.ref.t);
+  else window.openVPanel?.(m.ref.vid);
+});
 
 // ─────────────────────────────── キーボード
 document.addEventListener('keydown', e => {
@@ -950,7 +984,9 @@ function _tagChipsHTML(m, isEd, allowAdd) {
 function _linksHTML(m) {
   const kids = _data.filter(x => x.from === m.id).length;
   const vids = matchVideos(m.tags || []);
-  return (vids.length ? `<button class="mm-vids" data-mm-rel="${_esc(m.id)}">▸ 関連動画 ${vids.length}本</button>` : '')
+  const r = m.ref && m.ref.vid ? _vrefLabel(m.ref) : null;
+  return (r ? `<button class="mm-vref-link${r.gone ? ' gone' : ''}" data-mm-vref="${_esc(m.id)}" title="${r.gone ? 'この動画はライブラリにありません' : 'この動画を、書いたときの位置から開く'}">🎬 ${_esc(r.name)}${r.at ? ` <span class="mm-vref-at">${r.at}</span>` : ''}</button>` : '')
+    + (vids.length ? `<button class="mm-vids" data-mm-rel="${_esc(m.id)}">▸ 関連動画 ${vids.length}本</button>` : '')
        + (kids ? `<button class="mm-kids" data-mm-kids="${_esc(m.id)}">⑂ ${kids}件に育った</button>` : '');
 }
 

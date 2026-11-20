@@ -293,7 +293,7 @@ function _recordPlayhead(flush) {
 
 function _startTimeDisplay() {
   _stopTimeDisplay();
-  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); _bmNowSync(); }, 500);
+  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); _bmNowSync(); window.wkMemoSumNow?.(); }, 500);   // 要約の再生中の印（v53.026・js/vp-memo-sum-ui.js）
   _updateTimeDisplay();
 }
 
@@ -1536,14 +1536,11 @@ function _bookmarkSectionHTML(id) {
   const _ytid = _vYtId(_cv);
   const _peek = _ytid ? _ytChapCache.get(_ytid) : undefined;
   if (_ytid && _peek === undefined) setTimeout(() => _ytChapPrecheck(id), 0);
-  const chapBtn = isGd
-    ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
-         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">${_chapBtnLabel(id, _peek)}</button>`
-    : '';
-  // 部分だけの要約（v52.987・オーナー決定 mock-sum-real.html / mock-sum-design.html）。字幕から作るので、チャプターと同じ動画に出す
-  const sumBtn = isGd
-    ? `<button onclick="vpSumRangeOpen('${id}')" id="vp-sumrange-${id}" title="仕切り・ブックマーク・時刻で選んだ部分だけを、字幕からAIで要約してメモに入れます"
-         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">✨ 要約</button>`
+  // AI ボタン（v53.024・オーナー決定 mock-ai-menu.html。v53.025 から「DRILL ここから」の右＝1行目の右端。「＋ 現在位置でブックマーク」は幅が足りないと2行目に回るので、その前に置く）。字幕生成・自動チャプター・要約を1つにまとめ、押すと選べる（js/vp-ai.js）。
+  // 以前の「📑 自動チャプター」「✨ 要約」（ここ）と「💬 字幕生成」（メモの見出し）はこのボタンに入った
+  const aiBtn = isGd
+    ? `<button onclick="vpAiMenu('${id}', this)" id="vp-ai-${id}" class="vp-ai-btn" title="AIで 字幕生成・自動チャプター・要約"
+         style="font-size:11px;padding:3px 11px;border-radius:6px;border:1.5px solid var(--text);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:800;display:inline-flex;align-items:center;gap:5px">${window._wkAiBtnInner ? window._wkAiBtnInner() : 'AI'}</button>`
     : '';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">
@@ -1553,10 +1550,9 @@ function _bookmarkSectionHTML(id) {
           ${_bmNoteAllBtnHTML(id)}
           ${_divFoldBtnHTML(id)}
           ${_divBtnHTML(id)}
-          ${chapBtn}
-          ${sumBtn}
           <button onclick="wkDrillTap('${id}')" id="vp-drill-tap-${id}" title="再生しながら、ドリルにしたい所の始まりで1回・終わりでもう1回押す"
             style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;"><span class="drl-pill">DRILL</span> ここから</button>
+          ${aiBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
       </div>
@@ -1969,6 +1965,14 @@ function _vpTakeStartOnce(id) {
   return (o && o.id === id) ? o.t : 0;
 }
 let _vpStartFresh = false;
+// 動画パネルから Journal に書く（v53.025・オーナー「その動画のリンクを入れよう。作成を押した瞬間の秒数」）。
+// 押した瞬間の動画と再生位置を Journal の書く画面に渡すだけ（動画のデータには書かない）。位置が分からなければ動画だけ
+window.vpJournalHere = function(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  let t = null;
+  try { const s = _getCurrentTime(); if (Number.isFinite(s) && s >= 0) t = Math.floor(s); } catch (e) {}
+  window.openMurmurComposer?.(null, v ? { ref: { vid: id, t, title: v.title || '' } } : undefined);
+};
 window.vpOpenAt = function(id, t) {
   _vpStartOnce = (t >= 1) ? { id, t: Math.floor(t) } : null;
   _vpStartFresh = true;
@@ -2090,17 +2094,22 @@ export function openVPanel(id) {
     const pencilSvg = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
     const gdFileId = plat === 'gd' ? id.replace(/^gd-/, '') : '';
     const driveOpenBtn = gdFileId ? `<a href="https://drive.google.com/file/d/${gdFileId}/view" target="_blank" rel="noopener" title="GDriveで開いて再生→サムネイル生成" style="flex-shrink:0;display:flex;align-items:center;gap:2px;color:var(--accent);font-size:9px;font-weight:600;text-decoration:none;line-height:1;white-space:nowrap;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity='1';this.style.textDecoration='underline'" onmouseout="this.style.opacity='.75';this.style.textDecoration='none'">↗ GDrive</a>` : '';
+    // 再生時刻はタイトルの下（チャンネル名の左）。v53.025 で DRILL を足してから、スマホでは時刻がボタンの列に並ぶとタイトルの幅がほぼ0になっていた（v53.027）
+    // スマホの縦長だけ、タイトルを1行目に幅いっぱい・Back とボタンを2行目に（v53.028・css/style.css の .vp-head。横向き・PC は動画の高さを減らさないため1行のまま）
     titleEl.innerHTML = `
-      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:5px">
+      <div class="vp-head" style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:5px">
         <button onclick="closeVPanel()" style="flex-shrink:0;height:26px;padding:0 9px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit">←Back</button>
-        <div style="flex:1;min-width:0">
+        <div class="vp-head-title" style="flex:1;min-width:0">
           <div id="vp-title-text-${id}" style="font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
-          ${chName ? `<div style="font-size:9px;font-weight:600;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chName}</div>` : ''}
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px;min-width:0">
+            <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+            ${chName ? `<span style="flex:1;min-width:0;font-size:9px;font-weight:600;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chName}</span>` : ''}
+          </div>
         </div>
-        <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;align-self:center"></span>
         <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="字幕・再生・その他" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
+        <button id="vp-drill-hd-${id}" class="vp-drill-hd" onclick="wkDrillTap('${id}')" title="ドリルを作る: 始まりで1回・終わりでもう1回押す（ブックマークの見出しの「DRILL ここから」と同じ）" style="${navBtn};width:33px;padding:0"><span class="drl-pill">DRILL</span></button>
         <button id="vp-list-btn" onclick="(window._srVpListAction || window.vpOpenNextList)?.()" title="リスト表示" style="${navBtn}"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
-        <button id="vp-journal-btn" onclick="window.openMurmurComposer?.()" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
+        <button id="vp-journal-btn" onclick="window.vpJournalHere?.('${id}')" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
         <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
       </div>
       <div id="vpanel-ctrl-row2" style="display:flex;align-items:center;gap:4px;padding:5px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
@@ -2201,7 +2210,6 @@ export function openVPanel(id) {
   if (bmContainer) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
-    const _isOwner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
     // AI要約（一言・全体・区間）は廃止した（2026-09-20）。メモはユーザーが書く。
     // 動画の中身を把握する手段は、自動チャプター（目次）と字幕が担う。
     // すでにメモに書き込まれた要約テキストはユーザーのデータなので、そのまま残る。
@@ -2213,17 +2221,13 @@ export function openVPanel(id) {
     // 撮影は端末によってできないので、入口は1つにして中で塞ぐ。
     const _snapBtn = `<button id="vp-img-btn-${vid}" onclick="vpMemoInsertImage('${vid}')" title="画像をメモに入れる"
            style="margin-left:6px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🖼</button>`;
-    // 字幕生成: Driveは同じフォルダにSRTを保存、YouTubeは字幕ドキュメントに保存
-    const _subGenBtn = (_isOwner && (vd?.pt === 'gdrive' || !!_vYtId(vd)))
-      ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
-           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
-      : '';
+    // 字幕生成のボタンは AI のメニュー（ブックマークの見出しの「AI」）に移した（v53.024）
     // ⛶ = メモを大きく（v53.000・オーナー決定 mock-memo-full.html の B）。見た目だけ。メモの中身・保存は今と同じ
     const _memoFocusBtn = `<button id="vp-memo-full-${vid}" class="vp-memo-full-btn" onclick="vpMemoFocusToggle()" title="メモを大きく表示（動画はそのまま）">⛶</button>`;
     bmContainer.innerHTML = _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl" style="display:flex;align-items:center;width:100%">Memo${_tsBtn}${_snapBtn}${_subGenBtn}${_memoFocusBtn}</span>
+            <span class="vp-lbl" style="display:flex;align-items:center;width:100%">Memo${_tsBtn}${_snapBtn}${_memoFocusBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
@@ -3620,7 +3624,7 @@ window.wkYtSubDelete = async function(lang) {
   const ytId = _ytSubId;
   const t = _ytSubTracks.find(x => x.lang === lang);
   if (!ytId || !t) { window.toast?.('対象の字幕が見つかりません'); return; }
-  if (!confirm(`この動画の「${t.label}」の字幕を削除します。\n\nこの動画のこの言語だけを消します（他の言語・他の動画には影響しません）。\n元に戻せません。作り直すには「💬 字幕生成」を押してください。`)) return;
+  if (!confirm(`この動画の「${t.label}」の字幕を削除します。\n\nこの動画のこの言語だけを消します（他の言語・他の動画には影響しません）。\n元に戻せません。作り直すには「AI」の「字幕生成」を押してください。`)) return;
   try {
     await _ytSubDelete(ytId, lang);
     window.toast?.(`🗑 「${t.label}」の字幕を削除しました`);
@@ -4322,8 +4326,8 @@ window.wkYtCcToggle = function() {
 
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const ytId   = _vYtId(v);
-  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
-  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
+  const setBtn = txt => { if (!preset) window._wkAiSubStep?.(v.id, txt); if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn || window._wkAiAnchor?.(v.id));
   if (!subLang) return { ok: false, skipped: true };
 
   const user = window._firebaseCurrentUser?.();
@@ -4552,13 +4556,9 @@ function _subGenLangChoices() {
 }
 
 function _askSubtitleLang(anchorEl) {
-  // 共通の窓が開いていれば、その中に出す（v52.955。自動チャプターから字幕を作るとき、3つ目の窓を別の場所に出さない）。
-  // 選べる言語・選んだ後の動きは同じ。窓の持ち主は onAsked で「答えた」ことを知る（字幕は窓の持ち主を知らない）
-  if (_flowWin.el) {
-    return _flowWinChoose(_subGenLangChoices().map(([c, l]) => ({
-      v: c, label: l, sub: c === 'orig' ? '話されている言語で文字起こし' : 'この言語に翻訳して字幕にする' })), false)
-      .then(v => { const f = _flowWin.onAsked; _flowWin.onAsked = null; if (v && f) f(v); return v; });
-  }
+  // 押したボタンの下に出す。AI のメニューから呼ばれたときは AI ボタンの下（v53.024）。
+  // 以前は共通の窓（_flowWin）が開いていればその中に出したが、その窓の持ち主から字幕を作らなくなったので外した
+  // （残すと、ほかの作業の窓が開いている間に字幕生成を押したとき、言語の選択がその窓に入ってしまう）
   return new Promise(resolve => {
     document.getElementById('vp-subgen-menu')?.remove();
     const r = anchorEl?.getBoundingClientRect();
@@ -4623,8 +4623,8 @@ window.wkEstimateAiCost = function(seconds) {
 // パネル内に✕で閉じるまで残る表示を出す。バージョンと経過秒も載せる。
 function _subGenShowResult(id, ok, text) {
   try {
-    const btn  = document.getElementById('vp-subgen-' + id);
-    const host = btn ? btn.closest('.vp-row') : null;
+    // 置き場所はメモの行（v53.024 まで字幕生成ボタンのあった行。ボタンは AI のメニューに移った）
+    const host = document.getElementById('vp-memo-' + id)?.closest('.vp-row') || null;
     if (!host) return;
     host.querySelector('.vp-subgen-result')?.remove();
     const box = document.createElement('div');
@@ -5048,7 +5048,14 @@ async function _asrGenerateAndSave(ctx) {
   return { ok: true, target: trTarget || target, cost };
 }
 
+// AI のメニュー（js/vp-ai.js）から呼ばれたとき（preset なし）は、進み具合と結果を AI の帯に知らせる（v53.024）。
+// 字幕生成には窓が無いので、以前はボタンの文字（⏳ 生成中… 等）だけが進み具合だった。帯の言葉はその文字のまま
 window.vpGenSubtitle = async function(id, preset) {
+  const r = await _vpGenSubtitleBody(id, preset);
+  if (!preset) window._wkAiSubEnd?.(id, r);
+  return r;
+};
+async function _vpGenSubtitleBody(id, preset) {
   const silent = !!(preset && preset.silent);
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
 
@@ -5061,7 +5068,7 @@ window.vpGenSubtitle = async function(id, preset) {
 
   // YouTubeは保存先も作り方も違うので、専用の経路に分ける（Drive経路には触れない）
   if (isYt) {
-    const ytBtn = preset ? null : document.getElementById('vp-subgen-' + id);
+    const ytBtn = null;   // ボタンは AI のメニューに移った（v53.024）。進み具合は AI の帯
     const ytOrig = ytBtn ? ytBtn.textContent : '';
     const _t0y = Date.now();
     window.wkAiBusyBegin();
@@ -5084,13 +5091,13 @@ window.vpGenSubtitle = async function(id, preset) {
   const gdToken = window.getDriveTokenIfAvailable?.();
   if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
-  const btn = preset ? null : document.getElementById('vp-subgen-' + id);
-  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
+  const btn = null;   // ボタンは AI のメニューに移った（v53.024）。言語のメニューは AI ボタンの下
+  const subLang = preset ? preset.subLang : await _askSubtitleLang(window._wkAiAnchor?.(id));
   if (!subLang) return { ok: false, skipped: true };
 
   const fileId = (v.id || '').replace(/^gd-/, '');
   const orig   = btn ? btn.textContent : '';
-  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const setBtn = txt => { if (!preset) window._wkAiSubStep?.(id, txt); if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
   const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
 
   const _t0 = Date.now();
@@ -5181,7 +5188,7 @@ window.vpGenSubtitle = async function(id, preset) {
     window.wkAiBusyEnd();
     endBtn();
   }
-};
+}
 
 // ── 自動チャプター（長尺Drive動画を読み取ってチャプターごとにブックマークを作る）──
 // 1本に複数のテクニックが入っている教則を、話題の切り替わりで区切ってブックマーク化する。
@@ -5451,7 +5458,7 @@ function _chapImgToBase64(file) {
 // 長い作業は「閉じて続ける」で窓を隠せる。隠している間は左下の帯（_chapChipSync）と 📑 ボタンに経過を出し、
 // 終わったら帯が「確認する」に変わる。勝手にブックマークへ入れない（確認画面は窓を開いたときに出す）。
 // 作業の状態は画面の中だけで持つ（保存しない）。アプリを閉じる・再読み込みすると止まる（作り終わった字幕は残る）。
-const _flowWin = { el: null, box: null, sub: null, crumbs: null, note: null, body: null, visible: false, onX: null, onAsked: null };
+const _flowWin = { el: null, box: null, sub: null, crumbs: null, note: null, body: null, visible: false, onX: null };
 
 function _flowWinOpen(title) {
   _flowWinClose();
@@ -5477,14 +5484,14 @@ function _flowWinOpen(title) {
   Object.assign(_flowWin, {
     el: bg, box: bg.querySelector('.vp-flow-box'), sub: bg.querySelector('.vp-flow-sub'),
     crumbs: bg.querySelector('.vp-flow-crumbs'), note: bg.querySelector('.vp-flow-note'),
-    body: bg.querySelector('.vp-flow-body'), visible: true, onX: null, onAsked: null,
+    body: bg.querySelector('.vp-flow-body'), visible: true, onX: null,
   });
   bg.querySelector('.vp-flow-x').addEventListener('click', () => _flowWin.onX?.());
   bg.addEventListener('mousedown', e => { if (e.target === bg) _flowWin.onX?.(); });
 }
 function _flowWinClose() {
   _flowWin.el?.remove();
-  Object.assign(_flowWin, { el: null, box: null, sub: null, crumbs: null, note: null, body: null, visible: false, onX: null, onAsked: null });
+  Object.assign(_flowWin, { el: null, box: null, sub: null, crumbs: null, note: null, body: null, visible: false, onX: null });
   _chapChipSync();
 }
 function _flowWinShow() {
@@ -5584,7 +5591,7 @@ function _chapRun(txt) {
         <div style="flex:1;overflow-y:auto;padding:18px 16px">
           <div class="vp-flow-run"><span class="vp-flow-spin"></span><b>${_vpEsc(j.label)}</b></div>
           <div style="font-size:11px;color:var(--text3,#999);margin:6px 0 0 24px">経過 <span class="vp-chap-el">${_chapElapsed()}</span></div>
-          <div class="vp-flow-hint"><span>「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯と「📑」ボタンに出ます。終わったら帯が「確認する」に変わります（勝手にブックマークには入れません）。</span><br><b>アプリを閉じる・再読み込みすると止まります</b><span>（作り終わった字幕は残ります）。</span></div>
+          <div class="vp-flow-hint"><span>「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯と「AI」ボタンに出ます。終わったら帯が「確認する」に変わります（勝手にブックマークには入れません）。</span><br><b>アプリを閉じる・再読み込みすると止まります</b><span>（作り終わった字幕は残ります）。</span></div>
         </div>
         <div style="padding:9px 14px 12px;display:flex;gap:7px;align-items:center;border-top:0.5px solid var(--border,#444)">
           <button class="vp-flow-back" data-stop title="結果を受け取らずにやめます。AIへの依頼は止まらないため、料金がかかることがあります">作成をやめる</button>
@@ -5615,36 +5622,18 @@ function _chapWaitShown() {
   window.toast?.('✔ チャプターができました。左下の「確認する」から追加できます', 6000);
   return new Promise(r => { j.wake = r; });
 }
+// 作成中・確認待ちを、AI の帯（js/vp-ai.js の wkAiJobs・3つで1本）に知らせる（v53.024。以前は専用の帯 #vp-chap-chip）。
+// 窓が開いている間は帯に出さない（AI ボタンの件数とメニューには出る）。帯を押すと窓が戻る
 function _chapChipSync() {
-  const j = _chapJob;
-  let chip = document.getElementById('vp-chap-chip');
-  const show = j && !j.cancelled && (j.phase === 'run' || j.phase === 'ready') && _flowWin.el && !_flowWin.visible;
-  if (!show) { chip?.remove(); return; }
-  if (!chip) {
-    chip = document.createElement('button');
-    chip.id = 'vp-chap-chip';
-    chip.className = 'vp-chap-chip';
-    chip.addEventListener('click', () => _flowWinShow());
-    document.body.appendChild(chip);
-  }
-  chip.innerHTML = j.phase === 'run'
-    ? `<span class="vp-flow-spin"></span><span class="vp-chap-chip-t"><b>チャプター作成中</b> · <span class="vp-chap-el">${_chapElapsed()}</span><small>${_vpEsc(j.label || '')} · ${_vpEsc(j.title || '')}</small></span><i>開く</i>`
-    : `<span>✔</span><span class="vp-chap-chip-t"><b>チャプターができました</b><small>${_vpEsc(j.title || '')}</small></span><i>確認する</i>`;
+  const j = _chapJob, J = window.wkAiJobs;
+  if (!J) return;
+  if (!(j && !j.cancelled && (j.phase === 'run' || j.phase === 'ready'))) { J.clear('chap'); return; }
+  const dock = !!(_flowWin.el && !_flowWin.visible);
+  J.set('chap', j.phase === 'run'
+    ? { phase: 'run', head: 'チャプター作成中', label: j.label || '', title: j.title || '', start: j.start, go: '開く', onGo: _flowWinShow, dock }
+    : { phase: 'done', head: 'チャプターができました', label: '', title: j.title || '', go: '確認する', onGo: _flowWinShow, dock });
 }
-// 📑 ボタンの文字。作業中はパネルを開き直しても経過が出る（ボタンは作り直されるので、状態から毎回作る）
-function _chapBtnLabel(id, peek) {
-  const j = _chapJob;
-  if (j && j.id === id && j.phase === 'run') return `⏳ 作成中 <span class="vp-chap-el">${_chapElapsed()}</span>`;
-  if (j && j.id === id && j.phase === 'ready') return '✔ できました・確認する';
-  return `📑 自動チャプター${_ytChapBadgeHTML(peek)}`;
-}
-function _chapBtnSync(id) {
-  const b = document.getElementById('vp-chapgen-' + id); if (!b) return;
-  const v = (window.videos || []).find(x => x.id === id);
-  const yt = _vYtId(v);
-  b.innerHTML = _chapBtnLabel(id, yt ? _ytChapCache.get(yt) : undefined);
-  b.disabled = false; b.style.opacity = '';
-}
+function _chapBtnSync() { _chapChipSync(); }
 // 作業中に再読み込み・タブを閉じようとしたら、ブラウザの確認を出す（止まってしまうため）
 window.addEventListener('beforeunload', e => {
   if (_chapJob && !_chapJob.cancelled && _chapJob.phase === 'run') { e.preventDefault(); e.returnValue = ''; }
@@ -5902,9 +5891,10 @@ function _askChapterSource(anchorEl, hasYt, ytPeek, hasSubs) {
       ? { v: 'yt', label: 'YouTubeのチャプターを取得', sub: 'この動画にはYouTubeのチャプターがありません', disabled: true }
       : { v: 'yt', label: Array.isArray(ytPeek) ? `YouTubeのチャプターを取得（${ytPeek.length}個）` : 'YouTubeのチャプターを取得',
           sub: '動画に付いているチャプターをそのまま取り込む（無料・最も正確）' });
-    items.push({ v: 'sub', label: '字幕から検出', sub: hasSubs
-      ? 'AIが字幕から内容を判断してチャプターを作る'
-      : 'この動画には字幕がまだ無いので、先に字幕を作ってから検出します（数分）' });
+    // 字幕が無いと進めないので、無いときは選べない（v53.024・オーナー指示。以前はここから字幕を作ってから検出していた）
+    items.push(hasSubs
+      ? { v: 'sub', label: '字幕から検出', sub: 'AIが字幕から内容を判断してチャプターを作る' }
+      : { v: 'sub', label: '字幕から検出', sub: '字幕がありません。先に「AI」の「字幕生成」で字幕を作ってください', disabled: true });
     items.push({ v: 'list', label: '自分で一括入力', sub: 'チャプター名と時間をまとめて貼り付け・手入力する' });
     return _flowWinChoose(items, false);
   }
@@ -5928,8 +5918,8 @@ function _askChapterSource(anchorEl, hasYt, ytPeek, hasSubs) {
                 ? item('yt', 'YouTubeのチャプターを取得', 'この動画にはYouTubeのチャプターがありません', true)
                 : item('yt', Array.isArray(ytPeek) ? `YouTubeのチャプターを取得（${ytPeek.length}個）` : 'YouTubeのチャプターを取得',
                        '動画に付いているチャプターをそのまま取り込む（無料・最も正確）', false)) : '')
-      + item('sub', '字幕から検出',
-             'AI が字幕から内容を判断してチャプターを作成。字幕がない場合は先に「字幕生成」を実行。', false)
+      + item('sub', '字幕から検出', hasSubs ? 'AI が字幕から内容を判断してチャプターを作成'
+             : '字幕がありません。先に「AI」の「字幕生成」で字幕を作ってください', !hasSubs)
       + item('list', '自分で一括入力', 'チャプター名と時間をまとめて貼り付け・手入力する', false);
     document.body.appendChild(menu);
     _fitPopup(menu, anchorEl);
@@ -6310,11 +6300,6 @@ async function _ytFetchEmbeddedChapters(ytId, retried) {
 //   配列 … 調べた結果（0個なら空）／ null … 調べられなかった
 const _ytChapCache = new Map();
 const _ytChapInflight = new Map();
-function _ytChapBadgeHTML(peek) {
-  return (Array.isArray(peek) && peek.length)
-    ? `<span class="vp-ytchap-badge" title="この動画にはYouTubeのチャプターがあります" style="margin-left:6px;padding:0 6px;border-radius:9px;background:#c4302b;color:#fff;font-size:10px;font-weight:700;line-height:16px;display:inline-block">YouTube ${peek.length}</span>`
-    : '';
-}
 function _ytChapLookup(ytId) {
   if (_ytChapCache.has(ytId)) return Promise.resolve(_ytChapCache.get(ytId));
   if (_ytChapInflight.has(ytId)) return _ytChapInflight.get(ytId);
@@ -6326,12 +6311,8 @@ async function _ytChapPrecheck(id) {
   const v = (window.videos || []).find(x => x.id === id);
   const ytId = _vYtId(v);
   if (!ytId) return;
-  const r = await _ytChapLookup(ytId);
-  const btn = document.getElementById('vp-chapgen-' + id);
-  if (!btn || btn.disabled) return;   // 押されて処理中なら触らない（終わったら元の中身に戻る）
-  if (_chapJob && _chapJob.id === id && _chapJob.phase !== 'ask') return;   // 作成中・確認待ちの表示を上書きしない
-  btn.querySelector('.vp-ytchap-badge')?.remove();
-  btn.insertAdjacentHTML('beforeend', _ytChapBadgeHTML(r));
+  await _ytChapLookup(ytId);
+  window._wkAiMenuRefresh?.();   // AI のメニューが開いていれば、自動チャプターの行に数を出す
 }
 window._vpYtChapPrecheck = _ytChapPrecheck;
 
@@ -6370,17 +6351,17 @@ window.vpGenChapters = async function(id, preset) {
   }
 
   const fileId = isGd ? (v.id || '').replace(/^gd-/, '') : '';
-  const btn  = preset ? null : document.getElementById('vp-chapgen-' + id);
-  const orig = btn ? btn.innerHTML : '';   // バッジ（YouTube N）ごと戻す
+  const btn  = null;   // ボタンは AI のメニューに移った（v53.024）。進み具合は窓と帯（_chapRun）に出す
+  const orig = '';
   // 窓で進めるときは、長い作業の段を窓・帯・ボタンに出す（_chapRun）。一括処理は今までどおりボタンだけ
   const setBtn = txt => { if (job) { head('作成しています…', '作成中'); _chapRun(txt); return; } if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
   const endBtn = () => { if (job) return; if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = orig; } };
-  // 今どこにいるかの目印（作り方 › 細かさ › 字幕の言語 › 作成中 › 確認）
+  // 今どこにいるかの目印（作り方 › 件数 › 作成中 › 確認）
   let curVia = null, subs = [];
   const head = (sub, name) => {
     if (!job) return;
     const list = ['作り方',
-      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['件数', ...(subs.length ? [] : ['字幕の言語'])] : []),
+      ...(curVia === 'list' ? ['貼り付け'] : curVia === 'sub' ? ['件数'] : []),
       '作成中', '確認'];
     _flowWinHead(sub, list, Math.max(0, list.indexOf(name)));
   };
@@ -6447,39 +6428,9 @@ window.vpGenChapters = async function(id, preset) {
       : { source: 'youtube', ytId: _vYtId(v), durationSec: duration || 0 };
 
 
-    // 字幕が無いまま「字幕から検出」を選んだら、ここで字幕を作ってから検出へ進む。
-    //
-    // 【変更禁止1】vpGenSubtitle は引数なしで呼ぶこと。
-    // 以前ここで preset を渡したところ、preset は一括処理(bulk)の契約なので、
-    // 言語メニューも確認ダイアログも「既存の別言語から翻訳で済ませる」判断も
-    // まとめて一括用の挙動に差し替わり、「💬 字幕生成」を押した時と違う結果に
-    // なった。そこから連鎖して字幕そのものを壊した。
-    // 引数なし＝ボタンを押したのと完全に同じ処理。ここは薄い入口に徹する。
-    // 一括実行(preset)は従来どおり字幕が無ければ video へ倒すので、ここには来ない。
-    //
-    // 【変更禁止2】この位置（＝聞くことを全部聞き終えたあと）から動かさないこと。
-    // 以前は「元／細かさ」を聞く前にここで字幕を作っていた。すると
-    //   源を選ぶ → 数分待つ → やっと細かさを聞かれる
-    // となり、待たされた先でまた操作を求められる。しかも細かさでキャンセルすると、
-    // 作った字幕の料金だけ払って何も残らない。
-    // 質問は全部先、長い処理は全部あとにする。
-    if (via === 'sub' && !subs.length && !preset) {
-      // 窓では、字幕生成が聞く「何語で作るか」も同じ窓の中に出る（_askSubtitleLang）。答えたら作成中の表示へ
-      head('字幕を何語で作りますか？', '字幕の言語');
-      _flowWinNote('この動画には字幕がまだありません。先に字幕を作ってから、チャプターを検出します。');
-      _flowWin.onAsked = () => setBtn('⏳ 字幕を作成中…');
-      const g = await window.vpGenSubtitle(id);
-      _flowWin.onAsked = null;
-      endBtn();
-      if (job.cancelled) return { ok: false, skipped: true };
-      // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
-      if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
-      // Driveは作った直後の検索に出てこないことがあるので、空なら一度だけ待って引き直す。
-      // それでも出なければ「失敗」ではない。字幕は保存できているので、そう伝える。
-      subs = await findSubs();
-      if (!subs.length) { await new Promise(r => setTimeout(r, 1500)); subs = await findSubs(); }
-      if (!subs.length) return fail('字幕は作成できました。一覧にまだ出てこないので、もう一度「自動チャプター」を押してください');
-    }
+    // 字幕が無いまま「字幕から検出」には進まない（v53.024・オーナー「字幕がないと進めないものは、字幕がない時点では選べないようにする」）。
+    // 作り方の画面で選べなくしてある。以前はここで字幕生成を呼んでから検出へ進んでいた（字幕は AI の「字幕生成」から作る）
+    if (via === 'sub' && !subs.length) return fail('字幕がありません。先に「AI」の「字幕生成」で字幕を作ってください');
 
     // 2. 検出
     setBtn('⏳ 検出中…');
@@ -6576,8 +6527,8 @@ window.vpGenChapters = async function(id, preset) {
         chaps = _normalizeChapters(chaps, { duration, minSec: 0, maxCount: 200 });
 
       } else if (via === 'sub') {
-        if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
-        if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
+        if (!subs.length) throw new Error('字幕が見つかりません。先に「AI」の「字幕生成」で字幕を作ってください');
+        if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「AI」の「字幕生成」で字幕を作ってください');
         const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
@@ -6822,7 +6773,7 @@ function _subOptsHTML(scope) {
             // 探している最中は何も出さない。ユーザーに求めることが無い実況を並べても、
             // 自前の字幕が出ている横で「探しています」と言い続けるだけで混乱のもとになる。
             : '')
-        + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
+        + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「AI」の「字幕生成」を押してください</div>`;
     }
 
     // Drive動画: 字幕ファイルそのもの（ゴミ箱へ移せる）
@@ -9305,9 +9256,7 @@ export function _openPanel(id, emb, ext, plat) {
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
-          <span class="vp-lbl">Memo<button id="vp-ts-btn-${id}" onclick="vpMemoInsertTs('${id}')" title="いまの再生位置をメモに入れる" style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button><button id="vp-img-btn-${id}" onclick="vpMemoInsertImage('${id}')" title="画像をメモに入れる" style="margin-left:6px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🖼</button>${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
-            ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
-            : ''}</span>
+          <span class="vp-lbl">Memo<button id="vp-ts-btn-${id}" onclick="vpMemoInsertTs('${id}')" title="いまの再生位置をメモに入れる" style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button><button id="vp-img-btn-${id}" onclick="vpMemoInsertImage('${id}')" title="画像をメモに入れる" style="margin-left:6px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🖼</button></span>
           ${_memoToolbarHTML(id)}
         </div>
         <div class="vp-memo" id="vp-memo-${id}" contenteditable="true"
@@ -9511,6 +9460,39 @@ window._vpDrillKit = {
     }
     return { tracks: [], why: 'none' };
   },
+};
+
+// ── AI ボタン（js/vp-ai.js・v53.024）が使う読み出し口 ──
+// 読むだけ。字幕の有無は、自動チャプターの「字幕から検出」・字幕生成の上書きの判定と同じ探し方
+// （Drive＝同じフォルダの字幕ファイル、YouTube＝このアプリが作った字幕）で見る。
+// 返り値 { ok:true, labels:[…] } / { ok:false, why:'login'|'drive'|'error'|'none' }。
+// 「確かめられなかった」を「字幕なし」と言わない（v52.988 の教訓）。
+window._vpAiKit = {
+  async subsOf(id) {
+    const v = (window.videos || []).find(x => x.id === id);
+    if (!v) return { ok: false, why: 'none' };
+    if (!window._firebaseCurrentUser?.()) return { ok: false, why: 'login' };
+    try {
+      if (v.pt === 'gdrive') {
+        const token = window.getDriveTokenIfAvailable?.();
+        if (!token) return { ok: false, why: 'drive' };
+        const fileId = (v.id || '').replace(/^gd-/, '');
+        const found = await _gdFindSubtitleFiles(fileId, token).catch(() => []);
+        if (!_gdSubLookup.has(fileId)) return { ok: false, why: 'error' };
+        return { ok: true, labels: [...new Set(found.map(f => f.label || f.name))] };
+      }
+      const ytId = _vYtId(v);
+      if (!ytId) return { ok: false, why: 'none' };
+      const doc = await _ytSubFetch(ytId, true);
+      if (!_ytSubDocs.has(ytId)) return { ok: false, why: 'error' };
+      return { ok: true, labels: _ytSubList(doc).map(t => t.label) };
+    } catch (e) { return { ok: false, why: 'error' }; }
+  },
+  // 自動チャプターの作業（同時に1つ）。{ id, phase:'ask'|'run'|'ready', start } か null
+  chapJob: () => (_chapJob && !_chapJob.cancelled) ? { id: _chapJob.id, phase: _chapJob.phase, start: _chapJob.start } : null,
+  // YouTube のチャプター（開いた時点で調べたもの）。配列・null（調べられない）・undefined（まだ）
+  ytChaps(id) { const v = (window.videos || []).find(x => x.id === id); const yt = _vYtId(v); return yt ? _ytChapCache.get(yt) : null; },
+  isOwner: () => window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com',
 };
 
 // ── 部分だけの要約（js/vp-sum-range.js）が使う読み出し口（v52.987） ──

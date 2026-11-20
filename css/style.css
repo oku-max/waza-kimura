@@ -1833,11 +1833,42 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 @media (prefers-reduced-motion: reduce){.vp-flow-spin{animation-duration:2.4s;}}
 .vp-flow-hint{margin-top:16px;padding:9px 11px;border-radius:8px;background:var(--gold-soft);border:1px solid var(--border);font-size:11px;line-height:1.65;color:var(--text2);}
 /* 窓を閉じている間の帯（作成中・できました） */
-.vp-chap-chip{position:fixed;left:14px;bottom:16px;z-index:10040;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 28px);padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);box-shadow:0 6px 22px rgba(0,0,0,.28);text-align:left;font-size:12px;font-family:inherit;cursor:pointer;}
 .vp-chap-chip-t{min-width:0;}
-.vp-chap-chip small{display:block;font-size:10.5px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62vw;}
-.vp-chap-chip i{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 8px;white-space:nowrap;}
-@media (max-width: 768px){.vp-chap-chip{bottom:calc(72px + env(safe-area-inset-bottom));}}
+/* AI の帯（v53.024・js/vp-ai.js）。字幕生成・自動チャプター・要約で1本。1件なら今までの帯と同じ見た目、2件以上はまとめて押すと一覧 */
+.vp-ai-dock{position:fixed;left:14px;bottom:16px;z-index:10040;max-width:calc(100vw - 28px);min-width:260px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);box-shadow:0 6px 22px rgba(0,0,0,.28);font-size:12px;overflow:hidden;}
+@media (max-width: 768px){.vp-ai-dock{bottom:calc(72px + env(safe-area-inset-bottom));}}
+.vp-ai-dock .vp-ai-row,.vp-ai-dock .vp-ai-head{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;text-align:left;}
+.vp-ai-dock .vp-ai-list{border-top:1px solid var(--border);max-height:50vh;overflow-y:auto;}
+.vp-ai-dock .vp-ai-list .vp-ai-row{padding:8px 12px;border-bottom:1px solid var(--border);}
+.vp-ai-dock .vp-ai-list .vp-ai-row:last-child{border-bottom:none;}
+.vp-ai-dock .vp-chap-chip-t{flex:1;}
+.vp-ai-dock small{display:block;font-size:10.5px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62vw;}
+.vp-ai-dock i{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 8px;white-space:nowrap;}
+.vp-ai-x{flex-shrink:0;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0 2px;font-family:inherit;}
+.vp-ai-btn .vp-flow-spin{width:10px;height:10px;}
+/* プレイヤーの上の DRILL（v53.025）。2回目を待つ間は色を付けて ■ */
+.vp-drill-hd.on{border-color:var(--accent)!important;color:var(--accent)!important;}
+/* 幅はほかのボタン（26px）の約1.25倍＝33px（v53.029・オーナー決定 mock-drill-btn.html の D） */
+.vp-drill-hd .drl-pill{font-size:7px;padding:0 2px;letter-spacing:.02em;}
+.vp-ai-n{font-size:10px;font-weight:800;}
+/* AI のメニュー */
+.vp-ai-menu{position:fixed;z-index:10045;width:340px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-y:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.3);padding:4px 6px 6px;}
+.vp-ai-menu.sheet{left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;border-radius:16px 16px 0 0;padding:4px 10px calc(14px + env(safe-area-inset-bottom));}
+.vp-ai-veil{position:fixed;inset:0;z-index:10044;background:rgba(0,0,0,.35);}
+.vp-ai-mt{display:flex;align-items:center;padding:8px 8px 6px;font-size:13px;}
+.vp-ai-mx{margin-left:auto;border:none;background:none;font-size:15px;color:var(--text3);cursor:pointer;font-family:inherit;}
+.vp-ai-it{display:flex;gap:10px;align-items:center;padding:10px 8px;border-top:1px solid var(--border);}
+.vp-ai-ic{font-size:17px;width:24px;text-align:center;flex-shrink:0;}
+.vp-ai-bd{flex:1;min-width:0;}
+.vp-ai-nm{font-size:13px;font-weight:800;}
+.vp-ai-ds{font-size:11px;color:var(--text2);line-height:1.5;margin-top:1px;}
+.vp-ai-st{font-size:10.5px;margin-top:3px;line-height:1.5;color:var(--text3);}
+.vp-ai-st.warn{color:#b45c00;}
+.vp-ai-run{flex-shrink:0;font-size:12px;font-weight:800;padding:7px 14px;border-radius:8px;border:1.5px solid var(--text);background:var(--text);color:var(--surface);cursor:pointer;font-family:inherit;min-width:64px;display:inline-flex;align-items:center;justify-content:center;gap:5px;}
+.vp-ai-run:disabled{background:transparent;border-color:var(--border);color:var(--text3);cursor:default;}
+.vp-ai-run.busy{background:transparent;color:var(--text);border-color:var(--text);padding:6px 10px;}
+.vp-ai-run.busy:disabled{color:var(--text2);border-color:var(--border);}
+.vp-ai-run .vp-flow-spin{width:10px;height:10px;}
 /* 仕切りで開閉（v52.956）: 線は仕切りと同じ。▶ と本数を足すだけ */
 .vp-bm-div-fold{cursor:pointer;user-select:none;}
 .vp-bm-div-fold:hover .vp-bm-div-t{color:var(--accent);}
@@ -1852,6 +1883,8 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 .vp-bm-now{position:relative;background:rgba(200,131,26,.13)!important;}
 .vp-bm-now::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:3px;border-radius:2px;background:#c8831a;}
 .vp-bm-now .vp-bm-tbtn{border-color:#c8831a!important;color:#c8831a!important;}
+/* 要約の閉じた仕切りの中が再生中（v53.026）。ブックマークの閉じた仕切りと同じく、仕切りの文字に色 */
+.memo-dv.memo-dv-now .memo-dv-n{color:#c8831a!important;}
 .vp-bm-div-now .vp-bm-div-t,.vp-bm-div-now .vp-bm-div-car{color:#c8831a;}
 /* ── 部分だけの要約（v52.987・js/vp-sum-range.js。オーナー決定 mock-sum-real.html / mock-sum-design.html） ── */
 .vsr-ov{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
@@ -1957,3 +1990,12 @@ body.dark .memo-dv{background:#2f2742;color:#c9b4f5}
 .memo-act-pop small{margin-left:auto;font-size:11px;color:var(--text3);font-weight:500;padding-left:12px}
 /* 色地のボタンの文字は地と反対の色（.vsr-sh button の color:inherit より強く） */
 .vsr-sh .vsr-go,.vsr-sh .vsr-o.on,.vsr-sh .vsr-o.on small,.vsr-sh .vsr-tabs button.on{color:var(--surface)}
+
+/* 動画パネルの上の並び（v53.028・オーナー「縦長のときだけタイトルが読めない。横向きは行が増えると動画が小さくなるので今のまま」）。
+   スマホの縦長だけ: 1行目にタイトル（幅いっぱい）、2行目に ←Back（左）とボタン（右） */
+@media (orientation: portrait) and (max-width: 820px) {
+  .vp-head { flex-wrap: wrap; row-gap: 6px; }
+  .vp-head > .vp-head-title { order: -1; flex: 1 1 100% !important; }
+  .vp-head > #vp-more-btn { margin-left: auto; }
+  .vp-head .vp-head-title > div:first-child { font-size: 12px !important; }
+}

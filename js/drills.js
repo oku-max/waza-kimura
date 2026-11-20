@@ -261,9 +261,12 @@
       el.innerHTML = `<div class="dr-tap"><span>${PILL} 開始 <b>${fmt(Math.max(0, TAP.t - 2))}</b>（押した2秒前）→ いま <b id="vp-drill-tapnow">${fmt(TAP.t)}</b></span>
         <button class="dr-tap-end" onclick="wkDrillTapEnd()">■ ここまで</button><button class="dr-x" onclick="wkDrillTapCancel()">やめる</button></div>`;
       const b = document.getElementById('vp-drill-tap-' + TAP.vid); if (b) b.innerHTML = '■ ここまで';
+      // プレイヤーの上の DRILL（v53.025）も2回目の待ちを見せる
+      const h = document.getElementById('vp-drill-hd-' + TAP.vid); if (h) { h.classList.add('on'); h.innerHTML = '■'; h.title = 'ここまで（もう一度押すとドリルの区間が決まる）'; }
       return;
     }
     document.querySelectorAll('[id^="vp-drill-tap-"]').forEach(b => { b.innerHTML = PILL + ' ここから'; });
+    document.querySelectorAll('.vp-drill-hd.on').forEach(b => { b.classList.remove('on'); b.innerHTML = PILL; b.title = 'ドリルを作る: 始まりで1回・終わりでもう1回押す（ブックマークの見出しの「DRILL ここから」と同じ）'; });
     if (!MK || MK.vid !== window.openVPanelId) { el.innerHTML = ''; return; }
     // 端の調整（v52.994・オーナー「1・3・10・30秒、1分。動画のスキップとおなじ」）: スキップの列と同じ部品（.ab-skip-bar / .ab-skip-btn）・同じ並び
     const STEPS = [[60, '1m'], [30, '30s'], [10, '10s'], [3, '3s'], [1, '1s']];
@@ -939,7 +942,7 @@
   function subBtn() {
     const d = cur(), sub = d && SUBS.get(d.vid);
     if (!sub || sub === 'loading') return '';
-    if (!sub.tracks?.length) return '<button disabled title="この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）">字幕なし</button>';
+    if (!sub.tracks?.length) return '<button disabled title="この動画には字幕がありません（動画パネルの「AI」の「字幕生成」で作れます）">字幕なし</button>';
     const on = prefs.sub !== false, tr = subTrack(sub);
     return `<button class="${on ? 'on' : ''}" onclick="wkDrillSub()" title="押すたびに切り替え（オフ・${sub.tracks.map(x => esc(x.label)).join('・')}）">字幕: <span>${on ? esc(tr?.label || '') : ''}</span>${on ? '' : 'オフ'}</button>`;
   }

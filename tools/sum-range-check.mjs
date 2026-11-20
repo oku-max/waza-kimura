@@ -72,8 +72,11 @@ await pg.evaluate(() => { const kit = window._vpSumKit; window.__realCues = kit.
 const before = await pg.evaluate(() => { const v = JSON.parse(JSON.stringify(window.videos[0])); return v; });
 
 console.log('── ① 入口 ──');
-ck('① ブックマークの見出しに「✨ 要約」', await pg.evaluate(() => /✨ 要約/.test(document.getElementById('vp-sumrange-AAAAAAAAAAA')?.textContent || '')));
-await pg.click('#vp-sumrange-AAAAAAAAAAA');
+// v53.024 から入口は AI のメニュー（ブックマークの見出しの「AI」→ 要約）。字幕が無い動画では押せない
+await pg.evaluate(() => { window._vpAiKit.subsOf = async () => ({ ok: true, labels: ['日本語'] }); });
+await pg.click('#vp-ai-AAAAAAAAAAA'); await pg.waitForSelector('#vp-ai-menu [data-run="sum"]:not([disabled])');
+ck('① ブックマークの見出しの「AI」に「✨ 要約」（字幕があれば押せる）', await pg.evaluate(() => /要約/.test(document.querySelector('#vp-ai-menu [data-k="sum"]')?.textContent || '')));
+await pg.click('#vp-ai-menu [data-run="sum"]');
 await pg.waitForSelector('.vsr-sh');
 const S = () => pg.evaluate(() => ({ sum: document.querySelector('.vsr-sum')?.textContent.replace(/\s+/g, ' ').trim(), go: !document.querySelector('[data-act="go"]')?.disabled,
   grp: [...document.querySelectorAll('.vsr-grp span')].map(e => e.textContent), opts: [...document.querySelectorAll('.vsr-o')].map(b => (b.classList.contains('on') ? '*' : '') + (b.disabled ? '-' : '') + b.textContent.replace(/\s+/g, ' ').trim()),

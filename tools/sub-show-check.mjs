@@ -53,7 +53,7 @@ for (const [fn, mark] of [['_gdAttachSubtitle', '_gdSubSetPref'], ['_ytSubAttach
 const paths = [
   ['_ytGenSubtitle',     /_ytSubRefreshNow\(ytId,\s*subLang\)/,      'YouTube'],
   // Drive は言語コードではなく「作ったファイル名」で選ぶ（'orig' でも一意に決まる）
-  ['vpGenSubtitle',      /_gdSubReload\(fileId, gdToken, target\)/,             'Drive(Gemini)'],
+  ['_vpGenSubtitleBody', /_gdSubReload\(fileId, gdToken, target\)/,             'Drive(Gemini)'],
   ['_asrGenerateAndSave',/_gdSubReload\(fileId, gdToken, trTarget \|\| target\)/, 'Drive(音声認識)'],
 ];
 for (const [fn, re, label] of paths) {
