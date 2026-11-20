@@ -273,6 +273,67 @@ for (const z of ['1.3', '0.85']) {
   await shot('10-zoom-' + z);
 }
 await pg.evaluate(() => { document.body.style.zoom = ''; window.wkMemoSumRepaint(); });
+console.log('── ⑬ 再生中の所に色・自動で追いかける（v53.026・オーナー「ブックマークみたいに」）──');
+await pg.setViewportSize({ width: 1300, height: 700 }); await pg.waitForTimeout(200);
+await pg.evaluate((ID) => {
+  const ts = s => `<a class="ts-link" contenteditable="false" data-sec="${s}">▶ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</a>`;
+  const one = (nm) => `<div class="memo-sum-t">✂️ 要約${nm}<span class="memo-sum-rg">2:00–10:00</span></div>`
+    + `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">1</span>姿勢${ts(120)}</div>`
+    + `<div class="memo-sum-it">${ts(130)}&nbsp;背中を丸める${nm}</div><div class="memo-sum-it">${ts(200)}&nbsp;肘を締める${nm}</div>`
+    + `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">2</span>腕の角度${ts(300)}</div>`
+    + `<div class="memo-sum-it">${ts(320)}&nbsp;手首を返す${nm}</div><div class="memo-sum-it">${ts(400)}&nbsp;肘を床に${nm}</div><div class="memo-sum-it">${ts(500)}&nbsp;脇を開けない${nm}</div>`;
+  window.closeVPanel?.();
+  window.videos[0].memo = '<div>前のメモ</div>' + one('A') + '<div>あいだ</div>'.repeat(80) + one('B');
+  window.openVPanel(ID);
+}, ID);
+await pg.waitForSelector(M); await pg.waitForTimeout(800);
+await pg.evaluate(() => { window.__T = 150; window._vpSumKit.nowSec = () => window.__T; window.wkMemoSumFoldAll(true); });
+const memo13 = await pg.evaluate(() => window.videos[0].memo);
+const lit = () => pg.evaluate((M) => [...document.querySelector(M).children].filter(e => /inset/.test(getComputedStyle(e).boxShadow) && getComputedStyle(e).display !== 'none').map(e => e.textContent.replace(/▶\s*[\d:]+/g, '').replace(/\s+/g, '').slice(0, 9)), M);
+const at = async t => { await pg.evaluate(t => { window.__T = t; window.wkMemoSumNow(); }, t); await pg.waitForTimeout(80); return lit(); };
+let L13 = await at(150);
+ck('⑬ 2:30: 「姿勢」の見出しと「背中を丸める」の行に色（同じ区間の要約が2つなら両方）・ほかには付かない', JSON.stringify(L13.sort()) === JSON.stringify(['1姿勢', '1姿勢', '背中を丸めるA', '背中を丸めるB'].sort()), L13);
+L13 = await at(420);
+await pg.evaluate((M) => [...document.querySelector(M).children].find(e => e.textContent.includes('腕の角度'))?.scrollIntoView({ block: 'center' }), M); await shot('13-now');
+ck('⑬ 7:00: 「腕の角度」と「肘を床に」に移る', JSON.stringify(L13.sort()) === JSON.stringify(['2腕の角度', '2腕の角度', '肘を床にA', '肘を床にB'].sort()), L13);
+const tsCol = await pg.evaluate((M) => { const e = [...document.querySelector(M).children].find(e => e.textContent.includes('肘を床にA')); return getComputedStyle(e.querySelector('a.ts-link')).color; }, M);
+ck('⑬ 見た目はブックマークの再生中と同じ（色・左の線・時刻のボタンの色 #c8831a）', /200, 131, 26/.test(tsCol), tsCol);
+L13 = await at(700);
+ck('⑬ 要約に無い所（11:40）では何にも付かない', L13.length === 0, L13);
+// 閉じた見出し: 題（A）を閉じると、中が今のとき題に色
+await at(420);
+const tA = await idxOf('要約A', 'memo-sum-t');
+await press(tA, 'L'); await pg.waitForTimeout(150);
+L13 = await at(421);
+ck('⑬ 閉じた見出しの中が今なら、その見出しに色（題 A は閉じて色・B は開いたまま行に色）', L13.some(x => x.startsWith('✂️要約A')) && L13.includes('肘を床にB') && !L13.includes('肘を床にA'), L13);
+await press(tA, 'L'); await pg.waitForTimeout(150);
+// 自動で追いかける: B の行が見えていない所から、時刻が動くと見える所までスクロールする
+const vis = (txt) => pg.evaluate(([M, txt]) => { const e = [...document.querySelector(M).children].find(e => e.textContent.includes(txt)); const r = e.getBoundingClientRect(); let box = e.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; } const b = box && box !== document.body ? box.getBoundingClientRect() : { top: 0, bottom: innerHeight }; return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }, [M, txt]);
+// 要約 A と B のあいだ（どちらの行も見えない所）までスクロールしておく
+await pg.evaluate((M) => { document.activeElement?.blur?.(); const ks = [...document.querySelector(M).children].filter(e => e.textContent === 'あいだ'); ks[ks.length - 1].scrollIntoView({ block: 'end' }); }, M);
+await pg.waitForTimeout(4200);   // 手でスクロールした直後（4秒）は追いかけない決まりなので待つ
+const before13 = await vis('手首を返すA');
+await at(330);
+const after13 = await vis('手首を返すA');
+ck('⑬ 自動で追いかける: 今の行が見えていなければ、メモの欄をスクロールして見せる', !before13 && after13, { before13, after13 });
+await pg.evaluate((M) => { document.querySelector(M).focus({ preventScroll: true }); const ks = [...document.querySelector(M).children].filter(e => e.textContent === 'あいだ'); ks[ks.length - 1].scrollIntoView({ block: 'end' }); }, M);
+await pg.waitForTimeout(4200);
+const y0 = await pg.evaluate((M) => document.querySelector(M).getBoundingClientRect().top, M);
+await at(410);
+const y1 = await pg.evaluate((M) => document.querySelector(M).getBoundingClientRect().top, M);
+ck('⑬ メモに入力中は動かさない（今の行が見えていなくても）', Math.abs(y1 - y0) < 2 && !(await vis('肘を床にA')), { y0, y1 });
+await pg.evaluate((M) => document.querySelector(M).blur(), M);
+await pg.waitForTimeout(700);
+// 閉じた仕切り（紫の帯）の中が今なら、仕切りの文字に色（ブックマークの閉じた仕切りと同じ）
+await pg.evaluate(() => { window.videos[0].bmDividers = [{ time: 0, label: '前半の型' }, { time: 300, label: '腕の使い方' }]; window.wkMemoSumRepaint(); });
+await pg.waitForTimeout(200);
+await pg.evaluate(() => { const d = [...document.querySelectorAll('.memo-dv')].find(x => x.textContent.includes('腕の使い方')); d.querySelector('.memo-dv-f').click(); });
+await pg.waitForTimeout(200);
+await at(415);
+const dvNow = await pg.evaluate(() => [...document.querySelectorAll('.memo-dv.memo-dv-now')].map(d => d.textContent.replace(/\s+/g, ' ').trim()));
+ck('⑬ 閉じた仕切りの中が今なら、その仕切りに色', dvNow.length >= 1 && dvNow.every(t => t.includes('腕の使い方')), dvNow);
+await pg.evaluate(() => { [...document.querySelectorAll('.memo-dv')].filter(x => x.textContent.includes('腕の使い方') && x.querySelector('.memo-dv-f').textContent.includes('▸')).forEach(d => d.querySelector('.memo-dv-f').click()); delete window.videos[0].bmDividers; window.wkMemoSumRepaint(); });
+ck('⑬ 色を付けてもメモの中身（保存される文字）は変わらない', await pg.evaluate(([M, m0]) => window.videos[0].memo.replace(/ style=""/g, '') === m0.replace(/ style=""/g, '') && !/c8831a|box-shadow/.test(document.querySelector(M).innerHTML), [M, memo13]));
 ck('ページのエラーが無い', errs.length === 0, errs);
 console.log(fail ? `✗ ${fail} 件` : '✓ すべて通過');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);

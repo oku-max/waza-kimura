@@ -293,7 +293,7 @@ function _recordPlayhead(flush) {
 
 function _startTimeDisplay() {
   _stopTimeDisplay();
-  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); _bmNowSync(); }, 500);
+  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); _bmNowSync(); window.wkMemoSumNow?.(); }, 500);   // 要約の再生中の印（v53.026・js/vp-memo-sum-ui.js）
   _updateTimeDisplay();
 }
 

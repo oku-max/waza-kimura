@@ -15,6 +15,8 @@
 //   大見出しはメモの外（メモ欄の上に重ねた層 .memo-dv-layer）に描き、場所はメモの要素に余白を足す <style> で空ける。
 //   メモの文字には入れない＝前に作った要約にも付き、仕切りを動かす・名前を変えるとついてくる。
 //   仕切りは最初は開いている。押すと中のブックマークをまとめて開閉。右の ⋯ で その仕切りの区間の さらにくわしく／ドリル。
+//
+// 【再生中】（v53.026）今の再生位置を含む行・見出しに、ブックマークの再生中と同じ色と左の線（nowSync）。閉じていれば見出し・仕切りに。自動で追いかける。
 (() => {
   const OPEN = new WeakMap();   // 見出しの要素 → 開いているか
   const SEEN = new WeakSet();   // 最初に見た見出し（これより後に現れた見出し＝今入った要約・くわしく は開いて出す）
@@ -94,6 +96,7 @@
     css += [...indent].map(([j, px]) => `${sel}(${j + 1}){margin-left:${px}px!important}`).join('');
     cur.style.textContent = css + hide;
     layoutBars(kids, hid, bars, css + hide, sel);
+    cur.hid = hid; cur.ranges = null; nowSync(true);
   }
 
   // 仕切りの帯を、メモの要素のすき間（余白を足して空ける）に重ねて描く。帯はメモの外の要素なので保存されない
@@ -139,6 +142,70 @@
       drill: () => window.wkDrillFromRange?.(cur.id, a, z, bar.label),
     });
   }
+
+  // ── 再生中の所（v53.026・オーナー「要約でも、今再生中の部分がハイライト表示されるといい。ブックマークみたいに」）──
+  // 決定: 見た目はブックマークの再生中（色と左の線）と同じ／自動で追いかける／閉じた見出し・仕切りは、その見出し・仕切りに色。
+  // 範囲は ⋯ と同じ rangeOf（行＝その行の時刻〜次の行の時刻、見出し＝そのブックマークの区間）。くわしくの見出しは中の行のどれかが今なら。
+  // 同じ区間の要約が2つあれば両方に付く（今の位置を含むものは全部）。
+  // 【データ】印は別の <style>（#vp-memo-now-style）で「#vp-memo-ID > :nth-child(n)」に付けるだけ。メモの要素には何も付けない＝保存されない。
+  let nowKey = '', lastUser = 0;
+  function rangesOf(kids) {
+    if (cur.ranges) return cur.ranges;
+    const out = [];
+    kids.forEach((e, i) => {
+      const k = kind(e);
+      if (k === 'C' || k === 'I') { const r = rangeOf({ e, k }); if (r) out.push({ i, a: r.a, b: r.b }); }
+    });
+    cur.ranges = out;
+    return out;
+  }
+  function nowSync(force) {
+    if (!cur || !cur.el.isConnected) return;
+    const t = window._vpSumKit?.nowSec?.();
+    const kids = [...cur.el.children];
+    const hit = new Set();
+    if (t != null && isFinite(t)) for (const r of rangesOf(kids)) if (t >= r.a - 0.25 && t < r.b - 0.25) hit.add(r.i);
+    // くわしくの見出し（D）は、中の行のどれかが今なら今
+    kids.forEach((e, i) => { if (kind(e) === 'D' && groupOf(kids, i).some(j => hit.has(j))) hit.add(i); });
+    // 隠れている所は、それを閉じている見出し（見えているいちばん近いもの）に付け替える
+    const hid = cur.hid || new Set(), show = new Set(), bars = new Set();
+    hit.forEach(j => {
+      if (!hid.has(j)) { show.add(j); return; }
+      // 閉じた仕切り（紫の帯）の中なら、その仕切りに（帯は題が開いているときだけ出る）
+      const bi = (cur.bars || []).findIndex(bar => !bar.open && j >= bar.start && j <= bar.end);
+      if (bi >= 0) { bars.add(bi); return; }
+      for (let i = j - 1; i >= 0; i--) {
+        if (!isHead(kind(kids[i])) || hid.has(i)) continue;
+        if (groupOf(kids, i).includes(j)) { show.add(i); return; }
+      }
+    });
+    const key = [...show].sort((x, y) => x - y).join(',') + '|' + [...bars].join(',');
+    if (!force && key === nowKey) return;
+    const moved = key !== nowKey; nowKey = key;
+    const sel = `#${CSS.escape(cur.el.id)} > :nth-child`;
+    cur.nowStyle.textContent = [...show].map(j => `${sel}(${j + 1}){background:rgba(200,131,26,.13)!important;box-shadow:inset 3px 0 0 #c8831a!important;border-radius:4px}`
+      + `${sel}(${j + 1}) a.ts-link{border-color:#c8831a!important;color:#c8831a!important}`).join('');
+    cur.layer?.querySelectorAll('.memo-dv').forEach(d => d.classList.toggle('memo-dv-now', bars.has(+d.dataset.i)));
+    if (moved && show.size) follow(kids, show);
+  }
+  // 自動で追いかける: 今の所が見えなければ、メモを入れている欄をスクロールして見せる。
+  // 打っている最中（メモに入力中）と、手でスクロールした直後（4秒）は動かさない。画面全体（window）は動かさない
+  function follow(kids, show) {
+    if (document.activeElement === cur.el || Date.now() - lastUser < 4000) return;
+    const idx = [...show].sort((x, y) => x - y), target = kids[idx.find(j => kind(kids[j]) === 'I') ?? idx[0]];
+    if (!target) return;
+    let box = cur.el.parentElement;
+    while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; }
+    if (!box || box === document.body) return;
+    const br = box.getBoundingClientRect(), tr = target.getBoundingClientRect();
+    if (tr.top >= br.top + 8 && tr.bottom <= br.bottom - 8) return;   // もう見えている
+    cur.following = true;
+    box.scrollTop += tr.top - br.top - Math.min(120, box.clientHeight / 3);
+    setTimeout(() => { if (cur) cur.following = false; }, 300);
+  }
+  // 手でスクロールしたら、しばらく追いかけない（どこでスクロールしても拾えるよう、捕まえる段階で見る。登録は1回だけ）
+  ['wheel', 'touchmove'].forEach(ev => document.addEventListener(ev, () => { lastUser = Date.now(); }, { passive: true, capture: true }));
+  window.wkMemoSumNow = () => nowSync(false);
 
   // 押した場所: 見出しの左の ▾（28px）／見出し・行の右の ⋯（28px）
   function zone(ev) {
@@ -225,7 +292,7 @@
   window.wkMemoSumUi = function (id) {
     const el = document.getElementById('vp-memo-' + id); if (!el || !el.isContentEditable) return;
     if (cur?.el === el) { paint(); return; }
-    cur?.mo?.disconnect(); cur?.ro?.disconnect(); cur?.style?.remove(); cur?.layer?.remove();
+    cur?.mo?.disconnect(); cur?.ro?.disconnect(); cur?.style?.remove(); cur?.layer?.remove(); cur?.nowStyle?.remove();
     document.getElementById('memo-act-pop')?.remove();
     const style = document.createElement('style'); style.id = 'vp-memo-fold-style';
     document.head.appendChild(style);
@@ -235,7 +302,11 @@
     if (row && getComputedStyle(row).position === 'static') row.style.position = 'relative';
     row?.appendChild(layer);
     layer.addEventListener('click', onBar);
-    cur = { id, el, style, layer, ready: false };
+    const nowStyle = document.createElement('style'); nowStyle.id = 'vp-memo-now-style';
+    document.head.appendChild(nowStyle);
+    cur = { id, el, style, layer, nowStyle, ready: false };
+    nowKey = '';
+
     el.classList.add('vp-memo-sumui');
     el.addEventListener('mousedown', onDown, true);
     el.addEventListener('click', onClick, true);
