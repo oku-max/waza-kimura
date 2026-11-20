@@ -11,8 +11,8 @@
 // 見ること:
 //   ① 編集画面で選んでいる途中に再読み込みしても、リストは条件どおりに出る（覚えない・クラウドに送らない）
 //   ② ほかの端末で同じリストを開いていても、編集中の状態で絞られない
-//   ③ 保存すれば新しい条件で出る／✕で閉じれば何も変わらない／編集の後も、ふつうの絞り込みは今までどおり覚える
-//   ④ すでに途中の状態を覚えてしまったリストは「フィルターをリセット」1回で条件どおりに戻り、ほかの端末にも届く
+//   ③ 保存すれば新しい条件で出る／✕で閉じれば何も変わらない／編集の後もふつうに絞り込める（v53.020 から条件リストの分は覚えない）
+//   ④ すでに途中の状態を覚えてしまったリストも、v53.020 からは開いた時点で条件どおり（覚えた分を使わない）
 // 本物の index.html と js/firebase.js を、クラウドの代わり（node 側の入れ物）につないで踏む。
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
@@ -138,18 +138,21 @@ await A.evaluate(() => window.cvOpenConditionEditor('_d1')); await wait(500);
 await A.evaluate(() => window.uniToggle('playlist', 'P1')); await wait(1000);
 await A.evaluate(() => window.uniClose()); await wait(1200);
 ck('✕で閉じれば、出る動画も条件も変わらない', await n(A) === 9 && await A.evaluate(() => JSON.stringify(window._cvViews.find(v => v.id === '_d1').filterConditions.pl)) === '["P1","P4"]', await n(A));
-await A.evaluate(() => { window.filters.playlist.add('P4'); window.AF(); }); await wait(1500);
-ck('編集の後も、ふつうに掛けた絞り込みはそのリストの分として覚える（v52.959 のまま）', snapPl('_d1') === '["P4"]', snapPl('_d1'));
-ck('その絞り込みで出る', await n(A) === 6, await n(A));
+// v53.020 から、条件で作ったリストは開くと条件そのものがフィルターになる。ふつうに絞り込んでも「変更あり」になるだけで、
+// 前回の絞り込み（cvFilters）には覚えない（変えた内容がリストになるのは「上書き保存」を押したときだけ）
+await A.evaluate(() => { window.filters.playlist.delete('P1'); window.AF(); }); await wait(1500);
+ck('編集の後も、ふつうに絞り込める（P1 を外すと P4 だけ）', await n(A) === 6, await n(A));
+ck('ふつうに絞り込んでも、条件で作ったリストの前回の絞り込みには覚えない（v53.020）', snapPl('_d1') !== '["P4"]', snapPl('_d1'));
+ck('絞り込んだだけではリストの条件は変わらない', await A.evaluate(() => JSON.stringify(window._cvViews.find(v => v.id === '_d1').filterConditions.pl)) === '["P1","P4"]');
 
 console.log('── ④ すでに途中の状態を覚えてしまったリスト ──');
 CLOUD['users/u1/data/cvFilters'] = { snaps: { _d1: { snap: { playlist: ['P1'], channel: ['LG'] }, at: Date.now() + 1000 } } };
 await A.evaluate(() => { window._cvViews.find(v => v.id === '_d1').filterConditions = { ch:['LG'], pl:['P1','P2','P3','P4'] }; window._cvSave(); localStorage.removeItem('wk_cvFilterSnaps'); });
 await wait(1500); await reload(A); await openList(A, '_d1');
-ck('（前提）覚えてしまった絞り込みで 3本 になる', await n(A) === 3, await n(A));
+ck('★ 覚えてしまった途中の状態は使わず、開いた時点で条件どおり 18本（v53.020）', await n(A) === ALL, await n(A));
 await A.evaluate(() => window.clearAll()); await wait(2000);
-ck('★ フィルターをリセット1回で条件どおり 18本', await n(A) === ALL, await n(A));
-ck('★ 空にしたことをクラウドに覚える', snapPl('_d1') === '[]', JSON.stringify(cvf()._d1));
+ck('★ フィルターをリセットすると全部の動画（条件より多い）', await n(A) > ALL, await n(A));
+ck('★ リセットしただけではリストの条件は変わらない', await A.evaluate(() => JSON.stringify(window._cvViews.find(v => v.id === '_d1').filterConditions.pl)) === '["P1","P2","P3","P4"]');
 await reload(B); await openList(B, '_d1');
 ck('★ ほかの端末で開き直しても 18本', await n(B) === ALL, await n(B));
 

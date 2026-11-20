@@ -26,7 +26,7 @@
 
   // ── 状態（画面の中だけ。動画ごとに選び直す） ──
   let vid = null, mode = 'div', selDiv = new Set(), selBm = new Set(), starMin = 1, tA = null, tB = null;
-  // nShots: 写真の数。-1 は「項目と同じ」（v53.019・オーナー「項目の数と同じ枚数写真を入れる、を選択肢に」）＝項目ごとに1枚
+  // nShots: 写真の数。-1 は「項目と同じ」（v53.021・オーナー「項目の数と同じ枚数写真を入れる、を選択肢に」）＝項目ごとに1枚
   let nItems = 0, nShots = 5, ownI = '', ownS = '', phase = 'pick', cancelTok = 0, ov = null, nowTimer = null, noAuth = '';
   // メモの要約の行の「さらにくわしく」から開いたとき（v53.001・mock-memo-actions.html の X）: 範囲を入れた「時刻を指定」で開き、
   // できた要約はメモの最後ではなく、その行（見出し）のすぐ下に入れる。{anchor: メモの行の要素, lv: その行の深さ, label}
@@ -123,7 +123,7 @@
     else if (mode === 'star') { h += '<div class="vsr-hint">星の付いたブックマーク（次のブックマークまで）を、まとめて1つの要約にします。</div><div class="vsr-chips">' + [[1, '★1以上'], [2, '★2以上'], [3, '★3']].map(([m, l]) => `<button class="${m === starMin ? 'on' : ''}" data-min="${m}">${l}</button>`).join('') + '</div>';
       const rs = ranges(D); h += rs.length ? rs.map(r => `<div class="vsr-pick on" style="cursor:default"><span class="pn">${fmt(r.a)}　${esc(r.labels[0] || '')}</span><span class="pm">〜${fmt(r.b)}</span></div>`).join('') : '<div class="vsr-hint">この数の星が付いたブックマークはありません</div>'; }
     else { h += '<div class="vsr-hint">数字で打つ（12:30 のように）か、動画を止めた所で「今の位置」を押します。±ボタンは入っている時刻から（空なら今の位置から）ずらします。</div>';
-      // トラック全体（v53.019・オーナー「時刻を指定の中に『トラック全体』。押すと開始と終了に最初から最後までが入る」）。開始 0:00・終了 動画の終わり を入れるだけ
+      // トラック全体（v53.021・オーナー「時刻を指定の中に『トラック全体』。押すと開始と終了に最初から最後までが入る」）。開始 0:00・終了 動画の終わり を入れるだけ
       if (D.dur) h += `<button class="vsr-sb vsr-whole ${tA === 0 && tB === D.dur ? 'on' : ''}" data-whole="1">トラック全体（0:00–${fmt(D.dur)}）</button>`;
       const row = (k, lbl, val) => `<label>${lbl}</label><div class="f"><input id="vsr-in${k}" inputmode="numeric" placeholder="0:00" value="${val == null ? '' : fmt(val)}"><button class="vsr-sb" data-now="${k}">今の位置</button></div>
         <span></span><div class="vsr-nud">${[[-60, '−1分'], [-30, '−30秒'], [-10, '−10秒'], [-5, '−5秒'], [5, '＋5秒'], [10, '＋10秒'], [30, '＋30秒'], [60, '＋1分']].map(([d, l]) => `<button class="vsr-sb" data-nudge="${k}" data-d="${d}">${l}</button>`).join('')}</div>`;

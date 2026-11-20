@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v53.019</title>
+<title>WAZA KIMURA v53.021</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1608,6 +1608,8 @@ th .cv-col-ic { width:16px;height:16px;font-size:9px;margin-right:4px }
           </button>
           <button id="cv-list-edit" onclick="event.stopPropagation();window._cvEditCurrent()" title="リストを編集" class="lvt-inner-btn" style="display:none;flex:0 0 auto;padding:5px 9px">✏️</button>
         </div>
+        <!-- 条件で作ったリストの絞り込みを変えたとき「変更あり・元に戻す・上書き保存」（v53.020・custom-view.js の _cvDynBarSync） -->
+        <div id="cv-dyn-bar" style="display:none;align-items:center;gap:4px;padding:2px 0 6px"></div>
         <span class="lib-sb-sec-title" data-i18n="sb.view">ビュー</span>
         <div class="lib-sb-master-box">
           <div class="wk-seg wk-seg-full">

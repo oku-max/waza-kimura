@@ -5,7 +5,7 @@
 //   リスト（条件・表／条件・カード／手動・表／手動・カード）を開く・マスターへ戻る・カード／テーブルのボタン・
 //   サイドパネルでチャンネル／プレイリスト／タグ1／タグ4・未視聴だけ・ブックマークあり・メモあり・
 //   検索（alpha・-alpha・消す）・フィルターをリセット・列の見出しの ▾（プレイリスト）・再読み込み
-// 検査の側で「掛けているつもりの絞り込み」を持ち（リストを離れて戻る・再読み込みは v52.959 の決まりどおり
+// 検査の側で「掛けているつもりの絞り込み」を持ち（リストを離れて戻る・再読み込みは v52.959 の決まりどおり。条件で作ったリストは v53.020 から開くといつも保存した条件
 // そのリスト・マスターの分に戻る）、毎手、①アプリに掛かっている絞り込み ②画面に並んでいる動画
 // （カードの並び・テーブルの行）が、つもりの絞り込みとリストの条件から独立に計算したものと同じかを見る。
 // 違ったら、その1手と手順を出す。
@@ -113,6 +113,8 @@ const base = ctx => {
   if (ctx === 'master') return all;
   const vw = VIEWS.find(x => x.id === ctx);
   if (vw.saveMode === 'static') return all.filter(v => vw.videoIds.includes(v.id));
+  // v53.020 から、条件で作ったリストの範囲は全部の動画（条件はふつうのフィルターとして掛かる＝下の model に入る）
+  if (vw.saveMode === 'dynamic') return all;
   const fc = vw.filterConditions || {};
   const wq = (vw.searchQuery || '').toLowerCase();   // 語で作ったリストは、その語もリストの定義（一覧の本数もこれで数える）
   return all.filter(v => (!fc.ch || fc.ch.includes(v.channel)) && (!fc.pl || fc.pl.includes(v.pl)) && (!fc.tech || (v.tags||[]).some(t => fc.tech.includes(t))) && (!wq || v.title.toLowerCase().includes(wq)));
@@ -150,8 +152,13 @@ const shownDom = () => A.evaluate(() => {
   return { m, ids: ids.sort(), cur: window._cvActiveViewId || 'master' };
 });
 const leave = () => { mem[ctx] = JSON.parse(JSON.stringify(model)); };
-const enter = c => { ctx = c; model = mem[c] ? JSON.parse(JSON.stringify(mem[c])) : empty();
-  if (!mem[c] && c !== 'master') { const vw = VIEWS.find(x => x.id === c); if (vw.saveMode === 'dynamic' && vw.searchQuery) model.q = vw.searchQuery; }
+// 条件で作ったリストは、開くといつも保存した条件（v53.020）。同じリストを開き直しただけなら変更中のまま
+const saved = vw => { const fc = vw.filterConditions || {}, m = empty();
+  m.ch = [...(fc.ch || [])]; m.pl = [...(fc.pl || [])]; m.tags = [...(fc.tech || [])]; m.q = vw.searchQuery || ''; return m; };
+const enter = c => { const same = c === ctx; ctx = c;
+  const vw0 = c !== 'master' && VIEWS.find(x => x.id === c);
+  if (vw0 && vw0.saveMode === 'dynamic') { if (!same) model = saved(vw0); }
+  else model = mem[c] ? JSON.parse(JSON.stringify(mem[c])) : empty();
   if (c !== 'master') mode = (VIEWS.find(x => x.id === c).viewType === 'card') ? 'card' : 'table'; };
 const sidebarSet = (key, val) => A.evaluate(([key, val]) => {
   const f = window.filters; const TF = window.tagFilter; const s = key === 'tb' ? TF.setFor(f, TF.gidForKey('tbNew', 'lib'), 'lib') : key === 'tags' ? TF.setFor(f, TF.gidForKey('tags', 'lib'), 'lib') : f[key];
@@ -186,7 +193,7 @@ const OPS = [
   ['検索 消す', async () => { await search(''); model.q = ''; }],
   ['リセット', async () => { await A.evaluate(() => window.clearAll()); model = empty(); }],
   ['列の▾:プレイリストP2', async () => { if (mode !== 'table') return 'skip'; if (await colSet('playlist', 'P2') === 'skip') return 'skip'; model.pl = tog(model.pl, 'P2'); }],
-  ['再読み込み', async () => { leave(); await reload(A); const c = await A.evaluate(() => window._cvActiveViewId || 'master'); enter(c); mode = await A.evaluate(() => window._libViewMode === 'org' ? 'table' : 'card'); }],
+  ['再読み込み', async () => { leave(); await reload(A); const c = await A.evaluate(() => window._cvActiveViewId || 'master'); ctx = '__reload'; enter(c); mode = await A.evaluate(() => window._libViewMode === 'org' ? 'table' : 'card'); }],
 ];
 let bad = null;
 const STEPS = Number(process.env.STEPS || 50);

@@ -131,7 +131,7 @@ const sc = await pg.evaluate(() => ({ calls: window.__snapCalls, caps: [...docum
 ck('⑤ 写真を5枚撮ってスナップショットに入れ、その写真のメモに解説文', sc.calls.length === 5 && sc.calls.every(c => c.id === 'AAAAAAAAAAA' && /要点\d+は肘を締める/.test(c.memo)), sc.calls);
 ck('⑤ メモの行にも同じ解説文（写真のメモと同じ）', sc.caps.length === 5 && sc.caps.every((c, k) => c.t === sc.calls[k].memo && c.id === 'snap' + (k + 1)), sc.caps);
 
-console.log('── ⑤b 写真「項目と同じ」（v53.019）──');
+console.log('── ⑤b 写真「項目と同じ」（v53.021）──');
 await pg.evaluate(() => { window.__snapCalls = []; window.vpSumRangeOpen('AAAAAAAAAAA'); });
 await pg.waitForSelector('.vsr-sh');
 await pg.click('[data-ni="10"]'); await pg.click('[data-ns="-1"]');
@@ -149,7 +149,7 @@ await pg.waitForFunction(() => !document.querySelector('.vsr-ov'), null, { timeo
 const sc6 = await pg.evaluate(() => window.__snapCalls.length);
 ck('⑤b おまかせ＋項目と同じ: AI には目安の数を頼み、返ってきた項目（偽のAIは4つ）の数だけ撮る', lastReq.items === 0 && lastReq.shots > 0 && sc6 === 4, { shots: lastReq.shots, sc6 });
 
-console.log('── ⑤c トラック全体（v53.019）──');
+console.log('── ⑤c トラック全体（v53.021）──');
 await pg.evaluate(() => { window._vpSumKit.isGdPlaying = () => false; window.vpSumRangeOpen('AAAAAAAAAAA'); });
 await pg.waitForSelector('.vsr-sh');
 await pg.click('[data-tab="time"]');

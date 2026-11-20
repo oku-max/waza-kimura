@@ -65,6 +65,10 @@
   // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
   function _getCvBase() {
     if (_D()) return _D().base();   // ドリルがある動画だけ（今のリストの範囲）
+    // 開いているリストの範囲は、絞り込みを掛ける前のリストの中身から取る（掛けた後の
+    // _cvVideoIds を使うと、1つ選ぶとほかのチャンネル・プレイリストが列から消える）
+    const listV = !_cvMode && window._cvListVideos?.();
+    if (listV) return listV;
     const cvIds = !_cvMode && (window._cvVideoIds || window._cvCardVideoIds);
     if (cvIds && cvIds.size > 0) {
       return (window.videos || []).filter(v => cvIds.has(v.id));
@@ -259,6 +263,7 @@
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
     <button class="uni-save-modal-btn" onclick="window._cvCreateFromCurrentFilter?.()">カスタムビューとして保存</button>
+    <button id="uni-cv-over-btn" class="uni-save-modal-btn" style="display:none;background:var(--accent);color:var(--on-accent);border-color:var(--accent)" onclick="window._cvDynSave?.()">このリストに上書き保存</button>
     <button id="uni-cv-ftr-btn" class="uni-save-modal-btn" style="display:none"></button>
   </div>
 </div>
@@ -759,6 +764,9 @@
       }
     }
 
+    // 条件で作ったリストの「上書き保存」（v53.020）
+    if (!D) window._cvDynBarSync?.();
+    else { const ob = document.getElementById('uni-cv-over-btn'); if (ob) ob.style.display = 'none'; }
     // Sidebar badge sync
     _syncSidebarBadges(bd);
   }
