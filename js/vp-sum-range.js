@@ -26,6 +26,7 @@
 
   // ── 状態（画面の中だけ。動画ごとに選び直す） ──
   let vid = null, mode = 'div', selDiv = new Set(), selBm = new Set(), starMin = 1, tA = null, tB = null;
+  // nShots: 写真の数。-1 は「項目と同じ」（v53.019・オーナー「項目の数と同じ枚数写真を入れる、を選択肢に」）＝項目ごとに1枚
   let nItems = 0, nShots = 5, ownI = '', ownS = '', phase = 'pick', cancelTok = 0, ov = null, nowTimer = null, noAuth = '';
   // メモの要約の行の「さらにくわしく」から開いたとき（v53.001・mock-memo-actions.html の X）: 範囲を入れた「時刻を指定」で開き、
   // できた要約はメモの最後ではなく、その行（見出し）のすぐ下に入れる。{anchor: メモの行の要素, lv: その行の深さ, label}
@@ -122,13 +123,15 @@
     else if (mode === 'star') { h += '<div class="vsr-hint">星の付いたブックマーク（次のブックマークまで）を、まとめて1つの要約にします。</div><div class="vsr-chips">' + [[1, '★1以上'], [2, '★2以上'], [3, '★3']].map(([m, l]) => `<button class="${m === starMin ? 'on' : ''}" data-min="${m}">${l}</button>`).join('') + '</div>';
       const rs = ranges(D); h += rs.length ? rs.map(r => `<div class="vsr-pick on" style="cursor:default"><span class="pn">${fmt(r.a)}　${esc(r.labels[0] || '')}</span><span class="pm">〜${fmt(r.b)}</span></div>`).join('') : '<div class="vsr-hint">この数の星が付いたブックマークはありません</div>'; }
     else { h += '<div class="vsr-hint">数字で打つ（12:30 のように）か、動画を止めた所で「今の位置」を押します。±ボタンは入っている時刻から（空なら今の位置から）ずらします。</div>';
+      // トラック全体（v53.019・オーナー「時刻を指定の中に『トラック全体』。押すと開始と終了に最初から最後までが入る」）。開始 0:00・終了 動画の終わり を入れるだけ
+      if (D.dur) h += `<button class="vsr-sb vsr-whole ${tA === 0 && tB === D.dur ? 'on' : ''}" data-whole="1">トラック全体（0:00–${fmt(D.dur)}）</button>`;
       const row = (k, lbl, val) => `<label>${lbl}</label><div class="f"><input id="vsr-in${k}" inputmode="numeric" placeholder="0:00" value="${val == null ? '' : fmt(val)}"><button class="vsr-sb" data-now="${k}">今の位置</button></div>
         <span></span><div class="vsr-nud">${[[-60, '−1分'], [-30, '−30秒'], [-10, '−10秒'], [-5, '−5秒'], [5, '＋5秒'], [10, '＋10秒'], [30, '＋30秒'], [60, '＋1分']].map(([d, l]) => `<button class="vsr-sb" data-nudge="${k}" data-d="${d}">${l}</button>`).join('')}</div>`;
       h += '<div class="vsr-tm">' + row('A', '開始', tA) + row('B', '終了', tB) + '</div>';
       if (tA != null && tB != null && tB <= tA) h += '<div class="vsr-hint" style="color:var(--red)">終了は開始より後にしてください</div>'; }
     h += '</div><div class="vsr-ft">';
     const rs = ranges(D), tot = rs.reduce((s, r) => s + r.b - r.a, 0);
-    const auto = Math.max(1, Math.min(ITEM_MAX, Math.round(tot / 60))), items = nItems || auto, shots = isGd ? Math.min(nShots, items) : 0;
+    const auto = Math.max(1, Math.min(ITEM_MAX, Math.round(tot / 60))), items = nItems || auto, shots = isGd ? (nShots === -1 ? items : Math.min(nShots, items)) : 0;
     h += rs.length ? `<div class="vsr-sum">範囲: <b>${rs.length > 1 ? `${rs.length}か所・` : `${fmt(rs[0].a)}–${fmt(rs[0].b)}・`}合計 ${lenTxt(tot)}</b></div>` : '<div class="vsr-sum" style="color:var(--text3)">範囲を選んでください</div>';
     // バー: 動画全体の上に、選んだ範囲・項目の位置（|）・写真の目安（📷）・時刻を指定のときは今の位置
     if (D.dur) {
@@ -140,14 +143,14 @@
         <div class="vsr-tll"><span>0:00</span>${mode === 'time' ? `<span class="vsr-nowlbl">赤い線＝今の位置 ${fmt(now || 0)}</span>` : ''}<span>動画全体 ${fmt(D.dur)}</span></div>`;
     }
     const per = n => rs.length ? every(tot / n) + 'ごと' : '—';
-    const IL = [[0, 'おまかせ'], [5, '5'], [10, '10'], [20, '20']], SL = [[0, 'なし'], [5, '5'], [10, '10'], [20, '20']];   // 写真も項目と同じ数
+    const IL = [[0, 'おまかせ'], [5, '5'], [10, '10'], [20, '20']], SL = [[0, 'なし'], [5, '5'], [10, '10'], [20, '20'], [-1, '項目と同じ']];   // 写真も項目と同じ数
     h += `<div class="vsr-grp">項目の数<span>${rs.length ? `${items}項目 · 選んだ ${lenTxt(tot)}を${every(tot / items)}ごと` : ''}</span></div>
       <div class="vsr-opts">${IL.map(([v, l]) => `<button class="vsr-o ${nItems === v && !ownI ? 'on' : ''}" data-ni="${v}"><b>${v ? `${l}項目` : l}</b><small>${v ? per(v) : (rs.length ? `${auto}項目 · ${per(auto)}` : '約1分ごと')}</small></button>`).join('')}</div>
       <div class="vsr-own">自分で決める <input id="vsr-ni" inputmode="numeric" placeholder="数" value="${esc(ownI)}" class="${ownI ? 'on' : ''}"> 項目 <span class="h">${ownI && nItems ? per(nItems) : `1〜${ITEM_MAX}`}</span></div>`;
     if (!isGd) h += `<div class="vsr-grp">写真の数</div><div class="vsr-hint" style="margin:0">YouTubeの動画は画面を撮れないので、文章だけになります</div>`;
-    else { const sper = n => !n ? '写真なし' : n > items ? '項目より多くは不可' : rs.length ? every(tot / n) + 'に1枚' : '—';
+    else { const sper = n => n === -1 ? `${items}枚 · 各項目に1枚` : !n ? '写真なし' : n > items ? '項目より多くは不可' : rs.length ? every(tot / n) + 'に1枚' : '—';
       h += `<div class="vsr-grp">写真の数<span>${rs.length ? (shots ? `${shots}枚 · ${every(tot / shots)}に1枚` : '写真なし') : ''}</span></div>
-      <div class="vsr-opts">${SL.map(([v, l]) => `<button class="vsr-o ${nShots === v && !ownS ? 'on' : ''}" data-ns="${v}" ${v > items ? 'disabled' : ''}><b>${v ? `${l}枚` : l}</b><small>${sper(v)}</small></button>`).join('')}</div>
+      <div class="vsr-opts vsr-opts5">${SL.map(([v, l]) => `<button class="vsr-o ${nShots === v && !ownS ? 'on' : ''}" data-ns="${v}" ${v > items ? 'disabled' : ''}><b>${v > 0 ? `${l}枚` : l}</b><small>${sper(v)}</small></button>`).join('')}</div>
       <div class="vsr-own">自分で決める <input id="vsr-ns" inputmode="numeric" placeholder="数" value="${esc(ownS)}" class="${ownS ? 'on' : ''}"> 枚 <span class="h">${ownS && nShots ? sper(nShots) : '項目の数まで'}</span></div>
       <div class="vsr-hint" style="margin:4px 0 0">どの項目に写真を付けるかは AI が選びます（バーの 📷 は目安の位置）。</div>`; }
     h += `<button class="vsr-go" data-act="go" ${rs.length ? '' : 'disabled'}>AIで要約してメモに入れる</button><button class="vsr-cancel" data-act="close">キャンセル</button></div>`;
@@ -164,6 +167,7 @@
     q('[data-min]', b => b.onclick = () => keep(() => { starMin = +b.dataset.min; }));
     q('[data-ni]', b => b.onclick = () => keep(() => { nItems = +b.dataset.ni; ownI = ''; }));
     q('[data-ns]', b => b.onclick = () => { if (b.disabled) return; keep(() => { nShots = +b.dataset.ns; ownS = ''; }); });
+    q('[data-whole]', b => b.onclick = () => keep(() => { const D = data(); if (D.dur) { tA = 0; tB = D.dur; } }));
     q('[data-now]', b => b.onclick = () => keep(() => { const s = K().nowSec?.(); if (s == null) { window.toast?.('動画を再生してから押してください'); return; } if (b.dataset.now === 'A') tA = s; else tB = s; }));
     q('[data-nudge]', b => b.onclick = () => keep(() => { const D = data(), d = +b.dataset.d, lim = x => Math.max(0, D.dur ? Math.min(D.dur, x) : x), base = K().nowSec?.() || 0;
       if (b.dataset.nudge === 'A') tA = lim((tA ?? base) + d); else tB = lim((tB ?? base) + d); }));
@@ -223,7 +227,8 @@
     const tok = ++cancelTok; phase = 'busy'; render();
     clearInterval(busyClock); busyClock = setInterval(() => { if (phase !== 'busy' || !ov) { clearInterval(busyClock); busyClock = null; return; } document.querySelectorAll('.vsr-el').forEach(e => { e.textContent = elapsed(); }); }, 1000);
     const setMsg = m => { busyMsg = m; const el = ov?.querySelector('#vsr-busy'); if (el) el.textContent = m; chipSync(); };
-    const isGd = !!K().isGdPlaying?.(), wantShots = isGd ? nShots : 0;
+    const isGd = !!K().isGdPlaying?.(), allShots = nShots === -1;
+    const wantShots = isGd ? (allShots ? (nItems || Math.max(1, Math.min(ITEM_MAX, Math.round(rs.reduce((s, r) => s + r.b - r.a, 0) / 60)))) : nShots) : 0;
     const dt = det;
     const names = rs.flatMap(r => r.labels).filter(Boolean).join('・');
     const label = dt ? dt.label : mode === 'star' ? `★${starMin === 3 ? 3 : starMin + '以上'}の所` : (names.length > 60 ? names.slice(0, 60) + '…' : names);
@@ -250,7 +255,7 @@
     // 開いている動画が変わっていたら入れない（ほかの動画のメモに入れない）
     if (window.openVPanelId !== id || !document.getElementById('vp-memo-' + id)) { close(); window.toast?.('動画パネルを閉じたので、メモには入れませんでした', 7000); return; }
     // 写真: AI が shot にした項目。数がずれていたら指定の枚数に合わせる（多ければ先から・足りなければ間をあけて足す）
-    const want = Math.min(wantShots, items.length);
+    const want = isGd && allShots ? items.length : Math.min(wantShots, items.length);   // 「項目と同じ」は返ってきた項目の数だけ
     let idx = items.map((x, k) => x.shot ? k : -1).filter(k => k >= 0).slice(0, want);
     for (let k = 0; idx.length < want && k < items.length * 2; k++) { const c = Math.floor(k * items.length / want) % items.length; if (!idx.includes(c)) idx.push(c); }
     const pics = want ? await shoot(id, idx.sort((a, b) => a - b).map(k => items[k]), setMsg, tok) : {};

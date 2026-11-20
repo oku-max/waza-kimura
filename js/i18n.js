@@ -890,7 +890,7 @@
     '今の動画フレームを撮影してメモ・写真に追加する':'Capture the current frame and add it to the memo/photos',
     '太字':'Bold','斜体':'Italic','下線':'Underline','取り消し線':'Strikethrough',
     '文字サイズ':'Font size','文字色':'Text color','蛍光ペン':'Highlighter','書式リセット':'Clear formatting',
-    '▶ ここから再生':'▶ Play from here','要約を作成中':'Summarizing','要約をメモに入れました':'Summary added to the memo','見る':'View','「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯に出て、終わるとメモに入ります。':'Pressing “Close and continue” keeps it running. Progress shows in the bar at the bottom left, and the result goes into the memo when done.','動画パネルを閉じる・ほかの動画に変える・アプリを閉じると、メモには入りません。':'If you close the video panel, switch to another video, or close the app, nothing is added to the memo.','この仕切りの区間で':'For this divider section','🔍 さらにくわしく':'🔍 More detail','ドリルにする':'Make a drill','この行には時刻がありません':'This line has no timestamp',
+    '▶ ここから再生':'▶ Play from here','要約を作成中':'Summarizing','項目と同じ':'Same as points','要約をメモに入れました':'Summary added to the memo','見る':'View','「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯に出て、終わるとメモに入ります。':'Pressing “Close and continue” keeps it running. Progress shows in the bar at the bottom left, and the result goes into the memo when done.','動画パネルを閉じる・ほかの動画に変える・アプリを閉じると、メモには入りません。':'If you close the video panel, switch to another video, or close the app, nothing is added to the memo.','この仕切りの区間で':'For this divider section','🔍 さらにくわしく':'🔍 More detail','ドリルにする':'Make a drill','この行には時刻がありません':'This line has no timestamp',
     'メモを大きく':'Enlarge memo','動画を残したまま、メモを大きく表示する。もう一度（閉じる）で元に戻る':'Shows the memo large while keeping the video. Press again (Close) to go back','メモを大きく表示（動画はそのまま）':'Show the memo large (video stays)','メモを元の大きさに戻す':'Return the memo to normal size',
     'タイムスタンプ':'Timestamp','元に戻す':'Undo','やり直し':'Redo',
     '直前の編集を取り消す':'Undo the last edit','取り消した編集をやり直す':'Redo the undone edit',
@@ -2032,6 +2032,7 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    '#枚 · 各項目に#枚':'# · one per point',
     // ドリル（v52.991）
     '#本選択':'# selected','# / #本':'# / #','#本のドリルを削除しました':'Deleted # drills','#本のドリルを削除しますか？':'Delete # drills?','#本をこのカスタムドリルから外しました（ドリルは残ります）':'Removed # from this custom drill (the drills remain)','全部のドリル · #本':'All drills · #',
     // ドリル（v52.989）
@@ -2344,6 +2345,7 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    [/^トラック全体（([\d:]+)–([\d:]+)）$/, (m, a, b) => `Whole track (${a}–${b})`],
     [/^前回開いていたリスト「(.+)」を開いています…$/, (m, n) => `Opening the last opened list “${n}”…`],
     [/^選んだ部分の字幕だけを AI に送って要約し、メモの「(.+)」のすぐ下に入れます。$/, (m, n) => `Sends only the selected part's subtitles to AI and inserts the summary right below “${n}” in the memo.`],
     [/^押すたびに切り替え（オフ・(.+)）$/, (m, l) => `Press to switch (Off · ${l})`],

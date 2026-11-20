@@ -124,12 +124,41 @@ const snaps = await pg.evaluate(async () => {
   window.vpSumRangeOpen('AAAAAAAAAAA'); return true; });
 await pg.waitForSelector('.vsr-sh');
 s = await S();
-ck('⑤ Drive では写真の数（なし／5／10／20）を出し、項目（5）より多いものは押せない', s.opts.length === 8 && s.opts.some(o => /^-.*10枚/.test(o)) && s.opts.some(o => /^\*5枚/.test(o)), s.opts);
+ck('⑤ Drive では写真の数（なし／5／10／20／項目と同じ）を出し、項目（5）より多いものは押せない', s.opts.length === 9 && s.opts.some(o => /項目と同じ ?5枚 · 各項目に1枚/.test(o)) && s.opts.some(o => /^-.*10枚/.test(o)) && s.opts.some(o => /^\*5枚/.test(o)), s.opts);
 await pg.click('[data-act="go"]');
 await pg.waitForFunction(() => !document.querySelector('.vsr-ov'), null, { timeout: 10000 });
 const sc = await pg.evaluate(() => ({ calls: window.__snapCalls, caps: [...document.querySelectorAll('#vp-memo-AAAAAAAAAAA .snap-cap')].map(e => ({ id: e.dataset.snapId, t: e.textContent })) }));
 ck('⑤ 写真を5枚撮ってスナップショットに入れ、その写真のメモに解説文', sc.calls.length === 5 && sc.calls.every(c => c.id === 'AAAAAAAAAAA' && /要点\d+は肘を締める/.test(c.memo)), sc.calls);
 ck('⑤ メモの行にも同じ解説文（写真のメモと同じ）', sc.caps.length === 5 && sc.caps.every((c, k) => c.t === sc.calls[k].memo && c.id === 'snap' + (k + 1)), sc.caps);
+
+console.log('── ⑤b 写真「項目と同じ」（v53.019）──');
+await pg.evaluate(() => { window.__snapCalls = []; window.vpSumRangeOpen('AAAAAAAAAAA'); });
+await pg.waitForSelector('.vsr-sh');
+await pg.click('[data-ni="10"]'); await pg.click('[data-ns="-1"]');
+s = await S();
+ck('⑤b 「項目と同じ」を選ぶと 10枚（項目の数）と出る', s.opts.some(o => /^\*項目と同じ ?10枚/.test(o)), s.opts);
+await pg.click('[data-act="go"]');
+await pg.waitForFunction(() => !document.querySelector('.vsr-ov'), null, { timeout: 10000 });
+const sc5 = await pg.evaluate(() => window.__snapCalls.length);
+ck('⑤b AI に写真10枚を頼み、返ってきた項目の数だけ写真を撮る', lastReq.items === 10 && lastReq.shots === 10 && sc5 === 10, { items: lastReq.items, shots: lastReq.shots, sc5 });
+await pg.evaluate(() => { window.__snapCalls = []; window.vpSumRangeOpen('AAAAAAAAAAA'); });
+await pg.waitForSelector('.vsr-sh');
+await pg.click('[data-ni="0"]'); await pg.click('[data-ns="-1"]');
+await pg.click('[data-act="go"]');
+await pg.waitForFunction(() => !document.querySelector('.vsr-ov'), null, { timeout: 10000 });
+const sc6 = await pg.evaluate(() => window.__snapCalls.length);
+ck('⑤b おまかせ＋項目と同じ: AI には目安の数を頼み、返ってきた項目（偽のAIは4つ）の数だけ撮る', lastReq.items === 0 && lastReq.shots > 0 && sc6 === 4, { shots: lastReq.shots, sc6 });
+
+console.log('── ⑤c トラック全体（v53.019）──');
+await pg.evaluate(() => { window._vpSumKit.isGdPlaying = () => false; window.vpSumRangeOpen('AAAAAAAAAAA'); });
+await pg.waitForSelector('.vsr-sh');
+await pg.click('[data-tab="time"]');
+const wh = await pg.evaluate(() => document.querySelector('[data-whole]')?.textContent.trim());
+ck('⑤c 「時刻を指定」に「トラック全体（0:00–20:00）」', wh === 'トラック全体（0:00–20:00）', wh);
+await pg.click('[data-whole]');
+const wv = await pg.evaluate(() => ({ a: document.getElementById('vsr-inA')?.value, b: document.getElementById('vsr-inB')?.value, on: document.querySelector('[data-whole]')?.classList.contains('on'), sum: document.querySelector('.vsr-sum')?.textContent.replace(/\s+/g, ' ') }));
+ck('⑤c 押すと開始 0:00・終了 20:00 が入る（そのまま作れる）', wv.a === '0:00' && wv.b === '20:00' && wv.on && /0:00–20:00/.test(wv.sum), wv);
+await pg.evaluate(() => document.querySelector('[data-act="close"]')?.click());
 
 console.log('── ⑥ 書かないとき ──');
 const m0 = await pg.evaluate(() => window.videos[0].memo);
