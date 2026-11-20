@@ -29,10 +29,20 @@ h1{font-size:18px;margin-bottom:6px}
 .vid input{flex:1}
 .vid .t{font-family:monospace;font-size:12px;min-width:84px;text-align:right}
 .vid .hint{font-size:10.5px;color:#aaa;margin-bottom:auto}
-.mhead{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.mhead{position:relative;display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
 .mhead .lbl{font-weight:800;font-size:10px;letter-spacing:1px;color:var(--text3);margin-right:auto}
 .tg{font-size:11.5px;padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer;color:var(--text2);font-family:inherit}
 .tg.on{background:#fff3df;border-color:#e8b46a;color:var(--now);font-weight:800}
+.tg.opt{padding:4px 7px;margin-left:-4px}
+.pop{display:none;position:absolute;right:8px;top:40px;z-index:5;width:300px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:10px 12px}
+.pop.show{display:block}
+.pq{font-size:11.5px;font-weight:800;color:var(--text2);margin:6px 0 4px}
+.seg{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{flex:1;font-size:12px;padding:7px 4px;border:none;background:#fff;cursor:pointer;font-family:inherit;color:var(--text2)}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button.on{background:#fff3df;color:var(--now);font-weight:800}
+.pn{font-size:11px;color:var(--text3);margin-top:8px}
+.d3{font-size:11.5px;color:var(--text2);line-height:1.6;margin-bottom:8px}
 .memo{flex:1;overflow:auto;padding:10px 12px;background:#f4f4f4;font-size:13px;line-height:1.6}
 .st{display:flex;gap:8px;align-items:center;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:6px}
 .st .tt{flex:1;font-weight:800;font-size:15px}
@@ -68,29 +78,22 @@ h1{font-size:18px;margin-bottom:6px}
 </head>
 <body>
 <h1>再生に合わせて開く（オート）の決め方</h1>
-<div class="lead">手の ▾ と「全部開く」はいつでも使えます。そのうえで、MEMO の見出しの「▶ 再生に合わせる」をオンにすると、再生中の所を開きます。<br>左の①②③を切り替えて、右の画面で ▶（10倍速）を押して見比べてください。</div>
+<div class="lead">手の ▾ と「全部開く」はいつでも使えます。そのうえで、MEMO の見出しの「▶ 再生に合わせる」をオンにすると、再生中の所を開きます。<br>「再生に合わせる」の右の ▾ で開き方を選べます。右の画面で ▶（10倍速）を押して見比べてください。</div>
 
 <div class="wrap">
   <div class="ctl">
-    <div class="box"><div class="q"><span class="k">①</span>どこまで開くか</div><div class="ch2" data-q="scope">
-      <label><input type="radio" name="scope" value="bm"><div><b>再生中のブックマークだけ</b><div class="d">今の位置を含む見出しを1つだけ開く（仕切りは見えるように開く）。</div></div></label>
-      <label><input type="radio" name="scope" value="div"><div><b>再生中の仕切りごと</b><div class="d">今の位置を含む仕切りの中の見出しを全部開く。</div></div></label>
-    </div></div>
-    <div class="box"><div class="q"><span class="k">②</span>再生が次へ移ったら、前の所は</div><div class="ch2" data-q="leave">
-      <label><input type="radio" name="leave" value="close"><div><b>閉じる（オートで開いた所だけ）</b><div class="d">手で開いた所は閉じない。</div></div></label>
-      <label><input type="radio" name="leave" value="keep"><div><b>開いたまま残す</b><div class="d">見た所がどんどん開いていく。</div></div></label>
-    </div></div>
-    <div class="box"><div class="q"><span class="k">③</span>再生中の所を手で閉じたら</div><div class="ch2" data-q="sup">
-      <label><input type="radio" name="sup" value="on"><div><b>そのブックマークの間は開き直さない</b><div class="d">次のブックマークへ移ったら、またオートで開く。</div></div></label>
-      <label><input type="radio" name="sup" value="off"><div><b>すぐ開き直す</b><div class="d">閉じても0.5秒後にまた開く（比べるため）。</div></div></label>
+    <div class="box"><div class="q"><span class="k">比べる用</span>再生中の所を ▾ で閉じたら</div><div class="d3">例: ❺ を再生中に、オートで開いた ❺ を自分で ▾ で閉じた。そのあと再生はまだ ❺ の中。</div><div class="ch2" data-q="sup">
+      <label><input type="radio" name="sup" value="on"><div><b>閉じたままにする（本物はこちらに固定）</b><div class="d">❺ の間は閉じたまま。❻ に進んだら ❻ はまたオートで開く。</div></div></label>
+      <label><input type="radio" name="sup" value="off"><div><b>すぐ開き直す（だめな例）</b><div class="d">閉じても次の瞬間にオートがまた開く＝閉じられない。</div></div></label>
     </div></div>
     <div class="box">
       <div class="q">試し方</div>
       <ol class="steps">
         <li>「▶ 再生に合わせる」をオンにして、動画の ▶ を押す</li>
+        <li>その右の ▾ で「どこまで開くか」「次へ移ったら」を選ぶ（本物でもここで選ぶ。この端末で覚える）</li>
         <li>❷ → ❸ … と進むのを見る（2:16〜 の ❻ には「くわしく」が入っています）</li>
-        <li>途中で ❹ を手で開いてから再生を続ける（②で残るか見る）</li>
-        <li>再生中の見出しの ▾ を押して閉じる（③の違いを見る）</li>
+        <li>途中で ❹ を手で開いてから再生を続ける（「次へ移ったら」で残るか見る）</li>
+        <li>再生中の見出しの ▾ を押して閉じる（左の「比べる用」の違いを見る）</li>
       </ol>
       <div class="legend" style="margin-top:6px"><span class="auto">オート</span> … オートで開いた所（モックだけの目印。本物には出しません）</div>
     </div>
@@ -100,7 +103,14 @@ h1{font-size:18px;margin-bottom:6px}
       <div class="hint">（動画の代わり）▶ で 10倍速で進みます</div>
       <div class="row"><button id="pl">▶</button><input type="range" id="sl" min="0" max="312" value="0"><span class="t" id="tm">0:00 / 5:12</span></div>
     </div>
-    <div class="mhead"><span class="lbl">MEMO</span><button class="tg" id="fol"></button></div>
+    <div class="mhead"><span class="lbl">MEMO</span><button class="tg" id="fol"></button><button class="tg opt" id="folopt">▾</button>
+      <div class="pop" id="pop">
+        <div class="pq">どこまで開くか</div>
+        <div class="seg" data-q="scope"><button data-v="bm">ブックマークだけ</button><button data-v="div">仕切りごと</button></div>
+        <div class="pq">再生が次へ移ったら</div>
+        <div class="seg" data-q="leave"><button data-v="close">前の所を閉じる</button><button data-v="keep">開いたまま残す</button></div>
+        <div class="pn">手で開いた所は、どちらでも閉じません。</div>
+      </div></div>
     <div class="memo" id="memo"></div>
   </div>
 </div>
@@ -206,6 +216,11 @@ document.querySelectorAll('.ch2').forEach(g => {
   const q = g.dataset.q;
   g.querySelectorAll('input').forEach(inp => { inp.checked = S[q] === inp.value; inp.onchange = () => { S[q] = inp.value; aut.ch.clear(); aut.dv.clear(); aut.det.clear(); suppressed = -1; marks(); tick(true); }; });
 });
+function segs() { document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', S[g.dataset.q] === b.dataset.v))); }
+document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { S[g.dataset.q] = b.dataset.v; aut.ch.clear(); aut.dv.clear(); aut.det.clear(); suppressed = -1; segs(); tick(true); }));
+document.getElementById('folopt').onclick = e => { e.stopPropagation(); document.getElementById('pop').classList.toggle('show'); };
+document.addEventListener('click', e => { if (!e.target.closest('#pop')) document.getElementById('pop').classList.remove('show'); });
+segs();
 function marks() { document.querySelectorAll('.ch2 label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked)); }
 marks(); tick();
 </script>
