@@ -94,7 +94,9 @@ ck('他のグループの条件もそのまま', JSON.stringify(r3?.cat) === '["
 
 console.log('\n── 閉じたらライブラリの絞り込みに漏れない ──');
 const r4 = await pg.evaluate(() => { const f = window.filters; return { posNew: [...(f.posNew||[])], cat: [...(f.cat||[])], tbNew: [...(f.tbNew||[])] }; });
-ck('★ 編集を閉じたら条件はそのリストの絞り込みに残らない', !r4.posNew.length && !r4.cat.length && !r4.tbNew.length, JSON.stringify(r4));
+// v53.020 から、条件で作ったリストは開くと保存した条件がそのままフィルターになる（オーナー「リストは特定のフィルターの状態を保存してるだけ」）。
+// 保存した直後は、保存した条件そのもの（途中の状態ではなく）がフィルターになっていること
+ck('★ 保存して閉じると、リストのフィルターは保存した条件そのもの', JSON.stringify(r4.posNew.sort()) === JSON.stringify([...(r3?.pos || [])].sort()) && JSON.stringify(r4.cat) === JSON.stringify(r3?.cat) && JSON.stringify(r4.tbNew) === JSON.stringify(r3?.tb), JSON.stringify(r4));
 const r5 = await pg.evaluate(async () => {
   window._cvClearSelection?.(); await new Promise(r => setTimeout(r, 300));   // ライブラリ全体へ戻る
   const f = window.filters; return { posNew: [...(f.posNew||[])], cat: [...(f.cat||[])], tbNew: [...(f.tbNew||[])], tags: [...(f.tags||[])] };

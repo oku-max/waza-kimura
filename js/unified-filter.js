@@ -263,6 +263,7 @@
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
     <button class="uni-save-modal-btn" onclick="window._cvCreateFromCurrentFilter?.()">カスタムビューとして保存</button>
+    <button id="uni-cv-over-btn" class="uni-save-modal-btn" style="display:none;background:var(--accent);color:var(--on-accent);border-color:var(--accent)" onclick="window._cvDynSave?.()">このリストに上書き保存</button>
     <button id="uni-cv-ftr-btn" class="uni-save-modal-btn" style="display:none"></button>
   </div>
 </div>
@@ -763,6 +764,9 @@
       }
     }
 
+    // 条件で作ったリストの「上書き保存」（v53.020）
+    if (!D) window._cvDynBarSync?.();
+    else { const ob = document.getElementById('uni-cv-over-btn'); if (ob) ob.style.display = 'none'; }
     // Sidebar badge sync
     _syncSidebarBadges(bd);
   }

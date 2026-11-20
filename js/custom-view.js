@@ -172,6 +172,7 @@ const _cvEditingNow = () => !!window._uniCvEditing?.();
 function _cvFiltRecordSoon() {
   clearTimeout(_cvFiltT);
   if (_cvEditingNow()) return;
+  if (_isDyn(_curView())) return;   // 条件で作ったリストは保存した状態で開く。前回の絞り込みは覚えない（v53.020）
   _cvFiltT = setTimeout(() => { if (window._uniSnapshotFilters && !_cvEditingNow() && _cvFiltShown === (_curId || 'master')) _cvFiltRecord(_curId || 'master', _cvFiltCurrent()); }, 600);
 }
 // 覚えた分を画面に戻した先（v53.009）。戻す前の画面を、そのリスト・マスターの分として記録しない。
@@ -204,6 +205,7 @@ window._cvFiltApplyRemote = function(snaps) {
     _cvFiltApplied = true;
     if (changed) _cvFiltCacheSave();
     if (_cvEditingNow()) return;
+    if (_isDyn(_curView())) { _cvFiltShown = cur; return; }   // 条件で作ったリストは保存した状態のまま（v53.020）
     if (_viewFilterSnapshots[cur]) { clearTimeout(_cvFiltT); _restoreFilterSnapshot(cur); }
     else _cvFiltShown = cur;
     return;
@@ -233,6 +235,7 @@ function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   clearTimeout(_cvFiltT);
   if (_cvEditingNow()) return;   // 編集中の条件をリストの絞り込みとして覚えない（v53.007）
+  if (_isDyn(_curView())) return;   // 条件で作ったリストの変更は「上書き保存」を押したときだけ（v53.020）
   if (_cvFiltShown !== (_curId || 'master')) return;   // まだ覚えた分を戻していない画面は記録しない（v53.009）
   _cvFiltRecord(_curId || 'master', _cvFiltCurrent());
   // リストの持ち物（view.searchQuery）としては保存しない（v52.872）。
@@ -240,6 +243,121 @@ function _saveCurrentFilterSnapshot() {
   // 「何度直しても0本のまま」になっていた。覚えるのは上の _cvFiltRecord（端末の控えと
   // クラウドの cvFilters。リストの本体とは別の場所）。保存済みの searchQuery は消さない（読まなくなるだけ）。
 }
+
+// ── 条件で作ったリスト＝保存した絞り込み（v53.020・オーナー「カスタムのプレイリストは、ある特定のフィルターの状態を保存してるだけ」）──
+// 以前は「リストの条件」で範囲を切り、その上に別の「絞り込み」を重ねていた。絞り込みはリストの中しか見えないので、
+// ほかのチャンネル・プレイリストを足せず、リセットしても全部の動画に戻らなかった（条件を変える画面は奥の「編集」だけ）。
+// いまは開くと、保存した条件をふつうのフィルターとして掛ける（範囲は全部の動画）。リセットで全部、何でも足し引きできる。
+// 【データ経路】リストの条件（view.filterConditions / view.searchQuery → _save → localStorage wk_cv_views・クラウド・全端末）を
+//   書き換えるのは「上書き保存」を押したときだけ（オーナー決定 1）。触っただけ・リセットしただけ・離れただけでは書かない。
+//   条件なし（全部）で上書きするときは確かめる。直後のトーストで取り消せる（前の条件をそのまま書き戻す）。
+//   このリストの「前回の絞り込み」（cvFilters・v52.959）は覚えない・使わない（保存済みの分は消さない）。開くといつも保存した状態。
+const _isDyn = v => !!(v && !v.isMaster && v.saveMode === 'dynamic');
+const _curView = () => (_curId ? _views.find(v => v.id === _curId) : null);
+let _cvDynBase = null;    // { id, key } 開いたとき（保存したとき）の絞り込みの形
+let _cvDynForce = false;  // 条件の編集画面で保存した直後は、変更中でも保存した条件で開き直す
+function _cvDynKey() {
+  return _cvFiltNorm({ fc: _getCurrentFilterConditions(), q: String(window.wkSearchWord ? window.wkSearchWord() : (_cvSrchQ || '')).trim() });
+}
+function _cvDynDirty() {
+  const v = _curView();
+  if (_cvEditingNow()) return false;   // 条件の編集画面の中は、その画面の保存ボタンが担当する
+  return !!(_isDyn(v) && _cvDynBase && _cvDynBase.id === v.id && _cvDynKey() !== _cvDynBase.key);
+}
+// 保存してある条件を、ライブラリの絞り込み（window.filters・真偽の絞り込み）に入れる。条件の編集画面と同じ読み方
+function _cvCondsToFilters(fc) {
+  const f = window.filters || {};
+  if (!fc) return;
+  // タグ: 条件の形（tb/cat/pos/tech・グループID）から、ライブラリの呼び名へ（読み替えは tag-filter.js）
+  window.tagFilter?.fromPlain(fc, f, 'fc', 'lib');
+  if (!f.channel)  f.channel  = new Set();
+  if (!f.playlist) f.playlist = new Set();
+  (fc.ch || []).forEach(x => f.channel.add(x));
+  (fc.pl || []).forEach(x => f.playlist.add(x));
+  window.unwOnly     = !!fc.unwOnly;
+  window.watchedOnly = !!fc.watchedOnly;
+  window.bmOnly      = !!fc.bmOnly;
+  window.memoOnly    = !!fc.memoOnly;
+}
+// 設定「未使用のタググループの条件もカスタムリストで効かせる」がオフのときに見ない条件のグループ（_applyConditions と同じ）
+function _cvSkipGids() {
+  const _R = window.tagRegistry;
+  return (_R && _R.pref && _R.pref('unusedCondApply') === false) ? _R.groups().filter(g => g.slot < 0).map(g => g.id) : [];
+}
+// 開く: 今の絞り込みを全部消して、保存した条件と語を入れる（画面のための状態だけ。リストには書かない）
+function _cvDynLoad(view) {
+  const q = view.searchQuery || '';
+  _cvSrchQ = q;
+  window.wkSetSearchWord ? window.wkSetSearchWord(q, { silent: true }) : null;
+  window._uniRestoreFilters?.({});
+  _cvCondsToFilters(view.filterConditions);
+  // 効かせない設定のグループの条件はフィルターに掛けない（一覧の本数と同じにする）。条件そのものは上書き保存でもそのまま残す
+  if (window.tagFilter) _cvSkipGids().forEach(gid => window.tagFilter.setFor(window.filters, gid, 'lib').clear());
+  // 整理の表の絞り込み（orgFilters）にも同じものを入れる（_uniRestoreFilters が両方に配る）
+  if (window._uniSnapshotFilters && window._uniRestoreFilters) window._uniRestoreFilters(window._uniSnapshotFilters());
+  _cvFiltShown = view.id;
+  _cvDynBase = { id: view.id, key: _cvDynKey() };
+}
+// サイドパネルと統合フィルターの窓に「変更あり・上書き保存／元に戻す」を出す（画面の中だけ）
+function _cvDynBarSync() {
+  const v = _curView(), dirty = _cvDynDirty();
+  const bar = document.getElementById('cv-dyn-bar');
+  if (bar) {
+    if (dirty) {
+      bar.style.display = 'flex';
+      bar.innerHTML = `<span style="flex:1;min-width:0;font-size:11px;font-weight:700;color:var(--accent)">変更あり</span>` +
+        `<button class="lvt-inner-btn" style="flex:0 0 auto;padding:4px 8px;font-size:11px" onclick="window._cvDynRevert()">元に戻す</button>` +
+        `<button class="lvt-inner-btn" style="flex:0 0 auto;padding:4px 8px;font-size:11px;background:var(--accent);color:var(--on-accent);border-color:var(--accent)" onclick="window._cvDynSave()">上書き保存</button>`;
+    } else { bar.style.display = 'none'; bar.innerHTML = ''; }
+  }
+  const ub = document.getElementById('uni-cv-over-btn');
+  if (ub) ub.style.display = (dirty && !_cvEditingNow()) ? '' : 'none';
+  if (ub && v) ub.title = `「${v.label}」の条件をいまの絞り込みで上書きします`;
+}
+window._cvDynBarSync = _cvDynBarSync;
+window._cvDynState = () => { const v = _curView(); return { dyn: _isDyn(v), dirty: _cvDynDirty(), id: v ? v.id : null }; };
+window._cvDynSave = function() {
+  const v = _curView();
+  if (!_isDyn(v)) return;
+  const fc = _getCurrentFilterConditions();
+  // フィルターに掛けていない（効かせない設定の）グループの条件は、前の条件のまま残す（黙って消さない）
+  if (window.tagFilter && v.filterConditions) _cvSkipGids().forEach(gid => {
+    const old = window.tagFilter.selected(v.filterConditions, gid, 'fc');
+    if (old.size) fc[window.tagFilter.keyFor(gid, 'fc')] = [...old];
+  });
+  const q = String(window.wkSearchWord ? window.wkSearchWord() : (_cvSrchQ || '')).trim();
+  if (!Object.keys(fc).length && !q &&
+      !confirm(`「${v.label}」を条件なし（全部の動画）で上書き保存します。よろしいですか？`)) return;
+  const prev = { fc: v.filterConditions == null ? v.filterConditions : JSON.parse(JSON.stringify(v.filterConditions)),
+                 had: Object.prototype.hasOwnProperty.call(v, 'searchQuery'), q: v.searchQuery };
+  v.filterConditions = fc;
+  v.searchQuery = q;
+  _save();
+  _cvDynBase = { id: v.id, key: _cvDynKey() };
+  _cvDynBarSync();
+  _renderViewBar();
+  const id = v.id;
+  const undo = () => {
+    const w = _views.find(x => x.id === id);
+    if (!w) return;
+    w.filterConditions = prev.fc;
+    if (prev.had) w.searchQuery = prev.q; else delete w.searchQuery;
+    _save();
+    if (_curId === id) { _cvDynLoad(w); window.AF?.(); }
+    _cvDynBarSync();
+    _renderViewBar();
+  };
+  window.toastUndo ? window.toastUndo(`「${v.label}」の条件を上書き保存しました`, undo) : window.toast?.(`「${v.label}」の条件を上書き保存しました`);
+};
+window._cvDynRevert = function() {
+  const v = _curView();
+  if (!_isDyn(v)) return;
+  _cvDynLoad(v);
+  window.buildSidebarFovRows?.();
+  window.refreshOpenSbAccordions?.();
+  window.AF?.();
+  _cvDynBarSync();
+};
 
 function _restoreFilterSnapshot(key) {
   const snap = _viewFilterSnapshots[key];
@@ -1001,7 +1119,9 @@ window._cvClearSelection = function() {
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
   window._cvOnViewChange?.();
+  _cvDynBase = null;
   _restoreFilterSnapshot('master');
+  _cvDynBarSync();
   // 検索語は上の復元がマスターで覚えていた語を入れている（v52.959。以前はここで消していたので、マスターの語が毎回消えた）。
   // 残存バックアップと「動画を探す」欄だけ消す
   window._uniVideoQ = '';
@@ -1382,9 +1502,15 @@ document.addEventListener('pointercancel', function(e) {
 function _showView(id) {
   _bootHide();
   _saveCurrentFilterSnapshot();
+  const _prevId = _curId;
+  // 同じリストを開き直す（カード⇔テーブル・列の変更・起動後の数え直し）とき、変更中の絞り込みは消さない（v53.020）
+  const _keepDyn = _prevId === id && !_cvDynForce && _cvDynDirty();
+  _cvDynForce = false;
   _curId = id;
   _saveLastView(); // リロード復帰用に「直前に開いていたリスト」を記憶
-  _restoreFilterSnapshot(id);
+  const _v0 = _views.find(v => v.id === id);
+  if (_isDyn(_v0)) { if (!_keepDyn) _cvDynLoad(_v0); }
+  else { _cvDynBase = null; _restoreFilterSnapshot(id); }
   // 検索・フィルターは _restoreFilterSnapshot がリストごとに復元/クリア済み。
   // 条件編集の残存バックアップだけは念のため除去する。
   window._cvFilterBackup = null;
@@ -1392,8 +1518,8 @@ function _showView(id) {
   const view = _views.find(v => v.id === id);
   if (!view) return;
 
-  // このビューの動画だけ見せるフィルター
-  const viewVideos = _getViewVideos(view);
+  // このビューの動画だけ見せるフィルター。条件で作ったリストは全部の動画（条件はフィルターとして掛かっている・v53.020）
+  const viewVideos = _isDyn(view) ? (window.videos || []) : _getViewVideos(view);
   const videoIds = viewVideos.map(v => v.id);
   window._cvVideoIds = new Set(videoIds);
   window._vpFilteredList = viewVideos.length ? viewVideos : null;
@@ -1792,13 +1918,14 @@ window._cvListVideos = function() {
   if (!_curId) return null;
   const view = _views.find(v => v.id === _curId);
   if (!view || view.isMaster) return null;
+  if (_isDyn(view)) return window.videos || [];   // 条件はフィルターとして掛かっている（v53.020）
   return _getViewVideos(view);
 };
 
 function _cvUpdateSearch(view) {
   // 検索語は1か所から読む（js/search-word.js）。カードと同じ語を見る。
   const rawQ = window.wkSearchWord ? window.wkSearchWord() : (_cvSrchQ || '');
-  const videos = _getViewVideos(view);
+  const videos = _isDyn(view) ? (window.videos || []) : _getViewVideos(view);
   let filtered;
   const parse = window._parseQuery;
   const match = window._matchQuery;
@@ -1813,6 +1940,7 @@ function _cvUpdateSearch(view) {
   filtered = _cvApplyGlobalFilters(filtered);
   window._cvVideoIds = new Set(filtered.map(v => v.id));
   window._vpFilteredList = filtered.length ? filtered : null;
+  _cvDynBarSync();
   // 検索ワードを view に永続化（変更時のみ・デバウンス保存）。開いた直後は復元値と一致し保存不要。
   // 打った語はリストに焼き付けない（v52.872）。保存済みのものは消さない。
   window.renderOrg?.();
@@ -1899,6 +2027,12 @@ function _cvSnapFilter(list, snap, defQ) {
 function _cvPickerList(v) {
   const all = window.videos || [];
   if (!all.length) return null;
+  // 条件で作ったリスト（v53.020）: 開いているものは、いま掛かっている絞り込み（全部の動画から）。
+  // 開いていないものは保存した条件と語（前回の絞り込みは使わない＝開くといつも保存した状態）
+  if (_isDyn(v)) {
+    if (v.id === _curId && window._uniSnapshotFilters) return _cvSnapFilter(all.filter(x => !x.archived), _cvFiltCurrent(), '');
+    return _cvSnapFilter(_applyConditions(v.filterConditions, all).filter(x => !x.archived), null, v.searchQuery || '');
+  }
   let base;
   if (v.saveMode === 'dynamic') base = _applyConditions(v.filterConditions, all);
   else { const byId = _cvVideoById(all); base = (v.videoIds || []).map(id => byId.get(id)).filter(Boolean); }
@@ -3562,7 +3696,7 @@ window._cvSaveDynamic = function() {
     _editingViewId = null;
     window.uniCloseForCv?.();
     const view = _views.find(v => v.id === viewId);
-    if (view) { view.saveMode = 'dynamic'; view.filterConditions = fc; view.videoIds = null; _save(); _renderTable(view); _renderViewBar(); }
+    if (view) { view.saveMode = 'dynamic'; view.filterConditions = fc; view.videoIds = null; _save(); _cvDynForce = (_curId === view.id); _renderTable(view); _cvDynForce = false; _renderViewBar(); }
   } else {
     window.uniCloseForCv?.();
     _goStep3(fc, null, 'dynamic');
@@ -3743,16 +3877,8 @@ window.cvOpenConditionEditor = function(viewId) {
     // 条件が編集画面で選択状態に見えず、そのグループのチップを1つ押すと
     // 見えていなかった古い条件が黙って置き換わっていた（Notion 確認事項01）。
     // 保存側 _getCurrentFilterConditions は新キー優先・旧キーへフォールバックなので変えない。
-    const fc = view.filterConditions;
-    // タグ: 条件の形（tb/cat/pos/tech・グループID）から、編集画面が読む呼び名へ（読み替えは tag-filter.js）
-    window.tagFilter?.fromPlain(fc, f, 'fc', 'lib');
-    if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
-    if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
-    // boolean系を復元（ドリル等の条件が保存・抽出されるように）
-    window.unwOnly     = !!fc.unwOnly;
-    window.watchedOnly = !!fc.watchedOnly;
-    window.bmOnly      = !!fc.bmOnly;
-    window.memoOnly    = !!fc.memoOnly;
+    // タグ・チャンネル・プレイリスト・真偽の絞り込みを、編集画面が読む呼び名へ（開いたリストと同じ読み方）
+    _cvCondsToFilters(view.filterConditions);
   }
   window.uniOpenForCv(viewId);
 };
@@ -4157,6 +4283,7 @@ window._cvClearFilters = function() {
 // AF() 実行後にテーブルビューも更新（window.AF ラッパーから呼ばれる）
 window._cvOnAfCalled = function() {
   _cvFiltRecordSoon();   // 絞り込み・検索語が変わったら、そのリストの分として覚える（v52.959）
+  _cvDynBarSync();       // 条件で作ったリストの「変更あり」（v53.020）
   if (!_curId || window._cvCardVideoIds) return; // テーブルビュー以外は無視
   const view = _views.find(v => v.id === _curId);
   if (view) _cvUpdateSearch(view);

@@ -1090,7 +1090,7 @@
     '直近に開いたリストを端末ごとに覚えるか、全端末で共有するか':'Remember the last opened list per device, or share it across all devices',
     'この端末のみ':'This device only',
     'すべての端末で共有':'Share across all devices',
-    'カスタムビューとして保存':'Save as custom view',
+    'カスタムビューとして保存':'Save as custom view', 'このリストに上書き保存':'Overwrite this list', '上書き保存':'Overwrite', '変更あり':'Changed',
     '絞り込み条件が設定されていません':'No filter conditions set',
     'カスタムビューの名前を入力してください:':'Enter a name for the custom view:',
     '追加する':'Add',
@@ -2344,6 +2344,9 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    [/^「(.+)」を条件なし（全部の動画）で上書き保存します。よろしいですか？$/, (m, n) => `Overwrite “${n}” with no conditions (all videos)?`],
+    [/^「(.+)」の条件を上書き保存しました$/, (m, n) => `Overwrote the conditions of “${n}”`],
+    [/^「(.+)」の条件をいまの絞り込みで上書きします$/, (m, n) => `Overwrite the conditions of “${n}” with the current filters`],
     [/^前回開いていたリスト「(.+)」を開いています…$/, (m, n) => `Opening the last opened list “${n}”…`],
     [/^選んだ部分の字幕だけを AI に送って要約し、メモの「(.+)」のすぐ下に入れます。$/, (m, n) => `Sends only the selected part's subtitles to AI and inserts the summary right below “${n}” in the memo.`],
     [/^押すたびに切り替え（オフ・(.+)）$/, (m, l) => `Press to switch (Off · ${l})`],
