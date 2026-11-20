@@ -194,6 +194,10 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // プレイヤーの DRILL・Journal の動画リンク（v53.025）
+    'ここまで（もう一度押すとドリルの区間が決まる）':'Until here (press again to set the drill range)','この動画はライブラリにありません':'This video is not in your library',
+    'ドリルを作る: 始まりで1回・終わりでもう1回押す（ブックマークの見出しの「DRILL ここから」と同じ）':'Make a drill: press once at the start and again at the end (same as “DRILL from here” in the bookmarks header)',
+    'この動画を、書いたときの位置から開く':'Open this video at the point where you wrote this','動画のリンクを付けない':'Do not attach the video link',
     // AI ボタン（v53.024）
     '音声を文字起こしして字幕を作ります。':'Transcribes the audio to make subtitles.','自動チャプター':'Auto chapters','話の区切りを見つけて、ブックマークにします。':'Finds where the topic changes and turns them into bookmarks.',
     '選んだ部分の字幕を要約して、メモに入れます。':'Summarizes the subtitles of the part you pick and adds it to the memo.','先に字幕生成が必要です':'Generate subtitles first',

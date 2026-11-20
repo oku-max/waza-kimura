@@ -1846,6 +1846,8 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 .vp-ai-dock i{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 8px;white-space:nowrap;}
 .vp-ai-x{flex-shrink:0;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0 2px;font-family:inherit;}
 .vp-ai-btn .vp-flow-spin{width:10px;height:10px;}
+/* プレイヤーの上の DRILL（v53.025）。2回目を待つ間は色を付けて ■ */
+.vp-drill-hd.on{border-color:var(--accent)!important;color:var(--accent)!important;}
 .vp-ai-n{font-size:10px;font-weight:800;}
 /* AI のメニュー */
 .vp-ai-menu{position:fixed;z-index:10045;width:340px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-y:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.3);padding:4px 6px 6px;}

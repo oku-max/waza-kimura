@@ -1536,7 +1536,7 @@ function _bookmarkSectionHTML(id) {
   const _ytid = _vYtId(_cv);
   const _peek = _ytid ? _ytChapCache.get(_ytid) : undefined;
   if (_ytid && _peek === undefined) setTimeout(() => _ytChapPrecheck(id), 0);
-  // AI ボタン（v53.024・オーナー決定 mock-ai-menu.html）。字幕生成・自動チャプター・要約を1つにまとめ、押すと選べる（js/vp-ai.js）。
+  // AI ボタン（v53.024・オーナー決定 mock-ai-menu.html。v53.025 から「DRILL ここから」の右＝1行目の右端。「＋ 現在位置でブックマーク」は幅が足りないと2行目に回るので、その前に置く）。字幕生成・自動チャプター・要約を1つにまとめ、押すと選べる（js/vp-ai.js）。
   // 以前の「📑 自動チャプター」「✨ 要約」（ここ）と「💬 字幕生成」（メモの見出し）はこのボタンに入った
   const aiBtn = isGd
     ? `<button onclick="vpAiMenu('${id}', this)" id="vp-ai-${id}" class="vp-ai-btn" title="AIで 字幕生成・自動チャプター・要約"
@@ -1550,9 +1550,9 @@ function _bookmarkSectionHTML(id) {
           ${_bmNoteAllBtnHTML(id)}
           ${_divFoldBtnHTML(id)}
           ${_divBtnHTML(id)}
-          ${aiBtn}
           <button onclick="wkDrillTap('${id}')" id="vp-drill-tap-${id}" title="再生しながら、ドリルにしたい所の始まりで1回・終わりでもう1回押す"
             style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;"><span class="drl-pill">DRILL</span> ここから</button>
+          ${aiBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
       </div>
@@ -1965,6 +1965,14 @@ function _vpTakeStartOnce(id) {
   return (o && o.id === id) ? o.t : 0;
 }
 let _vpStartFresh = false;
+// 動画パネルから Journal に書く（v53.025・オーナー「その動画のリンクを入れよう。作成を押した瞬間の秒数」）。
+// 押した瞬間の動画と再生位置を Journal の書く画面に渡すだけ（動画のデータには書かない）。位置が分からなければ動画だけ
+window.vpJournalHere = function(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  let t = null;
+  try { const s = _getCurrentTime(); if (Number.isFinite(s) && s >= 0) t = Math.floor(s); } catch (e) {}
+  window.openMurmurComposer?.(null, v ? { ref: { vid: id, t, title: v.title || '' } } : undefined);
+};
 window.vpOpenAt = function(id, t) {
   _vpStartOnce = (t >= 1) ? { id, t: Math.floor(t) } : null;
   _vpStartFresh = true;
@@ -2095,8 +2103,9 @@ export function openVPanel(id) {
         </div>
         <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;align-self:center"></span>
         <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="字幕・再生・その他" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
+        <button id="vp-drill-hd-${id}" class="vp-drill-hd" onclick="wkDrillTap('${id}')" title="ドリルを作る: 始まりで1回・終わりでもう1回押す（ブックマークの見出しの「DRILL ここから」と同じ）" style="${navBtn};width:auto;padding:0 5px"><span class="drl-pill">DRILL</span></button>
         <button id="vp-list-btn" onclick="(window._srVpListAction || window.vpOpenNextList)?.()" title="リスト表示" style="${navBtn}"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
-        <button id="vp-journal-btn" onclick="window.openMurmurComposer?.()" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
+        <button id="vp-journal-btn" onclick="window.vpJournalHere?.('${id}')" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
         <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
       </div>
       <div id="vpanel-ctrl-row2" style="display:flex;align-items:center;gap:4px;padding:5px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
