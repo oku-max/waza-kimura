@@ -161,7 +161,7 @@ h1{font-size:17px;margin-bottom:4px}
       <h3>置き場所</h3>
       <ul>
         <li>ブックマークの見出しの、今「📑 自動チャプター」がある所に <b>AI</b>。</li>
-        <li>YouTube のチャプターがある動画は、今と同じく <b>「YouTube N」</b> をボタンに出します（開いた時点で分かる）。</li>
+        <li>YouTube のチャプターがあるかどうかは、ボタンには出さず、メニューの自動チャプターの行に文で書きます。</li>
         <li>何か作成中なら、ボタンにくるくると件数（<b>AI ◌ 2</b>）。</li>
         <li>PC はボタンの下に小さなメニュー、スマホは画面の下から出ます。</li>
       </ul>
@@ -213,7 +213,7 @@ const fmt = s => Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 function stateLine(k){
   const has = S.sub === 'yes';
   if (k==='sub') return has ? ['ok','字幕: 日本語・English あり（作ると別の言語を足せます）'] : ['', 'まだ字幕はありません'];
-  if (k==='chap') return ['', 'ブックマーク 4件 · <span class="tag">YouTube 12</span> を取り込むこともできます'];
+  if (k==='chap') return ['', 'この動画にはYouTubeのチャプターが12個あります（取り込めます）'];
   if (k==='sum') return has ? ['ok','字幕から作ります（範囲は次の画面で選びます）'] : ['ng','先に字幕生成が必要です'];
 }
 
@@ -222,7 +222,7 @@ function render(){
   const ph = S.dev==='phone';
   const running = Object.values(S.jobs).filter(j=>!j.end).length;
   const aiInner = `<span>AI</span>`
-    + (running ? `<span class="spin"></span><span class="dot">${running}</span>` : `<span class="yt">YouTube 12</span>`);
+    + (running ? `<span class="spin"></span><span class="dot">${running}</span>` : '');
   const bm = [['0:00','イントロ'],['2:41','フレームの作り方'],['7:15','膝を入れ直す'],['12:30','アンダーフックの取り合い']]
     .map(([t,n])=>`<div class="bm"><span class="t">${t}</span><span class="n">${n}</span><span class="b" style="padding:1px 6px">DRILL</span></div>`).join('');
   const right = `
