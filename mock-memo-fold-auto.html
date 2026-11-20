@@ -22,7 +22,7 @@ h1{font-size:18px;margin-bottom:6px}
 .ch2 b{font-size:13px}
 .ch2 .d{font-size:11.5px;color:var(--text2);line-height:1.6}
 .steps{font-size:12px;color:var(--text2);line-height:1.8;padding-left:18px}
-.phone{width:380px;background:#fff;border:9px solid #222;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;height:780px}
+.phone{position:sticky;top:10px;width:380px;background:#fff;border:9px solid #222;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;height:780px}
 .vid{background:#111;color:#ddd;height:140px;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;flex-shrink:0}
 .vid .row{display:flex;gap:8px;align-items:center}
 .vid button{background:#fff;color:#111;border:none;border-radius:6px;font-weight:800;padding:4px 10px;cursor:pointer;font-size:12px}
@@ -42,8 +42,20 @@ h1{font-size:18px;margin-bottom:6px}
 .seg button+button{border-left:1px solid var(--border)}
 .seg button.on{background:#fff3df;color:var(--now);font-weight:800}
 .pn{font-size:11px;color:var(--text3);margin-top:8px}
+.seg3{flex-direction:column}
+.seg3 button{text-align:left;padding:8px 10px}
+.seg3 button+button{border-left:none;border-top:1px solid var(--border)}
+.help{display:none}
+.ctl .close{display:none}
+@media (max-width:700px){
+  .phone{position:fixed;inset:0;top:0;width:auto;height:auto;border:none;border-radius:0;z-index:10}
+  .help{display:inline-block}
+  .ctl{display:none}
+  body.showctl .ctl{display:block;position:fixed;inset:0;z-index:20;max-width:none;overflow:auto;background:#f2f2f6;padding:14px}
+  body.showctl .ctl .close{display:block;margin:0 0 10px auto}
+}
 .d3{font-size:11.5px;color:var(--text2);line-height:1.6;margin-bottom:8px}
-.memo{flex:1;overflow:auto;padding:10px 12px;background:#f4f4f4;font-size:13px;line-height:1.6}
+.memo{flex:1;overflow:auto;overscroll-behavior:contain;padding:10px 12px;background:#f4f4f4;font-size:13px;line-height:1.6}
 .st{display:flex;gap:8px;align-items:center;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:6px}
 .st .tt{flex:1;font-weight:800;font-size:15px}
 .st .rg{display:block;font-size:11px;color:var(--text3);font-weight:600}
@@ -82,6 +94,7 @@ h1{font-size:18px;margin-bottom:6px}
 
 <div class="wrap">
   <div class="ctl">
+    <button class="tg close" id="ctlclose">✕ 閉じる</button>
     <div class="box"><div class="q"><span class="k">比べる用</span>再生中の所を ▾ で閉じたら</div><div class="d3">例: ❺ を再生中に、オートで開いた ❺ を自分で ▾ で閉じた。そのあと再生はまだ ❺ の中。</div><div class="ch2" data-q="sup">
       <label><input type="radio" name="sup" value="on"><div><b>閉じたままにする（本物はこちらに固定）</b><div class="d">❺ の間は閉じたまま。❻ に進んだら ❻ はまたオートで開く。</div></div></label>
       <label><input type="radio" name="sup" value="off"><div><b>すぐ開き直す（だめな例）</b><div class="d">閉じても次の瞬間にオートがまた開く＝閉じられない。</div></div></label>
@@ -103,10 +116,11 @@ h1{font-size:18px;margin-bottom:6px}
       <div class="hint">（動画の代わり）▶ で 10倍速で進みます</div>
       <div class="row"><button id="pl">▶</button><input type="range" id="sl" min="0" max="312" value="0"><span class="t" id="tm">0:00 / 5:12</span></div>
     </div>
-    <div class="mhead"><span class="lbl">MEMO</span><button class="tg" id="fol"></button><button class="tg opt" id="folopt">▾</button>
+    <div class="mhead"><span class="lbl">MEMO</span><button class="tg help" id="help">？ 説明</button><button class="tg" id="fol"></button><button class="tg opt" id="folopt">▾</button>
       <div class="pop" id="pop">
         <div class="pq">どこまで開くか</div>
-        <div class="seg" data-q="scope"><button data-v="bm">ブックマークだけ</button><button data-v="div">仕切りごと</button></div>
+        <div class="seg seg3" data-q="scope"><button data-v="dv">仕切りだけ</button><button data-v="bm">再生中のブックマークだけ</button><button data-v="all">ブックマークごと</button></div>
+        <div class="pn" id="scope-d"></div>
         <div class="pq">再生が次へ移ったら</div>
         <div class="seg" data-q="leave"><button data-v="close">前の所を閉じる</button><button data-v="keep">開いたまま残す</button></div>
         <div class="pn">手で開いた所は、どちらでも閉じません。</div>
@@ -142,7 +156,7 @@ const DETS = []; CHS.forEach((c,ci) => c.its.forEach((x,j) => { if (x.det) DETS.
 
 const S = { scope:'bm', leave:'close', sup:'on' };
 let follow = false, now = 0, playing = false, timer = null;
-const man = { ch:new Set(), dv:new Set([0,1]), det:new Set() }, aut = { ch:new Set(), dv:new Set(), det:new Set() };
+const man = { ch:new Set(), dv:new Set(), det:new Set() }, aut = { ch:new Set(), dv:new Set(), det:new Set() };
 let suppressed = -1, lastCi = -1, lastKey = '';
 const chOpen = i => man.ch.has(i) || aut.ch.has(i), dvOpen = i => man.dv.has(i) || aut.dv.has(i), detOpen = k => man.det.has(k) || aut.det.has(k);
 const curCh = () => CHS.findIndex(c => now >= c.t && now < c.end);
@@ -155,7 +169,8 @@ function applyAuto(changed) {
   if (suppressed === ci) return;
   const c = CHS[ci];
   if (!dvOpen(c.di)) aut.dv.add(c.di);
-  const targets = S.scope === 'div' ? CHS.map((x,i)=>[x,i]).filter(([x])=>x.di===c.di).map(([,i])=>i) : [ci];
+  if (S.scope === 'dv') return;
+  const targets = S.scope === 'all' ? CHS.map((x,i)=>[x,i]).filter(([x])=>x.di===c.di).map(([,i])=>i) : [ci];
   targets.forEach(i => { if (!man.ch.has(i)) aut.ch.add(i); });
   const dk = curDet(); if (dk && !man.det.has(dk)) aut.det.add(dk);
 }
@@ -165,7 +180,7 @@ function tick(force) {
   if (follow) { if (changed || key !== lastKey || S.sup === 'off' || force) applyAuto(changed || force); }
   const moved = key !== lastKey; lastKey = key;
   render();
-  if (follow && (moved || force)) { const el = document.querySelector('.it.now') || document.querySelector('.ch.now'); if (el) el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+  if (follow && (moved || force)) { const el = document.querySelector('.it.now') || document.querySelector('.ch.now'); if (el) { const m = document.getElementById('memo'), r = el.getBoundingClientRect(), mr = m.getBoundingClientRect(); m.scrollTo({ top: m.scrollTop + r.top - mr.top - m.clientHeight / 2 + r.height / 2, behavior:'smooth' }); } }
 }
 function render() {
   const fb = document.getElementById('fol'); fb.className = 'tg' + (follow ? ' on' : ''); fb.textContent = '▶ 再生に合わせる' + (follow ? '：オン' : '：オフ');
@@ -174,7 +189,7 @@ function render() {
     <div class="ov">ガードの層（足、脚、膝、腰、上半身）を理解し、各層でフレームを使って距離を確保する方法。押し戻すだけでなく、引き込む要素も重要。</div>`;
   DIVS.forEach((d, di) => {
     const idx = CHS.map((c,i)=>[c,i]).filter(([c])=>c.di===di), op = dvOpen(di), inNow = ci >= 0 && CHS[ci].di === di;
-    h += `<div class="dv ${!op && inNow ? 'nowin' : ''}"><button class="f" data-dv="${di}">${op?'▾':'▸'}</button><span class="n">■ ${d.name}</span>${op ? `<button class="allbtn" data-dva="${di}">${idx.every(([,i])=>chOpen(i)) ? '中を閉じる' : '中を全部開く'}</button>` : `<span class="c">${idx.length}見出し</span>`}${aut.dv.has(di)&&!man.dv.has(di)?'<span class="auto">オート</span>':''}</div>`;
+    h += `<div class="dv ${!op && inNow ? 'nowin' : ''}"><button class="f" data-dv="${di}">${op?'▾':'▸'}</button><span class="n">■ ${d.name}</span>${op ? '' : `<span class="c">${idx.length}見出し</span>`}<button class="allbtn" data-dva="${di}">${op && idx.every(([,i])=>chOpen(i)) ? 'すべて閉じる' : 'すべて開く'}</button>${aut.dv.has(di)&&!man.dv.has(di)?'<span class="auto">オート</span>':''}</div>`;
     if (!op) return;
     h += '<div class="in">' + idx.map(([c,i]) => {
       const o = chOpen(i), isNow = i === ci;
@@ -202,7 +217,7 @@ function bind() {
     render(); });
   document.querySelectorAll('[data-dv]').forEach(b => b.onclick = () => { const i = +b.dataset.dv; if (dvOpen(i)) { man.dv.delete(i); aut.dv.delete(i); } else man.dv.add(i); render(); });
   document.querySelectorAll('[data-det]').forEach(b => b.onclick = () => { const k = b.dataset.det; if (detOpen(k)) { man.det.delete(k); aut.det.delete(k); } else man.det.add(k); render(); });
-  document.querySelectorAll('[data-dva]').forEach(b => b.onclick = () => { const di = +b.dataset.dva, ids = CHS.map((c,i)=>[c,i]).filter(([c])=>c.di===di).map(([,i])=>i), all = ids.every(chOpen);
+  document.querySelectorAll('[data-dva]').forEach(b => b.onclick = () => { const di = +b.dataset.dva, ids = CHS.map((c,i)=>[c,i]).filter(([c])=>c.di===di).map(([,i])=>i), all = dvOpen(di) && ids.every(chOpen); if (!all) man.dv.add(di);
     ids.forEach(i => { if (all) { man.ch.delete(i); aut.ch.delete(i); } else man.ch.add(i); }); render(); });
   document.querySelectorAll('[data-seek]').forEach(b => b.onclick = () => { now = +b.dataset.seek; syncBar(); tick(); });
   document.getElementById('all').onclick = () => { const all = CHS.every((_,i)=>chOpen(i)); CHS.forEach((_,i) => { if (all) { man.ch.delete(i); aut.ch.delete(i); } else man.ch.add(i); }); render(); };
@@ -216,11 +231,14 @@ document.querySelectorAll('.ch2').forEach(g => {
   const q = g.dataset.q;
   g.querySelectorAll('input').forEach(inp => { inp.checked = S[q] === inp.value; inp.onchange = () => { S[q] = inp.value; aut.ch.clear(); aut.dv.clear(); aut.det.clear(); suppressed = -1; marks(); tick(true); }; });
 });
-function segs() { document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', S[g.dataset.q] === b.dataset.v))); }
+const SCOPE_D = { dv:'再生中の仕切りの帯を開く。中のブックマークは閉じたまま並ぶ。', bm:'再生中のブックマークを1つだけ開く（仕切りも見えるように開く）。', all:'再生中の仕切りと、その中のブックマークを全部開く。' };
+function segs() { document.getElementById('scope-d').textContent = SCOPE_D[S.scope]; document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', S[g.dataset.q] === b.dataset.v))); }
 document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { S[g.dataset.q] = b.dataset.v; aut.ch.clear(); aut.dv.clear(); aut.det.clear(); suppressed = -1; segs(); tick(true); }));
 document.getElementById('folopt').onclick = e => { e.stopPropagation(); document.getElementById('pop').classList.toggle('show'); };
 document.addEventListener('click', e => { if (!e.target.closest('#pop')) document.getElementById('pop').classList.remove('show'); });
 segs();
+document.getElementById('help').onclick = () => document.body.classList.add('showctl');
+document.getElementById('ctlclose').onclick = () => document.body.classList.remove('showctl');
 function marks() { document.querySelectorAll('.ch2 label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked)); }
 marks(); tick();
 </script>
