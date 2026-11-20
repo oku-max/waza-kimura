@@ -70,7 +70,7 @@ h1{font-size:17px;margin-bottom:4px}
 .it .ds{font-size:11px;color:var(--text2);line-height:1.5;margin-top:1px}
 .it .st{font-size:10.5px;margin-top:3px;color:var(--text3)}
 .it .st.ok{color:#1b7a3e}
-.it .st.ng{color:#b45c00}
+.it .st.ng,.it .st.warn{color:#b45c00}
 .tag{font-size:9.5px;font-weight:700;border-radius:4px;padding:0 5px;border:1px solid #c9b8f0;color:var(--ai);background:#f7f3ff}
 .run{flex-shrink:0;font-size:12px;font-weight:800;padding:7px 14px;border-radius:8px;border:none;background:var(--ai);color:#fff;cursor:pointer;font-family:inherit;min-width:62px}
 .run:disabled{background:#ddd;color:#999;cursor:default}
@@ -130,7 +130,7 @@ h1{font-size:17px;margin-bottom:4px}
 <p class="lead">
 動画パネルの <b>「📑 自動チャプター」の場所に「AI」ボタン</b>を1つ置き、押すと <b>字幕生成・自動チャプター・要約</b> が一言の説明つきで並び、右の「実行」で始まります。
 今あるブックマーク見出しの「✨ 要約」とメモ見出しの「💬 字幕生成」はこのボタンにまとめます（下の画面では取り消し線で見せています）。<br>
-作成中の小窓（左下の帯）は3つとも <b>同じ形</b> にします。帯の出し方を A／B から選んでください。<br>
+作成中の小窓（左下の帯）は3つを <b>1本にまとめます</b>（押すと一覧）。<br>
 <b>試し方:</b> 画面の「AI」を押す → どれかの「実行」→ 窓の「閉じて続ける」。いくつか同時に走らせて帯の並びを見てください（このモックでは数秒で終わります）。
 </p>
 
@@ -142,10 +142,6 @@ h1{font-size:17px;margin-bottom:4px}
   <div class="r"><span class="k">この動画の字幕</span>
     <button data-g="sub" data-v="yes" class="on">字幕あり</button>
     <button data-g="sub" data-v="no">字幕なし</button>
-  </div>
-  <div class="r"><span class="k">進行の帯</span>
-    <button data-g="dock" data-v="A" class="on">A 同じ形の帯を縦に積む</button>
-    <button data-g="dock" data-v="B">B 1本の帯にまとめる（押すと一覧）</button>
   </div>
   <div class="r"><span class="k">すぐ見る</span>
     <button id="demo">3つとも走らせた状態にする</button>
@@ -183,15 +179,13 @@ h1{font-size:17px;margin-bottom:4px}
       <ul>
         <li>形はどれも「アイコン・名前 · 経過 ／ 今の段階 · 動画名 ／ 押す所」。</li>
         <li>作成中 → <b>開く</b>、終わった → 字幕は<b>表示する</b>・チャプターは<b>確認する</b>・要約は<b>見る</b>、失敗 → <b>もう一度</b>。</li>
-        <li><b>A</b>: 今の帯をそのまま揃えて縦に積む（今はチャプターの帯の上に要約の帯をずらして重ねている）。<br>
-            <b>B</b>: 1本の「AI 2件 作成中」にまとめ、押すと一覧が開く。画面を隠す量が増えない。</li>
-        <li>終わっても勝手にブックマーク・メモへ飛ばない（今と同じ）。✕ で帯を消す。</li>
+        <li>帯は<b>1本</b>にまとめます（「AI 2件 作成中 · 1件 完了」）。押すと一覧が開き、1行ずつ今の段階と押す所が出ます。今のチャプターの帯・要約の帯はこの1本に置き換えます。</li>
+        <li>終わっても勝手にブックマーク・メモへ飛ばない（今と同じ）。終わった行は押すと一覧から消え、全部消えると帯も消える。</li>
       </ul>
     </div>
     <div class="box warn">
       <h3>決めてほしいこと</h3>
       <ol>
-        <li>帯は <b>A（積む）</b> と <b>B（まとめる）</b> のどちら？</li>
         <li>メモ見出しの「💬 字幕生成」と、ブックマーク見出しの「✨ 要約」は消して AI に一本化でよい？（メモ・ブックマークの行の「⋯ さらにくわしく」はそのまま残します）</li>
         <li>メニューの並びは依頼どおり 字幕 → チャプター → 要約（作る順）でよい？</li>
       </ol>
@@ -200,7 +194,7 @@ h1{font-size:17px;margin-bottom:4px}
 </div>
 
 <script>
-const S = { dev:'pc', sub:'yes', dock:'A', menu:false, flow:null, jobs:{}, aggOpen:false };
+const S = { dev:'pc', sub:'yes', dock:'B', menu:false, flow:null, jobs:{}, aggOpen:false };
 const KIND = {
   sub:  { ic:'💬', nm:'字幕生成',       ds:'音声を文字起こしして字幕を作ります。', steps:['音声を読み込み中','文字起こし中','字幕を保存中'], done:'字幕ができました', go:'表示する' },
   chap: { ic:'📑', nm:'自動チャプター', ds:'話の区切りを見つけて、ブックマークにします。', steps:['字幕を読み込み中','区切りを探しています','仕切りを決めています'], done:'チャプターができました', go:'確認する' },
@@ -212,9 +206,9 @@ const fmt = s => Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 
 function stateLine(k){
   const has = S.sub === 'yes';
-  if (k==='sub') return has ? ['ok','字幕: 日本語・English あり（作ると別の言語を足せます）'] : ['', 'まだ字幕はありません'];
+  if (k==='sub') return has ? ['warn','日本語 / English の字幕がすでに存在しています。再度作成する場合は上書きされます。'] : ['', 'まだ字幕はありません'];
   if (k==='chap') return ['', 'この動画にはYouTubeのチャプターが12個あります（取り込めます）'];
-  if (k==='sum') return has ? ['ok','字幕から作ります（範囲は次の画面で選びます）'] : ['ng','先に字幕生成が必要です'];
+  if (k==='sum') return has ? ['',''] : ['ng','先に字幕生成が必要です'];
 }
 
 function render(){
@@ -269,7 +263,7 @@ function menuHTML(){
     else btn = `<button class="run" data-run="${k}" ${cls==='ng'?'disabled':''}>実行</button>`;
     return `<div class="it"><div class="ic">${K.ic}</div><div class="bd">
         <div class="nm">${K.nm}${j&&!j.end?'<span class="tag">作成中</span>':''}</div>
-        <div class="ds">${K.ds}</div><div class="st ${cls}">${line}</div></div>${btn}</div>`;
+        <div class="ds">${K.ds}</div>${line?`<div class="st ${cls}">${line}</div>`:''}</div>${btn}</div>`;
   }).join('');
   return `<div class="menu" id="menu"><div class="mh">AI <small>字幕から作るものは、先に字幕が要ります</small><button class="x" id="mx">✕</button></div>${rows}
     <div class="foot">作成中も動画は見られます。窓を閉じても続き、左下の帯で経過が分かります。</div></div>`;
@@ -302,8 +296,6 @@ function chipInfo(k){
 function dockHTML(){
   const ks = ORDER.filter(k=>S.jobs[k] && !(S.flow===k && !S.jobs[k].end && false)).filter(k=>S.flow!==k);
   if (!ks.length) return '';
-  if (S.dock==='A') return ks.map(k=>{ const c = chipInfo(k);
-    return `<div class="chip ${c.cls}" data-open="${k}">${c.lead}<span class="tx"><b>${KIND[k].ic} ${c.b}</b>${c.el?' · '+c.el:''}<small>${c.sm}</small>${c.pct!=null?`<span class="pg" style="display:block"><i style="width:${c.pct}%"></i></span>`:''}</span><i class="go">${c.go}</i><span data-x="${k}" style="color:#bbb;font-size:13px;padding-left:2px">✕</span></div>`; }).join('');
   const run = ks.filter(k=>!S.jobs[k].end).length, fin = ks.length - run;
   const head = run ? `<span class="spin"></span><b>AI ${run}件 作成中${fin?` · ${fin}件 完了`:''}</b>` : `<span>✔</span><b>AI ${fin}件 完了</b>`;
   const lst = S.aggOpen ? `<div class="lst">${ks.map(k=>{ const c = chipInfo(k);
