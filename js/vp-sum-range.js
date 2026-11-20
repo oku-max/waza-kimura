@@ -267,7 +267,8 @@
     const chOf = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
     const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2; let no = 0;
     const tot = rs.reduce((s, r) => s + r.b - r.a, 0);
-    let html = `<div class="memo-sum-t">✂️ 要約${label ? '　' + esc(label) : ''}<span class="memo-sum-rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · ${rs.length}か所 · 合計 ${lenTxt(tot)}</span></div>`;
+    // 題は「✂️ 要約」だけ（v53.023・オーナー「選んだ仕切りの名前を並べた題はいらない」。中身は下の全体の要約で分かる）。名前は AI への手がかりには今までどおり渡す
+    let html = `<div class="memo-sum-t">✂️ 要約<span class="memo-sum-rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · ${rs.length}か所 · 合計 ${lenTxt(tot)}</span></div>`;
     // 章の要点（見出しの下・1〜3文）。見出しが出ない（章が1つだけ）ときは題の下に
     const pt = c => c && points.has(c) ? `<div class="memo-sum-pt">${esc(points.get(c))}</div>` : '';
     // 全体の要約（v53.022・オーナー「『要約』の一番大見出しの下に、該当部分の要約を二言ぐらいで」）。題のすぐ下。
