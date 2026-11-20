@@ -53,10 +53,16 @@ raw.length === 0
 
 // 5. AI系の3つが同じ判定で出ること。
 //    片方だけ直すと「要約は出るのに字幕は出ない」のような分かりにくい形になる。
+// v53.024 から3つは「AI」ボタン1つにまとめた。ボタンの出し入れは1つの判定（isGd）だけ、
+// メニューの中（js/vp-ai.js）は v.ytId を直接読まず、字幕の有無も _vYtId() で見る（_vpAiKit.subsOf）
 const gates = [
-  ['自動チャプター', /const isGd = _cv\?\.pt === 'gdrive' \|\| !!_vYtId\(_cv\)/],
-  ['字幕生成',      /_subGenBtn = \(_isOwner && \(vd\?\.pt === 'gdrive' \|\| !!_vYtId\(vd\)\)\)/],
+  ['AI（字幕生成・自動チャプター・要約）', /const isGd = _cv\?\.pt === 'gdrive' \|\| !!_vYtId\(_cv\);\n[\s\S]{0,1200}const aiBtn = isGd/],
+  ['AI の字幕の有無', /const ytId = _vYtId\(v\);\n\s*if \(!ytId\) return \{ ok: false, why: 'none' \};/],
 ];
+{
+  const ai = fs.readFileSync(path.join(ROOT, 'js/vp-ai.js'), 'utf8');
+  /\.ytId\b/.test(ai) ? fail('js/vp-ai.js が v.ytId を直接読んでいる（_vYtId を使う）') : ok('js/vp-ai.js は v.ytId を直接読まない');
+}
 for (const [name, re] of gates) {
   re.test(vp) ? ok(`${name}のボタンは _vYtId() で判定している`)
               : fail(`${name}のボタンが別の判定を使っている`);
