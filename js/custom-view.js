@@ -596,7 +596,71 @@ function _saveLastView() {
   }
 }
 
+// ── 起動時、前回開いていたリストを開くまで（v53.018・オーナー決定 mock-startup-loading.html の 1 と 4）──
+// 1: この端末の控え（wk_cv_views・wk_cv_lastView）から、アプリの準備ができた直後（最初の AF。列の並び等を読み込んだ後）に開く。
+//    v53.010 は早すぎて（organize.js が動く前）マスターの列の並びが空になった。その順番は守る。
+// 4: 開くまでの間はマスターを出さず「前回開いていたリスト「…」を開いています…」と設定の案内を出す。
+//    サイドパネルのリスト名はそのリスト、絞り込みは押せない。画面の中だけ（何も保存しない）。
+let _bootView = null, _bootEl = null, _bootT = null;
+function _bootPos() {
+  const m = document.getElementById('libMain'); if (!m || !_bootEl) return;
+  const r = m.getBoundingClientRect();
+  if (r.width > 0) Object.assign(_bootEl.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+}
+function _bootShow() {
+  if (_bootEl || _curId || _lastViewRestoreDone) return;
+  if (window._startupCfg.list === 'master' || window._startupCfg.scope === 'shared') return;
+  let saved = ''; try { saved = localStorage.getItem(_LAST_VIEW_KEY) || ''; } catch (e) {}
+  const view = saved && _views.find(v => v.id === saved);
+  if (!view || !document.getElementById('libMain')) return;
+  _bootView = view;
+  const el = document.createElement('div');
+  el.id = 'cv-boot-loading';
+  el.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;z-index:900;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;box-sizing:border-box';
+  el.innerHTML = `<div class="cv-boot-spin"></div>
+    <div style="font-size:15px;font-weight:700;color:var(--text)">${_esc(`前回開いていたリスト「${view.label}」を開いています…`)}</div>
+    <div style="font-size:12px;color:var(--text3);line-height:1.7;max-width:380px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px">
+      <span>起動時に開くリストは</span><br><a href="#" id="cv-boot-setting" style="color:var(--accent);font-weight:700;text-decoration:none">Settings ＞ 外観設定 ＞ 起動時のリスト</a><span> で変えられます（いまは「前回開いたリスト」）</span>
+    </div>`;
+  document.body.appendChild(el);
+  _bootEl = el;
+  el.querySelector('#cv-boot-setting').onclick = e => {
+    e.preventDefault();
+    window.switchTab?.('settings');
+    setTimeout(() => document.getElementById('setting-startup-list')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+  };
+  if (!document.getElementById('cv-boot-style')) {
+    const st = document.createElement('style'); st.id = 'cv-boot-style';
+    st.textContent = '.cv-boot-spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:cvBootSp 1s linear infinite}@keyframes cvBootSp{to{transform:rotate(360deg)}}#libSidebar.cv-booting .lib-sb-body>*:not(:first-child){opacity:.45;pointer-events:none}';
+    document.head.appendChild(st);
+  }
+  document.getElementById('libSidebar')?.classList.add('cv-booting');
+  _bootPos(); window.addEventListener('resize', _bootPos);
+  _bootT = setTimeout(_bootHide, 20000);   // 何かで開けなかったときに出しっぱなしにしない
+  _renderViewBar();
+}
+function _bootHide() {
+  if (!_bootEl && !_bootView) return;
+  clearTimeout(_bootT);
+  _bootEl?.remove(); _bootEl = null; _bootView = null;
+  window.removeEventListener('resize', _bootPos);
+  document.getElementById('libSidebar')?.classList.remove('cv-booting');
+  _renderViewBar();
+}
+// アプリの準備ができた直後に呼ばれる（index.html の最初の AF）。端末ごとの記憶なら、クラウドを待たずに開く
+// 動画（この端末の控え）が出てから開く。動画が0本のうちに開くと、カード表示のリストは中身を0本で数えたままになる
+let _cvRestoredEarly = false, _cvEarlyReshown = false;
+window._cvRestoreLastViewEarly = function() {
+  if (_lastViewRestoreDone || window._startupCfg.scope === 'shared') return;
+  if (!(window.videos || []).length) return;   // 次の AF でもう一度
+  _restoreLastViewOnce();
+  if (_lastViewRestoreDone && _curId) _cvRestoredEarly = true;
+};
 function _restoreLastViewOnce() {
+  _restoreLastViewOnceInner();
+  if (_lastViewRestoreDone) _bootHide();   // 開いた・開かないと決まったら読み込み中を消す
+}
+function _restoreLastViewOnceInner() {
   if (_lastViewRestoreDone) return;
   if (window._startupCfg.list === 'master') { _lastViewRestoreDone = true; return; } // 常にマスター
   let saved = '';
@@ -635,6 +699,13 @@ function _renderViewBar() {
       if (editBtn) editBtn.style.display = '';  // カスタムビュー選択中＝編集ボタン表示
       return;
     }
+  }
+  // 前回開いていたリストを開くまでの間は、そのリストの名前を出す（v53.018）
+  if (_bootView) {
+    iconEl.textContent = _bootView.saveMode === 'dynamic' ? '🔄' : '📌';
+    nameEl.textContent = _bootView.label;
+    if (editBtn) editBtn.style.display = 'none';
+    return;
   }
   // 未選択＝マスター（編集ボタンは隠す）
   iconEl.textContent = '🏠';
@@ -923,6 +994,7 @@ window._cvReturnToNote = function() {
 };
 
 window._cvClearSelection = function() {
+  _bootHide();
   _saveCurrentFilterSnapshot();
   _curId = null;
   _saveLastView(); // master に戻ったことを記憶（次回リロードは master 表示）
@@ -1308,6 +1380,7 @@ document.addEventListener('pointercancel', function(e) {
 
 // ── ビュー切替 ──
 function _showView(id) {
+  _bootHide();
   _saveCurrentFilterSnapshot();
   _curId = id;
   _saveLastView(); // リロード復帰用に「直前に開いていたリスト」を記憶
@@ -4003,6 +4076,7 @@ function _init() {
   _load();
   if (!_curId && !window._cvAfterRender) window._cvAfterRender = _masterAfterRender;
   _renderViewBar();
+  _bootShow();   // 前回開いていたリストを開くまでの「読み込み中」（v53.018）
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _init);
@@ -4031,6 +4105,8 @@ window._cvApplyLoadedViews = function(views) {
       window._cvAfterRender();
     }
   }
+  // 端末の控えで先に開いていたら、クラウドの最新の内容（動画・リスト）で1回だけ開き直して数え直す（v53.018）
+  if (_cvRestoredEarly && !_cvEarlyReshown && _curId) { _cvEarlyReshown = true; _showView(_curId); }
   // 初回ロード時、直前に開いていたカスタムビューへ復帰（動画・ビュー読込後の初回のみ）
   _restoreLastViewOnce();
 };

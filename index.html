@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v53.017</title>
+<title>WAZA KIMURA v53.018</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -483,6 +483,10 @@
     window.loadVimeoCardThumbs?.();   // VimeoサムネをoEmbed経由で即時差し込み
     window.loadGdriveCardThumbs?.();  // GDriveサムネをproxy経由で即時差し込み
     // 初回AF時のみ起動タブに切り替え
+    // 前回開いていたリストを、クラウドを待たずにこの端末の控えから開く（v53.018）。
+    // ここはアプリの準備（列の並びの読み込み等）が終わった後の AF。v53.010 は早すぎてマスターの列が消えた。
+    // 動画が出るまでは何もしない（開いた後・開かないと決まった後も何もしない）
+    setTimeout(() => window._cvRestoreLastViewEarly?.(), 0);
     if (!_startupTabApplied) {
       _startupTabApplied = true;
       try {
