@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DRILL ボタンの幅 モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--page:#111;--ptext:#ddd}
+body.light{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--page:#eee;--ptext:#222}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--page);color:var(--ptext);padding:16px;max-width:1000px;margin:0 auto}
+h1{font-size:18px;margin-bottom:6px}
+.lead{font-size:13px;line-height:1.7;opacity:.85;margin-bottom:12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;font-size:13px;align-items:center}
+.bar button{font:inherit;padding:5px 12px;border-radius:7px;border:1px solid #888;background:transparent;color:inherit;cursor:pointer}
+.bar button.on{background:#e5c47a;color:#111;border-color:#e5c47a;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.card .cap{font-size:15px;font-weight:800;margin-bottom:2px}
+.card .sub{font-size:12px;opacity:.75;margin-bottom:6px;min-height:18px}
+.phone{background:var(--surface);border:6px solid #000;border-radius:18px;overflow:hidden;width:100%;max-width:380px}
+.video{background:#000;aspect-ratio:16/9;display:flex;align-items:flex-end;justify-content:center;color:#fff;font-size:12px;padding-bottom:8px}
+.z{zoom:var(--zoom,1)}
+.head{padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;row-gap:6px;gap:5px;align-items:flex-start}
+.title{order:-1;flex:1 1 100%;min-width:0}
+.title b{display:block;font-size:12px;color:var(--text);line-height:1.35}
+.meta{font-size:10px;color:var(--text3);margin-top:2px}
+.meta span{font-size:9px;font-weight:600;margin-left:6px}
+.back{flex-shrink:0;height:26px;padding:0 9px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;display:flex;align-items:center}
+.nb{flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;cursor:pointer;font-family:inherit;padding:0}
+.nb.first{margin-left:auto}
+.nb.dr.on{border-color:var(--accent);color:var(--accent)}
+.pill{display:inline-block;font-weight:800;letter-spacing:.06em;border:1.4px solid currentColor;border-radius:4px;padding:0 3px;line-height:1.45;font-size:8.5px}
+.skip{display:flex;gap:3px;padding:6px 8px}
+.skip i{flex:1;height:24px;border-radius:5px;background:var(--surface2);border:1px solid var(--border)}
+.w{font-size:11px;font-family:monospace;opacity:.7;margin-top:4px}
+.note{font-size:12.5px;line-height:1.8;margin-top:22px;opacity:.9}
+</style>
+</head>
+<body>
+<h1>DRILL ボタンの幅（スマホ縦）</h1>
+<p class="lead">⚙・☰ などのボタンは 26px 四方です。今の DRILL は 48px（約1.8倍）あります。<br>
+ボタンを押すと「2回目を待つ」状態（■・色付き）になります。もう一度押すと元に戻ります。</p>
+<div class="bar">
+  表示の大きさ:
+  <button data-z="1" class="on">1.0</button><button data-z="1.15">1.15</button><button data-z="1.3">1.3</button>
+  　画面:
+  <button id="th" class="on">ダーク</button>
+</div>
+<div class="grid" id="grid"></div>
+<p class="note">どれも同じ機能です（押すと見出しの「DRILL ここから」と同じ・2回押し）。気に入ったものを記号（A〜G）で教えてください。</p>
+<script>
+const G = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>';
+const L = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>';
+const J = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
+const LOOP = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>';
+const P = [
+  { k:'今', t:'今の形（48px・約1.8倍）', s:'比べる用', w:48, html:'<span class="pill">DRILL</span>' },
+  { k:'A', t:'同じ幅（26px）・DRILL の文字を小さく', s:'枠つきの DRILL を 6px で', w:26, html:'<span class="pill" style="font-size:6px;padding:0 1px;letter-spacing:0">DRILL</span>' },
+  { k:'B', t:'同じ幅（26px）・D の1文字', s:'枠つきの D', w:26, html:'<span class="pill" style="font-size:10px;padding:0 3px">D</span>' },
+  { k:'C', t:'同じ幅（26px）・くり返しの絵', s:'文字なし（意味は押して覚える）', w:26, html:LOOP },
+  { k:'D', t:'1.25倍（33px）・DRILL 小さめ', s:'枠つき・7px', w:33, html:'<span class="pill" style="font-size:7px;padding:0 2px;letter-spacing:.02em">DRILL</span>' },
+  { k:'E', t:'1.5倍（39px）・DRILL', s:'枠つき・7.5px', w:39, html:'<span class="pill" style="font-size:7.5px;padding:0 2px;letter-spacing:.03em">DRILL</span>' },
+  { k:'F', t:'1.5倍（39px）・枠なしの文字', s:'ボタンの枠だけ・中は DRILL の文字', w:39, html:'<span style="font-size:8.5px;font-weight:800;letter-spacing:.04em">DRILL</span>' },
+  { k:'G', t:'1.5倍（39px）・絵＋D', s:'くり返しの絵の横に D', w:39, html:'<span style="display:inline-flex;align-items:center;gap:1px">'+LOOP.replace(/15/g,'13')+'<b style="font-size:9px">D</b></span>' },
+];
+const grid = document.getElementById('grid');
+grid.innerHTML = P.map((p,i) => `
+  <div class="card">
+    <div class="cap">${p.k}　${p.t}</div><div class="sub">${p.s}</div>
+    <div class="phone"><div class="z">
+      <div class="video">0:42 / 2:17</div>
+      <div class="head">
+        <div class="title"><b>01-05-General Concepts of Guard Passing - Lachlan Giles Passing Masterclass</b><div class="meta">0:42 / 2:17<span>Lachlan Giles</span></div></div>
+        <div class="back">←Back</div>
+        <button class="nb first">${G}</button>
+        <button class="nb dr" data-i="${i}" style="width:${p.w}px">${p.html}</button>
+        <button class="nb">${L}</button><button class="nb">${J}</button><button class="nb">?</button>
+      </div>
+      <div class="skip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div></div>
+    <div class="w">DRILL ${p.w}px ／ ほかのボタン 26px（${(p.w/26).toFixed(2)}倍）</div>
+  </div>`).join('');
+grid.addEventListener('click', e => {
+  const b = e.target.closest('.nb.dr'); if (!b) return;
+  const p = P[b.dataset.i];
+  if (b.classList.toggle('on')) b.innerHTML = '■'; else b.innerHTML = p.html;
+});
+document.querySelectorAll('[data-z]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-z]').forEach(x => x.classList.toggle('on', x === b));
+  document.documentElement.style.setProperty('--zoom', b.dataset.z);
+});
+document.getElementById('th').onclick = function(){ const l = document.body.classList.toggle('light'); this.textContent = l ? 'ライト' : 'ダーク'; };
+</script>
+</body>
+</html>
