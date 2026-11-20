@@ -244,9 +244,9 @@ function _restoreFilterSnapshot(key) {
   // 条件で作ったリスト（dynamic）は、語もそのリストの定義の一部なので戻す。
   // 手で選んだリスト（manual）は、語は一時的な操作でしかないので戻さない（v52.872）。
   const _defQ = (view && view.saveMode === 'dynamic') ? (view.searchQuery || '') : '';
-  // 前回の検索語が空なら、条件で作ったリストに保存してある語を使う（v53.011。v52.959 より前の、開くと語が入る形に戻す）。
-  // 空の検索語が優先されると、語で作ったリストは定義の語が使われず、全部の動画が出ていた
-  const q = (snap && typeof snap._search === 'string' && snap._search) ? snap._search : _defQ;
+  // 前回の検索語があればそれ（空にしたなら空のまま）、無ければ条件で作ったリストに保存してある語（v53.016）。
+  // v53.011 で「空ならリストの語」にしたら、検索欄で消した語が開き直すたびに戻ってきた（オーナー「polish を消してもなんどでも復活する」）
+  const q = (snap && typeof snap._search === 'string') ? snap._search : _defQ;
   // ワードは _uniRestoreFilters より先に確定する。_uniRestoreFilters は AF→_cvUpdateSearch を
   // 誘発することがあり、その時点で _cvSrchQ が未設定(空)だと searchQuery を空で上書きしてしまうため。
   _cvSrchQ = q;
@@ -1791,7 +1791,7 @@ function _cvSnapFilter(list, snap, defQ) {
   const A = k => Array.isArray(snap[k]) ? snap[k] : (snap[k] instanceof Set ? [...snap[k]] : []);
   const pl = A('playlist'), ch = A('channel'), pf = A('platform'), pr = A('prio'), ids = A('videoIds');
   const tagOk = window.tagFilter ? window.tagFilter.compile(snap, 'lib') : () => true;
-  const q = (typeof snap._search === 'string' && snap._search) ? snap._search : (defQ || '');
+  const q = (typeof snap._search === 'string') ? snap._search : (defQ || '');   // 開いたときと同じ決まり（v53.016）
   const parsed = (q && window._parseQuery && window._matchQuery) ? window._parseQuery(q) : null;
   return list.filter(v => {
     if (snap._unwOnly && v.watched) return false;
