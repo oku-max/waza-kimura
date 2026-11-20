@@ -79,7 +79,7 @@
   // 状態は画面の中だけ（保存しない）。
   let hidden = false, busyAt = 0, busyMsg = '', busyClock = null, busyTitle = '';
   const elapsed = () => { const s = busyAt ? Math.max(0, Math.floor((Date.now() - busyAt) / 1000)) : 0; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-  // 帯は AI の帯（js/vp-ai.js の wkAiJobs・字幕生成・自動チャプターと1本）に知らせる（v53.022。以前は専用の帯 #vsr-chip）。
+  // 帯は AI の帯（js/vp-ai.js の wkAiJobs・字幕生成・自動チャプターと1本）に知らせる（v53.024。以前は専用の帯 #vsr-chip）。
   // 窓が開いている間は帯に出さない（AI ボタンの件数とメニューには出る）
   function chipSync(done) {
     const J = window.wkAiJobs; if (!J) return;
@@ -94,7 +94,7 @@
   function showSheet() { if (!ov) return; ov.style.display = ''; hidden = false; chipSync(); }
   window.addEventListener('beforeunload', e => { if (ov && phase === 'busy') { e.preventDefault(); e.returnValue = ''; } });
 
-  const TABS = [['div', '仕切り'], ['bm', 'ブックマーク'], ['star', '★の所'], ['time', '時刻を指定']];
+  const TABS = [['div', '仕切り'], ['bm', 'ブックマーク'], ['star', '★の所'], ['time', '時間を指定']];
   function render() {
     if (!ov) return;
     const D = data(), sh = ov.querySelector('.vsr-sh'), isGd = !!K().isGdPlaying?.();
@@ -232,17 +232,18 @@
     // さらにくわしく（dt）は一段下の細かい要約なので章の要点は付けない
     const chOf0 = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
     const chapters = dt ? [] : [...new Set([...rs.map(r => chOf0(r.a)), ...D.bms.filter(b => rs.some(r => b.t >= r.a && b.t < r.b))].filter(Boolean))].sort((a, b) => a.t - b.t);
-    let items = [], points = new Map(), err = '';
+    let items = [], points = new Map(), overview = '', err = '';
     try {
       const user = window._firebaseCurrentUser?.(); if (!user) throw new Error('ログインが必要です');
       const idToken = await user.getIdToken();
       const res = await fetch('/api/ai-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, source: 'rangesum', cues, items: nItems, shots: wantShots, label, chapters: chapters.map(b => ({ t: fmt(b.t), label: b.label })), title: D.v.title || '', channel: D.v.channel || '', playlist: D.v.playlist || '' }) });
+        body: JSON.stringify({ idToken, source: 'rangesum', cues, items: nItems, shots: wantShots, label, chapters: chapters.map(b => ({ t: fmt(b.t), label: b.label })), overview: !dt, title: D.v.title || '', channel: D.v.channel || '', playlist: D.v.playlist || '' }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j.error) throw new Error(j.error ? (j.error + (j.detail ? ': ' + j.detail : '')) : 'HTTP ' + res.status);
       const obj = JSON.parse(String(j.summary || '').replace(/^```(?:json)?\s*|\s*```$/g, ''));
       items = (obj.items || []).map(x => ({ t: parse(x.t), text: String(x.text || '').trim(), shot: !!x.shot })).filter(x => x.t != null && x.text).sort((a, b) => a.t - b.t);
       if (!items.length) throw new Error('AIの返事に項目がありませんでした');
+      overview = dt ? '' : String(obj.overview || '').trim().slice(0, 300);
       (Array.isArray(obj.points) ? obj.points : []).forEach(p => { const c = chapters[Math.round(Number(p?.i)) - 1], tx = String(p?.text || '').trim(); if (c && tx && !points.has(c)) points.set(c, tx.slice(0, 300)); });
     } catch (e) { err = e?.message || String(e); }
     if (tok !== cancelTok) return;
@@ -261,10 +262,14 @@
     const chOf = t => { let c = null; for (const b of D.bms) { if (b.t <= t + 0.5) c = b; else break; } return c; };
     const chs = items.map(x => chOf(x.t)), many = new Set(chs.filter(Boolean)).size >= 2; let no = 0;
     const tot = rs.reduce((s, r) => s + r.b - r.a, 0);
-    let html = `<div class="memo-sum-t">✂️ 要約${label ? '　' + esc(label) : ''}<span class="memo-sum-rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · ${rs.length}か所 · 合計 ${lenTxt(tot)}</span></div>`;
+    // 題は「✂️ 要約」だけ（v53.023・オーナー「選んだ仕切りの名前を並べた題はいらない」。中身は下の全体の要約で分かる）。名前は AI への手がかりには今までどおり渡す
+    let html = `<div class="memo-sum-t">✂️ 要約<span class="memo-sum-rg">${rs.map(r => fmt(r.a) + '–' + fmt(r.b)).join(', ')} · ${rs.length}か所 · 合計 ${lenTxt(tot)}</span></div>`;
     // 章の要点（見出しの下・1〜3文）。見出しが出ない（章が1つだけ）ときは題の下に
     const pt = c => c && points.has(c) ? `<div class="memo-sum-pt">${esc(points.get(c))}</div>` : '';
-    if (!many) html += pt(chs.find(Boolean));
+    // 全体の要約（v53.022・オーナー「『要約』の一番大見出しの下に、該当部分の要約を二言ぐらいで」）。題のすぐ下。
+    // 章が1つだけ（見出しが出ない）なら章の要点と同じ所に重なるので、全体の要約だけにする（無ければ今までどおり章の要点）
+    if (overview) html += `<div class="memo-sum-ov">${esc(overview)}</div>`;
+    if (!many && !overview) html += pt(chs.find(Boolean));
     items.forEach((x, k) => {
       if (many && chs[k] && chs[k] !== chs[k - 1]) html += `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">${++no}</span>${esc(chs[k].label || '（名前なし）')}${ts(chs[k].t)}</div>` + pt(chs[k]);
       const p = pics[x.t];

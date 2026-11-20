@@ -2,7 +2,7 @@
 // 決定: ① 呼び出しは行の右の「⋯」（A） ② くわしくはその行のすぐ下（X） ③ 見出しは最初は閉じている
 //   ・✨要約 がメモに入れた見出し（.memo-sum-ch＝ブックマーク／.memo-sum-dh＝くわしく）と一番上の題（.memo-sum-t）の左の ▾ で開閉
 //   ・見出し・行（.memo-sum-it）の右の ⋯ で「▶ ここから再生／🔍 さらにくわしく／DRILL ドリルにする」
-//       さらにくわしく … 今の「✨ 要約」の窓を、範囲を入れた「時刻を指定」で開く（vpSumRangeOpen の opts）。できたものはその行のすぐ下
+//       さらにくわしく … 今の「✨ 要約」の窓を、範囲を入れた「時間を指定」で開く（vpSumRangeOpen の opts）。できたものはその行のすぐ下
 //       ドリルにする   … 見出しはブックマークの行の DRILL と同じ（wkDrillFromBm）。行は 行の時刻〜次の行の時刻 で今のドリルのカード
 //
 // 【データ】このファイルはメモの中身（v.memo・メモ欄の DOM）を1文字も変えない。
@@ -30,7 +30,7 @@
 
   const kind = e => e.classList.contains('memo-sum-t') ? 'T' : e.classList.contains('memo-sum-ch') ? 'C'
     : e.classList.contains('memo-sum-dh') ? 'D' : e.classList.contains('memo-sum-it') ? 'I'
-    : e.classList.contains('memo-sum-pt') ? 'P' : 'O';   // P＝章の要点（見出しの下の1〜3文・v53.005）。見出しと一緒に開閉する
+    : (e.classList.contains('memo-sum-pt') || e.classList.contains('memo-sum-ov')) ? 'P' : 'O';   // ov＝全体の要約（題の下・v53.022）。題と一緒に開閉   // P＝章の要点（見出しの下の1〜3文・v53.005）。見出しと一緒に開閉する
   const lvOf = e => Number(e.dataset?.lv) || 0;
   const isHead = k => k === 'T' || k === 'C' || k === 'D';
   const defOpen = k => k === 'T';   // 題は開いている・見出しは閉じている（オーナー決定 ③）

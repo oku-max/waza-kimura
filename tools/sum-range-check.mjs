@@ -72,7 +72,7 @@ await pg.evaluate(() => { const kit = window._vpSumKit; window.__realCues = kit.
 const before = await pg.evaluate(() => { const v = JSON.parse(JSON.stringify(window.videos[0])); return v; });
 
 console.log('── ① 入口 ──');
-// v53.022 から入口は AI のメニュー（ブックマークの見出しの「AI」→ 要約）。字幕が無い動画では押せない
+// v53.024 から入口は AI のメニュー（ブックマークの見出しの「AI」→ 要約）。字幕が無い動画では押せない
 await pg.evaluate(() => { window._vpAiKit.subsOf = async () => ({ ok: true, labels: ['日本語'] }); });
 await pg.click('#vp-ai-AAAAAAAAAAA'); await pg.waitForSelector('#vp-ai-menu [data-run="sum"]:not([disabled])');
 ck('① ブックマークの見出しの「AI」に「✨ 要約」（字幕があれば押せる）', await pg.evaluate(() => /要約/.test(document.querySelector('#vp-ai-menu [data-k="sum"]')?.textContent || '')));
@@ -113,7 +113,7 @@ const memoEl = await pg.evaluate(() => { const el = document.getElementById('vp-
 ck('④ AI に送ったのは選んだ範囲（2:00–10:00）の字幕の行だけ', lastReq && lastReq.source === 'rangesum' && lastReq.cues.length > 0 && lastReq.cues.every(c => c.t >= 119 && c.t < 600) && lastReq.items === 5 && lastReq.shots === 0, lastReq && { n: lastReq.cues.length, a: lastReq.cues[0], z: lastReq.cues.at(-1), items: lastReq.items, shots: lastReq.shots });
 ck('④ 前のメモはそのまま先頭に残り、後ろに足しただけ', after.memo.startsWith(before.memo) && after.memo.length > before.memo.length, after.memo.slice(0, 120));
 ck('④ タイトル1つ・項目5つ・2つのブックマークにまたがるので番号つきの見出し2つ', memoEl.t === 1 && memoEl.it === 5 && memoEl.ch.length === 2 && /^1/.test(memoEl.ch[0]) && /姿勢/.test(memoEl.ch[0]) && /^2/.test(memoEl.ch[1]) && /腕の角度/.test(memoEl.ch[1]), memoEl);
-ck('④ タイトルに名前と範囲（姿勢・腕の角度／2:00–10:00 · 1か所 · 合計 8分）', /姿勢・腕の角度/.test(memoEl.title) && /2:00–10:00 · 1か所 · 合計 8分/.test(memoEl.title), memoEl.title);
+ck('④ 題は「✂️ 要約」と範囲だけ・選んだ名前は並べない（v53.023）／名前は AI には渡す', /^✂️ 要約2:00–10:00 · 1か所 · 合計 8分$/.test(memoEl.title) && /姿勢・腕の角度/.test(lastReq.label || ''), { title: memoEl.title, label: lastReq.label });
 ck('④ 保存が呼ばれた', await pg.evaluate(() => window.__saves) >= 1);
 const strip = v => { const o = { ...v }; delete o.memo; return JSON.stringify(o); };
 ck('④ 動画のメモ以外の欄は1文字も変えない（ブックマーク・仕切り等）', strip(after) === strip(before));
@@ -157,7 +157,7 @@ await pg.evaluate(() => { window._vpSumKit.isGdPlaying = () => false; window.vpS
 await pg.waitForSelector('.vsr-sh');
 await pg.click('[data-tab="time"]');
 const wh = await pg.evaluate(() => document.querySelector('[data-whole]')?.textContent.trim());
-ck('⑤c 「時刻を指定」に「トラック全体（0:00–20:00）」', wh === 'トラック全体（0:00–20:00）', wh);
+ck('⑤c 「時間を指定」に「トラック全体（0:00–20:00）」', wh === 'トラック全体（0:00–20:00）', wh);
 await pg.click('[data-whole]');
 const wv = await pg.evaluate(() => ({ a: document.getElementById('vsr-inA')?.value, b: document.getElementById('vsr-inB')?.value, on: document.querySelector('[data-whole]')?.classList.contains('on'), sum: document.querySelector('.vsr-sum')?.textContent.replace(/\s+/g, ' ') }));
 ck('⑤c 押すと開始 0:00・終了 20:00 が入る（そのまま作れる）', wv.a === '0:00' && wv.b === '20:00' && wv.on && /0:00–20:00/.test(wv.sum), wv);

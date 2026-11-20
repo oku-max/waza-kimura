@@ -1536,7 +1536,7 @@ function _bookmarkSectionHTML(id) {
   const _ytid = _vYtId(_cv);
   const _peek = _ytid ? _ytChapCache.get(_ytid) : undefined;
   if (_ytid && _peek === undefined) setTimeout(() => _ytChapPrecheck(id), 0);
-  // AI ボタン（v53.022・オーナー決定 mock-ai-menu.html）。字幕生成・自動チャプター・要約を1つにまとめ、押すと選べる（js/vp-ai.js）。
+  // AI ボタン（v53.024・オーナー決定 mock-ai-menu.html）。字幕生成・自動チャプター・要約を1つにまとめ、押すと選べる（js/vp-ai.js）。
   // 以前の「📑 自動チャプター」「✨ 要約」（ここ）と「💬 字幕生成」（メモの見出し）はこのボタンに入った
   const aiBtn = isGd
     ? `<button onclick="vpAiMenu('${id}', this)" id="vp-ai-${id}" class="vp-ai-btn" title="AIで 字幕生成・自動チャプター・要約"
@@ -2208,7 +2208,7 @@ export function openVPanel(id) {
     // 撮影は端末によってできないので、入口は1つにして中で塞ぐ。
     const _snapBtn = `<button id="vp-img-btn-${vid}" onclick="vpMemoInsertImage('${vid}')" title="画像をメモに入れる"
            style="margin-left:6px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🖼</button>`;
-    // 字幕生成のボタンは AI のメニュー（ブックマークの見出しの「AI」）に移した（v53.022）
+    // 字幕生成のボタンは AI のメニュー（ブックマークの見出しの「AI」）に移した（v53.024）
     // ⛶ = メモを大きく（v53.000・オーナー決定 mock-memo-full.html の B）。見た目だけ。メモの中身・保存は今と同じ
     const _memoFocusBtn = `<button id="vp-memo-full-${vid}" class="vp-memo-full-btn" onclick="vpMemoFocusToggle()" title="メモを大きく表示（動画はそのまま）">⛶</button>`;
     bmContainer.innerHTML = _bookmarkSectionHTML(vid)
@@ -4543,7 +4543,7 @@ function _subGenLangChoices() {
 }
 
 function _askSubtitleLang(anchorEl) {
-  // 押したボタンの下に出す。AI のメニューから呼ばれたときは AI ボタンの下（v53.022）。
+  // 押したボタンの下に出す。AI のメニューから呼ばれたときは AI ボタンの下（v53.024）。
   // 以前は共通の窓（_flowWin）が開いていればその中に出したが、その窓の持ち主から字幕を作らなくなったので外した
   // （残すと、ほかの作業の窓が開いている間に字幕生成を押したとき、言語の選択がその窓に入ってしまう）
   return new Promise(resolve => {
@@ -4610,7 +4610,7 @@ window.wkEstimateAiCost = function(seconds) {
 // パネル内に✕で閉じるまで残る表示を出す。バージョンと経過秒も載せる。
 function _subGenShowResult(id, ok, text) {
   try {
-    // 置き場所はメモの行（v53.022 まで字幕生成ボタンのあった行。ボタンは AI のメニューに移った）
+    // 置き場所はメモの行（v53.024 まで字幕生成ボタンのあった行。ボタンは AI のメニューに移った）
     const host = document.getElementById('vp-memo-' + id)?.closest('.vp-row') || null;
     if (!host) return;
     host.querySelector('.vp-subgen-result')?.remove();
@@ -5035,7 +5035,7 @@ async function _asrGenerateAndSave(ctx) {
   return { ok: true, target: trTarget || target, cost };
 }
 
-// AI のメニュー（js/vp-ai.js）から呼ばれたとき（preset なし）は、進み具合と結果を AI の帯に知らせる（v53.022）。
+// AI のメニュー（js/vp-ai.js）から呼ばれたとき（preset なし）は、進み具合と結果を AI の帯に知らせる（v53.024）。
 // 字幕生成には窓が無いので、以前はボタンの文字（⏳ 生成中… 等）だけが進み具合だった。帯の言葉はその文字のまま
 window.vpGenSubtitle = async function(id, preset) {
   const r = await _vpGenSubtitleBody(id, preset);
@@ -5055,7 +5055,7 @@ async function _vpGenSubtitleBody(id, preset) {
 
   // YouTubeは保存先も作り方も違うので、専用の経路に分ける（Drive経路には触れない）
   if (isYt) {
-    const ytBtn = null;   // ボタンは AI のメニューに移った（v53.022）。進み具合は AI の帯
+    const ytBtn = null;   // ボタンは AI のメニューに移った（v53.024）。進み具合は AI の帯
     const ytOrig = ytBtn ? ytBtn.textContent : '';
     const _t0y = Date.now();
     window.wkAiBusyBegin();
@@ -5078,7 +5078,7 @@ async function _vpGenSubtitleBody(id, preset) {
   const gdToken = window.getDriveTokenIfAvailable?.();
   if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
-  const btn = null;   // ボタンは AI のメニューに移った（v53.022）。言語のメニューは AI ボタンの下
+  const btn = null;   // ボタンは AI のメニューに移った（v53.024）。言語のメニューは AI ボタンの下
   const subLang = preset ? preset.subLang : await _askSubtitleLang(window._wkAiAnchor?.(id));
   if (!subLang) return { ok: false, skipped: true };
 
@@ -5609,7 +5609,7 @@ function _chapWaitShown() {
   window.toast?.('✔ チャプターができました。左下の「確認する」から追加できます', 6000);
   return new Promise(r => { j.wake = r; });
 }
-// 作成中・確認待ちを、AI の帯（js/vp-ai.js の wkAiJobs・3つで1本）に知らせる（v53.022。以前は専用の帯 #vp-chap-chip）。
+// 作成中・確認待ちを、AI の帯（js/vp-ai.js の wkAiJobs・3つで1本）に知らせる（v53.024。以前は専用の帯 #vp-chap-chip）。
 // 窓が開いている間は帯に出さない（AI ボタンの件数とメニューには出る）。帯を押すと窓が戻る
 function _chapChipSync() {
   const j = _chapJob, J = window.wkAiJobs;
@@ -5878,7 +5878,7 @@ function _askChapterSource(anchorEl, hasYt, ytPeek, hasSubs) {
       ? { v: 'yt', label: 'YouTubeのチャプターを取得', sub: 'この動画にはYouTubeのチャプターがありません', disabled: true }
       : { v: 'yt', label: Array.isArray(ytPeek) ? `YouTubeのチャプターを取得（${ytPeek.length}個）` : 'YouTubeのチャプターを取得',
           sub: '動画に付いているチャプターをそのまま取り込む（無料・最も正確）' });
-    // 字幕が無いと進めないので、無いときは選べない（v53.022・オーナー指示。以前はここから字幕を作ってから検出していた）
+    // 字幕が無いと進めないので、無いときは選べない（v53.024・オーナー指示。以前はここから字幕を作ってから検出していた）
     items.push(hasSubs
       ? { v: 'sub', label: '字幕から検出', sub: 'AIが字幕から内容を判断してチャプターを作る' }
       : { v: 'sub', label: '字幕から検出', sub: '字幕がありません。先に「AI」の「字幕生成」で字幕を作ってください', disabled: true });
@@ -6338,7 +6338,7 @@ window.vpGenChapters = async function(id, preset) {
   }
 
   const fileId = isGd ? (v.id || '').replace(/^gd-/, '') : '';
-  const btn  = null;   // ボタンは AI のメニューに移った（v53.022）。進み具合は窓と帯（_chapRun）に出す
+  const btn  = null;   // ボタンは AI のメニューに移った（v53.024）。進み具合は窓と帯（_chapRun）に出す
   const orig = '';
   // 窓で進めるときは、長い作業の段を窓・帯・ボタンに出す（_chapRun）。一括処理は今までどおりボタンだけ
   const setBtn = txt => { if (job) { head('作成しています…', '作成中'); _chapRun(txt); return; } if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
@@ -6415,7 +6415,7 @@ window.vpGenChapters = async function(id, preset) {
       : { source: 'youtube', ytId: _vYtId(v), durationSec: duration || 0 };
 
 
-    // 字幕が無いまま「字幕から検出」には進まない（v53.022・オーナー「字幕がないと進めないものは、字幕がない時点では選べないようにする」）。
+    // 字幕が無いまま「字幕から検出」には進まない（v53.024・オーナー「字幕がないと進めないものは、字幕がない時点では選べないようにする」）。
     // 作り方の画面で選べなくしてある。以前はここで字幕生成を呼んでから検出へ進んでいた（字幕は AI の「字幕生成」から作る）
     if (via === 'sub' && !subs.length) return fail('字幕がありません。先に「AI」の「字幕生成」で字幕を作ってください');
 
@@ -9449,7 +9449,7 @@ window._vpDrillKit = {
   },
 };
 
-// ── AI ボタン（js/vp-ai.js・v53.022）が使う読み出し口 ──
+// ── AI ボタン（js/vp-ai.js・v53.024）が使う読み出し口 ──
 // 読むだけ。字幕の有無は、自動チャプターの「字幕から検出」・字幕生成の上書きの判定と同じ探し方
 // （Drive＝同じフォルダの字幕ファイル、YouTube＝このアプリが作った字幕）で見る。
 // 返り値 { ok:true, labels:[…] } / { ok:false, why:'login'|'drive'|'error'|'none' }。

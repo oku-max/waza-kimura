@@ -75,7 +75,7 @@ let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') 
 const open = async () => {
   await pg.evaluate(() => { window.__ai.length = 0; window.videos[0].bookmarks = []; window.__saves = 0; window.openVPanel('gd-FILE1'); });
   await pg.waitForSelector('#vp-ai-gd-FILE1'); await pg.waitForTimeout(400);
-  await pg.click('#vp-ai-gd-FILE1'); await pg.waitForSelector('#vp-ai-menu [data-run="chap"]:not([disabled])');   // v53.022 から入口は AI のメニュー
+  await pg.click('#vp-ai-gd-FILE1'); await pg.waitForSelector('#vp-ai-menu [data-run="chap"]:not([disabled])');   // v53.024 から入口は AI のメニュー
   await pg.click('#vp-ai-menu [data-run="chap"]');
   await pg.waitForSelector('#vp-flow-win .vp-flow-opt[data-v="sub"]', { timeout: 8000 });
   await pg.click('#vp-flow-win .vp-flow-opt[data-v="sub"]');

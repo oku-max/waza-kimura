@@ -1,4 +1,4 @@
-// ═══ AI ボタン（v53.022・オーナー決定 mock-ai-menu.html） ═══
+// ═══ AI ボタン（v53.024・オーナー決定 mock-ai-menu.html） ═══
 // 使い方: node tools/ai-menu-check.mjs
 // 動画パネルの「📑 自動チャプター」「✨ 要約」「💬 字幕生成」を、ブックマークの見出しの「AI」1つにまとめた。本物の index.html で:
 //   ① AI ボタンがあり、前の3つのボタンは無い

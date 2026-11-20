@@ -67,7 +67,7 @@ await pg.evaluate(() => {
   window.google = { accounts: { oauth2: { initTokenClient: () => ({ requestAccessToken: () => { window.__tokAsked++; } }) } } };
 });
 console.log('── 開いただけで分かる ──');
-// v53.022 から: ボタンには数を出さず、AI のメニューの自動チャプターの行に文で出す（オーナー「YouTube 12 ってなんだよ」）
+// v53.024 から: ボタンには数を出さず、AI のメニューの自動チャプターの行に文で出す（オーナー「YouTube 12 ってなんだよ」）
 const openPanel = async (id) => {
   await pg.evaluate(id => window.openVPanel(id), id);
   for (let i = 0; i < 25; i++) { await pg.waitForTimeout(200); if (await pg.evaluate(id => window._vpAiKit.ytChaps(id) !== undefined, id)) break; }
