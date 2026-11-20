@@ -154,7 +154,7 @@ await pg.evaluate(() => { window._vpSumKit.isGdPlaying = () => false; window.vpS
 await pg.waitForSelector('.vsr-sh');
 await pg.click('[data-tab="time"]');
 const wh = await pg.evaluate(() => document.querySelector('[data-whole]')?.textContent.trim());
-ck('⑤c 「時刻を指定」に「トラック全体（0:00–20:00）」', wh === 'トラック全体（0:00–20:00）', wh);
+ck('⑤c 「時間を指定」に「トラック全体（0:00–20:00）」', wh === 'トラック全体（0:00–20:00）', wh);
 await pg.click('[data-whole]');
 const wv = await pg.evaluate(() => ({ a: document.getElementById('vsr-inA')?.value, b: document.getElementById('vsr-inB')?.value, on: document.querySelector('[data-whole]')?.classList.contains('on'), sum: document.querySelector('.vsr-sum')?.textContent.replace(/\s+/g, ' ') }));
 ck('⑤c 押すと開始 0:00・終了 20:00 が入る（そのまま作れる）', wv.a === '0:00' && wv.b === '20:00' && wv.on && /0:00–20:00/.test(wv.sum), wv);
