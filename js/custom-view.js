@@ -210,7 +210,12 @@ window._cvFiltApplyRemote = function(snaps) {
   }
   if (!changed) return;
   _cvFiltCacheSave();
-  if (curChanged) { clearTimeout(_cvFiltT); _restoreFilterSnapshot(cur); }
+  // 今見ている画面は書き換えない（v53.017）。届いた分は覚えておき、次にそのリストを開いたときに使う。
+  // 以前はほかの窓・タブ・端末から届いた分で、開いている画面をその場で書き換えていた。ほかの窓が古い版のままだと、
+  // こちらで消した検索語をその窓が入れ直してクラウドへ送り返し、約2秒後にこちらの画面に戻ってきた
+  // （オーナーの録画: 「polish」を消すたびに何もしていないのに戻る）。ほかの窓の版や動きに、今の画面を左右させない。
+  // そのかわり、この画面はもう古いので、開き直すまで記録しない（離れるときに古い画面で新しい分を上書きしない）
+  if (curChanged) { clearTimeout(_cvFiltT); _cvFiltShown = null; }
 };
 // クラウドを読み終えたとき、この端末にだけある（または新しい）分を送るために渡す
 window._cvFiltLocalEntries = function() {

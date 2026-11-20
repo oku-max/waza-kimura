@@ -8,7 +8,7 @@
 //   ② 開き直すと戻る（手で選んだリストでも。リストの本体 view.searchQuery には書かない）
 //   ③ ほかの端末で同じリストを開くと戻る
 //   ④ 何も覚えていないリストを開いて空のまま離れても、空を記録しない（ほかの端末の分を空で上書きしない）
-//   ⑤ 開いたままのほかの端末に、変更が届く
+//   ⑤ 開いたままのほかの端末に変更が届く。ただしその端末の今の画面は書き換えず、次にそのリストを開いたときに出る（v53.017）
 //   ⑥ 消した（空にした）ことも覚える
 //   ⑦ クラウドを読めなかった端末は、クラウドへ書かない
 //   ⑧ マスターの検索語も覚える（以前はマスターに戻るたびに消していた）
@@ -136,10 +136,13 @@ ck('③ ほかの端末で覚えた条件リストの語も戻る', s.q === 'ほ
 await openList(B, '_m1');
 ck('③ ほかの端末で開いて離れるだけでは、同じ中身を記録し直さない（時刻が変わらない）', cvf()._d1?.at === 1700000000000, JSON.stringify(cvf()._d1).slice(0, 200));
 
-console.log('\n── 開いたままのほかの端末に届く ──');
+console.log('\n── 開いたままのほかの端末に届く（今の画面は書き換えない・v53.017）──');
+const qB0 = (await state(B)).q;
 await setF(A, 'スイープ', []);
-let got = false; for (let i = 0; i < 20 && !got; i++) { await wait(300); got = (await state(B)).q === 'スイープ'; }
-ck('⑤ A で変えた語が、同じリストを開いたままの B に届く', got, JSON.stringify(await state(B)));
+await wait(4000);
+ck('⑤ A で変えても、同じリストを開いている B の今の画面は書き換えない', (await state(B)).q === qB0, JSON.stringify(await state(B)));
+await openList(B, null); await openList(B, '_m1');
+ck('⑤ B でそのリストを開き直すと、A で変えた語が出る', (await state(B)).q === 'スイープ', JSON.stringify(await state(B)));
 await setF(A, '', []);
 ck('⑥ 検索語を消したことも覚える（空にした）', cvf()._m1?.snap?._search === '' && (cvf()._m1?.snap?.tbNew || []).length === 0, JSON.stringify(cvf()._m1));
 
