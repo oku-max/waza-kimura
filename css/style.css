@@ -1988,3 +1988,12 @@ body.dark .memo-dv{background:#2f2742;color:#c9b4f5}
 .memo-act-pop small{margin-left:auto;font-size:11px;color:var(--text3);font-weight:500;padding-left:12px}
 /* 色地のボタンの文字は地と反対の色（.vsr-sh button の color:inherit より強く） */
 .vsr-sh .vsr-go,.vsr-sh .vsr-o.on,.vsr-sh .vsr-o.on small,.vsr-sh .vsr-tabs button.on{color:var(--surface)}
+
+/* 動画パネルの上の並び（v53.028・オーナー「縦長のときだけタイトルが読めない。横向きは行が増えると動画が小さくなるので今のまま」）。
+   スマホの縦長だけ: 1行目にタイトル（幅いっぱい）、2行目に ←Back（左）とボタン（右） */
+@media (orientation: portrait) and (max-width: 820px) {
+  .vp-head { flex-wrap: wrap; row-gap: 6px; }
+  .vp-head > .vp-head-title { order: -1; flex: 1 1 100% !important; }
+  .vp-head > #vp-more-btn { margin-left: auto; }
+  .vp-head .vp-head-title > div:first-child { font-size: 12px !important; }
+}

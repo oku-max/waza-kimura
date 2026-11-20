@@ -2095,10 +2095,11 @@ export function openVPanel(id) {
     const gdFileId = plat === 'gd' ? id.replace(/^gd-/, '') : '';
     const driveOpenBtn = gdFileId ? `<a href="https://drive.google.com/file/d/${gdFileId}/view" target="_blank" rel="noopener" title="GDriveで開いて再生→サムネイル生成" style="flex-shrink:0;display:flex;align-items:center;gap:2px;color:var(--accent);font-size:9px;font-weight:600;text-decoration:none;line-height:1;white-space:nowrap;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity='1';this.style.textDecoration='underline'" onmouseout="this.style.opacity='.75';this.style.textDecoration='none'">↗ GDrive</a>` : '';
     // 再生時刻はタイトルの下（チャンネル名の左）。v53.025 で DRILL を足してから、スマホでは時刻がボタンの列に並ぶとタイトルの幅がほぼ0になっていた（v53.027）
+    // スマホの縦長だけ、タイトルを1行目に幅いっぱい・Back とボタンを2行目に（v53.028・css/style.css の .vp-head。横向き・PC は動画の高さを減らさないため1行のまま）
     titleEl.innerHTML = `
-      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:5px">
+      <div class="vp-head" style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:5px">
         <button onclick="closeVPanel()" style="flex-shrink:0;height:26px;padding:0 9px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit">←Back</button>
-        <div style="flex:1;min-width:0">
+        <div class="vp-head-title" style="flex:1;min-width:0">
           <div id="vp-title-text-${id}" style="font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px;min-width:0">
             <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
