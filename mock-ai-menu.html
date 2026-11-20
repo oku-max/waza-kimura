@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIボタン・進行の帯 モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f2f2f6;--surface:#fff;--surface2:#f4f4f4;--text:#1a1a1a;--text2:#555;--text3:#999;--border:#e2e2e8;--accent:#2050c0;--ai:#6a3fd0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);padding:14px;max-width:1400px;margin:0 auto}
+h1{font-size:17px;margin-bottom:4px}
+.lead{font-size:12px;color:var(--text2);line-height:1.75;margin-bottom:10px;max-width:980px}
+.lead b{color:var(--text)}
+.ctl{position:sticky;top:0;z-index:90;background:var(--bg);padding:8px 0 10px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid #ddd;margin-bottom:12px}
+.ctl .r{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl .k{font-size:11.5px;font-weight:800;min-width:150px}
+.ctl button{font-size:12px;font-weight:700;padding:5px 12px;border-radius:16px;border:1px solid #ccc;background:#fff;color:var(--text2);cursor:pointer;font-family:inherit}
+.ctl button.on{background:var(--text);color:#fff;border-color:var(--text)}
+.wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.side{flex:1;min-width:280px;max-width:430px;font-size:12px;line-height:1.75}
+.side h3{font-size:13px;margin:12px 0 4px}
+.side .box{background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.side .box b{color:#000}
+.side .warn{background:#fff8e1;border:1px solid #f0d890}
+.side ol,.side ul{padding-left:18px}
+.side code{font-size:11px;background:#eef;padding:0 4px;border-radius:3px}
+
+/* ── 端末 ── */
+.frame{position:relative;background:var(--surface);overflow:hidden;display:flex;font-size:13px}
+.f-phone{width:360px;height:740px;border:9px solid #222;border-radius:28px;flex-direction:column}
+.f-pc{width:1000px;height:640px;border:1px solid #bbb;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.12);flex-direction:row}
+.vcol{display:flex;flex-direction:column;flex-shrink:0;background:#fafafa}
+.f-phone .vcol{width:100%}
+.f-pc .vcol{width:58%;border-right:1px solid var(--border)}
+.vid{background:#111;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:#888;font-size:22px;flex-shrink:0;position:relative}
+.vid .now{position:absolute;left:8px;bottom:6px;font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:4px}
+.ttl{padding:6px 10px;font-weight:700;font-size:12px;border-bottom:1px solid var(--border);background:#fff}
+.skip{display:flex;gap:3px;padding:5px 8px;background:#fff;border-bottom:1px solid var(--border)}
+.skip span{flex:1;text-align:center;font-size:10px;border:1px solid var(--border);border-radius:5px;padding:4px 0;color:var(--text2)}
+.rcol{flex:1;overflow:auto;min-width:0;min-height:0;background:#fff;padding:8px 12px 90px}
+.f-phone .vcol + .rcol{padding-top:4px}
+.sec{margin-bottom:12px}
+.sh{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap}
+.sh .lbl{font-weight:800;font-size:10px;letter-spacing:1px;color:var(--text3);margin-right:auto}
+.b{font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
+.b.ghost{opacity:.35;text-decoration:line-through;pointer-events:none}
+.bm{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:12px}
+.bm .t{font-size:10.5px;font-weight:700;color:var(--accent);border:1px solid #b8c8f0;border-radius:4px;padding:0 5px;background:#f4f7ff}
+.bm .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.memo{border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface2);line-height:1.65;font-size:12px;color:var(--text2);min-height:90px}
+
+/* ── AI ボタン ── */
+.aibtn{position:relative;font-size:11.5px;font-weight:800;padding:3px 11px 3px 9px;border-radius:7px;border:1.5px solid var(--ai);background:#fff;color:var(--ai);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px}
+.aibtn.open{background:var(--ai);color:#fff}
+.aibtn .dot{min-width:16px;height:16px;border-radius:8px;background:var(--ai);color:#fff;font-size:9.5px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+.aibtn.open .dot{background:#fff;color:var(--ai)}
+.aibtn .spin{width:10px;height:10px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.aibtn .yt{font-size:9.5px;font-weight:700;border:1px solid currentColor;border-radius:4px;padding:0 4px;opacity:.85}
+
+/* ── AI メニュー ── */
+.menu{position:absolute;z-index:40;width:330px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 32px rgba(0,0,0,.2);padding:6px}
+.menu .mh{display:flex;align-items:center;gap:6px;padding:6px 8px 8px;font-size:12px;font-weight:800;color:var(--ai)}
+.menu .mh small{font-weight:600;color:var(--text3);font-size:10.5px}
+.menu .mh .x{margin-left:auto;border:none;background:none;font-size:15px;color:var(--text3);cursor:pointer}
+.it{display:flex;gap:10px;align-items:center;padding:10px 8px;border-top:1px solid #f0f0f0}
+.it .ic{width:32px;height:32px;border-radius:9px;background:#f1ecfc;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.it .bd{flex:1;min-width:0}
+.it .nm{font-size:13px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.it .ds{font-size:11px;color:var(--text2);line-height:1.5;margin-top:1px}
+.it .st{font-size:10.5px;margin-top:3px;color:var(--text3)}
+.it .st.ok{color:#1b7a3e}
+.it .st.ng{color:#b45c00}
+.tag{font-size:9.5px;font-weight:700;border-radius:4px;padding:0 5px;border:1px solid #c9b8f0;color:var(--ai);background:#f7f3ff}
+.run{flex-shrink:0;font-size:12px;font-weight:800;padding:7px 14px;border-radius:8px;border:none;background:var(--ai);color:#fff;cursor:pointer;font-family:inherit;min-width:62px}
+.run:disabled{background:#ddd;color:#999;cursor:default}
+.run.busy{background:#fff;color:var(--ai);border:1.5px solid var(--ai);display:inline-flex;align-items:center;gap:5px;padding:6px 10px}
+.run.busy .spin{width:10px;height:10px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .9s linear infinite}
+.run.done{background:#1b7a3e}
+.menu .foot{font-size:10.5px;color:var(--text3);padding:6px 8px 4px;border-top:1px solid #f0f0f0;line-height:1.5}
+
+/* スマホは下から出る */
+.f-phone .menu{left:0!important;right:0;bottom:0;top:auto!important;width:auto;border-radius:16px 16px 0 0;padding:6px 8px calc(14px)}
+.f-phone .menu::before{content:'';display:block;width:38px;height:4px;border-radius:2px;background:#ddd;margin:2px auto 4px}
+.veil{position:absolute;inset:0;background:rgba(0,0,0,.28);z-index:35;display:none}
+.f-phone .veil.on{display:block}
+
+/* ── 今の窓（作り方 → 件数 …）── */
+.flow{position:absolute;z-index:50;left:50%;top:50%;transform:translate(-50%,-50%);width:300px;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:14px;font-size:12px}
+.flow h4{font-size:13px;margin-bottom:6px}
+.flow .note{font-size:11px;color:var(--text2);line-height:1.6;background:#f7f7fb;border-radius:8px;padding:8px;margin:8px 0}
+.flow .bar{height:6px;border-radius:3px;background:#eee;overflow:hidden;margin:10px 0 4px}
+.flow .bar i{display:block;height:100%;background:var(--ai);width:0;transition:width .4s}
+.flow .rowb{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
+.flow .rowb button{font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-family:inherit}
+.flow .rowb .pri{background:var(--ai);border-color:var(--ai);color:#fff}
+
+/* ── 進行の帯（共通）── */
+.dock{position:absolute;left:10px;bottom:10px;z-index:45;display:flex;flex-direction:column;gap:6px;max-width:calc(100% - 20px)}
+.f-phone .dock{bottom:12px}
+.chip{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:12px;border:1px solid var(--border);background:#fff;box-shadow:0 6px 22px rgba(0,0,0,.22);font-size:12px;cursor:pointer;min-width:220px}
+.chip .ic{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.chip .spin{width:13px;height:13px;border:2px solid var(--ai);border-right-color:transparent;border-radius:50%;animation:sp .9s linear infinite;flex-shrink:0}
+.chip .tx{flex:1;min-width:0}
+.chip .tx b{font-weight:800}
+.chip small{display:block;font-size:10.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.chip .pg{height:3px;border-radius:2px;background:#eee;margin-top:4px;overflow:hidden}
+.chip .pg i{display:block;height:100%;background:var(--ai)}
+.chip i.go{font-style:normal;flex-shrink:0;font-size:11px;font-weight:700;color:var(--ai);border:1px solid var(--ai);border-radius:6px;padding:2px 8px;white-space:nowrap}
+.chip.ok i.go{color:#1b7a3e;border-color:#1b7a3e}
+.chip.ng i.go{color:#b42318;border-color:#b42318}
+/* B: 1つの帯にまとめる */
+.agg{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.22);font-size:12px;min-width:250px;overflow:hidden}
+.agg .top{display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer}
+.agg .top b{flex:1}
+.agg .top .car{font-size:11px;color:var(--text3)}
+.agg .lst{border-top:1px solid #f0f0f0}
+.agg .row{display:flex;align-items:center;gap:8px;padding:7px 11px;border-bottom:1px solid #f5f5f5;cursor:pointer}
+.agg .row:last-child{border-bottom:none}
+.agg .row .tx{flex:1;min-width:0}
+.agg .row small{display:block;font-size:10.5px;color:var(--text3)}
+.agg .row i.go{font-style:normal;font-size:10.5px;font-weight:700;color:var(--ai);border:1px solid var(--ai);border-radius:6px;padding:1px 7px}
+.agg .row.ok i.go{color:#1b7a3e;border-color:#1b7a3e}
+.agg .spin{width:12px;height:12px;border:2px solid var(--ai);border-right-color:transparent;border-radius:50%;animation:sp .9s linear infinite;flex-shrink:0}
+.cap{font-size:11px;color:var(--text3);margin:6px 0 2px}
+</style>
+</head>
+<body>
+<h1>AIボタン ＋ 進行の帯の統一（モック）</h1>
+<p class="lead">
+動画パネルの <b>「📑 自動チャプター」の場所に「AI」ボタン</b>を1つ置き、押すと <b>字幕生成・自動チャプター・要約</b> が一言の説明つきで並び、右の「実行」で始まります。
+今あるブックマーク見出しの「✨ 要約」とメモ見出しの「💬 字幕生成」はこのボタンにまとめます（下の画面では取り消し線で見せています）。<br>
+作成中の小窓（左下の帯）は3つとも <b>同じ形</b> にします。帯の出し方を A／B から選んでください。<br>
+<b>試し方:</b> 画面の「AI」を押す → どれかの「実行」→ 窓の「閉じて続ける」。いくつか同時に走らせて帯の並びを見てください（このモックでは数秒で終わります）。
+</p>
+
+<div class="ctl">
+  <div class="r"><span class="k">端末</span>
+    <button data-g="dev" data-v="pc" class="on">PC</button>
+    <button data-g="dev" data-v="phone">スマホ</button>
+  </div>
+  <div class="r"><span class="k">この動画の字幕</span>
+    <button data-g="sub" data-v="yes" class="on">字幕あり</button>
+    <button data-g="sub" data-v="no">字幕なし</button>
+  </div>
+  <div class="r"><span class="k">進行の帯</span>
+    <button data-g="dock" data-v="A" class="on">A 同じ形の帯を縦に積む</button>
+    <button data-g="dock" data-v="B">B 1本の帯にまとめる（押すと一覧）</button>
+  </div>
+  <div class="r"><span class="k">すぐ見る</span>
+    <button id="demo">3つとも走らせた状態にする</button>
+    <button id="reset">最初に戻す</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="stage"></div>
+
+  <div class="side">
+    <div class="box">
+      <h3>置き場所</h3>
+      <ul>
+        <li>ブックマークの見出しの、今「📑 自動チャプター」がある所に <b>AI</b>。</li>
+        <li>YouTube のチャプターがある動画は、今と同じく <b>「YouTube N」</b> をボタンに出します（開いた時点で分かる）。</li>
+        <li>何か作成中なら、ボタンにくるくると件数（<b>AI ◌ 2</b>）。</li>
+        <li>PC はボタンの下に小さなメニュー、スマホは画面の下から出ます。</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>メニューの中身</h3>
+      <ul>
+        <li>1行＝ 名前 ＋ 一言の説明 ＋ <b>実行</b>。その下に今の状態（字幕の有無・既にあるチャプターの数）。</li>
+        <li><b>字幕が無い動画では「要約」は押せず</b>「先に字幕生成が必要です」と出ます（今は押してから言われる）。自動チャプターは「動画から検出」があるので押せます。</li>
+        <li>作成中の行は「実行」が <b>「作成中 0:42」</b> に変わり、押すとその窓に戻ります（同じものは同時に1つ）。</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>「実行」の後は今と同じ</h3>
+      <p>実行は、今のボタンを押したのと <b>同じ関数を引数なしで</b> 呼ぶだけです（自動チャプターなら作り方→件数→言語→作成中→確認、の今の窓）。中の流れは変えません。</p>
+    </div>
+    <div class="box">
+      <h3>進行の帯（3つ共通）</h3>
+      <ul>
+        <li>形はどれも「アイコン・名前 · 経過 ／ 今の段階 · 動画名 ／ 押す所」。</li>
+        <li>作成中 → <b>開く</b>、終わった → 字幕は<b>表示する</b>・チャプターは<b>確認する</b>・要約は<b>見る</b>、失敗 → <b>もう一度</b>。</li>
+        <li><b>A</b>: 今の帯をそのまま揃えて縦に積む（今はチャプターの帯の上に要約の帯をずらして重ねている）。<br>
+            <b>B</b>: 1本の「AI 2件 作成中」にまとめ、押すと一覧が開く。画面を隠す量が増えない。</li>
+        <li>終わっても勝手にブックマーク・メモへ飛ばない（今と同じ）。✕ で帯を消す。</li>
+      </ul>
+    </div>
+    <div class="box warn">
+      <h3>決めてほしいこと</h3>
+      <ol>
+        <li>帯は <b>A（積む）</b> と <b>B（まとめる）</b> のどちら？</li>
+        <li>メモ見出しの「💬 字幕生成」と、ブックマーク見出しの「✨ 要約」は消して AI に一本化でよい？（メモ・ブックマークの行の「⋯ さらにくわしく」はそのまま残します）</li>
+        <li>メニューの並びは依頼どおり 字幕 → チャプター → 要約（作る順）でよい？</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = { dev:'pc', sub:'yes', dock:'A', menu:false, flow:null, jobs:{}, aggOpen:false };
+const KIND = {
+  sub:  { ic:'💬', nm:'字幕生成',       ds:'音声を文字起こしして字幕を作ります。', steps:['音声を読み込み中','文字起こし中','字幕を保存中'], done:'字幕ができました', go:'表示する' },
+  chap: { ic:'📑', nm:'自動チャプター', ds:'話の区切りを見つけて、ブックマークにします。', steps:['字幕を読み込み中','区切りを探しています','仕切りを決めています'], done:'チャプターができました', go:'確認する' },
+  sum:  { ic:'✨', nm:'要約',           ds:'選んだ部分の字幕を要約して、メモに入れます。', steps:['字幕を集めています','AIが要約しています','写真を撮っています'], done:'要約をメモに入れました', go:'見る' },
+};
+const ORDER = ['sub','chap','sum'];
+const TITLE = 'Lachlan Giles — Half Guard Retention 03';
+const fmt = s => Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+
+function stateLine(k){
+  const has = S.sub === 'yes';
+  if (k==='sub') return has ? ['ok','字幕: 日本語・English あり（作ると別の言語を足せます）'] : ['', 'まだ字幕はありません'];
+  if (k==='chap') return ['', 'ブックマーク 4件 · <span class="tag">YouTube 12</span> を取り込むこともできます'];
+  if (k==='sum') return has ? ['ok','字幕から作ります（範囲は次の画面で選びます）'] : ['ng','先に字幕生成が必要です'];
+}
+
+function render(){
+  const st = document.getElementById('stage');
+  const ph = S.dev==='phone';
+  const running = Object.values(S.jobs).filter(j=>!j.end).length;
+  const aiInner = `<span>AI</span>`
+    + (running ? `<span class="spin"></span><span class="dot">${running}</span>` : `<span class="yt">YouTube 12</span>`);
+  const bm = [['0:00','イントロ'],['2:41','フレームの作り方'],['7:15','膝を入れ直す'],['12:30','アンダーフックの取り合い']]
+    .map(([t,n])=>`<div class="bm"><span class="t">${t}</span><span class="n">${n}</span><span class="b" style="padding:1px 6px">DRILL</span></div>`).join('');
+  const right = `
+    <div class="sec">
+      <div class="sh"><span class="lbl">BOOKMARKS</span>
+        <button class="aibtn ${S.menu?'open':''}" id="aibtn">${aiInner}</button>
+        <span class="b ghost">📑 自動チャプター</span><span class="b ghost">✨ 要約</span>
+        <span class="b">✎ 仕切り</span><span class="b">＋</span>
+      </div>${bm}
+    </div>
+    <div class="sec">
+      <div class="sh"><span class="lbl">MEMO</span><span class="b">⏱</span><span class="b">🖼</span><span class="b ghost">💬 字幕生成</span><span class="b">⛶</span></div>
+      <div class="memo">メモ…</div>
+    </div>`;
+  st.innerHTML = `<div class="frame ${ph?'f-phone':'f-pc'}" id="frame">
+      <div class="vcol"><div class="vid">▶<span class="now">03:12 / 21:48</span></div>
+        <div class="ttl">${TITLE}</div>
+        <div class="skip">${['⏮','◀10s','◀3s','⏯','3s▶','10s▶','⏭'].map(x=>`<span>${x}</span>`).join('')}</div>
+        ${ph?'':'<div style="flex:1;background:#fafafa"></div>'}
+      </div>
+      <div class="rcol" id="rcol">${right}</div>
+      <div class="veil ${S.menu?'on':''}" id="veil"></div>
+      ${S.menu?menuHTML():''}
+      ${S.flow?flowHTML():''}
+      <div class="dock" id="dock">${dockHTML()}</div>
+    </div>`;
+  if (S.menu && !ph){ // ボタンの下に出す
+    const f = document.getElementById('frame').getBoundingClientRect();
+    const b = document.getElementById('aibtn').getBoundingClientRect();
+    const m = document.getElementById('menu');
+    m.style.top = (b.bottom - f.top + 6)+'px';
+    m.style.left = Math.min(b.left - f.left, f.width - 340)+'px';
+  }
+  bind();
+}
+
+function menuHTML(){
+  const rows = ORDER.map(k=>{
+    const K = KIND[k], j = S.jobs[k];
+    const [cls, line] = stateLine(k);
+    let btn;
+    if (j && !j.end) btn = `<button class="run busy" data-open="${k}"><span class="spin"></span>${fmt(j.t)}</button>`;
+    else if (j && j.end) btn = `<button class="run done" data-open="${k}">${K.go}</button>`;
+    else btn = `<button class="run" data-run="${k}" ${cls==='ng'?'disabled':''}>実行</button>`;
+    return `<div class="it"><div class="ic">${K.ic}</div><div class="bd">
+        <div class="nm">${K.nm}${j&&!j.end?'<span class="tag">作成中</span>':''}</div>
+        <div class="ds">${K.ds}</div><div class="st ${cls}">${line}</div></div>${btn}</div>`;
+  }).join('');
+  return `<div class="menu" id="menu"><div class="mh">AI <small>字幕から作るものは、先に字幕が要ります</small><button class="x" id="mx">✕</button></div>${rows}
+    <div class="foot">作成中も動画は見られます。窓を閉じても続き、左下の帯で経過が分かります。</div></div>`;
+}
+
+function flowHTML(){
+  const k = S.flow, K = KIND[k], j = S.jobs[k];
+  if (!j) {
+    const body = k==='chap' ? '作り方（YouTubeのチャプターを取得／字幕から検出／動画から検出）→ 件数 → 言語 …<br>（今の窓がそのまま開きます）'
+      : k==='sub' ? '字幕の言語を選ぶ（今の画面のまま）'
+      : '範囲（仕切り・ブックマーク・時刻）と項目・写真の数を選ぶ（今の画面のまま）';
+    return `<div class="flow"><h4>${K.ic} ${K.nm}</h4><div class="note">${body}</div>
+      <div class="rowb"><button data-fc="1">キャンセル</button><button class="pri" data-start="${k}">作成する</button></div></div>`;
+  }
+  const pct = Math.min(100, j.t / j.dur * 100);
+  return `<div class="flow"><h4>${K.ic} ${K.nm}を作成中 · ${fmt(j.t)}</h4>
+    <div class="cap">${K.steps[Math.min(2, Math.floor(pct/34))]}…</div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="note">閉じても作成は続きます。終わったら左下の帯でお知らせします。</div>
+    <div class="rowb"><button data-stop="${k}">作成をやめる</button><button class="pri" data-fc="1">閉じて続ける</button></div></div>`;
+}
+
+function chipInfo(k){
+  const K = KIND[k], j = S.jobs[k];
+  if (!j.end) { const pct = Math.min(100, j.t/j.dur*100);
+    return { cls:'', lead:'<span class="spin"></span>', b:`${K.nm}を作成中`, el:fmt(j.t), sm:`${K.steps[Math.min(2,Math.floor(pct/34))]} · ${TITLE}`, go:'開く', pct }; }
+  return { cls:'ok', lead:'<span class="ic">✔</span>', b:K.done, el:'', sm:TITLE, go:K.go };
+}
+
+function dockHTML(){
+  const ks = ORDER.filter(k=>S.jobs[k] && !(S.flow===k && !S.jobs[k].end && false)).filter(k=>S.flow!==k);
+  if (!ks.length) return '';
+  if (S.dock==='A') return ks.map(k=>{ const c = chipInfo(k);
+    return `<div class="chip ${c.cls}" data-open="${k}">${c.lead}<span class="tx"><b>${KIND[k].ic} ${c.b}</b>${c.el?' · '+c.el:''}<small>${c.sm}</small>${c.pct!=null?`<span class="pg" style="display:block"><i style="width:${c.pct}%"></i></span>`:''}</span><i class="go">${c.go}</i><span data-x="${k}" style="color:#bbb;font-size:13px;padding-left:2px">✕</span></div>`; }).join('');
+  const run = ks.filter(k=>!S.jobs[k].end).length, fin = ks.length - run;
+  const head = run ? `<span class="spin"></span><b>AI ${run}件 作成中${fin?` · ${fin}件 完了`:''}</b>` : `<span>✔</span><b>AI ${fin}件 完了</b>`;
+  const lst = S.aggOpen ? `<div class="lst">${ks.map(k=>{ const c = chipInfo(k);
+      return `<div class="row ${c.cls}" data-open="${k}"><span>${KIND[k].ic}</span><span class="tx"><b>${c.b}</b>${c.el?' · '+c.el:''}<small>${c.sm}</small></span><i class="go">${c.go}</i></div>`; }).join('')}</div>` : '';
+  return `<div class="agg"><div class="top" id="aggtop">${head}<span class="car">${S.aggOpen?'▾ 閉じる':'▴ 一覧'}</span></div>${lst}</div>`;
+}
+
+function bind(){
+  const q = (s,f)=>document.querySelectorAll(s).forEach(e=>e.onclick=f);
+  q('#aibtn', ()=>{ S.menu=!S.menu; render(); });
+  q('#mx,#veil', ()=>{ S.menu=false; render(); });
+  q('[data-run]', e=>{ S.flow=e.currentTarget.dataset.run; S.menu=false; render(); });
+  q('[data-start]', e=>{ start(e.currentTarget.dataset.start); });
+  q('[data-fc]', ()=>{ S.flow=null; render(); });
+  q('[data-stop]', e=>{ delete S.jobs[e.currentTarget.dataset.stop]; S.flow=null; render(); });
+  q('[data-open]', e=>{ if (e.target.dataset.x) return; const k=e.currentTarget.dataset.open;
+    if (S.jobs[k]?.end){ delete S.jobs[k]; S.flow=null; } else S.flow=k; S.menu=false; render(); });
+  q('[data-x]', e=>{ e.stopPropagation(); delete S.jobs[e.currentTarget.dataset.x]; render(); });
+  q('#aggtop', ()=>{ S.aggOpen=!S.aggOpen; render(); });
+}
+
+function start(k, quiet){
+  const dur = {sub:14, chap:10, sum:7}[k];
+  S.jobs[k] = { t:0, dur, end:false };
+  S.flow = quiet ? null : k; render();
+}
+setInterval(()=>{
+  let ch=false;
+  for (const k in S.jobs){ const j=S.jobs[k]; if (j.end) continue; j.t+=1; ch=true; if (j.t>=j.dur){ j.end=true; if (S.flow===k) S.flow=null; } }
+  if (ch) render();
+},1000);
+
+document.querySelectorAll('.ctl [data-g]').forEach(b=>b.onclick=()=>{
+  const g=b.dataset.g; S[g]=b.dataset.v;
+  document.querySelectorAll(`.ctl [data-g="${g}"]`).forEach(x=>x.classList.toggle('on',x===b));
+  if (g==='sub' && S.sub==='no' && S.jobs.sum && !S.jobs.sum.end) delete S.jobs.sum;
+  render();
+});
+document.getElementById('demo').onclick=()=>{ S.menu=false; ['sub','chap','sum'].forEach(k=>start(k,true)); S.jobs.sub.dur=40; S.jobs.chap.dur=30; S.jobs.sum.t=6; S.jobs.sum.dur=7; render(); };
+document.getElementById('reset').onclick=()=>{ S.jobs={}; S.flow=null; S.menu=false; S.aggOpen=false; render(); };
+render();
+</script>
+</body>
+</html>
