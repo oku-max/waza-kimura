@@ -67,20 +67,23 @@ await pg.evaluate(() => {
   window.google = { accounts: { oauth2: { initTokenClient: () => ({ requestAccessToken: () => { window.__tokAsked++; } }) } } };
 });
 console.log('── 開いただけで分かる ──');
+// v53.022 から: ボタンには数を出さず、AI のメニューの自動チャプターの行に文で出す（オーナー「YouTube 12 ってなんだよ」）
 const openPanel = async (id) => {
   await pg.evaluate(id => window.openVPanel(id), id);
-  let r = null;
-  for (let i = 0; i < 25; i++) { await pg.waitForTimeout(200);
-    r = await pg.evaluate(id => { const b = document.getElementById('vp-chapgen-' + id); return b ? { btn: true, badge: b.querySelector('.vp-ytchap-badge')?.textContent || '' } : null; }, id);
-    if (r && r.badge) break; }
+  for (let i = 0; i < 25; i++) { await pg.waitForTimeout(200); if (await pg.evaluate(id => window._vpAiKit.ytChaps(id) !== undefined, id)) break; }
+  if (!await pg.evaluate(id => !!document.getElementById('vp-ai-' + id), id)) return null;
+  await pg.click(`#vp-ai-${id}`); await pg.waitForSelector('#vp-ai-menu [data-k="chap"]');
+  const r = await pg.evaluate(id => ({ btn: true, row: document.querySelector('#vp-ai-menu [data-k="chap"]')?.textContent.replace(/\s+/g, ' ') || '',
+    badge: !!document.querySelector(`#vp-ai-${id} .vp-ytchap-badge`) || /YouTube/.test(document.getElementById('vp-ai-' + id)?.textContent || '') }), id);
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
   return r;
 };
 const pa = await openPanel('AAAAAAAAAAA');
-ck('⓪ ある動画: 開いただけでボタンに「YouTube 3」', pa?.btn && pa.badge === 'YouTube 3', pa);
+ck('⓪ ある動画: 開いた時点で調べ、AI のメニューの自動チャプターの行に「YouTubeのチャプターが3個あります」（ボタンには出さない）', pa?.btn && /YouTubeのチャプターが3個あります/.test(pa.row) && !pa.badge, pa);
 const pb = await openPanel('BBBBBBBBBBB');
-ck('⓪ 無い動画: 開いてもバッジは出ない', pb?.btn && !pb.badge, pb);
+ck('⓪ 無い動画: 行に数は出ない', pb?.btn && !/YouTubeのチャプター/.test(pb.row) && !pb.badge, pb);
 const pc = await openPanel('CCCCCCCCCCC');
-ck('⓪ 調べられなかった動画: バッジは出ない', pc?.btn && !pc.badge, pc);
+ck('⓪ 調べられなかった動画: 行に数は出ない', pc?.btn && !/YouTubeのチャプター/.test(pc.row) && !pc.badge, pc);
 const callsAfterOpen = apiCalls.filter(x => x === 'AAAAAAAAAAA' || x === 'BBBBBBBBBBB').length;
 await pg.evaluate(() => window.closeVPanel?.());
 const panelDiff = await pg.evaluate(() => { const a = JSON.parse(window.__vsnap); return window.videos.some((v, i) => JSON.stringify(v.ytChapters) !== JSON.stringify(a[i].ytChapters) || JSON.stringify(v.bookmarks) !== JSON.stringify(a[i].bookmarks)); });

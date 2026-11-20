@@ -74,27 +74,22 @@
   const close = () => { cancelTok++; clearInterval(nowTimer); ov?.remove(); ov = null; hidden = false; clearInterval(busyClock); busyClock = null; chipSync(); };
 
   // ── 閉じて続ける（v53.006・オーナー「チャプター作成のときみたいに縮小できるように」）──
-  // 作成中の窓を隠し、左下の帯（チャプター作成と同じ見た目 .vp-chap-chip）に経過を出す。帯を押すと窓に戻る。
+  // 作成中の窓を隠し、左下の AI の帯（字幕生成・自動チャプターと1本。js/vp-ai.js）に経過を出す。帯を押すと窓に戻る。
   // 作業はそのまま続き、終わればいつもどおりメモに入れる（入れる先は今と同じ。動画パネルを閉じた・別の動画にしたら入れない）。
   // 状態は画面の中だけ（保存しない）。
   let hidden = false, busyAt = 0, busyMsg = '', busyClock = null, busyTitle = '';
   const elapsed = () => { const s = busyAt ? Math.max(0, Math.floor((Date.now() - busyAt) / 1000)) : 0; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  // 帯は AI の帯（js/vp-ai.js の wkAiJobs・字幕生成・自動チャプターと1本）に知らせる（v53.022。以前は専用の帯 #vsr-chip）。
+  // 窓が開いている間は帯に出さない（AI ボタンの件数とメニューには出る）
   function chipSync(done) {
-    let chip = document.getElementById('vsr-chip');
-    if (done) {
-      if (!chip) { chip = document.createElement('button'); chip.id = 'vsr-chip'; chip.className = 'vp-chap-chip'; document.body.appendChild(chip); }
-      chip.innerHTML = `<span>✔</span><span class="vp-chap-chip-t"><b>要約をメモに入れました</b><small>${esc(busyTitle)}</small></span><i>見る</i>`;
-      chip.onclick = () => { chip.remove(); done(); };
-      setTimeout(() => { if (chip.isConnected && chip.textContent.includes('入れました')) chip.remove(); }, 20000);
-    } else if (!(ov && hidden && phase === 'busy')) { if (chip && !chip.textContent.includes('入れました')) chip.remove(); return; }
-    else {
-      if (!chip) { chip = document.createElement('button'); chip.id = 'vsr-chip'; chip.className = 'vp-chap-chip'; document.body.appendChild(chip); }
-      chip.innerHTML = `<span class="vp-flow-spin"></span><span class="vp-chap-chip-t"><b>要約を作成中</b> · <span class="vsr-el">${elapsed()}</span><small>${esc(busyMsg)}${busyTitle ? ' · ' + esc(busyTitle) : ''}</small></span><i>開く</i>`;
-      chip.onclick = () => showSheet();
-    }
-    // チャプター作成の帯と重ならないよう、出ていればその上に
-    chip.style.transform = document.getElementById('vp-chap-chip') ? 'translateY(-62px)' : '';
+    const J = window.wkAiJobs; if (!J) return;
+    if (done) { J.set('sum', { phase: 'done', head: '要約をメモに入れました', label: '', title: busyTitle, go: '見る', onGo: done, ttl: 20000, dock: true }); return; }
+    if (ov && phase === 'busy') J.set('sum', { phase: 'run', head: '要約を作成中', label: busyMsg, title: busyTitle, start: busyAt, go: '開く', onGo: showSheet, dock: hidden });
+    else if (J.get('sum')?.phase === 'run') J.clear('sum');
   }
+  // AI のメニュー（js/vp-ai.js）が読む: 作成中か・窓に戻す
+  window.vpSumRangeBusy = () => (ov && phase === 'busy') ? { at: busyAt } : null;
+  window.vpSumRangeShow = () => showSheet();
   function hideSheet() { if (!ov) return; ov.style.display = 'none'; hidden = true; chipSync(); }
   function showSheet() { if (!ov) return; ov.style.display = ''; hidden = false; chipSync(); }
   window.addEventListener('beforeunload', e => { if (ov && phase === 'busy') { e.preventDefault(); e.returnValue = ''; } });
@@ -113,8 +108,8 @@
       sh.innerHTML = h + `<div class="vsr-warn">${gd ? 'Google ドライブの認証が切れているため、動画も字幕も読み込めていません。Google にログインして動画を再生してから、もう一度「✨ 要約」を押してください。'
           : 'ログインしていないため、字幕を読めません。Google でログインしてから、もう一度「✨ 要約」を押してください。'}</div></div>
       <div class="vsr-ft">${gd && document.getElementById('gd-auth-play-btn') ? '<button class="vsr-go" data-act="gdauth">Google にログインして再生</button>' : ''}<button class="vsr-cancel" data-act="${gd && document.getElementById('gd-auth-play-btn') ? 'back' : 'close'}">${gd && document.getElementById('gd-auth-play-btn') ? '戻る' : '閉じる'}</button></div>`; bind(); return; }
-    if (phase === 'nosub') { sh.innerHTML = h + `<div class="vsr-warn">この動画には字幕がありません。要約は字幕から作るので、先に「💬 字幕生成」で字幕を作ってください。</div></div>
-      <div class="vsr-ft"><button class="vsr-go" data-act="mksub">💬 字幕生成を開く</button><button class="vsr-cancel" data-act="back">戻る</button></div>`; bind(); return; }
+    if (phase === 'nosub') { sh.innerHTML = h + `<div class="vsr-warn">この動画には字幕がありません。要約は字幕から作るので、先に「AI」の「字幕生成」で字幕を作ってください。</div></div>
+      <div class="vsr-ft"><button class="vsr-go" data-act="mksub">💬 字幕生成を始める</button><button class="vsr-cancel" data-act="back">戻る</button></div>`; bind(); return; }
     const allRow = sel => `<div class="vsr-allrow"><span>${sel.size ? `${sel.size}個を選んでいます` : 'チェックで何個でも選べます'}</span><span><button data-all="1">全部選ぶ</button> <button data-all="0">全部外す</button></span></div>`;
     if (mode === 'div') h += D.divs.length ? allRow(selDiv) + D.divs.map((d, k) => `<button class="vsr-pick ${selDiv.has(k) ? 'on' : ''}" data-div="${k}"><span class="cb"></span><span class="pn">${esc(d.label)}</span><span class="pm">${fmt(d.t)}–${fmt(endOf(D, D.divs, k))}</span></button>`).join('')
       : '<div class="vsr-hint">この動画には仕切りがありません。</div>';

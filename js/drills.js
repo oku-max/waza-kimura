@@ -939,7 +939,7 @@
   function subBtn() {
     const d = cur(), sub = d && SUBS.get(d.vid);
     if (!sub || sub === 'loading') return '';
-    if (!sub.tracks?.length) return '<button disabled title="この動画には字幕がありません（動画パネルの 💬 字幕生成 で作れます）">字幕なし</button>';
+    if (!sub.tracks?.length) return '<button disabled title="この動画には字幕がありません（動画パネルの「AI」の「字幕生成」で作れます）">字幕なし</button>';
     const on = prefs.sub !== false, tr = subTrack(sub);
     return `<button class="${on ? 'on' : ''}" onclick="wkDrillSub()" title="押すたびに切り替え（オフ・${sub.tracks.map(x => esc(x.label)).join('・')}）">字幕: <span>${on ? esc(tr?.label || '') : ''}</span>${on ? '' : 'オフ'}</button>`;
   }
