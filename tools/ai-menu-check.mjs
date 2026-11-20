@@ -8,6 +8,7 @@
 //   ⑤ 実行は今までのボタンと同じ（字幕生成は今までの言語のメニューが AI ボタンのそばに出る）。字幕生成は窓が無いので、すぐ帯に出る
 //   ⑥ 作成中の帯は1本。2件以上は「AI 2件 作成中」で、押すと1件ずつの一覧。行を押すとその窓に戻る
 //   ⑦ 動画のデータを書かない
+//   ⑧ 表示の大きさ（body.style.zoom 1.3・0.85）でも、AI のメニューと字幕の言語のメニューが画面の中・ボタンのそばに出る（v53.034）
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
 setTimeout(() => { console.log('⏱ 90秒で打ち切り'); process.exit(3); }, 90000).unref?.();
@@ -108,6 +109,24 @@ await openMenu(); m = await menu();
 ck('④ オーナーでない: 字幕生成の行は無い（今までどおり）', m.map(r => r.k).join() === 'chap,sum', m);
 await pg.evaluate(() => { window.__me = window.__meSave; window.__ytSubs = false; });
 await pg.evaluate(() => window._wkAiMenuClose?.());
+
+console.log('── ⑧ 表示の大きさ（body.style.zoom）を変えても、メニューが画面の中・ボタンのそばに出る（v53.034）──');
+// オーナーの画面（表示の大きさ 1.3 くらい・幅 901）で字幕の言語のメニューが右下にずれて見切れた。
+// ボタンの位置（拡大後の値）をそのまま拡大前の座標に置いていたので、倍率ぶんずれていた
+for (const z of ['1.3', '0.85']) {
+  await pg.setViewportSize({ width: 901, height: 1000 });
+  await pg.evaluate((z) => { document.body.style.zoom = z; }, z); await pg.waitForTimeout(300);
+  await pg.evaluate(id => document.getElementById('vp-ai-' + id).scrollIntoView({ block: 'center' }), ID); await pg.waitForTimeout(200);
+  await openMenu();
+  const m8 = await pg.evaluate(() => { const r = document.getElementById('vp-ai-menu').getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, vw: innerWidth, vh: innerHeight }; });
+  ck(`⑧ zoom ${z}: AI のメニューが画面の中`, m8.l >= 0 && m8.t >= 0 && m8.r <= m8.vw + 1 && m8.b <= m8.vh + 1, m8);
+  await pg.click('#vp-ai-menu [data-run="sub"]'); await pg.waitForSelector('#vp-subgen-menu'); await pg.waitForTimeout(150);
+  const p8 = await pg.evaluate((id) => { const a = document.getElementById('vp-ai-' + id).getBoundingClientRect(), r = document.getElementById('vp-subgen-menu').getBoundingClientRect();
+    return { l: r.left, t: r.top, r: r.right, b: r.bottom, vw: innerWidth, vh: innerHeight, near: Math.min(Math.abs(r.top - a.bottom), Math.abs(a.top - r.bottom)) }; }, ID);
+  ck(`⑧ zoom ${z}: 字幕の言語のメニューが画面の中・AI ボタンのそば`, p8.l >= 0 && p8.t >= 0 && p8.r <= p8.vw + 1 && p8.b <= p8.vh + 1 && p8.near < 20, p8);
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);
+}
+await pg.evaluate(() => { document.body.style.zoom = ''; }); await pg.setViewportSize({ width: 1300, height: 900 }); await pg.waitForTimeout(200);
 
 console.log('── ⑤ 実行は今までのボタンと同じ・帯は1本 ──');
 await openMenu();

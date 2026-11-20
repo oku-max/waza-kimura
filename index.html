@@ -15,7 +15,13 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v53.033</title>
+<title>WAZA KIMURA v53.034</title>
+<script>
+// 設定の「表示の大きさ」（settings.js が body.style.zoom に入れる）。画面に浮かぶ小さなメニュー（position:fixed）を
+// ボタンの位置に置くときは、getBoundingClientRect と innerWidth/innerHeight（拡大後の値）をこれで割り戻す（v53.034。
+// 割らないと 1.3 倍ずれて画面の右・下にはみ出した。オーナーの画面で字幕の言語のメニューが見切れた）
+window.wkZoomK = function () { var z = parseFloat(document.body && document.body.style.zoom); return z > 0 ? z : 1; };
+</script>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){

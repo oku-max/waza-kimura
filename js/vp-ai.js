@@ -182,8 +182,10 @@
   }
   function place() {
     if (!menuEl || menuEl.classList.contains('sheet')) return;
-    const r = anchor?.isConnected ? anchor.getBoundingClientRect() : null;
-    const w = menuEl.offsetWidth, h = menuEl.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, m = 8;
+    // 表示の大きさ（body.style.zoom）で割り戻す（v53.034。割らないと 1.3 倍ずれて下にはみ出した）
+    const k = window.wkZoomK?.() || 1, r0 = anchor?.isConnected ? anchor.getBoundingClientRect() : null;
+    const r = r0 && { top: r0.top / k, bottom: r0.bottom / k, left: r0.left / k, right: r0.right / k };
+    const w = menuEl.offsetWidth, h = menuEl.offsetHeight, vw = window.innerWidth / k, vh = window.innerHeight / k, m = 8;
     let top = r ? r.bottom + 6 : m;
     if (r && top + h > vh - m && r.top - 6 - h >= m) top = r.top - 6 - h;
     menuEl.style.top = Math.max(m, Math.min(top, vh - h - m)) + 'px';

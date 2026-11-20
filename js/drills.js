@@ -163,9 +163,10 @@
       <button data-run="${esc(d.id)}" title="回す">▶</button><button data-edit="${esc(d.id)}">直す</button></div>`).join('')}
       <button class="drl-bm-pop-new" data-new="1">＋ この区間でもう1本</button>`;
     document.body.appendChild(pop);
-    const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
-    pop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
-    pop.style.top = (r.bottom + 4 + h > window.innerHeight - 8 ? Math.max(8, r.top - 4 - h) : r.bottom + 4) + 'px';
+    const k = window.wkZoomK?.() || 1, r0 = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;   // 表示の大きさで割り戻す（v53.034）
+    const r = { top: r0.top / k, bottom: r0.bottom / k, right: r0.right / k }, vw = window.innerWidth / k, vh = window.innerHeight / k;
+    pop.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + 'px';
+    pop.style.top = (r.bottom + 4 + h > vh - 8 ? Math.max(8, r.top - 4 - h) : r.bottom + 4) + 'px';
     const close = () => { pop.remove(); document.removeEventListener('pointerdown', off, true); };
     const off = e => { if (!e.target.closest('#drl-bm-pop')) close(); };
     setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
@@ -774,9 +775,10 @@
     m.innerHTML = items.map(([k, l]) => `<button data-act="${k}">${l}</button>`).join('');
     (host || document.body).appendChild(m);
     if (!host) Object.assign(m.style, { position: 'fixed', zIndex: 9200 });
-    const r = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
-    m.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px';
-    m.style.top = (r.bottom + 4 + mh > window.innerHeight - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
+    const k = host ? 1 : (window.wkZoomK?.() || 1), r0 = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;   // 表示の大きさで割り戻す（v53.034）
+    const r = { top: r0.top / k, bottom: r0.bottom / k, right: r0.right / k }, vw = window.innerWidth / k, vh = window.innerHeight / k;
+    m.style.left = Math.max(8, Math.min(r.right - mw, vw - mw - 8)) + 'px';
+    m.style.top = (r.bottom + 4 + mh > vh - 8 ? Math.max(8, r.top - 4 - mh) : r.bottom + 4) + 'px';
     setTimeout(() => document.addEventListener('pointerdown', function off(e) { if (!e.target.closest('#drl-pop')) { m.remove(); document.removeEventListener('pointerdown', off, true); } }, true), 0);
     return new Promise(res => m.addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b) return; e.stopPropagation(); m.remove(); res(b.dataset.act); }));
   }

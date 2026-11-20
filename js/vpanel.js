@@ -7393,8 +7393,11 @@ window.wkSubOptsRender = function() {
 function _fitPopup(el, anchorEl, opts) {
   const o = opts || {};
   const gap = 6, margin = 8;
-  const vh = window.innerHeight, vw = window.innerWidth;
-  const r  = anchorEl?.getBoundingClientRect();
+  // 表示の大きさ（body.style.zoom）で割り戻す（v53.034。index.html の wkZoomK）
+  const k = window.wkZoomK?.() || 1;
+  const vh = window.innerHeight / k, vw = window.innerWidth / k;
+  const r0 = anchorEl?.getBoundingClientRect();
+  const r  = r0 && { top: r0.top / k, bottom: r0.bottom / k, left: r0.left / k, right: r0.right / k };
 
   let h = el.offsetHeight;
   const below = r ? (vh - r.bottom - gap - margin) : (vh - margin * 2);
@@ -9995,8 +9998,9 @@ function _positionMenu(menu, anchor) {
   menu.style.position = 'fixed';
   menu.style.zIndex   = '10005';  // #vpanel は fc-overlay open時にz-index:10000になる
   menu.style.visibility = 'hidden';
-  const vw  = window.innerWidth;
-  const vh  = window.innerHeight;
+  const k   = window.wkZoomK?.() || 1;   // 表示の大きさで割り戻す（v53.034）
+  const vw  = window.innerWidth / k;
+  const vh  = window.innerHeight / k;
   const pad = 8;
 
   // 先にmax-heightを設定してからDOMに追加・計測（スマホ横長対応）
@@ -10005,7 +10009,8 @@ function _positionMenu(menu, anchor) {
   menu.style.overflowY = 'auto';
   document.body.appendChild(menu);
 
-  const r   = anchor.getBoundingClientRect();
+  const r0  = anchor.getBoundingClientRect();
+  const r   = { top: r0.top / k, bottom: r0.bottom / k, left: r0.left / k, right: r0.right / k };
   const mw  = menu.offsetWidth  || 220;
   const mh  = menu.offsetHeight || 100;
 

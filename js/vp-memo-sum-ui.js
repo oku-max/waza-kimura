@@ -275,9 +275,9 @@
     };
     draw();
     document.body.appendChild(pop);
-    const r = btn.getBoundingClientRect(), w = pop.offsetWidth;
-    pop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
-    pop.style.top = (r.bottom + 4) + 'px';
+    const k = window.wkZoomK?.() || 1, r = btn.getBoundingClientRect(), w = pop.offsetWidth;   // 表示の大きさで割り戻す（v53.034）
+    pop.style.left = Math.max(8, Math.min(r.right / k - w, window.innerWidth / k - w - 8)) + 'px';
+    pop.style.top = (r.bottom / k + 4) + 'px';
     pop.addEventListener('click', e => {
       const b = e.target.closest('button[data-q]'); if (!b) return;
       const p = pref(); p[b.dataset.q] = b.dataset.v; setPref(p); draw();
@@ -368,10 +368,11 @@
       <button data-a="more">🔍 さらにくわしく<small>${fmt(r.a)}–${fmt(r.b)}</small></button>
       <button data-a="drill"><span class="drl-pill">DRILL</span> ドリルにする<small>${fmt(r.a)}–${fmt(r.b)}</small></button>`;
     document.body.appendChild(pop);
-    const w = pop.offsetWidth, h = pop.offsetHeight;
-    pop.style.left = Math.max(8, Math.min(er.right - w, window.innerWidth - w - 8)) + 'px';
-    const top = er.top + Math.min(er.height, 28) + 2;
-    pop.style.top = (top + h > window.innerHeight - 8 ? Math.max(8, er.top - h - 2) : top) + 'px';
+    const w = pop.offsetWidth, h = pop.offsetHeight, k = window.wkZoomK?.() || 1;   // 表示の大きさで割り戻す（v53.034）
+    const vw = window.innerWidth / k, vh = window.innerHeight / k, eT = er.top / k, eR = er.right / k, eH = er.height / k;
+    pop.style.left = Math.max(8, Math.min(eR - w, vw - w - 8)) + 'px';
+    const top = eT + Math.min(eH, 28) + 2;
+    pop.style.top = (top + h > vh - 8 ? Math.max(8, eT - h - 2) : top) + 'px';
     const close = () => { pop.remove(); document.removeEventListener('pointerdown', off, true); };
     const off = e => { if (!e.target.closest('#memo-act-pop')) close(); };
     setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
