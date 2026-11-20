@@ -182,13 +182,17 @@ const dv = () => pg.evaluate((M) => {
   return { bars, kids, er: { l: er.left, r: er.right }, html: el.innerHTML.replace(/ style=""/g, ''), memo: window.videos[0].memo, saves: window.__saves };
 }, M);
 let d9 = await dv();
+ck('⑨ 仕切りは最初は閉じている（v53.030・オーナー決定 mock-memo-fold-auto.html）・帯に「1見出し」と「すべて開く」', d9.bars.length === 2 && d9.bars.every(b => /^▸/.test(b.t) && /1見出し/.test(b.t) && /すべて開く/.test(b.t)), d9.bars);
+await pg.evaluate(() => document.querySelectorAll('.memo-dv .memo-dv-f').forEach(b => b.click())); await pg.waitForTimeout(200);
+await pg.evaluate(() => [...document.querySelectorAll('.memo-dv .memo-dv-f')].filter(b => b.textContent === '▸').forEach(b => b.click())); await pg.waitForTimeout(200);
+d9 = await dv();
 ck('⑨ 仕切りの帯が2本（前半の型・腕の使い方）出る', d9.bars.length === 2 && /前半の型/.test(d9.bars[0].t) && /腕の使い方/.test(d9.bars[1].t), d9.bars);
 const chTop = tx => d9.kids.find(k => k.k === 'ch' && k.tx.includes(tx));
 const overlap = (b, list) => list.filter(k => k.vis && k.bot > b.top + 1 && k.top < b.bot - 1);
 ck('⑨ 帯はそれぞれの最初のブックマークの見出しのすぐ上・メモの文字に重ならない', d9.bars[0].bot <= chTop('姿勢').top + 1 && d9.bars[1].bot <= chTop('腕の角度').top + 1 && d9.bars.every(b => !overlap(b, d9.kids).length), { bars: d9.bars, ov: d9.bars.map(b => overlap(b, d9.kids).map(k => k.tx)) });
 ck('⑨ 帯はメモ欄の中に収まる', d9.bars.every(b => b.l >= d9.er.l - 1 && b.r <= d9.er.r + 1), { bars: d9.bars, er: d9.er });
 ck('⑨ 仕切りの中のブックマークの見出しは一段下げる', chTop('姿勢').l > d9.kids.find(k => k.k === 't').l + 10);
-ck('⑨ メモの中身・v.memo は変わらず、保存も呼ばない', d9.html === H9 && d9.memo === M9 && d9.saves === 0, { saves: d9.saves, same: d9.html === H9 });
+ck('⑨ メモの中身・v.memo は変わらず、保存も呼ばない', d9.html.replace(/ style=""/g, '') === H9 && d9.memo === M9 && d9.saves === 0, { saves: d9.saves, same: d9.html === H9 });
 await shot('9-div');
 await pg.evaluate(() => document.querySelector('.memo-dv[data-i="0"] .memo-dv-f').click()); await pg.waitForTimeout(200);
 d9 = await dv();
@@ -308,7 +312,7 @@ L13 = await at(421);
 ck('⑬ 閉じた見出しの中が今なら、その見出しに色（題 A は閉じて色・B は開いたまま行に色）', L13.some(x => x.startsWith('✂️要約A')) && L13.includes('肘を床にB') && !L13.includes('肘を床にA'), L13);
 await press(tA, 'L'); await pg.waitForTimeout(150);
 // 自動で追いかける: B の行が見えていない所から、時刻が動くと見える所までスクロールする
-const vis = (txt) => pg.evaluate(([M, txt]) => { const e = [...document.querySelector(M).children].find(e => e.textContent.includes(txt)); const r = e.getBoundingClientRect(); let box = e.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; } const b = box && box !== document.body ? box.getBoundingClientRect() : { top: 0, bottom: innerHeight }; return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }, [M, txt]);
+const vis = (txt) => pg.evaluate(([M, txt]) => { const e = [...document.querySelector(M).children].find(e => e.textContent.includes(txt)); const r = e.getBoundingClientRect(); let box = e.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; } const b0 = box && box !== document.body ? box.getBoundingClientRect() : { top: 0, bottom: innerHeight }; const h = box?.querySelector?.('.vp-memo-stickyhead')?.getBoundingClientRect(); const top = h && h.bottom > b0.top && h.top < b0.bottom ? Math.max(b0.top, h.bottom) : b0.top; return r.top >= top - 1 && r.bottom <= b0.bottom + 1; }, [M, txt]);   // 上に残る MEMO の見出しの裏は「見えていない」（v53.032）
 // 要約 A と B のあいだ（どちらの行も見えない所）までスクロールしておく
 await pg.evaluate((M) => { document.activeElement?.blur?.(); const ks = [...document.querySelector(M).children].filter(e => e.textContent === 'あいだ'); ks[ks.length - 1].scrollIntoView({ block: 'end' }); }, M);
 await pg.waitForTimeout(4200);   // 手でスクロールした直後（4秒）は追いかけない決まりなので待つ
@@ -316,6 +320,15 @@ const before13 = await vis('手首を返すA');
 await at(330);
 const after13 = await vis('手首を返すA');
 ck('⑬ 自動で追いかける: 今の行が見えていなければ、メモの欄をスクロールして見せる', !before13 && after13, { before13, after13 });
+// 今の行が、上に残る MEMO の見出しの裏に隠れているときも追いかける（v53.032・オーナー「メモの追従がおかしい」。
+// 欄の上端で見ていたので、見出しの裏の行を「見えている」と判断して動かなかった）
+await at(330); await pg.waitForTimeout(100);
+await pg.evaluate((M) => { const el = document.querySelector(M), t = [...el.children].find(e => e.textContent.includes('肘を床にA')); let box = el.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; }
+  const h = box.querySelector('.vp-memo-stickyhead').getBoundingClientRect(), r = t.getBoundingClientRect(); box.scrollTop += r.bottom - h.bottom - 4; }, M);   // 行の下の端だけが見出しのすぐ下にのぞく所（オーナーの画面と同じ）
+await pg.waitForTimeout(4200);
+const under0 = await vis('肘を床にA');
+await at(410);
+ck('⑬ 今の行が上に残る MEMO の見出しの裏に隠れていても、見える所までスクロールする', !under0 && await vis('肘を床にA'), { under0 });
 await pg.evaluate((M) => { document.querySelector(M).focus({ preventScroll: true }); const ks = [...document.querySelector(M).children].filter(e => e.textContent === 'あいだ'); ks[ks.length - 1].scrollIntoView({ block: 'end' }); }, M);
 await pg.waitForTimeout(4200);
 const y0 = await pg.evaluate((M) => document.querySelector(M).getBoundingClientRect().top, M);
@@ -334,6 +347,78 @@ const dvNow = await pg.evaluate(() => [...document.querySelectorAll('.memo-dv.me
 ck('⑬ 閉じた仕切りの中が今なら、その仕切りに色', dvNow.length >= 1 && dvNow.every(t => t.includes('腕の使い方')), dvNow);
 await pg.evaluate(() => { [...document.querySelectorAll('.memo-dv')].filter(x => x.textContent.includes('腕の使い方') && x.querySelector('.memo-dv-f').textContent.includes('▸')).forEach(d => d.querySelector('.memo-dv-f').click()); delete window.videos[0].bmDividers; window.wkMemoSumRepaint(); });
 ck('⑬ 色を付けてもメモの中身（保存される文字）は変わらない', await pg.evaluate(([M, m0]) => window.videos[0].memo.replace(/ style=""/g, '') === m0.replace(/ style=""/g, '') && !/c8831a|box-shadow/.test(document.querySelector(M).innerHTML), [M, memo13]));
+console.log('── ⑭ 仕切りの「すべて開く」・再生に合わせて開く（v53.030・オーナー決定 mock-memo-fold-auto.html）──');
+const open14 = async () => {
+  await pg.evaluate((ID) => {
+    const ts = s => `<a class="ts-link" contenteditable="false" data-sec="${s}">▶ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</a>`;
+    window.closeVPanel?.();
+    window.videos[0].memo = '<div>前のメモ</div><div class="memo-sum-t">✂️ 要約<span class="memo-sum-rg">2:00–15:00</span></div>'
+      + `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">1</span>姿勢${ts(120)}</div><div class="memo-sum-it">${ts(130)}&nbsp;背中を丸める</div>`
+      + `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">2</span>腕の角度${ts(300)}</div><div class="memo-sum-it">${ts(320)}&nbsp;手首を返す</div>`
+      + `<div class="memo-sum-ch"><span class="memo-sum-no" contenteditable="false">3</span>移行${ts(600)}</div><div class="memo-sum-it">${ts(620)}&nbsp;足を戻す</div>`;
+    window.videos[0].bmDividers = [{ time: 120, label: '前半' }, { time: 600, label: '後半' }];
+    window.__T = 0; window.openVPanel(ID);
+  }, ID);
+  await pg.waitForSelector(M); await pg.waitForTimeout(500);
+  await pg.evaluate(() => { window._vpSumKit.nowSec = () => window.__T; window.__saves = 0; });
+};
+const S14 = () => pg.evaluate((M) => {
+  const el = document.querySelector(M), v = e => e && getComputedStyle(e).display !== 'none';
+  const it = t => v([...el.children].find(e => e.textContent.includes(t)));
+  return { 姿勢: it('背中を丸める'), 腕: it('手首を返す'), 移行: it('足を戻す'),
+    bars: [...document.querySelectorAll('.memo-dv')].map(d => d.textContent.replace(/\s+/g, '')), memo: window.videos[0].memo, saves: window.__saves };
+}, M);
+const at14 = async t => { await pg.evaluate(t => { window.__T = t; window.wkMemoSumNow(); }, t); await pg.waitForTimeout(120); return S14(); };
+const bar14 = (name, sel) => pg.evaluate(([n, sel]) => { [...document.querySelectorAll('.memo-dv')].find(d => d.textContent.includes(n)).querySelector(sel).click(); }, [name, sel]).then(() => pg.waitForTimeout(150));
+await pg.evaluate(() => localStorage.removeItem('wk_memoFollow'));
+await open14();
+const memo14 = await pg.evaluate(() => window.videos[0].memo);
+let s14 = await at14(150);
+const fol = await pg.evaluate((ID) => document.getElementById('vp-memo-follow-' + ID)?.textContent.replace(/\s+/g, ''), ID);
+ck('⑭ Memo の見出しに「▶ 再生に合わせる」と ▾（要約があるとき）・最初はオフで何も開かない', /再生に合わせる/.test(fol) && !(await pg.evaluate((ID) => document.querySelector(`#vp-memo-follow-${ID} .vp-memo-fol`).classList.contains('on'), ID)) && !s14.姿勢 && s14.bars.every(b => /^▸/.test(b)), { fol, s14 });
+await bar14('前半', '.memo-dv-all'); s14 = await S14();
+ck('⑭ 閉じた仕切りの「すべて開く」で仕切りと中のブックマークが全部開き、「すべて閉じる」になる', s14.姿勢 && s14.腕 && !s14.移行 && /^▾■前半すべて閉じる/.test(s14.bars[0]), s14);
+await bar14('前半', '.memo-dv-all'); s14 = await S14();
+ck('⑭ 「すべて閉じる」で中のブックマークが閉じ、仕切りは開いたまま「すべて開く」', !s14.姿勢 && !s14.腕 && /^▾■前半すべて開く/.test(s14.bars[0]), s14);
+// オンにする（再生中のブックマークだけ・前の所を閉じる が既定）
+await pg.evaluate((ID) => document.querySelector(`#vp-memo-follow-${ID} .vp-memo-fol`).click(), ID); await pg.waitForTimeout(150);
+await open14(); s14 = await at14(150);
+ck('⑭ オン（この端末に覚える）・再生中のブックマークだけ: 2:30 で「姿勢」だけ開く（仕切りも開く・後半は閉じたまま）', s14.姿勢 && !s14.腕 && !s14.移行 && /^▾■前半/.test(s14.bars[0]) && /^▸■後半/.test(s14.bars[1])
+  && await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_memoFollow')).on === true), s14);
+s14 = await at14(320);
+ck('⑭ 5:20 に進むと「姿勢」を閉じ「腕の角度」を開く', !s14.姿勢 && s14.腕 && !s14.移行, s14);
+await press(await idxOf('腕の角度', 'memo-sum-ch'), 'L'); s14 = await at14(330);
+ck('⑭ 再生中の所を手で閉じたら、同じブックマークの間は開き直さない', !s14.腕, s14);
+s14 = await at14(620);
+ck('⑭ 次のブックマークへ移るとまたオートで開く（前の仕切りはオートで開いた分なので閉じる）', s14.移行 && /^▸■前半/.test(s14.bars[0]) && /^▾■後半/.test(s14.bars[1]), s14);
+await bar14('前半', '.memo-dv-f'); await press(await idxOf('姿勢', 'memo-sum-ch'), 'L');
+s14 = await at14(320); s14 = await at14(630);
+ck('⑭ 手で開いた所（前半の仕切り・姿勢）は、オートが閉じない', s14.姿勢 && /^▾■前半/.test(s14.bars[0]) && !s14.腕 && s14.移行, s14);
+// ▾ のメニューで「仕切りだけ」
+await pg.evaluate((ID) => document.querySelector(`#vp-memo-follow-${ID} .vp-memo-fol-opt`).click(), ID); await pg.waitForTimeout(100);
+const pop14 = await pg.evaluate(() => [...document.querySelectorAll('#memo-fol-pop button')].map(b => b.textContent.replace(/\s+/g, '')));
+ck('⑭ ▾ で どこまで開くか（3つ）と 次へ移ったら（2つ）を選べる', ['仕切りだけ', '再生中のブックマークだけ', 'ブックマークごと', '前の所を閉じる', '開いたまま残す'].every(t => pop14.some(x => x.startsWith(t))), pop14);
+await pg.evaluate(() => [...document.querySelectorAll('#memo-fol-pop button')].find(b => b.textContent.startsWith('仕切りだけ')).click());
+await open14(); s14 = await at14(320);
+ck('⑭ 仕切りだけ: 再生中の仕切りが開き、中のブックマークは閉じたまま', !s14.姿勢 && !s14.腕 && /^▾■前半/.test(s14.bars[0]) && /^▸■後半/.test(s14.bars[1]), s14);
+await pg.evaluate(() => { const p = JSON.parse(localStorage.getItem('wk_memoFollow')); p.scope = 'all'; localStorage.setItem('wk_memoFollow', JSON.stringify(p)); });
+await open14(); s14 = await at14(320);
+ck('⑭ ブックマークごと: 再生中の仕切りの中のブックマークを全部開く', s14.姿勢 && s14.腕 && !s14.移行, s14);
+await pg.evaluate(() => { const p = JSON.parse(localStorage.getItem('wk_memoFollow')); p.scope = 'bm'; p.leave = 'keep'; localStorage.setItem('wk_memoFollow', JSON.stringify(p)); });
+await open14(); await at14(150); s14 = await at14(320);
+ck('⑭ 開いたまま残す: 「姿勢」は開いたまま「腕の角度」も開く', s14.姿勢 && s14.腕, s14);
+await pg.evaluate((ID) => document.querySelector(`#vp-memo-follow-${ID} .vp-memo-fol`).click(), ID); await pg.waitForTimeout(150);
+s14 = await at14(620);
+ck('⑭ オフにするとオートで開かない', !s14.移行, s14);
+ck('⑭ メモの中身・v.memo は変わらず、保存も呼ばない', s14.memo === memo14 && s14.saves === 0 && !/memo-dv|vp-memo-fol|display\s*:\s*none/.test(s14.memo), { saves: s14.saves });
+await pg.setViewportSize({ width: 390, height: 844 }); await open14(); await at14(150);
+await pg.evaluate((ID) => { document.getElementById('vp-memo-follow-' + ID).scrollIntoView({ block: 'center' }); document.querySelector(`#vp-memo-follow-${ID} .vp-memo-fol-opt`).click(); }, ID); await pg.waitForTimeout(150);
+const sp14 = await pg.evaluate((ID) => { const r = document.getElementById('memo-fol-pop').getBoundingClientRect(), h = document.getElementById('vp-memo-follow-' + ID).parentElement, f = document.getElementById('vp-memo-full-' + ID).getBoundingClientRect(), hr = h.getBoundingClientRect();
+  return { pop: r.left >= 0 && r.right <= 390 && r.bottom <= 844, head: f.right <= hr.right + 1 && f.top - hr.top < 30, w: document.documentElement.scrollWidth <= innerWidth }; }, ID);
+await shot('14-sp-pop');
+ck('⑭ スマホ幅: 見出しが1行に収まり（⛶ も同じ行）・▾ のメニューが画面の中・横にはみ出さない', sp14.pop && sp14.head && sp14.w, sp14);
+await pg.evaluate(() => document.getElementById('memo-fol-pop')?.remove());
+await pg.evaluate(() => { localStorage.removeItem('wk_memoFollow'); delete window.videos[0].bmDividers; });
 ck('ページのエラーが無い', errs.length === 0, errs);
 console.log(fail ? `✗ ${fail} 件` : '✓ すべて通過');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);

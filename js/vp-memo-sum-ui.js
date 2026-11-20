@@ -14,12 +14,19 @@
 //   要約のブックマークの見出し（.memo-sum-ch）を、今の仕切り（v.bmDividers）ごとに紫の大見出しでまとめる。
 //   大見出しはメモの外（メモ欄の上に重ねた層 .memo-dv-layer）に描き、場所はメモの要素に余白を足す <style> で空ける。
 //   メモの文字には入れない＝前に作った要約にも付き、仕切りを動かす・名前を変えるとついてくる。
-//   仕切りは最初は開いている。押すと中のブックマークをまとめて開閉。右の ⋯ で その仕切りの区間の さらにくわしく／ドリル。
+//   仕切りは最初は閉じている（v53.030 から。前は開いていた）。押すと中のブックマークをまとめて開閉。右の ⋯ で その仕切りの区間の さらにくわしく／ドリル。
 //
+// 【仕切りの開閉】（v53.030・オーナー決定 mock-memo-fold-auto.html）仕切りは最初は閉じている（後から入った要約の仕切りは開いて出る）。
+//   帯の右の「すべて開く」で仕切りと中のブックマークを全部開く。全部開いていれば「すべて閉じる」（中のブックマークを閉じる・仕切りは開いたまま）。
+// 【再生に合わせる】（v53.030）Memo の見出しの「▶ 再生に合わせる」（要約があるときだけ出る）。オンの間、再生中の所を開く。
+//   右の ▾ で どこまで開くか（仕切りだけ／再生中のブックマークだけ／ブックマークごと）と、次へ移ったら前の所を閉じるか残すか。
+//   閉じるのはオートで開いた所だけ（手で開いた所は閉じない）。再生中の所を手で閉じたら、次のブックマークへ移るまで開き直さない。
+//   好みはこの端末だけ（localStorage wk_memoFollow）。開閉の状態は今までどおり画面の中だけ（メモに書かない・保存しない）。
 // 【再生中】（v53.026）今の再生位置を含む行・見出しに、ブックマークの再生中と同じ色と左の線（nowSync）。閉じていれば見出し・仕切りに。自動で追いかける。
 (() => {
   const OPEN = new WeakMap();   // 見出しの要素 → 開いているか
-  const SEEN = new WeakSet();   // 最初に見た見出し（これより後に現れた見出し＝今入った要約・くわしく は開いて出す）
+  const SEEN = new WeakSet();
+  const NEWT = new WeakSet();   // 開いた後に入った要約の題（その仕切りは開いて出す）   // 最初に見た見出し（これより後に現れた見出し＝今入った要約・くわしく は開いて出す）
   let cur = null;               // { id, el, mo, style, layer, ro }
   const DV_OPEN = new WeakMap();  // 要約の題（.memo-sum-t）→ Map(仕切りのキー → 開いているか)。既定は開
   const BAR_H = 36;               // 仕切りの帯1本ぶんの高さ（すき間込み）
@@ -62,7 +69,7 @@
     let css = '';
     kids.forEach((e, i) => {
       const k = kind(e); if (!isHead(k)) return;
-      if (!SEEN.has(e)) { SEEN.add(e); if (cur.ready && !OPEN.has(e)) OPEN.set(e, true); }
+      if (!SEEN.has(e)) { SEEN.add(e); if (cur.ready && !OPEN.has(e)) OPEN.set(e, true); if (cur.ready && k === 'T') NEWT.add(e); }
       if (isOpen(e, k)) return;
       const grp = groupOf(kids, i); grp.forEach(j => hid.add(j));
       const n = itemsCount(kids, i, grp);
@@ -85,18 +92,19 @@
       if (g) g.end = end - 1;
       const st = DV_OPEN.get(e) || new Map(); DV_OPEN.set(e, st);
       groups.filter(x => x.k >= 0).forEach(x => {
-        const d = D[x.k], key = d.t + '|' + d.label, open = st.has(key) ? st.get(key) : true;
+        const d = D[x.k], key = d.t + '|' + d.label, open = st.has(key) ? st.get(key) : NEWT.has(e);   // 最初は閉じている（v53.030）
         const cs = []; for (let j = x.start; j <= x.end; j++) if (kind(kids[j]) === 'C') cs.push(j);
+        const allOpen = open && cs.every(j => isOpen(kids[j], 'C'));
         if (!open) for (let j = x.start; j <= x.end; j++) hid.add(j);
         else for (let j = x.start; j <= x.end; j++) indent.set(j, 14 + lvOf(kids[j]) * 14);
-        bars.push({ T: e, key, open, start: x.start, end: x.end, n: cs.length, label: d.label, a: d.t, b: x.k + 1 < D.length ? D[x.k + 1].t : (dur > d.t ? dur : null) });
+        bars.push({ T: e, key, open, allOpen, cs: cs.map(j => kids[j]), start: x.start, end: x.end, n: cs.length, label: d.label, a: d.t, b: x.k + 1 < D.length ? D[x.k + 1].t : (dur > d.t ? dur : null) });
       });
     });
     const hide = hid.size ? [...hid].map(j => `${sel}(${j + 1})`).join(',') + '{display:none!important}' : '';
     css += [...indent].map(([j, px]) => `${sel}(${j + 1}){margin-left:${px}px!important}`).join('');
     cur.style.textContent = css + hide;
     layoutBars(kids, hid, bars, css + hide, sel);
-    cur.hid = hid; cur.ranges = null; nowSync(true);
+    cur.hid = hid; cur.ranges = null; renderFollow(); nowSync(true);
   }
 
   // 仕切りの帯を、メモの要素のすき間（余白を足して空ける）に重ねて描く。帯はメモの外の要素なので保存されない
@@ -127,13 +135,26 @@
       <button class="memo-dv-f" data-a="fold" aria-expanded="${r.bar.open}">${r.bar.open ? '▾' : '▸'}</button>
       <span class="memo-dv-n" data-a="fold">■ <span data-user-text="1">${esc(r.bar.label || '（名前なし）')}</span></span>
       ${r.bar.open ? '' : `<span class="memo-dv-c">${en ? r.bar.n + ' headings' : r.bar.n + '見出し'}</span>`}
+      <button class="memo-dv-all" data-a="all">${r.bar.allOpen ? (en ? 'Close all' : 'すべて閉じる') : (en ? 'Open all' : 'すべて開く')}</button>
       <button class="memo-dv-m" data-a="menu" title="この仕切りの区間で">⋯</button></div>`).join('');
   }
   function onBar(ev) {
     const b = ev.target.closest('[data-a]'), row = ev.target.closest('.memo-dv'); if (!b || !row || !cur) return;
     const bar = cur.bars?.[+row.dataset.i]; if (!bar) return;
     ev.preventDefault();
-    if (b.dataset.a === 'fold') { const st = DV_OPEN.get(bar.T); st.set(bar.key, !bar.open); paint(); return; }
+    if (b.dataset.a === 'fold') {
+      const st = DV_OPEN.get(bar.T); st.set(bar.key, !bar.open);
+      AUTO_DV = AUTO_DV.filter(x => !(x.T === bar.T && x.key === bar.key));   // 手で触った仕切りは、オートが閉じない
+      paint(); return;
+    }
+    if (b.dataset.a === 'all') {
+      // すべて開く＝仕切りと中のブックマークを全部開く／すべて閉じる＝中のブックマークを閉じる（仕切りは開いたまま）
+      const st = DV_OPEN.get(bar.T), open = !bar.allOpen;
+      if (open) st.set(bar.key, true);
+      AUTO_DV = AUTO_DV.filter(x => !(x.T === bar.T && x.key === bar.key));
+      bar.cs.forEach(e => { OPEN.set(e, open); AUTO.delete(e); });
+      paint(); return;
+    }
     const v = videoOf(), dur = durOf(v), a = bar.a, z = bar.b ?? (dur > a + 1 ? dur : a + 60);
     const kids = [...cur.el.children], last = kids[bar.end];
     popMenu({ a, b: z }, b.getBoundingClientRect(), {
@@ -167,6 +188,7 @@
     if (t != null && isFinite(t)) for (const r of rangesOf(kids)) if (t >= r.a - 0.25 && t < r.b - 0.25) hit.add(r.i);
     // くわしくの見出し（D）は、中の行のどれかが今なら今
     kids.forEach((e, i) => { if (kind(e) === 'D' && groupOf(kids, i).some(j => hit.has(j))) hit.add(i); });
+    if (autoOpen(kids, hit)) { paint(); return; }   // 開いた所があれば描き直す（描き直しの中でもう一度ここへ来るが、今の所が同じなので何もしない）
     // 隠れている所は、それを閉じている見出し（見えているいちばん近いもの）に付け替える
     const hid = cur.hid || new Set(), show = new Set(), bars = new Set();
     hit.forEach(j => {
@@ -188,6 +210,83 @@
     cur.layer?.querySelectorAll('.memo-dv').forEach(d => d.classList.toggle('memo-dv-now', bars.has(+d.dataset.i)));
     if (moved && show.size) follow(kids, show);
   }
+  // ── 再生に合わせて開く（v53.030）──
+  // 今の所（再生位置を含むブックマークの見出し・くわしくの見出し）が変わったときだけ動く。
+  // 同じ所にいる間は何もしない＝手で閉じた所は、次へ移るまで開き直さない。
+  const PREF_KEY = 'wk_memoFollow', PREF_DEF = { on: false, scope: 'bm', leave: 'close' };
+  const pref = () => { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); return { ...PREF_DEF, ...(p && typeof p === 'object' ? p : {}) }; } catch (_) { return { ...PREF_DEF }; } };
+  const setPref = p => { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (_) {} };
+  let AUTO = new Set(), AUTO_DV = [], autoCur = null;   // オートで開いた見出し・仕切り／前回の今の所
+  function autoReset() { AUTO = new Set(); AUTO_DV = []; autoCur = null; }
+  function autoOpen(kids, hit) {
+    const P = pref(); if (!P.on || !cur.ready) return false;
+    const now = [...hit].filter(j => { const k = kind(kids[j]); return k === 'C' || k === 'D'; }).map(j => kids[j]);
+    if (autoCur && now.length === autoCur.length && now.every(e => autoCur.includes(e))) return false;
+    autoCur = now;
+    let changed = false;
+    if (P.leave === 'close') {   // 前にオートで開いた所を閉じる（今また開くものは閉じない）
+      AUTO.forEach(e => { if (!now.includes(e)) { OPEN.set(e, false); changed = true; } });
+      AUTO_DV.forEach(({ T, key }) => { DV_OPEN.get(T)?.set(key, false); changed = true; });
+    }
+    const keep = new Set([...AUTO].filter(e => now.includes(e)));
+    AUTO = keep; AUTO_DV = [];
+    const openEl = e => { const k = kind(e); if (!isOpen(e, k)) { OPEN.set(e, true); AUTO.add(e); changed = true; } };
+    now.forEach(e => {
+      const j = kids.indexOf(e), k = kind(e);
+      const bar = (cur.bars || []).find(b => j >= b.start && j <= b.end);
+      if (bar) {
+        if (!bar.open) { const st = DV_OPEN.get(bar.T); if (st && !AUTO_DV.some(x => x.T === bar.T && x.key === bar.key)) { st.set(bar.key, true); AUTO_DV.push({ T: bar.T, key: bar.key }); changed = true; } }
+        else if (P.leave === 'close') { const st = DV_OPEN.get(bar.T); if (st && st.get(bar.key) === false && !AUTO_DV.some(x => x.T === bar.T && x.key === bar.key)) { st.set(bar.key, true); AUTO_DV.push({ T: bar.T, key: bar.key }); changed = true; } }   // 今閉じたばかりの今の仕切りは開き直す
+      }
+      if (P.scope === 'dv') return;
+      if (k === 'C' && P.scope === 'all' && bar) bar.cs.forEach(openEl);
+      else openEl(e);
+    });
+    return changed;
+  }
+  // Memo の見出しの「▶ 再生に合わせる」と ▾（要約があるときだけ）
+  function renderFollow() {
+    const box = cur && document.getElementById('vp-memo-follow-' + cur.id); if (!box) return;
+    const has = !!cur.el.querySelector(':scope > .memo-sum-t'), P = pref(), en = window.WK_LANG?.() === 'en';
+    const html = !has ? '' : `<button class="vp-memo-fol${P.on ? ' on' : ''}" data-f="toggle" title="${en ? 'Open the part being played' : '再生中の所を開く'}">▶ ${en ? 'Follow playback' : '再生に合わせる'}</button><button class="vp-memo-fol-opt" data-f="opt" title="${en ? 'How to open' : '開き方'}">▾</button>`;
+    if (box.dataset.h === html) return;
+    box.dataset.h = html; box.innerHTML = html;
+    box.onclick = ev => {
+      const b = ev.target.closest('[data-f]'); if (!b) return;
+      ev.preventDefault(); ev.stopPropagation();
+      if (b.dataset.f === 'toggle') { const p = pref(); p.on = !p.on; setPref(p); autoReset(); renderFollow(); nowSync(true); }
+      else followMenu(b);
+    };
+  }
+  function followMenu(btn) {
+    const old = document.getElementById('memo-fol-pop'); if (old) { old.remove(); return; }
+    const en = window.WK_LANG?.() === 'en', pop = document.createElement('div');
+    pop.id = 'memo-fol-pop'; pop.className = 'memo-fol-pop';
+    const draw = () => {
+      const P = pref();
+      const opt = (q, v, t, d) => `<button data-q="${q}" data-v="${v}" class="${P[q] === v ? 'on' : ''}">${t}${d ? `<small>${d}</small>` : ''}</button>`;
+      pop.innerHTML = `<div class="mfp-q">${en ? 'What to open' : 'どこまで開くか'}</div><div class="mfp-list">`
+        + opt('scope', 'dv', en ? 'Divider only' : '仕切りだけ', en ? 'Open the divider. Bookmarks stay closed.' : '再生中の仕切りを開く。中のブックマークは閉じたまま')
+        + opt('scope', 'bm', en ? 'Current bookmark only' : '再生中のブックマークだけ', en ? 'Open just the bookmark being played.' : '再生中のブックマークを1つだけ開く')
+        + opt('scope', 'all', en ? 'All bookmarks' : 'ブックマークごと', en ? 'Open the divider and every bookmark in it.' : '再生中の仕切りと、中のブックマークを全部開く')
+        + `</div><div class="mfp-q">${en ? 'When playback moves on' : '再生が次へ移ったら'}</div><div class="mfp-seg">`
+        + opt('leave', 'close', en ? 'Close the previous' : '前の所を閉じる') + opt('leave', 'keep', en ? 'Keep it open' : '開いたまま残す')
+        + `</div><div class="mfp-n">${en ? 'Parts you opened yourself are never closed.' : '手で開いた所は、どちらでも閉じません。'}</div>`;
+    };
+    draw();
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect(), w = pop.offsetWidth;
+    pop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    pop.style.top = (r.bottom + 4) + 'px';
+    pop.addEventListener('click', e => {
+      const b = e.target.closest('button[data-q]'); if (!b) return;
+      const p = pref(); p[b.dataset.q] = b.dataset.v; setPref(p); draw();
+      if (p.on) { autoReset(); nowSync(true); }
+    });
+    const off = e => { if (!e.target.closest('#memo-fol-pop') && e.target !== btn) { pop.remove(); document.removeEventListener('pointerdown', off, true); } };
+    setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+  }
+
   // 自動で追いかける: 今の所が見えなければ、メモを入れている欄をスクロールして見せる。
   // 打っている最中（メモに入力中）と、手でスクロールした直後（4秒）は動かさない。画面全体（window）は動かさない
   function follow(kids, show) {
@@ -197,10 +296,14 @@
     let box = cur.el.parentElement;
     while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; }
     if (!box || box === document.body) return;
+    // 見える所の上の端は、欄の上端ではなく、上に残る MEMO の見出し（sticky）の下の端（v53.032。
+    // 欄の上端で見ていたので、見出しの裏に隠れた行を「見えている」と判断して動かなかった）
     const br = box.getBoundingClientRect(), tr = target.getBoundingClientRect();
-    if (tr.top >= br.top + 8 && tr.bottom <= br.bottom - 8) return;   // もう見えている
+    const head = box.querySelector('.vp-memo-stickyhead'), hr = head ? head.getBoundingClientRect() : null;
+    const top = hr && hr.bottom > br.top && hr.top < br.bottom ? Math.max(br.top, hr.bottom) : br.top;
+    if (tr.top >= top + 4 && tr.bottom <= br.bottom - 8) return;   // もう見えている
     cur.following = true;
-    box.scrollTop += tr.top - br.top - Math.min(120, box.clientHeight / 3);
+    box.scrollTop += tr.top - top - Math.min(80, (br.bottom - top) / 3);
     setTimeout(() => { if (cur) cur.following = false; }, 300);
   }
   // 手でスクロールしたら、しばらく追いかけない（どこでスクロールしても拾えるよう、捕まえる段階で見る。登録は1回だけ）
@@ -284,7 +387,7 @@
     const z = zone(ev); if (!z) return;
     ev.preventDefault(); ev.stopPropagation();
     if (document.activeElement === cur.el) { try { cur.el.blur(); } catch (_) {} }
-    if (z.act === 'fold') { OPEN.set(z.e, !isOpen(z.e, z.k)); paint(); }
+    if (z.act === 'fold') { OPEN.set(z.e, !isOpen(z.e, z.k)); AUTO.delete(z.e); paint(); }   // 手で触った所は、オートが閉じない
     else menu(z);
   }
 
@@ -305,6 +408,7 @@
     const nowStyle = document.createElement('style'); nowStyle.id = 'vp-memo-now-style';
     document.head.appendChild(nowStyle);
     cur = { id, el, style, layer, nowStyle, ready: false };
+    autoReset(); document.getElementById('memo-fol-pop')?.remove();
     nowKey = '';
 
     el.classList.add('vp-memo-sumui');
@@ -325,6 +429,8 @@
   window.wkMemoSumFoldAll = function (open) {
     if (!cur) return;
     [...cur.el.children].forEach(e => { const k = kind(e); if (isHead(k) && k !== 'T') OPEN.set(e, !!open); });
+    paint();
+    (cur.bars || []).forEach(b => DV_OPEN.get(b.T)?.set(b.key, !!open));   // 仕切りも（v53.030 から最初は閉じている）
     paint();
   };
 })();

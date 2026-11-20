@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>要約のオート開閉 モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--text:#1a1a1a;--text2:#555;--text3:#999;--border:#e2e2e8;--accent:#2050c0;--div:#6a3fc4;--now:#c8831a}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:#f2f2f6;color:var(--text);padding:14px;max-width:1100px;margin:0 auto}
+h1{font-size:18px;margin-bottom:6px}
+.lead{font-size:12.5px;color:var(--text2);line-height:1.75;margin-bottom:12px}
+.wrap{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.ctl{flex:1;min-width:300px;max-width:440px}
+.box{background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.q{font-size:13.5px;font-weight:800;margin-bottom:6px}
+.q .k{display:inline-block;background:#111;color:#fff;border-radius:4px;padding:0 6px;margin-right:4px;font-size:11px}
+.ch2{display:flex;flex-direction:column;gap:6px}
+.ch2 label{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid var(--border);border-radius:9px;cursor:pointer}
+.ch2 label.on{border-color:#9bb3e6;background:#f2f6ff}
+.ch2 input{margin-top:3px}
+.ch2 b{font-size:13px}
+.ch2 .d{font-size:11.5px;color:var(--text2);line-height:1.6}
+.steps{font-size:12px;color:var(--text2);line-height:1.8;padding-left:18px}
+.phone{position:sticky;top:10px;width:380px;background:#fff;border:9px solid #222;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;height:780px}
+.vid{background:#111;color:#ddd;height:140px;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;flex-shrink:0}
+.vid .row{display:flex;gap:8px;align-items:center}
+.vid button{background:#fff;color:#111;border:none;border-radius:6px;font-weight:800;padding:4px 10px;cursor:pointer;font-size:12px}
+.vid input{flex:1}
+.vid .t{font-family:monospace;font-size:12px;min-width:84px;text-align:right}
+.vid .hint{font-size:10.5px;color:#aaa;margin-bottom:auto}
+.mhead{position:relative;display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.mhead .lbl{font-weight:800;font-size:10px;letter-spacing:1px;color:var(--text3);margin-right:auto}
+.tg{font-size:11.5px;padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer;color:var(--text2);font-family:inherit}
+.tg.on{background:#fff3df;border-color:#e8b46a;color:var(--now);font-weight:800}
+.tg.opt{padding:4px 7px;margin-left:-4px}
+.pop{display:none;position:absolute;right:8px;top:40px;z-index:5;width:300px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:10px 12px}
+.pop.show{display:block}
+.pq{font-size:11.5px;font-weight:800;color:var(--text2);margin:6px 0 4px}
+.seg{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{flex:1;font-size:12px;padding:7px 4px;border:none;background:#fff;cursor:pointer;font-family:inherit;color:var(--text2)}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button.on{background:#fff3df;color:var(--now);font-weight:800}
+.pn{font-size:11px;color:var(--text3);margin-top:8px}
+.seg3{flex-direction:column}
+.seg3 button{text-align:left;padding:8px 10px}
+.seg3 button+button{border-left:none;border-top:1px solid var(--border)}
+.help{display:none}
+.ctl .close{display:none}
+@media (max-width:700px){
+  .phone{position:fixed;inset:0;top:0;width:auto;height:auto;border:none;border-radius:0;z-index:10}
+  .help{display:inline-block}
+  .ctl{display:none}
+  body.showctl .ctl{display:block;position:fixed;inset:0;z-index:20;max-width:none;overflow:auto;background:#f2f2f6;padding:14px}
+  body.showctl .ctl .close{display:block;margin:0 0 10px auto}
+}
+.d3{font-size:11.5px;color:var(--text2);line-height:1.6;margin-bottom:8px}
+.memo{flex:1;overflow:auto;overscroll-behavior:contain;padding:10px 12px;background:#f4f4f4;font-size:13px;line-height:1.6}
+.st{display:flex;gap:8px;align-items:center;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.st .tt{flex:1;font-weight:800;font-size:15px}
+.st .rg{display:block;font-size:11px;color:var(--text3);font-weight:600}
+.f{width:22px;height:22px;flex-shrink:0;border:1px solid var(--border);border-radius:5px;background:#fff;font-size:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;font-family:inherit;padding:0}
+.ov{font-weight:600;margin:4px 0 10px;line-height:1.7}
+.allbtn{font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;color:var(--text2);white-space:nowrap;font-family:inherit}
+.dv{display:flex;align-items:center;gap:8px;margin:12px 0 4px;padding:5px 8px;border-radius:8px;background:#efe8fb;color:var(--div);font-weight:800}
+.dv .n{flex:1}
+.dv .c{font-size:11px;opacity:.75;font-weight:600}
+.dv.nowin .n{color:var(--now)}
+.in{margin-left:14px}
+.ch{display:flex;align-items:center;gap:7px;margin:8px 0 2px;padding:3px 4px 4px;border-bottom:2px solid var(--text);font-weight:800;border-left:3px solid transparent}
+.ch.now{background:#fff3df;border-left-color:var(--now)}
+.ch.now .ts{color:#fff;background:var(--now);border-color:var(--now)}
+.no{width:20px;height:20px;border-radius:50%;background:var(--text);color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.ts{color:var(--accent);font-weight:700;font-size:11.5px;border:1px solid #b8c8f0;border-radius:4px;padding:0 4px;background:#f4f7ff;cursor:pointer;white-space:nowrap}
+.cnt{margin-left:auto;font-size:11px;color:var(--text3);font-weight:600}
+.auto{font-size:9.5px;font-weight:800;color:#fff;background:var(--now);border-radius:4px;padding:0 4px;margin-left:auto}
+.cnt+.auto{margin-left:4px}
+.pt{margin:4px 0 6px;padding:5px 9px;border-left:3px solid var(--text);background:#fff;border-radius:0 6px 6px 0;font-weight:600;font-size:12.5px}
+.it{display:flex;gap:6px;margin:4px 0;align-items:flex-start;border-left:3px solid transparent;padding-left:3px}
+.it.now{background:#fff3df;border-left-color:var(--now)}
+.it.now .ts{color:#fff;background:var(--now);border-color:var(--now)}
+.thumb{width:46px;height:27px;border-radius:4px;background:linear-gradient(135deg,#34406a,#6a7aa0);flex-shrink:0}
+.it .x{flex:1;font-size:12.5px}
+.dh{display:flex;align-items:center;gap:7px;margin:4px 0 2px 18px;font-weight:800;font-size:12.5px;color:#334}
+.dh.now{color:var(--now)}
+.det{margin-left:18px}
+.legend{font-size:11.5px;color:var(--text2);line-height:1.8}
+.legend .auto{margin:0 2px}
+</style>
+</head>
+<body>
+<h1>再生に合わせて開く（オート）の決め方</h1>
+<div class="lead">手の ▾ と「全部開く」はいつでも使えます。そのうえで、MEMO の見出しの「▶ 再生に合わせる」をオンにすると、再生中の所を開きます。<br>「再生に合わせる」の右の ▾ で開き方を選べます。右の画面で ▶（10倍速）を押して見比べてください。</div>
+
+<div class="wrap">
+  <div class="ctl">
+    <button class="tg close" id="ctlclose">✕ 閉じる</button>
+    <div class="box"><div class="q"><span class="k">比べる用</span>再生中の所を ▾ で閉じたら</div><div class="d3">例: ❺ を再生中に、オートで開いた ❺ を自分で ▾ で閉じた。そのあと再生はまだ ❺ の中。</div><div class="ch2" data-q="sup">
+      <label><input type="radio" name="sup" value="on"><div><b>閉じたままにする（本物はこちらに固定）</b><div class="d">❺ の間は閉じたまま。❻ に進んだら ❻ はまたオートで開く。</div></div></label>
+      <label><input type="radio" name="sup" value="off"><div><b>すぐ開き直す（だめな例）</b><div class="d">閉じても次の瞬間にオートがまた開く＝閉じられない。</div></div></label>
+    </div></div>
+    <div class="box">
+      <div class="q">試し方</div>
+      <ol class="steps">
+        <li>「▶ 再生に合わせる」をオンにして、動画の ▶ を押す</li>
+        <li>その右の ▾ で「どこまで開くか」「次へ移ったら」を選ぶ（本物でもここで選ぶ。この端末で覚える）</li>
+        <li>❷ → ❸ … と進むのを見る（2:16〜 の ❻ には「くわしく」が入っています）</li>
+        <li>途中で ❹ を手で開いてから再生を続ける（「次へ移ったら」で残るか見る）</li>
+        <li>再生中の見出しの ▾ を押して閉じる（左の「比べる用」の違いを見る）</li>
+      </ol>
+      <div class="legend" style="margin-top:6px"><span class="auto">オート</span> … オートで開いた所（モックだけの目印。本物には出しません）</div>
+    </div>
+  </div>
+  <div class="phone">
+    <div class="vid">
+      <div class="hint">（動画の代わり）▶ で 10倍速で進みます</div>
+      <div class="row"><button id="pl">▶</button><input type="range" id="sl" min="0" max="312" value="0"><span class="t" id="tm">0:00 / 5:12</span></div>
+    </div>
+    <div class="mhead"><span class="lbl">MEMO</span><button class="tg help" id="help">？ 説明</button><button class="tg" id="fol"></button><button class="tg opt" id="folopt">▾</button>
+      <div class="pop" id="pop">
+        <div class="pq">どこまで開くか</div>
+        <div class="seg seg3" data-q="scope"><button data-v="dv">仕切りだけ</button><button data-v="bm">再生中のブックマークだけ</button><button data-v="all">ブックマークごと</button></div>
+        <div class="pn" id="scope-d"></div>
+        <div class="pq">再生が次へ移ったら</div>
+        <div class="seg" data-q="leave"><button data-v="close">前の所を閉じる</button><button data-v="keep">開いたまま残す</button></div>
+        <div class="pn">手で開いた所は、どちらでも閉じません。</div>
+      </div></div>
+    <div class="memo" id="memo"></div>
+  </div>
+</div>
+
+<script>
+const P = s => s.split(':').map(Number).reduce((a,b)=>a*60+b,0);
+const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const DIVS = [
+  { name:'ガードの層の理論', ch:[
+    ['ガードの層の概念','0:00','ガードは足から上半身までの「層」でできていて、外側から順に使って距離を守る。',[['0:05','足・脚・膝・腰・上半身の5つの層に分けて考える。',1]]],
+    ['足の層とフレーム','0:25','最初の層は足。相手の腰や肩に足を当てて、近づかせない。',[['0:28','足の裏で相手の腰を押し、距離を作る。',1],['0:38','足が外されたら、すぐ次の層（脚）で止める。',0]]],
+    ['脚と膝の層','0:46','脚と膝を相手の体の間に差し込み、まっすぐ入られないようにする。',[['0:50','膝を内側に入れて、相手の胸との間に壁を作る。',1]]],
+    ['腰の層の重要性','1:06','腰の位置を動かせれば、ほかの層が崩されても立て直せる。',[['1:10','腰を相手から遠ざけて、脚を戻す空間を作る。',1],['1:22','腰が床に貼り付くと、どの層も使えなくなる。',0]]],
+    ['上半身のフレーム','1:32','最後の層は腕と頭。前腕で相手の首や肩を止める。',[['1:35','前腕を相手の首に当てて、胸を合わせさせない。',1],['1:55','肘を体から離しすぎると、腕を取られる。',0]]],
+    ['押し引きの要素','2:16','押し戻すだけでなく、引き込んで崩す動きを混ぜると相手は前に出にくくなる。',[['2:20','相手が押してきたら、少し引いて重心を前に崩す。',1],['2:35','引いた直後に足を戻して、層を作り直す。',1,
+        { name:'足を戻す動き', its:[['2:36','引いた瞬間に腰を切って、膝を相手の腰に当てる。',1],['2:41','膝が入ったら足の裏を腰に移す。',0]] }],
+      ['2:48','押し続けるだけだと、相手に読まれる。',0],['3:00','押す・引くを混ぜて、相手のリズムを崩す。',0]]],
+  ]},
+  { name:'実戦での使い方', ch:[
+    ['押し戻しのタイミング','3:10','相手が体重を乗せる直前に押すと楽に戻せる。',[['3:15','相手の膝が床から離れた瞬間を狙う。',1],['3:40','遅れて押すと、力比べになって負ける。',0]]],
+    ['引き込みの使い方','3:55','引き込んだら、そのままスイープかバックへつなげる。',[['4:00','袖を引いて相手の手を床につかせる。',1],['4:25','手がついた側へ体を回してバックを取る。',1]]],
+    ['まとめ','4:40','外側の層から順に使い、どこかが崩れても次の層で止める。',[['4:45','層を意識してドリルすると、ガードが崩れにくくなる。',0]]],
+  ]},
+];
+const CHS = []; DIVS.forEach((d,di) => d.ch.forEach(c => CHS.push({ di, name:c[0], t:P(c[1]), ts:c[1], pt:c[2],
+  its:c[3].map(x=>({t:P(x[0]),ts:x[0],tx:x[1],pic:x[2], det: x[3] ? { name:x[3].name, its:x[3].its.map(y=>({t:P(y[0]),ts:y[0],tx:y[1],pic:y[2]})) } : null })) })));
+CHS.forEach((c,i) => { c.end = CHS[i+1] ? CHS[i+1].t : 312; c.its.forEach((x,j) => { x.end = c.its[j+1] ? c.its[j+1].t : c.end; if (x.det) x.det.its.forEach((y,k) => y.end = x.det.its[k+1] ? x.det.its[k+1].t : x.end); }); });
+const DETS = []; CHS.forEach((c,ci) => c.its.forEach((x,j) => { if (x.det) DETS.push({ key: ci+'-'+j, ci, x }); }));
+
+const S = { scope:'bm', leave:'close', sup:'on' };
+let follow = false, now = 0, playing = false, timer = null;
+const man = { ch:new Set(), dv:new Set(), det:new Set() }, aut = { ch:new Set(), dv:new Set(), det:new Set() };
+let suppressed = -1, lastCi = -1, lastKey = '';
+const chOpen = i => man.ch.has(i) || aut.ch.has(i), dvOpen = i => man.dv.has(i) || aut.dv.has(i), detOpen = k => man.det.has(k) || aut.det.has(k);
+const curCh = () => CHS.findIndex(c => now >= c.t && now < c.end);
+function curDet() { const ci = curCh(); if (ci < 0) return null; const d = DETS.find(d => d.ci === ci && now >= d.x.t && now < d.x.end); return d ? d.key : null; }
+
+function applyAuto(changed) {
+  if (!follow) return;
+  const ci = curCh(); if (ci < 0) return;
+  if (changed) { if (S.leave === 'close') { aut.ch.clear(); aut.dv.clear(); aut.det.clear(); } suppressed = -1; }
+  if (suppressed === ci) return;
+  const c = CHS[ci];
+  if (!dvOpen(c.di)) aut.dv.add(c.di);
+  if (S.scope === 'dv') return;
+  const targets = S.scope === 'all' ? CHS.map((x,i)=>[x,i]).filter(([x])=>x.di===c.di).map(([,i])=>i) : [ci];
+  targets.forEach(i => { if (!man.ch.has(i)) aut.ch.add(i); });
+  const dk = curDet(); if (dk && !man.det.has(dk)) aut.det.add(dk);
+}
+function tick(force) {
+  const ci = curCh(), key = ci + '|' + curDet();
+  const changed = ci !== lastCi; lastCi = ci;
+  if (follow) { if (changed || key !== lastKey || S.sup === 'off' || force) applyAuto(changed || force); }
+  const moved = key !== lastKey; lastKey = key;
+  render();
+  if (follow && (moved || force)) { const el = document.querySelector('.it.now') || document.querySelector('.ch.now'); if (el) { const m = document.getElementById('memo'), r = el.getBoundingClientRect(), mr = m.getBoundingClientRect(); m.scrollTo({ top: m.scrollTop + r.top - mr.top - m.clientHeight / 2 + r.height / 2, behavior:'smooth' }); } }
+}
+function render() {
+  const fb = document.getElementById('fol'); fb.className = 'tg' + (follow ? ' on' : ''); fb.textContent = '▶ 再生に合わせる' + (follow ? '：オン' : '：オフ');
+  const ci = curCh(), allOpen = CHS.every((_,i) => chOpen(i));
+  let h = `<div class="st"><span class="f">▾</span><div class="tt">✂️ 要約<span class="rg">0:00–5:12 · 1か所 · 合計 5分</span></div><button class="allbtn" id="all">${allOpen ? '全部閉じる' : '全部開く'}</button></div>
+    <div class="ov">ガードの層（足、脚、膝、腰、上半身）を理解し、各層でフレームを使って距離を確保する方法。押し戻すだけでなく、引き込む要素も重要。</div>`;
+  DIVS.forEach((d, di) => {
+    const idx = CHS.map((c,i)=>[c,i]).filter(([c])=>c.di===di), op = dvOpen(di), inNow = ci >= 0 && CHS[ci].di === di;
+    h += `<div class="dv ${!op && inNow ? 'nowin' : ''}"><button class="f" data-dv="${di}">${op?'▾':'▸'}</button><span class="n">■ ${d.name}</span>${op ? '' : `<span class="c">${idx.length}見出し</span>`}<button class="allbtn" data-dva="${di}">${op && idx.every(([,i])=>chOpen(i)) ? 'すべて閉じる' : 'すべて開く'}</button>${aut.dv.has(di)&&!man.dv.has(di)?'<span class="auto">オート</span>':''}</div>`;
+    if (!op) return;
+    h += '<div class="in">' + idx.map(([c,i]) => {
+      const o = chOpen(i), isNow = i === ci;
+      let s = `<div class="ch ${isNow?'now':''}"><button class="f" data-tog="${i}">${o?'▾':'▸'}</button><span class="no">${i+1}</span><span>${c.name}</span><span class="ts" data-seek="${c.t}">▶ ${c.ts}</span>${o?'':`<span class="cnt">${c.its.length}件</span>`}${aut.ch.has(i)?'<span class="auto">オート</span>':''}</div>`;
+      if (!o) return s;
+      s += `<div class="pt">${c.pt}</div>`;
+      c.its.forEach((x,j) => {
+        const xNow = now >= x.t && now < x.end && isNow;
+        s += `<div class="it ${xNow?'now':''}"><span class="ts" data-seek="${x.t}">▶ ${x.ts}</span>${x.pic?'<span class="thumb"></span>':''}<span class="x">${x.tx}</span></div>`;
+        if (x.det) {
+          const k = i+'-'+j, dop = detOpen(k);
+          s += `<div class="dh ${xNow?'now':''}"><button class="f" data-det="${k}">${dop?'▾':'▸'}</button>🔍 くわしく　${x.det.name}${dop?'':`<span class="cnt">${x.det.its.length}件</span>`}${aut.det.has(k)?'<span class="auto">オート</span>':''}</div>`;
+          if (dop) s += '<div class="det">' + x.det.its.map(y => `<div class="it ${now>=y.t&&now<y.end?'now':''}"><span class="ts" data-seek="${y.t}">▶ ${y.ts}</span>${y.pic?'<span class="thumb"></span>':''}<span class="x">${y.tx}</span></div>`).join('') + '</div>';
+        }
+      });
+      return s;
+    }).join('') + '</div>';
+  });
+  const m = document.getElementById('memo'), y = m.scrollTop; m.innerHTML = h; m.scrollTop = y;
+  bind();
+}
+function bind() {
+  document.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const i = +b.dataset.tog;
+    if (chOpen(i)) { man.ch.delete(i); aut.ch.delete(i); if (follow && i === curCh()) suppressed = i; } else { man.ch.add(i); if (suppressed === i) suppressed = -1; }
+    render(); });
+  document.querySelectorAll('[data-dv]').forEach(b => b.onclick = () => { const i = +b.dataset.dv; if (dvOpen(i)) { man.dv.delete(i); aut.dv.delete(i); } else man.dv.add(i); render(); });
+  document.querySelectorAll('[data-det]').forEach(b => b.onclick = () => { const k = b.dataset.det; if (detOpen(k)) { man.det.delete(k); aut.det.delete(k); } else man.det.add(k); render(); });
+  document.querySelectorAll('[data-dva]').forEach(b => b.onclick = () => { const di = +b.dataset.dva, ids = CHS.map((c,i)=>[c,i]).filter(([c])=>c.di===di).map(([,i])=>i), all = dvOpen(di) && ids.every(chOpen); if (!all) man.dv.add(di);
+    ids.forEach(i => { if (all) { man.ch.delete(i); aut.ch.delete(i); } else man.ch.add(i); }); render(); });
+  document.querySelectorAll('[data-seek]').forEach(b => b.onclick = () => { now = +b.dataset.seek; syncBar(); tick(); });
+  document.getElementById('all').onclick = () => { const all = CHS.every((_,i)=>chOpen(i)); CHS.forEach((_,i) => { if (all) { man.ch.delete(i); aut.ch.delete(i); } else man.ch.add(i); }); render(); };
+}
+function syncBar() { document.getElementById('sl').value = now; document.getElementById('tm').textContent = `${fmt(now)} / 5:12`; }
+document.getElementById('fol').onclick = () => { follow = !follow; if (!follow) { aut.ch.clear(); aut.dv.clear(); aut.det.clear(); } suppressed = -1; tick(true); };
+document.getElementById('sl').oninput = e => { now = +e.target.value; syncBar(); tick(); };
+document.getElementById('pl').onclick = () => { playing = !playing; document.getElementById('pl').textContent = playing ? '⏸' : '▶'; clearInterval(timer);
+  if (playing) timer = setInterval(() => { now = Math.min(312, now + 1); syncBar(); tick(); if (now >= 312) { playing = false; clearInterval(timer); document.getElementById('pl').textContent = '▶'; } }, 100); };
+document.querySelectorAll('.ch2').forEach(g => {
+  const q = g.dataset.q;
+  g.querySelectorAll('input').forEach(inp => { inp.checked = S[q] === inp.value; inp.onchange = () => { S[q] = inp.value; aut.ch.clear(); aut.dv.clear(); aut.det.clear(); suppressed = -1; marks(); tick(true); }; });
+});
+const SCOPE_D = { dv:'再生中の仕切りの帯を開く。中のブックマークは閉じたまま並ぶ。', bm:'再生中のブックマークを1つだけ開く（仕切りも見えるように開く）。', all:'再生中の仕切りと、その中のブックマークを全部開く。' };
+function segs() { document.getElementById('scope-d').textContent = SCOPE_D[S.scope]; document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', S[g.dataset.q] === b.dataset.v))); }
+document.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { S[g.dataset.q] = b.dataset.v; aut.ch.clear(); aut.dv.clear(); aut.det.clear(); suppressed = -1; segs(); tick(true); }));
+document.getElementById('folopt').onclick = e => { e.stopPropagation(); document.getElementById('pop').classList.toggle('show'); };
+document.addEventListener('click', e => { if (!e.target.closest('#pop')) document.getElementById('pop').classList.remove('show'); });
+segs();
+document.getElementById('help').onclick = () => document.body.classList.add('showctl');
+document.getElementById('ctlclose').onclick = () => document.body.classList.remove('showctl');
+function marks() { document.querySelectorAll('.ch2 label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked)); }
+marks(); tick();
+</script>
+</body>
+</html>

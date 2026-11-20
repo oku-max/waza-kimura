@@ -224,6 +224,12 @@
     'この動画には字幕がまだ無いので、先に字幕を作ってから検出します（数分）':'This video has no subtitles yet, so they will be created first (a few minutes)',
     '字幕やチャプターの有無を確かめています':'Checking for subtitles and chapters','字幕を作っています（長い動画は数分かかります）':'Creating subtitles (long videos take a few minutes)',
     'チャプターと仕切りを検出しています':'Detecting chapters and dividers','YouTubeのチャプターを取得しています':'Getting the YouTube chapters','位置を合わせています':'Aligning positions',
+    // 要約の再生に合わせて開く・仕切りのすべて開く（v53.030）
+    'すべて開く':'Open all','すべて閉じる':'Close all','再生に合わせる':'Follow playback','再生中の所を開く':'Open the part being played','開き方':'How to open',
+    'どこまで開くか':'What to open','仕切りだけ':'Divider only','再生中のブックマークだけ':'Current bookmark only','ブックマークごと':'All bookmarks',
+    '再生中の仕切りを開く。中のブックマークは閉じたまま':'Open the divider. Bookmarks stay closed.','再生中のブックマークを1つだけ開く':'Open just the bookmark being played.',
+    '再生中の仕切りと、中のブックマークを全部開く':'Open the divider and every bookmark in it.','再生が次へ移ったら':'When playback moves on',
+    '前の所を閉じる':'Close the previous','開いたまま残す':'Keep it open','手で開いた所は、どちらでも閉じません。':'Parts you opened yourself are never closed.',
     '経過':'Elapsed','作成をやめる':'Stop','閉じて続ける':'Close and continue','追加しない':'Don\'t add',
     '「閉じて続ける」を押しても作成は続きます。進み具合は画面の左下の帯と「📑」ボタンに出ます。終わったら帯が「確認する」に変わります（勝手にブックマークには入れません）。':'Creation continues after "Close and continue". Progress shows in the bar at the bottom left and on the "📑" button. When it finishes, the bar changes to "Review" (nothing is added to bookmarks automatically).',
     'アプリを閉じる・再読み込みすると止まります':'Closing or reloading the app stops it','（作り終わった字幕は残ります）。':' (finished subtitles are kept).',

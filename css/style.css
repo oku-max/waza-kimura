@@ -890,6 +890,10 @@ body.dark .vp-memo [style*="background-color"],
 body.dark .n-editable [style*="background-color"]{color:#1a1a1a;}
 /* メモのラベル行＋書式ツールバーをスクロール中も上部に固定 */
 .vp-memo-stickyhead{position:sticky;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;background:var(--surface);padding:4px 0 6px;}
+/* 止まる位置は、スクロールする欄の一番上（v53.031）。sticky の top:0 は欄の余白（padding）の下で止まるので、
+   その余白のすき間に上へ流れていくメモの文字・枠が見えていた（オーナーの画面）。余白ぶん上に止めて、すき間を見出しで覆う */
+#vpanel-edit-wrap .vp-memo-stickyhead{top:-10px;}
+.vp-panel-body .vp-memo-stickyhead{top:-12px;}
 .vp-memo-toolbar{margin-bottom:4px;}
 .vp-memo-stickyhead .vp-memo-toolbar{margin-bottom:0;}
 /* ⛶ メモを大きく（v53.000・mock-memo-full.html の B）。#vpanelInner に .vp-memo-focus を付けたときだけ効く */
@@ -1999,3 +2003,23 @@ body.dark .memo-dv{background:#2f2742;color:#c9b4f5}
   .vp-head > #vp-more-btn { margin-left: auto; }
   .vp-head .vp-head-title > div:first-child { font-size: 12px !important; }
 }
+/* 要約: 仕切りの「すべて開く」・Memo の見出しの「▶ 再生に合わせる」（v53.030・オーナー決定 mock-memo-fold-auto.html） */
+.memo-dv-all{flex-shrink:0;font-size:11px;font-weight:700;padding:2px 7px;border:1px solid currentColor;border-radius:6px;background:var(--surface);color:inherit;cursor:pointer;font-family:inherit;opacity:.9;white-space:nowrap}
+.vp-memo-follow{margin-left:auto;display:inline-flex;align-items:center;letter-spacing:0;text-transform:none}
+.vp-memo-follow:empty{display:none}
+.vp-memo-follow:not(:empty) + .vp-memo-full-btn{margin-left:6px}
+.vp-memo-fol{font-size:11.5px;padding:2px 9px;border-radius:12px 0 0 12px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;font-weight:700;white-space:nowrap;line-height:1.4}
+.vp-memo-fol.on{background:rgba(200,131,26,.13);border-color:#e0a64e;color:#c8831a}
+.vp-memo-fol-opt{font-size:10px;padding:2px 6px;border-radius:0 12px 12px 0;border:1px solid var(--border);border-left:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;line-height:1.6}
+.vp-memo-fol.on + .vp-memo-fol-opt{border-color:#e0a64e;color:#c8831a}
+.memo-fol-pop{position:fixed;z-index:10050;width:290px;max-width:calc(100vw - 16px);background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 12px;font-size:12.5px}
+.memo-fol-pop .mfp-q{font-size:11.5px;font-weight:800;color:var(--text2);margin:6px 0 4px}
+.memo-fol-pop .mfp-list,.memo-fol-pop .mfp-seg{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.memo-fol-pop .mfp-list{flex-direction:column}
+.memo-fol-pop button{flex:1;text-align:left;padding:7px 10px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;font-size:12.5px}
+.memo-fol-pop .mfp-list button+button{border-top:1px solid var(--border)}
+.memo-fol-pop .mfp-seg button{text-align:center}
+.memo-fol-pop .mfp-seg button+button{border-left:1px solid var(--border)}
+.memo-fol-pop button.on{background:rgba(200,131,26,.13);color:#c8831a;font-weight:800}
+.memo-fol-pop button small{display:block;font-size:10.5px;font-weight:500;opacity:.8;margin-top:1px}
+.memo-fol-pop .mfp-n{font-size:11px;color:var(--text3);margin-top:8px}

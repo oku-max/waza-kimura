@@ -2227,7 +2227,7 @@ export function openVPanel(id) {
     bmContainer.innerHTML = _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl" style="display:flex;align-items:center;width:100%">Memo${_tsBtn}${_snapBtn}${_memoFocusBtn}</span>
+            <span class="vp-lbl" style="display:flex;align-items:center;width:100%">Memo${_tsBtn}${_snapBtn}<span id="vp-memo-follow-${vid}" class="vp-memo-follow"></span>${_memoFocusBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
