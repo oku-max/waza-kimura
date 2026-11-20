@@ -65,6 +65,10 @@
   // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
   function _getCvBase() {
     if (_D()) return _D().base();   // ドリルがある動画だけ（今のリストの範囲）
+    // 開いているリストの範囲は、絞り込みを掛ける前のリストの中身から取る（掛けた後の
+    // _cvVideoIds を使うと、1つ選ぶとほかのチャンネル・プレイリストが列から消える）
+    const listV = !_cvMode && window._cvListVideos?.();
+    if (listV) return listV;
     const cvIds = !_cvMode && (window._cvVideoIds || window._cvCardVideoIds);
     if (cvIds && cvIds.size > 0) {
       return (window.videos || []).filter(v => cvIds.has(v.id));

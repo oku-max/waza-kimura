@@ -1785,6 +1785,16 @@ function _getViewVideos(view) {
   return [];
 }
 
+// 開いているリストの範囲（リストの条件・手動の動画だけ。絞り込み・検索語は掛けない）。
+// 統合フィルターの窓は、ここから数えないと、選んだ絞り込みで範囲が縮み、2つ目以降の
+// チャンネル・プレイリストが列から消えて複数選べなかった（_cvVideoIds は表の絞り込み後の本数）。
+window._cvListVideos = function() {
+  if (!_curId) return null;
+  const view = _views.find(v => v.id === _curId);
+  if (!view || view.isMaster) return null;
+  return _getViewVideos(view);
+};
+
 function _cvUpdateSearch(view) {
   // 検索語は1か所から読む（js/search-word.js）。カードと同じ語を見る。
   const rawQ = window.wkSearchWord ? window.wkSearchWord() : (_cvSrchQ || '');
