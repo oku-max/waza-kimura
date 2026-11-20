@@ -296,10 +296,14 @@
     let box = cur.el.parentElement;
     while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; }
     if (!box || box === document.body) return;
+    // 見える所の上の端は、欄の上端ではなく、上に残る MEMO の見出し（sticky）の下の端（v53.032。
+    // 欄の上端で見ていたので、見出しの裏に隠れた行を「見えている」と判断して動かなかった）
     const br = box.getBoundingClientRect(), tr = target.getBoundingClientRect();
-    if (tr.top >= br.top + 8 && tr.bottom <= br.bottom - 8) return;   // もう見えている
+    const head = box.querySelector('.vp-memo-stickyhead'), hr = head ? head.getBoundingClientRect() : null;
+    const top = hr && hr.bottom > br.top && hr.top < br.bottom ? Math.max(br.top, hr.bottom) : br.top;
+    if (tr.top >= top + 4 && tr.bottom <= br.bottom - 8) return;   // もう見えている
     cur.following = true;
-    box.scrollTop += tr.top - br.top - Math.min(120, box.clientHeight / 3);
+    box.scrollTop += tr.top - top - Math.min(80, (br.bottom - top) / 3);
     setTimeout(() => { if (cur) cur.following = false; }, 300);
   }
   // 手でスクロールしたら、しばらく追いかけない（どこでスクロールしても拾えるよう、捕まえる段階で見る。登録は1回だけ）

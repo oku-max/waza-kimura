@@ -312,7 +312,7 @@ L13 = await at(421);
 ck('⑬ 閉じた見出しの中が今なら、その見出しに色（題 A は閉じて色・B は開いたまま行に色）', L13.some(x => x.startsWith('✂️要約A')) && L13.includes('肘を床にB') && !L13.includes('肘を床にA'), L13);
 await press(tA, 'L'); await pg.waitForTimeout(150);
 // 自動で追いかける: B の行が見えていない所から、時刻が動くと見える所までスクロールする
-const vis = (txt) => pg.evaluate(([M, txt]) => { const e = [...document.querySelector(M).children].find(e => e.textContent.includes(txt)); const r = e.getBoundingClientRect(); let box = e.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; } const b = box && box !== document.body ? box.getBoundingClientRect() : { top: 0, bottom: innerHeight }; return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }, [M, txt]);
+const vis = (txt) => pg.evaluate(([M, txt]) => { const e = [...document.querySelector(M).children].find(e => e.textContent.includes(txt)); const r = e.getBoundingClientRect(); let box = e.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; } const b0 = box && box !== document.body ? box.getBoundingClientRect() : { top: 0, bottom: innerHeight }; const h = box?.querySelector?.('.vp-memo-stickyhead')?.getBoundingClientRect(); const top = h && h.bottom > b0.top && h.top < b0.bottom ? Math.max(b0.top, h.bottom) : b0.top; return r.top >= top - 1 && r.bottom <= b0.bottom + 1; }, [M, txt]);   // 上に残る MEMO の見出しの裏は「見えていない」（v53.032）
 // 要約 A と B のあいだ（どちらの行も見えない所）までスクロールしておく
 await pg.evaluate((M) => { document.activeElement?.blur?.(); const ks = [...document.querySelector(M).children].filter(e => e.textContent === 'あいだ'); ks[ks.length - 1].scrollIntoView({ block: 'end' }); }, M);
 await pg.waitForTimeout(4200);   // 手でスクロールした直後（4秒）は追いかけない決まりなので待つ
@@ -320,6 +320,15 @@ const before13 = await vis('手首を返すA');
 await at(330);
 const after13 = await vis('手首を返すA');
 ck('⑬ 自動で追いかける: 今の行が見えていなければ、メモの欄をスクロールして見せる', !before13 && after13, { before13, after13 });
+// 今の行が、上に残る MEMO の見出しの裏に隠れているときも追いかける（v53.032・オーナー「メモの追従がおかしい」。
+// 欄の上端で見ていたので、見出しの裏の行を「見えている」と判断して動かなかった）
+await at(330); await pg.waitForTimeout(100);
+await pg.evaluate((M) => { const el = document.querySelector(M), t = [...el.children].find(e => e.textContent.includes('肘を床にA')); let box = el.parentElement; while (box && box !== document.body) { const o = getComputedStyle(box).overflowY; if ((o === 'auto' || o === 'scroll') && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; }
+  const h = box.querySelector('.vp-memo-stickyhead').getBoundingClientRect(), r = t.getBoundingClientRect(); box.scrollTop += r.bottom - h.bottom - 4; }, M);   // 行の下の端だけが見出しのすぐ下にのぞく所（オーナーの画面と同じ）
+await pg.waitForTimeout(4200);
+const under0 = await vis('肘を床にA');
+await at(410);
+ck('⑬ 今の行が上に残る MEMO の見出しの裏に隠れていても、見える所までスクロールする', !under0 && await vis('肘を床にA'), { under0 });
 await pg.evaluate((M) => { document.querySelector(M).focus({ preventScroll: true }); const ks = [...document.querySelector(M).children].filter(e => e.textContent === 'あいだ'); ks[ks.length - 1].scrollIntoView({ block: 'end' }); }, M);
 await pg.waitForTimeout(4200);
 const y0 = await pg.evaluate((M) => document.querySelector(M).getBoundingClientRect().top, M);
