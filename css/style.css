@@ -890,6 +890,10 @@ body.dark .vp-memo [style*="background-color"],
 body.dark .n-editable [style*="background-color"]{color:#1a1a1a;}
 /* メモのラベル行＋書式ツールバーをスクロール中も上部に固定 */
 .vp-memo-stickyhead{position:sticky;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;background:var(--surface);padding:4px 0 6px;}
+/* 止まる位置は、スクロールする欄の一番上（v53.031）。sticky の top:0 は欄の余白（padding）の下で止まるので、
+   その余白のすき間に上へ流れていくメモの文字・枠が見えていた（オーナーの画面）。余白ぶん上に止めて、すき間を見出しで覆う */
+#vpanel-edit-wrap .vp-memo-stickyhead{top:-10px;}
+.vp-panel-body .vp-memo-stickyhead{top:-12px;}
 .vp-memo-toolbar{margin-bottom:4px;}
 .vp-memo-stickyhead .vp-memo-toolbar{margin-bottom:0;}
 /* ⛶ メモを大きく（v53.000・mock-memo-full.html の B）。#vpanelInner に .vp-memo-focus を付けたときだけ効く */
