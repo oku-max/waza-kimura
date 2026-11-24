@@ -16,6 +16,22 @@
   let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'abc' };
   let _vcSort = 'addedAt'; let _vcSortAsc = false;
+  // 列の並べ方（Channel/Playlist/タグの 最近・名前順・件数順、該当動画の 追加日… と ↑↓）はこの端末に覚える（v53.035）。
+  // 表示の好みだけ（localStorage wk_uniSort）。クラウド・動画・リストには書かない。
+  const _SORT_KEY = 'wk_uniSort';
+  const _SORT_OK = ['recent', 'abc', 'cnt'];
+  const _VC_OK = ['addedAt', 'title', 'duration', 'playCount', 'lastPlayed'];
+  try {
+    const o = JSON.parse(localStorage.getItem(_SORT_KEY) || 'null');
+    if (o && typeof o === 'object') {
+      if (o.s && typeof o.s === 'object') for (const k of Object.keys(o.s)) if (_SORT_OK.includes(o.s[k])) _sort[k] = o.s[k];   // 新しいタググループの列（ID）も
+      if (_VC_OK.includes(o.vc)) _vcSort = o.vc;
+      if (typeof o.vcAsc === 'boolean') _vcSortAsc = o.vcAsc;
+    }
+  } catch (e) {}
+  function _saveSort() {
+    try { localStorage.setItem(_SORT_KEY, JSON.stringify({ s: _sort, vc: _vcSort, vcAsc: _vcSortAsc })); } catch (e) {}
+  }
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
@@ -954,9 +970,9 @@
     _syncSearchbar(t);
     _render();
   };
-  window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
-  window._uniVcSortKey = function (v) { _vcSort = v; _rebuildVideoCol(); };
-  window._uniVcSortDir = function ()  { _vcSortAsc = !_vcSortAsc; _rebuildVideoCol(); };
+  window.uniSetSort = function (k, v) { _sort[k] = v; _saveSort(); _render(); };
+  window._uniVcSortKey = function (v) { _vcSort = v; _saveSort(); _rebuildVideoCol(); };
+  window._uniVcSortDir = function ()  { _vcSortAsc = !_vcSortAsc; _saveSort(); _rebuildVideoCol(); };
   window.uniSearch = function (v) {
     _q = (v||'').trim().toLowerCase();
     _queries[_tab] = _q;
