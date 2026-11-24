@@ -2529,6 +2529,16 @@ window.vpToggleMirror = function () {
     btn.style.background = on ? 'rgba(229,196,122,.15)' : '';
   }
   if (container) container.style.transform = on ? 'scaleX(-1)' : '';
+  // 字幕は反転しない（v53.036・オーナー「字幕は反転しないようにできる？」）。
+  // 字幕（#vp-sub-overlay）は動画の器の中にあるので、器と一緒に鏡文字になっていた。
+  // 器に印を付け、字幕だけもう一度反転して戻す（見た目だけ・字幕の中身や設定には触らない）。
+  // 動画そのものに焼き込まれた文字は映像の一部なので戻せない。
+  if (container) container.classList.toggle('vp-mirrored', on);
+  if (!document.getElementById('vp-mirror-sub-style')) {
+    const st = document.createElement('style'); st.id = 'vp-mirror-sub-style';
+    st.textContent = '#vpanel-iframe-container.vp-mirrored #vp-sub-overlay{transform:scaleX(-1)}';
+    document.head.appendChild(st);
+  }
   _vpMirrorProgressToggle(on);
 
   // YouTube: controls:0/1 で再初期化
@@ -2558,7 +2568,7 @@ export function closeVPanel() {
     clearInterval(_mirrorProgressTimer); _mirrorProgressTimer = null;
     _vpMirrorProgressToggle(false);
     window._vpMirrored = false;
-    const _mc = document.getElementById('vpanel-iframe-container'); if (_mc) _mc.style.transform = '';
+    const _mc = document.getElementById('vpanel-iframe-container'); if (_mc) { _mc.style.transform = ''; _mc.classList.remove('vp-mirrored'); }
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
     clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
     const _gdCloseContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
