@@ -188,6 +188,12 @@ await dnd('スタンディング', 'トップ', false);
 ck('ふつうのドラッグは移動', setEq(await vtb(pg, 'v2'), ['ボトム', 'トップ']), await vtb(pg, 'v2'));
 await pg.evaluate(() => wkGroupings._undo());
 ck('取り消すと元どおり', setEq(await vtb(pg, 'v2'), ['ボトム', 'スタンディング']), await vtb(pg, 'v2'));
+// ⑤a 見出しの「＋ 新しいタグ」は本物の入力欄（v53.052 まではただの文字で、押しても何も起きなかった）。本物のクリック・キー入力で踏む
+await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; const h = document.getElementById('svt-colhs'); const bd = document.querySelector('#svt-root .svt-board'); if (bd) bd.scrollLeft = 99999; if (h) h.scrollLeft = 99999; });
+const inHead = await pg.evaluate(() => { const i = document.getElementById('svt-newcol'); return !!i && !!i.closest('#svt-colhs') && i.placeholder.includes('新しいタグ'); });
+ck('見出しの帯に「＋ 新しいタグ」の入力欄がある', inHead);
+await pg.click('#svt-newcol'); await pg.keyboard.type('仮タグ'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(300);
+ck('見出しの欄を本物のクリックで押して打ち、Enter で列が足される', (await cols(pg)).includes('仮タグ=0') && await pg.evaluate(k => window.tagRegistry.group(k.slice(4)).allOptions.includes('仮タグ'), tbKey), await cols(pg));
 // ⑤ 新しいタグ: 選択肢に足すだけ（動画には触らない）
 const vidsBefore = await pg.evaluate(() => JSON.stringify(window.videos));
 await pg.evaluate(() => { document.getElementById('svt-newcol').value = '膝立ち'; wkGroupings._addCol(); });
