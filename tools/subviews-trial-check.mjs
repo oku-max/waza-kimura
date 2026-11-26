@@ -1,7 +1,7 @@
-// ═══ 見え方（試験版）が何も書かないこと（v53.037）═══
+// ═══ ビュー（試験版）が何も書かないこと（v53.037）═══
 // 使い方: node tools/subviews-trial-check.mjs
-// オーナーが本物のデータで「リストの中の見え方（絞り込み＋まとめ方）」を試すための画面。読むだけで、
-// 見え方の一覧もドラッグの結果も画面の変数にだけ持つ。本物の index.html と firebase.js を偽のクラウドにつなぎ、
+// オーナーが本物のデータで「リストの中のビュー（絞り込み＋グループ分け）」を試すための画面。読むだけで、
+// ビューの一覧もドラッグの結果も画面の変数にだけ持つ。本物の index.html と firebase.js を偽のクラウドにつなぎ、
 // 試して閉じた後に 動画・localStorage・クラウド が1文字も変わっていないことを見る。
 // 動かしたときに本物のタグへ書くよう壊すと赤くなることを確認済み。SHOT=ディレクトリ で画面を撮る。
 import http from 'http'; import fs from 'fs'; import path from 'path';
@@ -112,8 +112,8 @@ ck('開くと試験版の画面が出る・「何も保存しません」', awai
 const cwChk = await pg.evaluate(w => ({ lib: w, cw: getComputedStyle(document.getElementById('svt-root')).getPropertyValue('--svt-cw').trim() }), libW0);
 ck('カードの幅はライブラリのカードと同じ（開いた時点で測る）', !!cwChk.lib && cwChk.cw === cwChk.lib + 'px', cwChk);
 const gks = await pg.evaluate(() => wkSubviewsTrial._groupers().map(g => g.key + ':' + g.kind));
-ck('まとめ方: タグ・プレイリスト・チャンネル・カスタム列（セレクト・評価だけ）', gks.includes('pl:src') && gks.includes('ch:src') && gks.some(k => k.startsWith('tag:')) && gks.includes('cf:gc_phase1:one') && gks.includes('cf:gc_star1:one') && !gks.some(k => k.includes('gc_txt1')), gks);
-// タグ1でまとめる見え方を作る
+ck('グループ分け: タグ・プレイリスト・チャンネル・カスタム列（セレクト・評価だけ）', gks.includes('pl:src') && gks.includes('ch:src') && gks.some(k => k.startsWith('tag:')) && gks.includes('cf:gc_phase1:one') && gks.includes('cf:gc_star1:one') && !gks.some(k => k.includes('gc_txt1')), gks);
+// タグ1でまとめるビューを作る
 const tbKey = await pg.evaluate(() => (wkSubviewsTrial._groupers().find(g => g.kind === 'tag' && g.sub === 'タグ1') || {}).key);
 await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('タグ1別'); wkSubviewsTrial._eg(k); wkSubviewsTrial._es(); }, tbKey);
 const cols = () => pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')].map(c => c.querySelector('.svt-tag').textContent + '=' + c.querySelectorAll('.svt-card').length));
@@ -138,15 +138,15 @@ const ed0 = await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en
 ck('タググループを押すと、その下にそのグループのタグが全部選ばれた状態で開く・「タグを選んでまとめる」のボタンは無い', ed0.open && !ed0.hasOldBtn && ed0.picks.length === 3 && ['トップ','ボトム','スタンディング'].every(x => ed0.picks.includes(x)), ed0);
 await pg.evaluate(() => { const st = wkSubviewsTrial._state(); st.editing.picks.map(p => p.v).forEach(v => wkSubviewsTrial._pv(v)); wkSubviewsTrial._pv('スタンディング'); wkSubviewsTrial._pv('トップ'); wkSubviewsTrial._es(); });
 const p1 = await cols();
-ck('タグを選んでまとめる: 選んだタグだけが選んだ順に列になる・どれにも当てはまらない が先頭', JSON.stringify(p1) === JSON.stringify(['どれにも当てはまらない=2','スタンディング=1','トップ=1']), p1);
+ck('タグを選んでまとめる: 選んだタグだけが選んだ順に列になる・その他 が先頭', JSON.stringify(p1) === JSON.stringify(['その他=2','スタンディング=1','トップ=1']), p1);
 await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
 const p2 = await cols();
-ck('選んだタグの列のあいだを動かすと画面だけ変わる', JSON.stringify(p2) === JSON.stringify(['どれにも当てはまらない=2','スタンディング=0','トップ=2']), p2);
+ck('選んだタグの列のあいだを動かすと画面だけ変わる', JSON.stringify(p2) === JSON.stringify(['その他=2','スタンディング=0','トップ=2']), p2);
 ck('選んだタグで動かしても本物の動画のタグは変わらない', await pg.evaluate(() => JSON.stringify(window.videos.find(v => v.id === 'v2').tb) === JSON.stringify(['ボトム','スタンディング'])));
 await pg.evaluate(() => wkSubviewsTrial._undo());
 ck('取り消すと戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
 await pg.evaluate(() => { wkSubviewsTrial._edit(); wkSubviewsTrial._pn(false); wkSubviewsTrial._es(); });
-ck('「どれにも当てはまらない」を出さないこともできる', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1']), await cols());
+ck('「その他」を出さないこともできる', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1']), await cols());
 // その場で新しいタグを足す（試験版: 選択肢・動画には書かない）
 const opts0 = await pg.evaluate(k => JSON.stringify(window.tagRegistry.group(k.slice(4)).allOptions), tbKey);
 await pg.evaluate(k => { wkSubviewsTrial._pick(wkSubviewsTrial._state().views.find(v => v.name === 'タグ1別').id); }, tbKey);
@@ -158,7 +158,7 @@ ck('足した列へ動かすと画面では付く', (await cols()).includes('膝
 ck('足したタグは本物の選択肢に入らない・動画にも付かない', await pg.evaluate(([k, o]) => JSON.stringify(window.tagRegistry.group(k.slice(4)).allOptions) === o && JSON.stringify(window.videos.find(v => v.id === 'v4').tb) === '[]', [tbKey, opts0]));
 await pg.evaluate(() => wkSubviewsTrial._pick(wkSubviewsTrial._state().views.find(v => v.name === '選んだタグ').id));
 await pg.evaluate(() => { document.getElementById('svt-newcol').value = '座り'; wkSubviewsTrial._addCol(); });
-ck('選んだタグでまとめた見え方でも、新しいタグの列を足すと選んだ列の最後に入る', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1','座り=0']), await cols());
+ck('選んだタグでまとめたビューでも、新しいタグの列を足すと選んだ列の最後に入る', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1','座り=0']), await cols());
 await pg.evaluate(() => { wkSubviewsTrial._edit(); document.getElementById('svt-pnew').value = '後ろ重心'; wkSubviewsTrial._pnew(); wkSubviewsTrial._es(); });
 ck('選ぶ画面でも新しいタグを足して選べる', (await cols()).includes('後ろ重心=0'), await cols());
 // 新しいタググループ（試験版: tagRegistry に書かない）
@@ -213,6 +213,6 @@ ck('閉じた後: 動画のデータが1文字も変わっていない', before.
 ck('閉じた後: localStorage が1文字も変わっていない', before.ls === after.ls, [before.ls.length, after.ls.length]);
 ck('閉じた後: クラウドが1文字も変わっていない', before.cloud === after.cloud);
 await reload(pg);
-ck('再読み込みすると試した見え方は残らない', await pg.evaluate(() => wkSubviewsTrial._state().views.length === 1 && wkSubviewsTrial._state().sim.size === 0));
+ck('再読み込みすると試したビューは残らない', await pg.evaluate(() => wkSubviewsTrial._state().views.length === 1 && wkSubviewsTrial._state().sim.size === 0));
 console.log(fail ? `✗ ${fail}件` : '✓ 全部通過');
 await cx.close(); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
