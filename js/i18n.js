@@ -197,6 +197,7 @@
     // グルーピング（v53.048）
     '非表示':'Hidden','表示に戻す':'Show again',
     'いくつでも選べます':'You can pick as many as you like',
+    '↑ 前へ':'↑ Earlier','このグループの列を前へ':'Move this group\'s columns earlier','（⠿ をドラッグでグループの中の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder within the group · press to toggle · the number is the count with the current filters)','。列はグループごとにまとまって、この順に並びます':'. Columns are grouped by tag group, in this order',
     '（⠿ をドラッグで列の順を入れ替え・押すと外す・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to remove · the number is the count with the current filters)',
     'タグ（グループを押すと、その下に中のタグが開きます。いくつでも選べます）':'Tags (press a group to open its tags below; you can pick several groups)','（押すと列に入る）':' (press to add as a column)','全部選んでいます':'All selected','まだ列にするタグを選んでいません。下のタグを押してください。':'No tags chosen as columns yet. Press a tag below.','足すタググループ':'Tag group to add to',
     '（⠿ をドラッグで列の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to toggle · the number is the count with the current filters)',

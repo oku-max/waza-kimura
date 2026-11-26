@@ -424,6 +424,17 @@ const mg = await pg.evaluate(([tk, nk]) => { wkGroupings._new(); wkGroupings._en
 ck('編集でタググループを2つ押すと両方選ばれ、両方のタグが列の候補になる・保存される（pg は前の版用に1つ目）', mg.pgs.length === 2 && mg.pg === tbKey && mg.groups.length === 2, mg);
 const mc = await cols(pg);
 ck('2つのグループのタグが横に並んで列になる（「その他」が先頭）', mc[0].startsWith('その他=') && ['ボトム', 'トップ', '使える', 'あとで足した'].every(x => mc.some(c => c.startsWith(x + '='))), mc);
+const sep = await pg.evaluate(() => { const hs = [...document.querySelectorAll('#svt-colhs .svt-colh')]; const colored = hs.filter(h => h.style.getPropertyValue('--gc')); const colors = [...new Set(colored.map(h => h.style.getPropertyValue('--gc')))]; return { colors: colors.length, starts: document.querySelectorAll('#svt-colhs .svt-gstart').length, boardStarts: document.querySelectorAll('#svt-root .svt-board .svt-col.svt-gstart').length,
+  order: colored.map(h => h.style.getPropertyValue('--gc')) }; });
+const contiguous = sep.order.every((c, i) => i === 0 || c === sep.order[i - 1] || !sep.order.slice(0, i).includes(c));
+ck('2つのグループの列は色で分かれ、グループごとにまとまり、境目に区切りがある（見出しと列の両方）', sep.colors === 2 && sep.starts === 1 && sep.boardStarts === 1 && contiguous, sep);
+await pg.evaluate(() => wkGroupings._edit());
+const blk = await pg.evaluate(() => [...document.querySelectorAll('#svt-ed .svt-pgrow')].map(b => ({ name: b.querySelector('.svt-gname').textContent, gc: b.style.getPropertyValue('--gc'), chips: b.querySelectorAll('.svt-chip').length })));
+ck('編集の画面はタググループごとの枠に分かれ、それぞれ色の線・名前・選んだタグを持つ', blk.length === 2 && blk.every(b => b.gc && b.chips > 0) && blk[0].gc !== blk[1].gc, blk);
+await pg.evaluate(nk => wkGroupings._gup(nk), 'tag:' + ngid);
+ck('「↑ 前へ」でグループの順を入れ替えられる', await pg.evaluate(nk => wkGroupings._state().editing.pgs[0] === nk && wkGroupings._state().editing.picks[0].g === nk, 'tag:' + ngid));
+if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/multi-ed.png' });
+await pg.evaluate(() => wkGroupings._ec());
 const v1tb = await vtb(pg, 'v1'), v1tg = await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id] || []), ngid);
 await pg.evaluate(() => wkGroupings._move('v1', 'pick', 'ボトム', 'あとで足した'));
 ck('グループをまたいで動かすと、元のグループのタグを外して先のグループのタグを付ける', !(await vtb(pg, 'v1')).includes('ボトム') && await pg.evaluate(id => (window.videos.find(v => v.id === 'v1').tg[id] || []).includes('あとで足した'), ngid), [await vtb(pg, 'v1')]);

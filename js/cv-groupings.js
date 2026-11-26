@@ -116,6 +116,11 @@
   // 使うタググループ（v53.057・オーナー決定 A「複数のタググループのタグを横に並べて列にする」）。
   // pgs = 使うタググループのキーの並び。前の版の pg（1つだけ）も読む
   const pgsOf = view => (view && Array.isArray(view.pgs) && view.pgs.length ? view.pgs : (view && view.pg ? [view.pg] : [])).filter(k => GR0(k));
+  // タググループごとの色（v53.060・オーナー「複数のタググループが分かれて表示されるように。線で区切るとか色を分けるとか」）
+  const GCOL = ['#d08a1c', '#3a7bd5', '#2d9d6a', '#b54fa8', '#d9534f', '#6a6ad0', '#1a9aa8', '#8a7a2a', '#c05a2a', '#5a7a9a'];
+  const gColor = (view, gk) => { const i = pgsOf(view).indexOf(gk); return i < 0 ? '' : GCOL[i % GCOL.length]; };
+  // 列の並びはタググループごとにまとめる（グループの順＝pgs、グループの中は選んだ順）
+  const byGroup = (view, picks) => { const gks = pgsOf(view); return gks.flatMap(gk => picks.filter(p => p.g === gk)); };
   function withNewPicks(view) {
     const picks = (view && view.picks || []).filter(p => p && GR0(p.g));
     if (!view || view.gb !== 'pick') return picks;
@@ -126,12 +131,12 @@
       const known = new Set(kb || mine); const have = new Set(mine);
       groupValsAll(gk).filter(x => !known.has(x) && !have.has(x)).forEach(v => extra.push({ g: gk, v }));
     });
-    return extra.length ? picks.concat(extra) : picks;
+    return byGroup(view, extra.length ? picks.concat(extra) : picks);
   }
   function pickGrouper(view) {
-    const picks = view && view === S.editing ? (view.picks || []).filter(p => p && GR0(p.g)) : withNewPicks(view);
+    const picks = view && view === S.editing ? byGroup(view, (view.picks || []).filter(p => p && GR0(p.g))) : withNewPicks(view);
     const dup = new Map(); picks.forEach(p => dup.set(p.v, (dup.get(p.v) || 0) + 1));
-    const items = picks.map(p => ({ ...p, label: dup.get(p.v) > 1 ? `${p.v}（${GR0(p.g).name}）` : p.v }));
+    const items = picks.map(p => ({ ...p, color: pgsOf(view).length > 1 ? gColor(view, p.g) : '', label: dup.get(p.v) > 1 ? `${p.v}（${GR0(p.g).name}）` : p.v }));
     return { key: 'pick', kind: 'pick', name: pgsOf(view).map(k => GR0(k).name).join('・') || 'タグ', items, opts: items.map(x => x.label), showNone: !view || view.showNone !== false };
   }
   const GR = key => key === 'pick' ? pickGrouper(S.editing && S.editing.gb === 'pick' ? S.editing : VW()) : GR0(key);
@@ -184,7 +189,7 @@
   }
   function columns(list, g) {
     if (g.kind === 'pick') {
-      const cols = g.items.map(p => ({ key: p.label, name: p.label, ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
+      const cols = g.items.map((p, i) => ({ key: p.label, name: p.label, color: p.color, gstart: !!p.color && i > 0 && g.items[i - 1].g !== p.g, ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
       if (g.showNone) cols.unshift({ key: NONE, name: noneName(g.items), ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
       return cols;
     }
@@ -354,11 +359,11 @@
     if (S.openCard) { const here = cs.find(c => c.key === S.openCol && c.ids.includes(S.openCard)) || cs.find(c => !c.hid && c.ids.includes(S.openCard));
       S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
-    const hd = c => `<div class="svt-colh"><span class="svt-tag${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
+    const hd = c => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
     el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft">` + cs.map(c => {
       const n = S.more[c.key] || LIMIT;
-      return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}" data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
+      return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => { const cn = seenN.get(id) || 0; seenN.set(id, cn + 1); return card(byId.get(id), g, c.key, cn); }).join('')}</div>
         ${c.ids.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${jsq(c.key)}')">さらに ${c.ids.length - n} 本</button>` : ''}
       </div>`; }).join('') + `</div>` +
@@ -380,52 +385,56 @@
   function pickEd(d) {
     const gks = pgsOf(d); if (!gks.length) return '';
     const multi = gks.length > 1;
-    const sel = (d.picks || []).filter(p => gks.includes(p.g));
+    const sel = byGroup(d, (d.picks || []).filter(p => gks.includes(p.g)));
     const src = source(); const cnt = (gk, x) => { const G = GR0(gk); return src.filter(v => readG(v, G).includes(x)).length; };
-    const names = gks.map(k => `「${esc(GR0(k).name)}」`).join('');
-    const row = (gk, idx) => { const G = GR0(gk); const mine = sel.filter(p => p.g === gk).map(p => p.v); const rest = allVals(gk).filter(x => !mine.includes(x));
-      const iid = gk === d.pg ? 'svt-pnew' : 'svt-pnew-' + idx;
-      return `<div class="svt-pgrow">
-        <div class="svt-ph"><span class="svt-grp" style="margin:0"><b>${esc(G.name)}</b>${rest.length ? '（押すと列に入る）' : ''}</span>
-          <span class="svt-phb"><button class="svt-sm" onclick="wkGroupings._pall(true,'${jsq(gk)}')">全部選ぶ</button><button class="svt-sm" onclick="wkGroupings._pall(false,'${jsq(gk)}')">全部外す</button></span></div>
-        <div class="svt-opts">${rest.map(x => `<button class="svt-o svt-off" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">${esc(x)}<small> ${cnt(gk, x)}</small></button>`).join('') || (mine.length ? '<span class="svt-grp" style="margin:0">全部選んでいます</span>' : '<span class="svt-grp" style="margin:0">このタググループにはまだタグがありません。下で足してください。</span>')}</div>
+    // タググループごとに1つの枠（色の線・名前・選んだタグ・選んでいないタグ・新しいタグ）。列もこの順に、グループごとにまとまって並ぶ
+    const block = (gk, gi) => { const G = GR0(gk); const mine = sel.filter(p => p.g === gk).map(p => p.v); const rest = allVals(gk).filter(x => !mine.includes(x));
+      const iid = gk === d.pg ? 'svt-pnew' : 'svt-pnew-' + gi; const cid = gi === 0 ? 'svt-chips' : 'svt-chips-' + gi;
+      return `<div class="svt-pgrow" style="--gc:${multi ? gColor(d, gk) : 'var(--border)'}">
+        <div class="svt-ph"><span class="svt-gname">${multi ? '<i class="svt-gdot"></i>' : ''}${esc(G.name)}</span>
+          <span class="svt-phb">${multi && gi > 0 ? `<button class="svt-sm" title="このグループの列を前へ" onclick="wkGroupings._gup('${jsq(gk)}')">↑ 前へ</button>` : ''}<button class="svt-sm" onclick="wkGroupings._pall(true,'${jsq(gk)}')">全部選ぶ</button><button class="svt-sm" onclick="wkGroupings._pall(false,'${jsq(gk)}')">全部外す</button></span></div>
+        <div class="svt-opts" id="${cid}">${mine.map((x, i) => `<span class="svt-o on svt-chip" data-i="${i}"><span class="svt-grip" title="ドラッグで順番を入れ替え" onpointerdown="wkGroupings._gd(event,${i},'${jsq(gk)}','${cid}')">⠿</span><button class="svt-cb" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">✓ ${esc(x)}<small> ${cnt(gk, x)}</small></button></span>`).join('')}${rest.map(x => `<button class="svt-o svt-off" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">${esc(x)}<small> ${cnt(gk, x)}</small></button>`).join('') || (mine.length ? '' : '<span class="svt-grp" style="margin:0">このタググループにはまだタグがありません。下で足してください。</span>')}</div>
         <div class="svt-opts"><input id="${iid}" class="svt-pnew-in" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._pnew('${jsq(gk)}','${iid}')"><button class="svt-sm" onclick="wkGroupings._pnew('${jsq(gk)}','${iid}')">足す</button></div>
       </div>`; };
     return `<div class="setbox svt-pick">
-      <div class="svt-grp" style="margin:0">${names}のタグ　<b>✓ が列になります</b>（⠿ をドラッグで列の順を入れ替え・押すと外す・数はいまのフィルターでの本数）</div>
-      <div class="svt-opts" id="svt-chips">${sel.map((p, i) => `<span class="svt-o on svt-chip" data-i="${i}"><span class="svt-grip" title="ドラッグで順番を入れ替え" onpointerdown="wkGroupings._gd(event,${i})">⠿</span><button class="svt-cb" onclick="wkGroupings._pv('${jsq(p.v)}','${jsq(p.g)}')">✓ ${esc(p.v)}${multi ? `<small class="svt-gn"> ${esc(GR0(p.g).name)}</small>` : ''}<small> ${cnt(p.g, p.v)}</small></button></span>`).join('') || '<span class="svt-grp" style="margin:0">まだ列にするタグを選んでいません。下のタグを押してください。</span>'}</div>
-      ${gks.map(row).join('')}
+      <div class="svt-grp" style="margin:0"><b>✓ が列になります</b>（⠿ をドラッグでグループの中の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）${multi ? '。列はグループごとにまとまって、この順に並びます' : ''}</div>
+      ${gks.map(block).join('')}
       <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkGroupings._pn(this.checked)"> 選んだタグがどれも付いていない動画も列（「${esc(noneName(pickGrouper(d).items))}」）に出す</label>
     </div>`;
   }
   let _gdS = null;
-  function gripDown(e, i) {
+  function gripDown(e, i, gk, cid) {
     e.preventDefault();
-    const chips = [...document.querySelectorAll('#svt-chips .svt-chip')]; const me = chips[i]; if (!me) return;
-    _gdS = { i, to: i, x: e.clientX, y: e.clientY, moved: false };
+    const sel = '#' + (cid || 'svt-chips') + ' .svt-chip';
+    const chips = [...document.querySelectorAll(sel)]; const me = chips[i]; if (!me) return;
+    _gdS = { i, to: i, x: e.clientX, y: e.clientY, moved: false, gk };
     const mv = ev => {
       if (!_gdS) return;
       if (!_gdS.moved && Math.hypot(ev.clientX - _gdS.x, ev.clientY - _gdS.y) < 4) return;
       _gdS.moved = true; me.classList.add('dragging');
-      const hit = document.elementFromPoint(ev.clientX, ev.clientY); const c = hit && hit.closest && hit.closest('#svt-chips .svt-chip');
-      document.querySelectorAll('#svt-chips .svt-chip').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY); const c = hit && hit.closest && hit.closest(sel);
+      document.querySelectorAll(sel).forEach(x => x.classList.remove('drop-before', 'drop-after'));
       if (c && c !== me) { const j = +c.dataset.i; const r = c.getBoundingClientRect(); const after = ev.clientX > r.left + r.width / 2;
         c.classList.add(after ? 'drop-after' : 'drop-before'); _gdS.to = after ? j + 1 : j; }
     };
     const up = () => {
       document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
       const st = _gdS; _gdS = null; if (!st || !st.moved) { drawEd(); return; }
-      reorderPick(st.i, st.to);
+      reorderPick(st.i, st.to, st.gk);
     };
     document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
   }
-  function reorderPick(i, to) {
+  // グループの中で i 番目を to の前へ（ほかのグループの並びは変えない）
+  function reorderPick(i, to, gk) {
     const d = S.editing; if (!d) return;
-    const gks = pgsOf(d); const mine = d.picks.filter(p => gks.includes(p.g));
+    const gks = pgsOf(d); gk = gk || gks[0];
+    const all = byGroup(d, (d.picks || []).filter(p => gks.includes(p.g)));
+    const mine = all.filter(p => p.g === gk);
     if (i < 0 || i >= mine.length) return;
     const [x] = mine.splice(i, 1); if (to > i) to--; mine.splice(Math.max(0, Math.min(to, mine.length)), 0, x);
-    d.picks = mine; drawEd();
+    d.picks = gks.flatMap(g => g === gk ? mine : all.filter(p => p.g === g)); drawEd();
   }
+
   function drawEd() {
     const el = document.getElementById('svt-ed'); if (!el) return;
     const d = S.editing; if (!d) { el.innerHTML = ''; return; }
@@ -559,7 +568,13 @@
 #svt-root .svt-lc{background:none;border:none;border-radius:0;overflow:visible}
 #svt-root .svt-lc .card-wrap{width:100%;max-width:none;margin:0}
 #svt-root .svt-cardx{display:flex;gap:6px;justify-content:flex-end;align-items:center;padding:4px 8px}
-#svt-root .svt-pgrow{display:grid;gap:6px;border-top:1px dashed var(--border);padding-top:8px}
+#svt-root .svt-pgrow{display:grid;gap:6px;border:1px solid var(--border);border-left:4px solid var(--gc);border-radius:8px;padding:8px 10px}
+#svt-root .svt-gname{font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+#svt-root .svt-gdot{width:10px;height:10px;border-radius:50%;background:var(--gc);display:inline-block}
+#svt-root .svt-colh[style*='--gc'] .svt-gtag{box-shadow:inset 0 -3px 0 var(--gc)}
+#svt-root .svt-colh[style*='--gc']{border-top:3px solid var(--gc);border-radius:4px 4px 0 0;padding-top:6px}
+#svt-root .svt-gstart{margin-left:14px;position:relative}
+#svt-root .svt-colhs .svt-gstart::before,#svt-root .svt-board .svt-gstart::before{content:'';position:absolute;left:-14px;top:0;bottom:0;border-left:2px dashed var(--border)}
 #svt-root .svt-gn{opacity:.6}
 #svt-root .svt-addh select{font-size:11px;max-width:40%;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
 #svt-root .svt-mhint{width:100%;font-size:10px;color:var(--text3)}
@@ -716,8 +731,9 @@
       if (on) { const add = allVals(gk).filter(x => !mine.includes(x)).map(v => ({ g: gk, v })); d.picks = (d.picks || []).concat(add); }
       else d.picks = (d.picks || []).filter(p => p.g !== gk);
       drawEd(); },
-    _gd: (e, i) => gripDown(e, i),
-    _mvpick: (i, to) => reorderPick(i, to),
+    _gd: (e, i, gk, cid) => gripDown(e, i, gk, cid),
+    _gup: gk => { const d = S.editing; const gks = pgsOf(d); const i = gks.indexOf(gk); if (i <= 0) return; gks.splice(i, 1); gks.splice(i - 1, 0, gk); d.pgs = gks; d.picks = byGroup(d, d.picks || []); drawEd(); },
+    _mvpick: (i, to, gk) => reorderPick(i, to, gk),
     _pnew: (gk, iid) => { const d = S.editing; gk = gk || d.pg; iid = iid || 'svt-pnew'; const inp = document.getElementById(iid); const v = addNewTag(gk, inp && inp.value); if (!v) return;
       d.picks = d.picks || []; if (!d.picks.some(p => p.g === gk && p.v === v)) d.picks.push({ g: gk, v });
       toast(`タグ「${v}」を足しました`); drawEd(); setTimeout(() => document.getElementById(iid)?.focus(), 0); },
@@ -747,7 +763,7 @@
       const gks = d.gb === 'pick' ? pgsOf(d) : [];
       const e = { id: d.id, list: prev && !prev.del ? prev.list : listKey(), name, gb: gks.length ? 'pick' : (d.gb === 'pick' ? null : d.gb || null),
         pg: gks[0] || null, pgs: gks,   // pg は前の版のアプリが読む（1つ目のグループ）
-        picks: (d.picks || []).filter(p => gks.includes(p.g)).map(p => ({ g: p.g, v: p.v })),
+        picks: byGroup({ pgs: gks }, (d.picks || []).filter(p => gks.includes(p.g))).map(p => ({ g: p.g, v: p.v })),
         known: gks[0] ? groupValsAll(gks[0]) : [],   // 前の版の形（1つ目のグループ）
         knownBy: Object.fromEntries(gks.map(k => [k, groupValsAll(k)])),   // この時点の各グループの全部の値（後から増えたタグを見分ける）
         showNone: d.showNone !== false, created: prev && prev.created || Date.now() };
