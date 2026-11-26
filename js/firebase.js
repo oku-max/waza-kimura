@@ -784,6 +784,7 @@ window._cvSyncRemote = async function(force) {
       });
       _cvLastSynced[v.id] = sig;
       _cvSeenInCloud.add(v.id);
+      window._cvPendDel?.(v.id);   // 送れたので「まだ送れていない」の控えから外す（v53.063）
       wrote++;
     } catch (e) { failed++; console.error('[cvSync] 保存失敗', v.id, e); }
   }
@@ -1130,6 +1131,23 @@ async function _cvLoadAndMerge(uid, legacyArr) {
   if (!_cvMigrated) legacy.forEach((v, i) => { if (v && v.id) map.set(v.id, { v, order: i }); });
   perDoc.forEach((e, id) => map.set(id, e));
   perDoc.forEach((e, id) => _cvSeenInCloud.add(id));
+  // この端末で作って、まだ一度も送れていないリスト（v53.063）。起動の読み込み中に作ったものは送られておらず、
+  // ここで落とすと作った端末からも消えていた。控え（wk_cv_pending）にある id だけを手元から残す（下の needSeed で送る）。
+  // 控えに載るのはこの端末で作ったものだけなので、ほかの端末で消したリストは生き返らない。
+  try {
+    const pend = window._cvPendingIds?.() || [];
+    if (pend.length) {
+      let local = window._cvViews || [];
+      if (!local.length) { try { local = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch (e) { local = []; } }
+      let n = 0;
+      pend.forEach(id => {
+        if (map.has(id)) { if (perDoc.has(id)) window._cvPendDel?.(id); return; }   // もうクラウドにある
+        const v = local.find(x => x && x.id === id);
+        if (v) { map.set(id, { v, order: 100000 + (n++) }); _cvLog?.(`送れていないリストを残す「${v.label || id}」`); }
+        else window._cvPendDel?.(id);   // 手元にも無い（この端末で消した）
+      });
+    }
+  } catch (e) { console.error('[cvLoad] 送れていないリストの取り込み失敗', e); }
 
   const merged = [...map.values()].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)).map(e => e.v);
 

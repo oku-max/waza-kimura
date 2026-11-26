@@ -632,6 +632,18 @@ function _load() {
   } catch(e) { _views = []; }
 }
 
+// ── この端末で作って、まだクラウドへ送れていないリスト（v53.063）──
+// 起動の読み込みが終わるまでは送らない（firebase.js の _settingsReady）。読み込みが終わるとクラウドの一覧で
+// 手元の一覧を置き換えるので、その間に作ったリストは手元からも消えていた（オーナー「新しくつくったリストが端末を横断して保存されていない」）。
+// 作ったときに id だけを控え、送れたら外す。起動時のまとめ（_cvLoadAndMerge）は、控えにある id だけを手元から残して送る。
+// 控えに載るのは「この端末で作り、一度もクラウドに届いていない」リストだけ＝ほかの端末で消したリストは生き返らない。
+const _CV_PEND = 'wk_cv_pending';
+function _cvPendRead() { try { const a = JSON.parse(localStorage.getItem(_CV_PEND) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; } catch (e) { return []; } }
+function _cvPendWrite(a) { try { a.length ? localStorage.setItem(_CV_PEND, JSON.stringify(a)) : localStorage.removeItem(_CV_PEND); } catch (e) {} }
+function _cvPendAdd(id) { const a = _cvPendRead(); if (id && !a.includes(id)) { a.push(id); _cvPendWrite(a); } }
+window._cvPendDel = function(id) { const a = _cvPendRead(); if (a.includes(id)) _cvPendWrite(a.filter(x => x !== id)); };
+window._cvPendingIds = _cvPendRead;
+
 function _save() {
   _cvStampEdited();
   _refreshSharedSnaps();
@@ -1151,6 +1163,7 @@ window._cvDeleteView = function(id) {
   if (!view) return;
   if (!confirm(`「${view.label}」を削除してよろしいですか？`)) return;
   _views = _views.filter(v => v.id !== id);
+  window._cvPendDel(id);
   window._cvDeleteRemote?.(id);  // 新形式: 該当プレイリストの個別ドキュメントを明示削除
   if (_curId === id) {
     _curId = null;
@@ -3730,6 +3743,7 @@ window._cvCreateFromCurrentFilter = function() {
   };
   if (q) view.searchQuery = q; // ワード検索も引き継ぐ
   _views.push(view);
+  _cvPendAdd(view.id);
   _save();
   _renderViewBar();
   window._libViewMode = view.viewType;
@@ -3853,6 +3867,7 @@ window.cvConfirm = function() {
   }
 
   _views.push(view);
+  _cvPendAdd(view.id);
   _save();
   window.cvCloseModal();
   _showView(id);
@@ -3889,6 +3904,7 @@ window.cvOpenConditionEditor = function(viewId) {
 window._cvDeleteView = function(viewId) {
   if (!confirm('このビューを削除しますか？')) return;
   _views = _views.filter(v => v.id !== viewId);
+  window._cvPendDel(viewId);
   window._cvDeleteRemote?.(viewId);  // 新形式: 該当プレイリストの個別ドキュメントを明示削除
   _save();
   if (_curId === viewId) {
