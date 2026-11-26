@@ -152,15 +152,14 @@
     source().forEach(v => readG(v, G).forEach(x => { if (!seen.has(x)) { seen.add(x); out.push(x); } }));
     return out;
   }
-  function noneName(items) {
-    const gs = [...new Set(items.map(p => p.g))];
-    if (gs.length === 1) { const all = allVals(gs[0]); if (all.length && all.every(x => items.some(p => p.v === x))) return GR0(gs[0]).name + 'なし'; }
-    return 'その他';
-  }
+  // 選んだタグがどれも付いていない動画の列はいつも「その他」（v53.061・オーナー「本来『その他』って表示されなきゃいけないんじゃないの？」。
+  // 以前は全部のタグを選ぶと「◯◯なし」になり、長いグループ名だと見出しが切れていた）
+  const noneName = () => 'その他';
   function source() {
     if (isOpen() && isTable() && Array.isArray(window.filteredVideos)) return window.filteredVideos;
     const all = Array.isArray(window.videos) ? window.videos : [];
-    try { return typeof window.filt === 'function' ? window.filt(all) : all.filter(v => !v.archived); }
+    // カードの並びはライブラリの並べ替え（上の「追加日 ↓」）と同じ（v53.061。以前は並べ替えを掛けていなかった）
+    try { const f = typeof window.filt === 'function' ? window.filt(all) : all.filter(v => !v.archived); return typeof window.sortVideos === 'function' ? window.sortVideos(f) : f; }
     catch (e) { return all.filter(v => !v.archived); }
   }
   const hiddenOf = V => new Set(Array.isArray(V && V.hidden) ? V.hidden : []);
@@ -187,6 +186,19 @@
     draw(); window.renderOrg && isTable() && rerenderTable();
     return true;
   }
+  // 列ごとの並べ替え（v53.061・オーナー「カードビューの各列にソートボタン」）。この端末だけ（P.colSort[グルーピングid|列]）。
+  // 何も選んでいなければライブラリの並べ替えのまま
+  const CSORT = [['', '並べ替え: ライブラリと同じ'], ['addedAt:0', '追加日 新しい順'], ['addedAt:1', '追加日 古い順'], ['title:1', 'タイトル A→Z'], ['title:0', 'タイトル Z→A'],
+    ['lastPlayed:0', '最近再生した順'], ['duration:1', '再生時間 短い順'], ['duration:0', '再生時間 長い順']];
+  const csortOf = (vid, ck) => (P.colSort && P.colSort[vid + '|' + ck]) || '';
+  function sortIds(ids, spec, byId) {
+    if (!spec) return ids;
+    const [k, a] = spec.split(':'); const asc = a === '1';
+    const val = v => k === 'title' ? String(v.title || '').toLowerCase() : k === 'addedAt' ? (v.addedAt || '') : Number(v[k]) || 0;
+    return ids.slice().sort((x, y) => { const A = byId.get(x), B = byId.get(y); if (!A || !B) return 0;
+      if (k === 'addedAt') { if (!A.addedAt && !B.addedAt) return 0; if (!A.addedAt) return 1; if (!B.addedAt) return -1; }
+      const va = val(A), vb = val(B); return va < vb ? (asc ? -1 : 1) : va > vb ? (asc ? 1 : -1) : 0; });
+  }
   function columns(list, g) {
     if (g.kind === 'pick') {
       const cols = g.items.map((p, i) => ({ key: p.label, name: p.label, color: p.color, gstart: !!p.color && i > 0 && g.items[i - 1].g !== p.g, ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
@@ -198,7 +210,7 @@
     list.forEach(v => vals(v, g).forEach(x => { if (!seen.has(x)) { seen.add(x); keys.push(x); } }));
     const cols = keys.map(k => ({ key: k, name: k, ids: list.filter(v => vals(v, g).includes(k)).map(v => v.id) }));
     const shown = g.kind === 'src' ? cols.sort((a, b) => b.ids.length - a.ids.length) : cols.filter(c => c.ids.length || (g.opts || []).includes(c.key));
-    if (g.kind !== 'src') shown.unshift({ key: NONE, name: g.name + 'なし', ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
+    if (g.kind !== 'src') shown.unshift({ key: NONE, name: 'その他', ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
     return shown;
   }
 
@@ -355,11 +367,12 @@
     const byId = new Map(list.map(v => [v.id, v]));
     const cs = colsH(list, g);
     const seenN = new Map();   // 同じ動画の何枚目か（2枚目から id に __gN）
+    cs.forEach(c => { const sp = csortOf(V.id, c.key); if (sp) c.ids = sortIds(c.ids, sp, byId); c.sort = sp; });
     // カードの ▾ は動画ごとに開く。付け外しでカードが別の列へ移っても閉じない（v53.055・オーナー「複数選択できるように」）
     if (S.openCard) { const here = cs.find(c => c.key === S.openCol && c.ids.includes(S.openCard)) || cs.find(c => !c.hid && c.ids.includes(S.openCard));
       S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
-    const hd = c => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
+    const hd = c => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span><select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
     el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft">` + cs.map(c => {
       const n = S.more[c.key] || LIMIT;
@@ -568,6 +581,8 @@
 #svt-root .svt-lc{background:none;border:none;border-radius:0;overflow:visible}
 #svt-root .svt-lc .card-wrap{width:100%;max-width:none;margin:0}
 #svt-root .svt-cardx{display:flex;gap:6px;justify-content:flex-end;align-items:center;padding:4px 8px}
+#svt-root .svt-csort{margin-left:auto;max-width:120px;font-size:10.5px;padding:2px 4px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;cursor:pointer}
+#svt-root .svt-csort.on{border-color:var(--accent);color:var(--text)}
 #svt-root .svt-pgrow{display:grid;gap:6px;border:1px solid var(--border);border-left:4px solid var(--gc);border-radius:8px;padding:8px 10px}
 #svt-root .svt-gname{font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px}
 #svt-root .svt-gdot{width:10px;height:10px;border-radius:50%;background:var(--gc);display:inline-block}
@@ -731,6 +746,7 @@
       if (on) { const add = allVals(gk).filter(x => !mine.includes(x)).map(v => ({ g: gk, v })); d.picks = (d.picks || []).concat(add); }
       else d.picks = (d.picks || []).filter(p => p.g !== gk);
       drawEd(); },
+    _csort: (ck, v) => { const id = VW().id; P.colSort = P.colSort || {}; if (v) P.colSort[id + '|' + ck] = v; else delete P.colSort[id + '|' + ck]; savePrefs(); drawBody(); },
     _gd: (e, i, gk, cid) => gripDown(e, i, gk, cid),
     _gup: gk => { const d = S.editing; const gks = pgsOf(d); const i = gks.indexOf(gk); if (i <= 0) return; gks.splice(i, 1); gks.splice(i - 1, 0, gk); d.pgs = gks; d.picks = byGroup(d, d.picks || []); drawEd(); },
     _mvpick: (i, to, gk) => reorderPick(i, to, gk),

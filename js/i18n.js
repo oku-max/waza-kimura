@@ -197,6 +197,8 @@
     // グルーピング（v53.048）
     '非表示':'Hidden','表示に戻す':'Show again',
     'いくつでも選べます':'You can pick as many as you like',
+    '並べ替え: ライブラリと同じ':'Sort: same as library',
+    'この列の並べ替え':'Sort this column','⇅ ライブラリと同じ':'⇅ Same as library','追加日 新しい順':'Added (newest)','追加日 古い順':'Added (oldest)','タイトル A→Z':'Title A→Z','タイトル Z→A':'Title Z→A','最近再生した順':'Recently played','再生時間 短い順':'Duration (shortest)','再生時間 長い順':'Duration (longest)',
     '↑ 前へ':'↑ Earlier','このグループの列を前へ':'Move this group\'s columns earlier','（⠿ をドラッグでグループの中の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder within the group · press to toggle · the number is the count with the current filters)','。列はグループごとにまとまって、この順に並びます':'. Columns are grouped by tag group, in this order',
     '（⠿ をドラッグで列の順を入れ替え・押すと外す・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to remove · the number is the count with the current filters)',
     'タグ（グループを押すと、その下に中のタグが開きます。いくつでも選べます）':'Tags (press a group to open its tags below; you can pick several groups)','（押すと列に入る）':' (press to add as a column)','全部選んでいます':'All selected','まだ列にするタグを選んでいません。下のタグを押してください。':'No tags chosen as columns yet. Press a tag below.','足すタググループ':'Tag group to add to',
@@ -2411,6 +2413,7 @@
     // ── グルーピング（v53.048・js/cv-groupings.js）。タグ・グルーピングの名前はユーザーが付けたもの（訳さない） ──
     [/^「(.+)」を非表示にしました$/, (m, a) => `Hid “${a}”`],
     [/^「(.+)」を表示に戻しました$/, (m, a) => `Showing “${a}” again`],
+    [/^（⠿ をドラッグでグループの中の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）(.*)$/, (m, r) => '(drag ⠿ to reorder within the group · press to toggle · the number is the count with the current filters)' + (r ? '. Columns are grouped by tag group, in this order' : '')],
     [/^「(.+)」と「(.+)」の両方に入れました$/, (m, a, b) => `Put it in both “${a}” and “${b}”`],
     [/^「(.+)」にも残す$/, (m, a) => `Also keep “${a}”`],
     [/^「(.+)」にも追加しました$/, (m, a) => `Also added to “${a}”`],

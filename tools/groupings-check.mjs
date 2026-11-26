@@ -131,7 +131,7 @@ ck('保存したグルーピングはこのリスト（マスター）の分と�
 ck('クラウドの data/groupings の items.{id} に入る', await until(() => !!(CLOUD[GDOC] && CLOUD[GDOC].items && CLOUD[GDOC].items[g1.id])), CLOUD[GDOC]);
 ck('リストの文書（settings）には書かない', JSON.stringify(CLOUD['users/u1/data/settings']) === settingsBefore);
 const c1 = await cols(pg);
-ck('列: タグ1なし・ボトム・トップ・スタンディング（アーカイブは出さない）', c1.includes('タグ1なし=1') && c1.includes('ボトム=2') && c1.includes('スタンディング=1') && c1.includes('トップ=1'), c1);
+ck('列: タグ1なし・ボトム・トップ・スタンディング（アーカイブは出さない）', c1.includes('その他=1') && c1.includes('ボトム=2') && c1.includes('スタンディング=1') && c1.includes('トップ=1'), c1);
 // ② 動かす → 本物のタグが変わる・保存に乗る
 await pg.evaluate(k => wkGroupings._move('v2', 'pick', 'ボトム', 'トップ'));
 ck('動かすと本物のタグが変わる（ボトム→トップ・スタンディングは残る）', setEq(await vtb(pg, 'v2'), ['スタンディング', 'トップ']), await vtb(pg, 'v2'));
@@ -147,12 +147,12 @@ await pg.keyboard.press('Control+z'); await pg.waitForTimeout(150);
 ck('Ctrl+Z で動かす前に戻る', setEq(await vtb(pg, 'v2'), ['ボトム', 'スタンディング']), await vtb(pg, 'v2'));
 // ②b カードの ▾（スマホでの付け外し）を本物のクリックで。「なし」の列のカードでも開く（v53.049 まで NUL の印が属性の中で化けて開かなかった）
 const tbName = await pg.evaluate(k => wkGroupings._groupers().find(g => g.key === k).name, tbKey);
-const dd = await pg.evaluate(() => { const col = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name));
+const dd = await pg.evaluate(() => { const col = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他');
   const btn = col.querySelector('.svt-card .svt-cardx .svt-sm'); const label = btn.textContent; btn.click();
-  const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name)).querySelector('.svt-card');
+  const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他').querySelector('.svt-card');
   return { label, opts: [...card.querySelectorAll('.svt-o')].map(b => b.textContent) }; });
 ck('カードの ▾ はタググループの名前（「選んだタグ」ではない）で、押すと選んだタグが並ぶ（「なし」の列のカードでも）', dd.label.startsWith(tbName) && !dd.label.includes('選んだタグ') && dd.opts.length === 3, dd);
-await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name)).querySelector('.svt-card'); [...card.querySelectorAll('.svt-o')].find(b => b.textContent === 'トップ').click(); });
+await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他').querySelector('.svt-card'); [...card.querySelectorAll('.svt-o')].find(b => b.textContent === 'トップ').click(); });
 ck('並んだタグを押すとそのタグが付く', JSON.stringify(await vtb(pg, 'v4')) === '["トップ"]', await vtb(pg, 'v4'));
 await pg.evaluate(() => wkGroupings._undo());
 ck('（取り消して元に）', JSON.stringify(await vtb(pg, 'v4')) === '[]', await vtb(pg, 'v4'));
@@ -164,6 +164,18 @@ const sticky = await pg.evaluate(async () => { const host = document.getElementB
   const r = { sh: host.scrollHeight, chh: host.clientHeight, pv: (() => { let e = document.getElementById('svt-colhs'); const o = []; while (e) { const c = getComputedStyle(e); if (/auto|scroll/.test(c.overflowY)) o.push((e.id||e.className)+':'+e.scrollHeight+'/'+e.clientHeight); e = e.parentElement; } return o.join(','); })(), before, lhB: lh.bottom, hdT: hd.top, hdB: hd.bottom, chT: ch.top, hostT: hr.top, st: host.scrollTop };
   host.scrollTop = 0; host.style.height = ''; sb.style.minHeight = ''; return r; });
 ck('縦にスクロールしても、グルーピングの並びと列の見出しが上に残る（ライブラリの上の帯の下・重ならない）', sticky.st > 100 && Math.abs(sticky.hdT - sticky.lhB) <= 2 && Math.abs(sticky.chT - sticky.hdB) <= 2 && sticky.chT >= sticky.hostT, JSON.stringify(sticky));
+// ②d 列ごとの並べ替え（v53.061・オーナー「カードビューの各列にソートボタン」）。「その他」の列も、ふだんの列も
+ck('「なし」の列の名前は「その他」（グループ名＋なし ではない）', (await cols(pg))[0].startsWith('その他='), await cols(pg));
+const order = col => pg.evaluate(col => [...document.querySelectorAll(`#svt-root .svt-col[data-name="${col}"] .svt-lc`)].map(w => w.querySelector('.card-title').textContent), col);
+const hasSel = await pg.evaluate(() => document.querySelectorAll('#svt-colhs .svt-csort').length === document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)').length);
+ck('どの列の見出しにも並べ替えがある', hasSel);
+await pg.selectOption('#svt-colhs .svt-colh:has(.svt-tag:text-is("ボトム")) .svt-csort', 'title:1'); await pg.waitForTimeout(200);
+const o1 = await order('ボトム');
+await pg.selectOption('#svt-colhs .svt-colh:has(.svt-tag:text-is("ボトム")) .svt-csort', 'title:0'); await pg.waitForTimeout(200);
+const o2 = await order('ボトム');
+ck('列の並べ替え（タイトル A→Z / Z→A）でその列のカードの順が変わる', o1.length === 2 && JSON.stringify(o1) === JSON.stringify(o1.slice().sort()) && JSON.stringify(o2) === JSON.stringify(o1.slice().reverse()), [o1, o2]);
+ck('並べ替えはこの端末の好みにだけ残る（動画・グルーピングの保存データには書かない）', await pg.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('wk_groupingsPrefs')).colSort).includes('title:0')) && !JSON.stringify(CLOUD[GDOC]).includes('title:0'));
+await pg.selectOption('#svt-colhs .svt-colh:has(.svt-tag:text-is("ボトム")) .svt-csort', ''); await pg.waitForTimeout(200);
 // ③ 取り消しの安全: その後に別の画面で変えたら戻さない
 await pg.evaluate(() => wkGroupings._move('v2', 'pick', 'ボトム', 'トップ'));
 await pg.evaluate(k => { const v = window.videos.find(x => x.id === 'v2'); window.wkSetTagValue(v, k.slice(4), 'ボトム', true); }, tbKey);   // ほかの画面で付け直した
@@ -209,15 +221,15 @@ await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('進捗');
   document.getElementById('svt-pnew').value = '使える'; wkGroupings._pnew(); wkGroupings._es(); });
 const ngid = await pg.evaluate(() => (window.tagRegistry.groups().find(g => g.name === '進捗') || {}).id);
 ck('新しいタググループが本物のタグの一覧に入る（未使用）・選択肢も入る', await pg.evaluate(([n, id]) => window.tagRegistry.groups().length === n + 1 && JSON.stringify(window.tagRegistry.group(id).allOptions) === '["理解した","使える"]' && window.tagRegistry.group(id).slot < 0, [ng0, ngid]));
-ck('列: 進捗なし=4・理解した=0・使える=0・最後に非表示=0', JSON.stringify(await cols(pg)) === JSON.stringify(['進捗なし=4', '理解した=0', '使える=0', '非表示=0']), await cols(pg));
+ck('列: 進捗なし=4・理解した=0・使える=0・最後に非表示=0', JSON.stringify(await cols(pg)) === JSON.stringify(['その他=4', '理解した=0', '使える=0', '非表示=0']), await cols(pg));
 await pg.evaluate(() => wkGroupings._move('v1', 'pick', '__wk_none__', '使える'));
 ck('作ったグループへ動かすと v.tg[グループid] に入る', await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id]), ngid) === '["使える"]');
 // ⑥b 保存した後でタグ設定にタグを足すと、グルーピングの列にも自動で出る（v53.055・オーナー「なんで反映されてないんだよ」）。外したタグは出さない
 await pg.evaluate(id => window.tagRegistry.addOption(id, 'あとで足した'), ngid); await pg.waitForTimeout(200);
 await pg.evaluate(() => window.AF()); await pg.waitForTimeout(300);
 const nb1 = await cols(pg);
-ck('タグ設定で足したタグが、グルーピングの列の最後に出る', JSON.stringify(nb1) === JSON.stringify(['進捗なし=3', '理解した=0', '使える=1', 'あとで足した=0', '非表示=0']), nb1);
-const dd2 = await pg.evaluate(() => { const b = document.querySelector('#svt-root .svt-card .svt-cardx .svt-sm:not(.svt-hidebtn)'); b.click(); return [...document.querySelectorAll('#svt-root .svt-card .svt-o')].map(x => x.textContent); });
+ck('タグ設定で足したタグが、グルーピングの列の最後に出る', JSON.stringify(nb1) === JSON.stringify(['その他=3', '理解した=0', '使える=1', 'あとで足した=0', '非表示=0']), nb1);
+const dd2 = await pg.evaluate(() => { const b = () => document.querySelector('#svt-root .svt-card .svt-cardx .svt-sm:not(.svt-hidebtn)'); b().click(); if (!document.querySelector('#svt-root .svt-multi')) b().click(); return [...document.querySelectorAll('#svt-root .svt-card .svt-o')].map(x => x.textContent); });
 ck('カードの ▾ にも出る', dd2.includes('あとで足した'), dd2);
 await pg.evaluate(() => { wkGroupings._edit(); wkGroupings._pv('理解した'); wkGroupings._es(); });
 await pg.evaluate(id => window.tagRegistry.addOption(id, 'さらに足した'), ngid); await pg.evaluate(() => window.AF()); await pg.waitForTimeout(300);
