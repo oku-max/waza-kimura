@@ -66,6 +66,8 @@ export function switchTab(t) {
     const settingsC = document.getElementById('fs-settings-content');
     if (t === 'home') {
       if (settingsC) settingsC.style.display = 'none';
+      // ほかのタブから戻るだけなので、開いているリストは閉じない（v53.055。以前は戻るたびにマスターになった）
+      window._cvInternalNav = true;
       window._libView?.(window._libViewMode || 'card');
     } else if (t === 'settings' || t === 'admin') {
       if (orgC) orgC.style.display = 'none';
