@@ -202,6 +202,13 @@ await pg.evaluate(() => wkGroupings._undo());
 ck('取り消すと元どおり', setEq(await vtb(pg, 'v2'), ['ボトム', 'スタンディング']), await vtb(pg, 'v2'));
 // ⑤a 見出しの「＋ 新しいタグ」は本物の入力欄（v53.052 まではただの文字で、押しても何も起きなかった）。本物のクリック・キー入力で踏む
 await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; const h = document.getElementById('svt-colhs'); const bd = document.querySelector('#svt-root .svt-board'); if (bd) bd.scrollLeft = 99999; if (h) h.scrollLeft = 99999; });
+// 人と同じように、カードの列を横に右端まで動かす（見出しの帯は列に合わせて動く）。見出しの帯を直接動かさない
+await pg.evaluate(async () => { const bd = document.querySelector('#svt-root .svt-board'); bd.scrollLeft = 0; await new Promise(r => setTimeout(r, 50)); });
+await pg.setViewportSize({ width: 900, height: 900 }); await pg.waitForTimeout(300);
+await pg.evaluate(async () => { const bd = document.querySelector('#svt-root .svt-board'); bd.scrollLeft = bd.scrollWidth; bd.dispatchEvent(new Event('scroll')); await new Promise(r => setTimeout(r, 100)); });
+const ncVis = await pg.evaluate(() => { const e = document.getElementById('svt-newcol'); const r = e.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + 10, r.top + r.height / 2); return { ok: hit === e, left: Math.round(r.left), right: Math.round(r.right), vw: innerWidth }; });
+ck('カードの列を右端まで横に動かすと、見出しの「＋ 新しいタグ」の欄が見えて押せる（v53.054〜061 は届かなかった）', ncVis.ok && ncVis.right <= ncVis.vw, ncVis);
+await pg.setViewportSize({ width: 1400, height: 900 }); await pg.waitForTimeout(300);
 const inHead = await pg.evaluate(() => { const i = document.getElementById('svt-newcol'); return !!i && !!i.closest('#svt-colhs') && i.placeholder.includes('新しいタグ'); });
 ck('見出しの帯に「＋ 新しいタグ」の入力欄がある', inHead);
 await pg.click('#svt-newcol'); await pg.keyboard.type('仮タグ'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(300);
@@ -240,6 +247,18 @@ await pg.evaluate(() => wkGroupings._pick('glegacy1')); await pg.waitForTimeout(
 const nb3 = await cols(pg);
 ck('前の版のグルーピング（known が無い）でも、後から増えたタグが出る（オーナーの「リテンション」の形）', ['理解した=0', '使える=1', 'あとで足した=0', 'さらに足した=0'].every(x => nb3.includes(x)), nb3);
 await pg.evaluate(id => wkGroupings._pick(id), g1.id);
+// ⑥c 「その他」の列のカードに ▾ でタグを続けて付けても、閉じるまでは元の列に残る（v53.062・オーナー「1個目を入れた瞬間に移動して複数入れられない」）
+await pg.evaluate(() => wkGroupings._pick(wkGroupings.list().find(e => e.name === '進捗').id)); await pg.waitForTimeout(300);
+const ovid = await pg.evaluate(() => document.querySelector('#svt-root .svt-col[data-name="その他"] .svt-lc').dataset.vid);
+await pg.evaluate(v => { document.querySelector(`#svt-root .svt-col[data-name="その他"] .svt-lc[data-vid="${v}"] .svt-cardx .svt-sm:not(.svt-hidebtn)`).click(); }, ovid); await pg.waitForTimeout(150);
+const inOther = v => pg.evaluate(v => !!document.querySelector(`#svt-root .svt-col[data-name="その他"] .svt-lc[data-vid="${v}"]`), v);
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-o')].find(b => b.textContent.includes('あとで足した')).click()); await pg.waitForTimeout(200);
+ck('1つ目を付けてもカードは「その他」の列に残り、▾ も開いたまま', await inOther(ovid) && await pg.evaluate(() => !!document.querySelector('#svt-root .svt-col[data-name="その他"] .svt-multi')));
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-o')].find(b => b.textContent.includes('使える')).click()); await pg.waitForTimeout(200);
+ck('続けて2つ目も付けられる（まだ「その他」の列にある）', await inOther(ovid) && await pg.evaluate(([v, id]) => { const t = (window.videos.find(x => x.id === v).tg || {})[id] || []; return t.includes('あとで足した') && t.includes('使える'); }, [ovid, ngid]));
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-sm')].find(b => b.textContent === '閉じる').click()); await pg.waitForTimeout(200);
+ck('「閉じる」を押すと、付けた2つの列へ移る（「その他」からは消える）', !(await inOther(ovid)) && await pg.evaluate(v => ['あとで足した', '使える'].every(n => !!document.querySelector(`#svt-root .svt-col[data-name="${n}"] .svt-lc[data-vid="${v}"]`)), ovid));
+await pg.evaluate(() => { wkGroupings._undo(); wkGroupings._undo(); }); await pg.waitForTimeout(150);
 // ⑦ カスタム列（セレクト・評価）
 await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('フェーズ'); wkGroupings._eg('cf:gc_phase1'); wkGroupings._es(); });
 await pg.evaluate(() => wkGroupings._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));

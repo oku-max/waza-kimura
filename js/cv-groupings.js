@@ -336,7 +336,7 @@
     let inner = typeof window.cardHTML === 'function' ? window.cardHTML(v) : `<div class="card-wrap"><div class="card"><div class="card-body"><div class="card-title">${esc(v.title || '')}</div></div><div class="card-actions"></div></div></div>`;
     if (copyN) inner = inner.replace(new RegExp('id="([A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*?)-' + reEsc(v.id) + '"', 'g'), (m, p) => `id="${p}-${v.id}__g${copyN}"`);
     const ctl = `<div class="svt-cardx">${mv && colKey !== HID ? `<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="event.stopPropagation();wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>` +
-      (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます</span>'}${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${x.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : '') +
+      (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（「閉じる」を押すと、付けたタグの列へ移ります）</span>'}${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${x.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : '') +
       ((g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : '');
     const at = inner.lastIndexOf('<div class="card-actions">');
     inner = at >= 0 ? inner.slice(0, at) + ctl + inner.slice(at) : inner + ctl;
@@ -368,6 +368,16 @@
     const cs = colsH(list, g);
     const seenN = new Map();   // 同じ動画の何枚目か（2枚目から id に __gN）
     cs.forEach(c => { const sp = csortOf(V.id, c.key); if (sp) c.ids = sortIds(c.ids, sp, byId); c.sort = sp; });
+    // ▾ を開いている間は、そのカードを開いたときの列・位置に置いたままにする（v53.062・オーナー「その他の列の動画にタグを1個入れた瞬間に移動して、複数入れられない」）。
+    // 閉じたら、付けたタグの列へ移る
+    if (S.openCard && S.openFrozen) {
+      const vid = S.openCard;
+      cs.forEach(c => { if (c.hid) return; const at = S.openFrozen[c.key]; const i = c.ids.indexOf(vid);
+        if (at == null && i >= 0) c.ids.splice(i, 1);
+        else if (at != null && i < 0) c.ids.splice(Math.min(at, c.ids.length), 0, vid);
+        else if (at != null && i >= 0 && i !== at) { c.ids.splice(i, 1); c.ids.splice(Math.min(at, c.ids.length), 0, vid); } });
+    }
+    S._lastCols = cs.map(c => ({ key: c.key, ids: c.ids }));
     // カードの ▾ は動画ごとに開く。付け外しでカードが別の列へ移っても閉じない（v53.055・オーナー「複数選択できるように」）
     if (S.openCard) { const here = cs.find(c => c.key === S.openCol && c.ids.includes(S.openCard)) || cs.find(c => !c.hid && c.ids.includes(S.openCard));
       S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
@@ -379,7 +389,8 @@
       return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => { const cn = seenN.get(id) || 0; seenN.set(id, cn + 1); return card(byId.get(id), g, c.key, cn); }).join('')}</div>
         ${c.ids.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${jsq(c.key)}')">さらに ${c.ids.length - n} 本</button>` : ''}
-      </div>`; }).join('') + `</div>` +
+      </div>`; }).join('') + (g.kind === 'pick' ? '<div class="svt-col svt-addcol svt-spacer" aria-hidden="true"></div>' : '') + `</div>` +   // 見出しの「＋ 新しいタグ」の下の空き。これが無いと列を右端まで横に動かしても見出しの入力欄まで届かない（v53.062）
+
       `<div class="svt-note">${mv ? 'カードを別の列へドラッグすると移動、<b>Option（Windows は Alt）を押しながら</b>ドラッグすると両方に入ります。スマホはカードの「' + esc(g.name) + ' ▾」で付け外し。動かすと動画のタグが変わります（直後のお知らせの「元に戻す」・上の「1つ戻す」・⌘Z / Ctrl+Z で戻せます）。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません。'}</div>`;
     stickTops();
   }
@@ -540,6 +551,7 @@
 #svt-root .svt-o small{opacity:.7}
 #svt-root .setbox{border:1px dashed var(--border);border-radius:9px;padding:10px;display:grid;gap:6px}
 #svt-root .svt-addcol{border:1px dashed var(--border);background:var(--surface)}
+#svt-root .svt-spacer{border:none;background:none;min-height:1px}
 #svt-root .svt-addbox{display:grid;gap:6px;padding:0 2px 4px}
 #svt-root .svt-addh{gap:4px}
 #svt-root .svt-addh input{flex:1;min-width:0;font-size:12px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border);background:var(--surface);color:var(--text);font-family:inherit}
@@ -737,7 +749,7 @@
       persist(); if (isOpen()) draw();
     },
     list: () => Object.values(D.items).filter(e => e && !e.del),
-    _pick: id => { P.cur[listKey()] = id; savePrefs(); S.editing = null; S.more = {}; draw(); },
+    _pick: id => { P.cur[listKey()] = id; savePrefs(); S.editing = null; S.more = {}; S.openCard = null; S.openFrozen = null; draw(); },
     _new: () => { S.edOpenNew = true; S.editing = { id: newId(), name: '新しいグルーピング', gb: null, picks: [], showNone: true, isNew: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
     _edit: () => { const v = VW(); if (v.id === 'all') return; S.edOpenNew = true; S.editing = { id: v.id, name: v.name, gb: v.gb, picks: withNewPicks(v).map(p => ({ ...p })), showNone: v.showNone !== false, pgs: pgsOf(v).slice(), pg: pgsOf(v).slice(-1)[0] || null }; draw(); },
     _pv: (x, gk) => { const d = S.editing; gk = gk || d.pg; d.picks = d.picks || []; const i = d.picks.findIndex(p => p.g === gk && p.v === x); i < 0 ? d.picks.push({ g: gk, v: x }) : d.picks.splice(i, 1); drawEd(); },
@@ -794,7 +806,10 @@
       toast(`グルーピング「${keep.name}」を消しました（動画のタグはそのままです）`, () => { const { at, ...rest } = keep; put(rest); draw(); }); },
     _cl: k => { S.closed[k] = !S.closed[k]; drawBody(); },
     _mr: k => { S.more[k] = (S.more[k] || LIMIT) + LIMIT; drawBody(); },
-    _oc: k => { const i = k.indexOf('|'); const vid = k.slice(0, i), col = k.slice(i + 1); if (S.openCard === vid && S._openColNow === col) { S.openCard = null; } else { S.openCard = vid; S.openCol = col; } drawBody(); },
+    _oc: k => { const i = k.indexOf('|'); const vid = k.slice(0, i), col = k.slice(i + 1);
+      if (S.openCard === vid && S._openColNow === col) { S.openCard = null; S.openFrozen = null; }
+      else { S.openCard = vid; S.openCol = col; S.openFrozen = {}; (S._lastCols || []).forEach(c => { const j = c.ids.indexOf(vid); if (j >= 0) S.openFrozen[c.key] = j; }); }
+      drawBody(); },
     _tg: (vid, gk, val) => toggle(vid, gk, val),
     _play: vid => { try { window.openVPanel?.(vid); } catch (e) {} },
     _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from; try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },
