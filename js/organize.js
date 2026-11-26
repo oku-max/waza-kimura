@@ -566,7 +566,7 @@ export function orgFilt(list) {
   // 古い呼び名に入っている分は先に今の呼び名へ寄せる（列フィルター等が今の呼び名を直接読むので、見えない条件を残さない）
   window.tagFilter?.normalize(orgFilters, 'org');
   const _tagOk = window.tagFilter
-    ? window.tagFilter.compile(orgFilters, 'org', { allowBlank: true })
+    ? window.tagFilter.compile(orgFilters, 'org')
     : () => true;
   return list.filter(v => {
     if (v.archived) return false;

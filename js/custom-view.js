@@ -2146,6 +2146,7 @@ function _cvDeadValues(v) {
   if (TF) {
     TF.groups().forEach(g => {
       TF.selected(fc, g.id, 'fc').forEach(val => {
+        if (val === TF.NONE) return;   // 「タグなし」はタグの名前ではない（⚠ を付けない）
         if (!all.some(x => TF.valuesOf(x, g.id).includes(val))) out.push({ key: TF.fieldOf(g.id) || g.id, value: val });
       });
     });
