@@ -469,7 +469,10 @@
       (cur.id !== 'all' ? `<button class="svt-sm" onclick="wkGroupings._edit()">✎ グルーピングを編集</button>` : '') +
       (S.undo.length ? `<button class="svt-sm" onclick="wkGroupings._undo()" title="⌘Z / Ctrl+Z">↶ 1つ戻す</button>` : '');
   }
+  let _drawnKey = null;
+  const drawKey = () => listKey() + '|' + (VW().id || '');
   function draw() {
+    _drawnKey = drawKey();
     _gc = null; place();
     const host = document.getElementById('lib-card-host');
     // 「すべて」（分けない）のときは、ふだんのカード一覧をそのまま出す
@@ -604,7 +607,12 @@
       </div>
       <div class="svt-main"><div id="svt-body"></div></div><div id="svt-toast"></div>`;
     host.insertBefore(root, list);
-    _obs = new MutationObserver(() => { clearTimeout(_redrawT); _redrawT = setTimeout(() => { if (isOpen()) draw(); }, 60); });
+    // リストが変わった（＝分ける基準が変わった）ときは、待たずにその場で描く（v53.056）。
+    // 見張りの呼び出しは画面に出る前に動くので、ふだんのカード一覧が一瞬見えることが無い。
+    // 以前は 60ms 待っていたので、その間は前のリスト（マスター＝分けない）の形で #cardList が見えていた
+    _obs = new MutationObserver(() => {
+      if (isOpen() && drawKey() !== _drawnKey) { clearTimeout(_redrawT); draw(); return; }
+      clearTimeout(_redrawT); _redrawT = setTimeout(() => { if (isOpen()) draw(); }, 60); });
     _obs.observe(list, { childList: true });
     const rc = document.getElementById('rc'); if (rc) _obs.observe(rc, { childList: true, characterData: true, subtree: true });
     const oh = document.getElementById('lib-org-host'); if (oh) _obs.observe(oh, { attributes: true, attributeFilter: ['style', 'class'] });
@@ -773,9 +781,14 @@
 
   // いつも出しておく（v53.049・オーナー「グルーピングのボタンはいらない。最初から出しときゃいい」）。
   // ライブラリの準備ができたら、カード一覧の上にグルーピングの並び（すべて・作ったもの・＋ グルーピング）を出す。描き直しで外れたら付け直す
-  setInterval(() => {
+  const tryOpen = () => {
     if (isOpen()) return;
     if (!document.getElementById('cardList') || !(window.videos || []).length || typeof window.filt !== 'function') return;
     open();
-  }, 1000);
+  };
+  setInterval(tryOpen, 1000);
+  // カード一覧が描かれたら、その場で付ける（v53.056）。1秒ごとの見回りだけだと、起動直後（前回のリストを開いた直後）の
+  // 約1秒はグルーピングが付いておらず、グルーピングのあるリストでもふだんのカード一覧が見えていた
+  { const cl0 = document.getElementById('cardList');
+    if (cl0) new MutationObserver(tryOpen).observe(cl0, { childList: true }); }
 })();
