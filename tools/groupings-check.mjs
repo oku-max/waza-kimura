@@ -275,6 +275,25 @@ await pg.evaluate(() => wkGroupings._pick('all')); await pg.waitForTimeout(400);
 ck('「すべて」にすると右端の列は無くなる', await pg.evaluate(() => !document.querySelector('#orgTheadRow th.svt-hideth') && !document.querySelector('#orgList td.svt-hidecell')));
 await pg.evaluate(id => wkGroupings._pick(id), g1.id);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
+// ⑨c 絞り込みがその場で反映される（サイドバーと同じ window.filters＋AF・検索語・テーブルでも）
+const nCards = () => pg.evaluate(() => new Set([...document.querySelectorAll('#svt-root .svt-col:not(.svt-hidcol) .svt-card')].map(c => c.querySelector('.svt-tt').textContent)).size);
+const nAll = await nCards();
+await pg.evaluate(() => { window.filters.playlist.add('ラッソー対策集'); window.AF(); }); await pg.waitForTimeout(400);
+const nPl = await nCards();
+ck('サイドバーと同じ絞り込み（プレイリスト）を掛けると、グルーピングの列もその場で絞られる', nPl === 2 && nAll > 2, [nAll, nPl]);
+await pg.evaluate(() => { window.filters.playlist.clear(); window.AF(); }); await pg.waitForTimeout(400);
+ck('外すと元に戻る', await nCards() === nAll, await nCards());
+await pg.evaluate(() => { window.wkSetSearchWord('スパイダー'); window.AF(); }); await pg.waitForTimeout(400);
+ck('検索語でもその場で絞られる', await nCards() === 1, await nCards());
+await pg.evaluate(() => { window.wkSetSearchWord(''); window.AF(); }); await pg.waitForTimeout(400);
+await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
+const tRows = () => pg.evaluate(() => document.querySelectorAll('#orgList tr.org-tr').length);
+const tr0 = await tRows();
+await pg.evaluate(() => { window.filters.playlist.add('ラッソー対策集'); window.AF(); }); await pg.waitForTimeout(600);
+const tr1 = await tRows();
+ck('テーブルでも絞り込みがその場で反映される', tr1 < tr0 && tr1 >= 2, [tr0, tr1]);
+await pg.evaluate(() => { window.filters.playlist.clear(); window.AF(); }); await pg.waitForTimeout(600);
+await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
 // ⑩ 2台目: 開くと同じグルーピングが出る・作ると1台目に届く
 const cx2 = await newCtx(); const pg2 = await open(cx2);
 await pg2.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
