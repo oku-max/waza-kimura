@@ -132,7 +132,11 @@ ck('取り消すと画面も戻る', JSON.stringify(await cols()) === JSON.strin
 await pg.evaluate(k => wkSubviewsTrial._move('v4', k, '\u0000none', 'ボトム'), tbKey);
 // タグを選んでまとめる（タグ1の中から スタンディング・トップ だけを列にする）
 await pg.evaluate(() => wkSubviewsTrial._reset());
-await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('選んだタグ'); wkSubviewsTrial._eg('pick'); wkSubviewsTrial._pg(k); wkSubviewsTrial._pv('スタンディング'); wkSubviewsTrial._pv('トップ'); wkSubviewsTrial._es(); }, tbKey);
+// タググループを押すと、その下に中のタグが全部選ばれた状態で開く（「タグを選んでまとめる」のボタンは無い）
+const ed0 = await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('選んだタグ'); wkSubviewsTrial._eg(k);
+  const st = wkSubviewsTrial._state(); return { picks: st.editing.picks.map(p => p.v), hasOldBtn: document.getElementById('svt-ed').textContent.includes('タグを選んでまとめる'), open: !!document.querySelector('#svt-ed .svt-pick') }; }, tbKey);
+ck('タググループを押すと、その下にそのグループのタグが全部選ばれた状態で開く・「タグを選んでまとめる」のボタンは無い', ed0.open && !ed0.hasOldBtn && ed0.picks.length === 3 && ['トップ','ボトム','スタンディング'].every(x => ed0.picks.includes(x)), ed0);
+await pg.evaluate(() => { const st = wkSubviewsTrial._state(); st.editing.picks.map(p => p.v).forEach(v => wkSubviewsTrial._pv(v)); wkSubviewsTrial._pv('スタンディング'); wkSubviewsTrial._pv('トップ'); wkSubviewsTrial._es(); });
 const p1 = await cols();
 ck('タグを選んでまとめる: 選んだタグだけが選んだ順に列になる・どれにも当てはまらない が先頭', JSON.stringify(p1) === JSON.stringify(['どれにも当てはまらない=2','スタンディング=1','トップ=1']), p1);
 await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
@@ -153,22 +157,22 @@ await pg.evaluate(k => wkSubviewsTrial._move('v4', k, '\u0000none', '膝立ち')
 ck('足した列へ動かすと画面では付く', (await cols()).includes('膝立ち=1'), await cols());
 ck('足したタグは本物の選択肢に入らない・動画にも付かない', await pg.evaluate(([k, o]) => JSON.stringify(window.tagRegistry.group(k.slice(4)).allOptions) === o && JSON.stringify(window.videos.find(v => v.id === 'v4').tb) === '[]', [tbKey, opts0]));
 await pg.evaluate(() => wkSubviewsTrial._pick(wkSubviewsTrial._state().views.find(v => v.name === '選んだタグ').id));
-await pg.evaluate(k => { const s = document.getElementById('svt-newcol-g'); if (s) s.value = k; document.getElementById('svt-newcol').value = '座り'; wkSubviewsTrial._addCol(); }, tbKey);
+await pg.evaluate(() => { document.getElementById('svt-newcol').value = '座り'; wkSubviewsTrial._addCol(); });
 ck('選んだタグでまとめた見え方でも、新しいタグの列を足すと選んだ列の最後に入る', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1','座り=0']), await cols());
 await pg.evaluate(() => { wkSubviewsTrial._edit(); document.getElementById('svt-pnew').value = '後ろ重心'; wkSubviewsTrial._pnew(); wkSubviewsTrial._es(); });
 ck('選ぶ画面でも新しいタグを足して選べる', (await cols()).includes('後ろ重心=0'), await cols());
 // 新しいタググループ（試験版: tagRegistry に書かない）
 const ng0 = await pg.evaluate(() => window.tagRegistry.groups().length);
-await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._en('進捗'); wkSubviewsTrial._eg('pick');
+await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._en('進捗');
   document.getElementById('svt-ngroup').value = '進捗'; wkSubviewsTrial._ng();
   document.getElementById('svt-pnew').value = '理解した'; wkSubviewsTrial._pnew();
   document.getElementById('svt-pnew').value = '使える'; wkSubviewsTrial._pnew(); wkSubviewsTrial._es(); });
 const g1 = await cols();
-ck('その場で新しいタググループを作り、そのタグを列にできる（最初は全部「どれにも当てはまらない」）', JSON.stringify(g1) === JSON.stringify(['どれにも当てはまらない=4','理解した=0','使える=0']), g1);
+ck('その場で新しいタググループを作り、そのタグを列にできる（最初は全部「進捗なし」）', JSON.stringify(g1) === JSON.stringify(['進捗なし=4','理解した=0','使える=0']), g1);
 await pg.evaluate(() => { const g = wkSubviewsTrial._groupers().find(x => x.name === '進捗'); wkSubviewsTrial._move('v1', 'pick', '\u0000none', '使える'); });
 ck('作ったグループの列へ動かせる', (await cols()).includes('使える=1'), await cols());
 ck('作ったタググループは本物のタグの一覧に入らない', await pg.evaluate(n => window.tagRegistry.groups().length === n && !window.tagRegistry.groups().some(g => g.name === '進捗'), ng0));
-if (process.env.SHOT) { await pg.evaluate(() => wkSubviewsTrial._edit()); await pg.screenshot({ path: process.env.SHOT + '/svt-pick.png' }); await pg.evaluate(() => wkSubviewsTrial._ec()); }
+if (process.env.SHOT) { await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); document.querySelectorAll('.ob-overlay,#ob-overlay').forEach(e => e.remove()); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; wkSubviewsTrial._edit(); }); await pg.screenshot({ path: process.env.SHOT + '/svt-pick.png' }); await pg.evaluate(() => wkSubviewsTrial._ec()); }
 await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('cf:gc_phase1'); wkSubviewsTrial._es(); });
 await pg.evaluate(() => wkSubviewsTrial._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));
 await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('pl'); wkSubviewsTrial._es(); });

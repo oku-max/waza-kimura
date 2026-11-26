@@ -57,6 +57,18 @@
     return { key: 'pick', kind: 'pick', name: '選んだタグ', items, opts: items.map(x => x.label), showNone: !view || view.showNone !== false,
       read: () => [] };
   }
+  function allVals(gkey) {
+    const G = GR0(gkey); if (!G) return [];
+    const seen = new Set(G.opts); const out = G.opts.slice();
+    source().forEach(v => (G.read(v) || []).forEach(x => { x = String(x); if (!seen.has(x)) { seen.add(x); out.push(x); } }));
+    return out;
+  }
+  // 「なし」の列の名前: グループのタグを全部選んでいれば「◯◯なし」、一部だけなら「どれにも当てはまらない」
+  function noneName(view, items) {
+    const gs = [...new Set(items.map(p => p.g))];
+    if (gs.length === 1) { const all = allVals(gs[0]); if (all.length && all.every(x => items.some(p => p.v === x))) return GR0(gs[0]).name + 'なし'; }
+    return 'どれにも当てはまらない';
+  }
   const GR = key => key === 'pick' ? pickGrouper(S.editing && S.editing.gb === 'pick' ? S.editing : VW()) : GR0(key);
   // 試しに動かした分を先に見る（本物の値は読むだけ）
   function vals(v, g) {
@@ -82,7 +94,7 @@
   function columns(list, g) {
     if (g.kind === 'pick') {
       const cols = g.items.map(p => ({ key: p.label, name: p.label, isNew: isNew(p.g, p.v), ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
-      if (g.showNone) cols.unshift({ key: '\u0000none', name: 'どれにも当てはまらない', ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
+      if (g.showNone) cols.unshift({ key: '\u0000none', name: noneName(null, g.items), ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
       return cols;
     }
     const seen = new Set(); const keys = [];
@@ -107,7 +119,7 @@
   function addColumn() {
     const V = VW(); const inp = document.getElementById('svt-newcol'); const name = inp && inp.value;
     if (V.gb === 'pick') {
-      const gk = (document.getElementById('svt-newcol-g') || {}).value || V.pg;
+      const gk = V.pg || (V.picks && V.picks[0] && V.picks[0].g);
       const v = addNewTag(gk, name); if (!v) return;
       V.picks = V.picks || []; if (!V.picks.some(p => p.g === gk && p.v === v)) V.picks.push({ g: gk, v });
     } else if (V.gb && V.gb.startsWith('tag:')) { if (!addNewTag(V.gb, name)) return; }
@@ -217,7 +229,7 @@
   function addColBox(g) {
     if (!g || (g.kind !== 'tag' && g.kind !== 'pick')) return '';
     const V = VW(); const tags = groupers().filter(x => x.kind === 'tag');
-    const sel = g.kind === 'pick' ? `<select id="svt-newcol-g" aria-label="どのタググループに足すか">${tags.map(t => `<option value="${esc(t.key)}"${t.key === (V.pg || (V.picks && V.picks[0] && V.picks[0].g)) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : '';
+    const sel = '';
     return `<div class="svt-col svt-addcol"><div class="svt-colh"><span class="svt-tag none">＋ 新しいタグ</span></div>
       <div class="svt-addbox">${sel}<input id="svt-newcol" type="text" placeholder="タグの名前" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._addCol()"><button class="svt-sm pri" onclick="wkSubviewsTrial._addCol()">列を足す</button>
       <div class="svt-grp">足した列へカードをドラッグすると、そのタグが付きます（試験版なので保存しません）。</div></div></div>`;
@@ -227,25 +239,18 @@
     return p.length ? p.join(' / ') : 'なし';
   }
   function pickEd(d, gs) {
-    const tags = gs.filter(g => g.kind === 'tag');
-    if (!d.pg || !tags.find(g => g.key === d.pg)) d.pg = (tags[0] || {}).key;
     const G = GR0(d.pg); if (!G) return '';
-    const seen = new Set(G.opts); const extra = [];
-    source().forEach(v => (G.read(v) || []).forEach(x => { x = String(x); if (!seen.has(x)) { seen.add(x); extra.push(x); } }));
-    const all = [...G.opts, ...extra];
+    const all = allVals(d.pg);
     const on = x => (d.picks || []).some(p => p.g === d.pg && p.v === x);
     const cnt = x => source().filter(v => vals(v, G).includes(x)).length;
     const pg = pickGrouper(d);
     return `<div class="setbox svt-pick">
-      <div class="svt-grp" style="margin-top:0">① どのタグから選ぶか</div>
-      <div class="svt-opts">${tags.map(g => `<button class="svt-o${g.key === d.pg ? ' on' : ''}" onclick="wkSubviewsTrial._pg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}
-        <input id="svt-ngroup" type="text" placeholder="＋ 新しいタググループ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._ng()"><button class="svt-sm" onclick="wkSubviewsTrial._ng()">作る</button></div>
-      <div class="svt-grp">② 列にしたいタグを押す（いまのフィルターでの本数）</div>
-      <div class="svt-opts">${all.map(x => `<button class="svt-o${on(x) ? ' on' : ''}" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${on(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp">このタググループには値がありません。</span>'}</div>
-      <div class="svt-opts"><input id="svt-pnew" type="text" placeholder="＋ 新しいタグ（${esc(G.name)}に足す）" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._pnew()"><button class="svt-sm" onclick="wkSubviewsTrial._pnew()">足して選ぶ</button></div>
-      <div class="svt-grp">③ 列になる順（選んだ順・✕で外す）</div>
-      <div class="svt-opts">${pg.items.map((p, i) => `<span class="svt-o on">${i + 1}. ${esc(p.label)} <button class="svt-x" aria-label="外す" onclick="wkSubviewsTrial._px(${i})">✕</button></span>`).join('') || '<span class="svt-grp">まだ選んでいません。</span>'}</div>
-      <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkSubviewsTrial._pn(this.checked)"> 選んだタグがどれも付いていない動画を「どれにも当てはまらない」の列に出す</label>
+      <div class="svt-grp" style="margin-top:0">「${esc(G.name)}」のタグ（✓ が列になります。列にしないタグは押して外す・数はいまのフィルターでの本数）</div>
+      <div class="svt-opts">${all.map(x => `<button class="svt-o${on(x) ? ' on' : ''}" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${on(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp">このタググループにはまだタグがありません。下で足してください。</span>'}</div>
+      <div class="svt-opts"><input id="svt-pnew" type="text" placeholder="＋ 新しいタグ（${esc(G.name)}に足す）" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._pnew()"><button class="svt-sm" onclick="wkSubviewsTrial._pnew()">足す</button></div>
+      <div class="svt-grp">列の順（✕で外す・外したタグを押し直すと最後に入る）</div>
+      <div class="svt-opts">${pg.items.map((p, i) => `<span class="svt-o on">${i + 1}. ${esc(p.label)} <button class="svt-x" aria-label="外す" onclick="wkSubviewsTrial._px(${i})">✕</button></span>`).join('') || '<span class="svt-grp">まだ1つも選んでいません。</span>'}</div>
+      <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkSubviewsTrial._pn(this.checked)"> 選んだタグがどれも付いていない動画も列（「${esc(noneName(d, pg.items))}」）に出す</label>
     </div>`;
   }
   function drawEd() {
@@ -257,11 +262,12 @@
       <div class="r"><div class="k">名前</div><input id="svt-name" type="text" value="${esc(d.name)}" oninput="wkSubviewsTrial._en(this.value)"></div>
       <div class="r"><div class="k">まとめ方</div><div class="svt-opts">
         <button class="svt-o${!d.gb ? ' on' : ''}" onclick="wkSubviewsTrial._eg('')">まとめない</button>
-        <div class="svt-grp">タグ</div><button class="svt-o${d.gb === 'pick' ? ' on' : ''}" onclick="wkSubviewsTrial._eg('pick')">☑ タグを選んでまとめる</button>${gs.filter(g => g.kind === 'tag').map(g => gb(g)).join('')}
+        <div class="svt-grp">タグ（グループを押すと、その下に中のタグが開きます）</div>${gs.filter(g => g.kind === 'tag').map(g => `<button class="svt-o${d.gb === 'pick' && d.pg === g.key ? ' on' : ''}" onclick="wkSubviewsTrial._eg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}
+        <input id="svt-ngroup" type="text" placeholder="＋ 新しいタググループ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._ng()"><button class="svt-sm" onclick="wkSubviewsTrial._ng()">作る</button>
         <div class="svt-grp">動画の出どころ（動かせない）</div>${gs.filter(g => g.kind === 'src').map(gb).join('')}
         ${gs.some(g => g.kind === 'one') ? `<div class="svt-grp">カスタム列（セレクト・評価）</div>${gs.filter(g => g.kind === 'one').map(gb).join('')}` : ''}
       </div></div>
-      ${d.gb === 'pick' ? pickEd(d, gs) : ''}
+      ${d.gb === 'pick' && d.pg ? pickEd(d, gs) : ''}
       <div class="svt-grp">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。</div>
       <div class="foot">${d.id !== 'all' && S.views.some(v => v.id === d.id) ? '<button class="svt-sm danger" onclick="wkSubviewsTrial._del()">この見え方を消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkSubviewsTrial._ec()">やめる</button><button class="svt-sm pri" onclick="wkSubviewsTrial._es()">決める</button></div>
     </div>`;
@@ -271,7 +277,7 @@
     el.innerHTML = S.views.map(v => `<button class="svt-vt${v.id === S.cur ? ' on' : ''}" onclick="wkSubviewsTrial._pick('${jsq(v.id)}')">${v.gb ? '⊞ ' : '▦ '}${esc(v.name)}</button>`).join('') +
       `<button class="svt-vt add" onclick="wkSubviewsTrial._new()">＋ 見え方</button>`;
     const V = VW(); const g = V.gb ? GR(V.gb) : null;
-    document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>まとめ方 <b>${esc(!g ? 'まとめない' : g.kind === 'pick' ? '選んだタグ: ' + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
+    document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>まとめ方 <b>${esc(!g ? 'まとめない' : g.kind === 'pick' ? (GR0(V.pg) ? GR0(V.pg).name + ': ' : '') + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
       (V.id !== 'all' ? `<button class="svt-sm" onclick="wkSubviewsTrial._edit()">✎ 見え方を編集</button>` : '') +
       (S.sim.size ? `<button class="svt-sm" onclick="wkSubviewsTrial._reset()">試しに動かした分を戻す</button>` : '');
     const mc = document.getElementById('svt-mc'), mt = document.getElementById('svt-mt');
@@ -422,7 +428,7 @@
     _pick: id => { S.cur = id; S.editing = null; S.more = {}; draw(); },
     _new: () => { S.editing = { id: 'n' + Date.now(), name: '新しい見え方', gb: null, picks: [], showNone: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
     _edit: () => { const v = VW(); S.editing = { id: v.id, name: v.name, gb: v.gb, picks: (v.picks || []).map(p => ({ ...p })), showNone: v.showNone !== false, pg: v.pg }; draw(); },
-    _pg: k => { S.editing.pg = k; drawEd(); },
+    _pg: k => wkSubviewsTrial._eg(k),
     _pv: x => { const d = S.editing; d.picks = d.picks || []; const i = d.picks.findIndex(p => p.g === d.pg && p.v === x); i < 0 ? d.picks.push({ g: d.pg, v: x }) : d.picks.splice(i, 1); drawEd(); },
     _px: i => { const d = S.editing; const items = pickGrouper(d).items; const it = items[i]; if (!it) return; d.picks = d.picks.filter(p => !(p.g === it.g && p.v === it.v)); drawEd(); },
     _pn: on => { S.editing.showNone = on; },
@@ -433,11 +439,14 @@
     // 本番では tagRegistry.createGroup（タグ設定の「新しく作る」と同じ）で一覧に足す（動画には触らない）。
     _ng: () => { const d = S.editing; const inp = document.getElementById('svt-ngroup'); const name = String(inp && inp.value || '').trim(); if (!name || !d) return;
       const ex = groupers().find(g => g.kind === 'tag' && g.name === name);
-      if (ex) { d.pg = ex.key; drawEd(); return; }
-      const key = 'tag:svtnew_' + Date.now().toString(36); S.newGroups.push({ key, name }); _gc = null; d.pg = key;
+      if (ex) { wkSubviewsTrial._eg(ex.key); return; }
+      const key = 'tag:svtnew_' + Date.now().toString(36); S.newGroups.push({ key, name }); _gc = null; d.gb = 'pick'; d.pg = key; d.picks = [];
       toast(`タググループ「${name}」を作りました（試験版: タグの設定には保存していません）`); drawEd(); setTimeout(() => document.getElementById('svt-pnew')?.focus(), 0); },
     _en: t => { if (S.editing) S.editing.name = t; },
-    _eg: k => { S.editing.gb = k || null; drawEd(); },
+    _eg: k => { const d = S.editing;
+      if (k && k.startsWith('tag:')) { d.gb = 'pick'; d.pg = k; d.picks = allVals(k).map(v => ({ g: k, v })); }
+      else { d.gb = k || null; if (k !== 'pick') d.pg = null; }
+      drawEd(); },
     _ec: () => { S.editing = null; draw(); },
     _es: () => { const d = S.editing; const name = (d.name || '').trim() || '見え方'; const ex = S.views.find(v => v.id === d.id);
       const keep = { name, gb: d.gb, picks: (d.picks || []).map(p => ({ ...p })), showNone: d.showNone !== false, pg: d.pg };
