@@ -316,6 +316,7 @@ const tr1 = await tRows();
 ck('テーブルでも絞り込みがその場で反映される', tr1 < tr0 && tr1 >= 2, [tr0, tr1]);
 await pg.evaluate(() => { window.filters.playlist.clear(); window.AF(); }); await pg.waitForTimeout(600);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
+ck('上の帯に「分ける基準 …」の文は出さない（v53.059・オーナー「この文言はいらない」）', await pg.evaluate(() => !document.getElementById('svt-sum').textContent.includes('分ける基準') && document.getElementById('svt-sum').textContent.includes('グルーピングを編集')));
 // ⑨d ボタンを全部、本物のクリックで（下までスクロールした状態から）。押した結果が画面の見える所に出ることまで見る
 // （v53.055・オーナー「効かないボタンばっかりじゃねえか」。「✎ グルーピングを編集」は見出しが上に残るので下からも押せるのに、
 //   編集の画面は一覧の上に出ていたので、スクロールしていると画面の外に開いて何も起きないように見えた）

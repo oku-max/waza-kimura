@@ -463,9 +463,9 @@
     const vs = viewsOf(listKey()); const cur = VW();
     el.innerHTML = vs.map(v => `<button class="svt-vt${v.id === cur.id ? ' on' : ''}" onclick="wkGroupings._pick('${jsq(v.id)}')">${v.gb ? '⊞ ' : '▦ '}${esc(v.name)}</button>`).join('') +
       `<button class="svt-vt add" onclick="wkGroupings._new()">＋ グルーピング</button>`;
-    const g = cur.gb ? GR(cur.gb) : null;
     const sum = document.getElementById('svt-sum');
-    if (sum) sum.innerHTML = (g ? `<span>分ける基準 <b>${esc(g.kind === 'pick' ? (pgsOf(cur).length ? g.name + ': ' : '') + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` : '') +
+    // 「分ける基準 ◯◯: …」の文は出さない（v53.059・オーナー「この文言はいらない」。列の見出しに同じことが出ている）
+    if (sum) sum.innerHTML = 
       (cur.id !== 'all' ? `<button class="svt-sm" onclick="wkGroupings._edit()">✎ グルーピングを編集</button>` : '') +
       (S.undo.length ? `<button class="svt-sm" onclick="wkGroupings._undo()" title="⌘Z / Ctrl+Z">↶ 1つ戻す</button>` : '');
   }
