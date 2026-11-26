@@ -131,7 +131,7 @@ ck('保存したグルーピングはこのリスト（マスター）の分と�
 ck('クラウドの data/groupings の items.{id} に入る', await until(() => !!(CLOUD[GDOC] && CLOUD[GDOC].items && CLOUD[GDOC].items[g1.id])), CLOUD[GDOC]);
 ck('リストの文書（settings）には書かない', JSON.stringify(CLOUD['users/u1/data/settings']) === settingsBefore);
 const c1 = await cols(pg);
-ck('列: タグ1なし・ボトム・トップ・スタンディング（アーカイブは出さない）', c1.includes('タグ1なし=1') && c1.includes('ボトム=2') && c1.includes('スタンディング=1') && c1.includes('トップ=1'), c1);
+ck('列: タグ1なし・ボトム・トップ・スタンディング（アーカイブは出さない）', c1.includes('その他=1') && c1.includes('ボトム=2') && c1.includes('スタンディング=1') && c1.includes('トップ=1'), c1);
 // ② 動かす → 本物のタグが変わる・保存に乗る
 await pg.evaluate(k => wkGroupings._move('v2', 'pick', 'ボトム', 'トップ'));
 ck('動かすと本物のタグが変わる（ボトム→トップ・スタンディングは残る）', setEq(await vtb(pg, 'v2'), ['スタンディング', 'トップ']), await vtb(pg, 'v2'));
@@ -147,12 +147,12 @@ await pg.keyboard.press('Control+z'); await pg.waitForTimeout(150);
 ck('Ctrl+Z で動かす前に戻る', setEq(await vtb(pg, 'v2'), ['ボトム', 'スタンディング']), await vtb(pg, 'v2'));
 // ②b カードの ▾（スマホでの付け外し）を本物のクリックで。「なし」の列のカードでも開く（v53.049 まで NUL の印が属性の中で化けて開かなかった）
 const tbName = await pg.evaluate(k => wkGroupings._groupers().find(g => g.key === k).name, tbKey);
-const dd = await pg.evaluate(() => { const col = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name));
-  const btn = col.querySelector('.svt-card .svt-mt .svt-sm'); const label = btn.textContent; btn.click();
-  const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name)).querySelector('.svt-card');
+const dd = await pg.evaluate(() => { const col = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他');
+  const btn = col.querySelector('.svt-card .svt-cardx .svt-sm'); const label = btn.textContent; btn.click();
+  const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他').querySelector('.svt-card');
   return { label, opts: [...card.querySelectorAll('.svt-o')].map(b => b.textContent) }; });
 ck('カードの ▾ はタググループの名前（「選んだタグ」ではない）で、押すと選んだタグが並ぶ（「なし」の列のカードでも）', dd.label.startsWith(tbName) && !dd.label.includes('選んだタグ') && dd.opts.length === 3, dd);
-await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name)).querySelector('.svt-card'); [...card.querySelectorAll('.svt-o')].find(b => b.textContent === 'トップ').click(); });
+await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他').querySelector('.svt-card'); [...card.querySelectorAll('.svt-o')].find(b => b.textContent === 'トップ').click(); });
 ck('並んだタグを押すとそのタグが付く', JSON.stringify(await vtb(pg, 'v4')) === '["トップ"]', await vtb(pg, 'v4'));
 await pg.evaluate(() => wkGroupings._undo());
 ck('（取り消して元に）', JSON.stringify(await vtb(pg, 'v4')) === '[]', await vtb(pg, 'v4'));
@@ -164,6 +164,18 @@ const sticky = await pg.evaluate(async () => { const host = document.getElementB
   const r = { sh: host.scrollHeight, chh: host.clientHeight, pv: (() => { let e = document.getElementById('svt-colhs'); const o = []; while (e) { const c = getComputedStyle(e); if (/auto|scroll/.test(c.overflowY)) o.push((e.id||e.className)+':'+e.scrollHeight+'/'+e.clientHeight); e = e.parentElement; } return o.join(','); })(), before, lhB: lh.bottom, hdT: hd.top, hdB: hd.bottom, chT: ch.top, hostT: hr.top, st: host.scrollTop };
   host.scrollTop = 0; host.style.height = ''; sb.style.minHeight = ''; return r; });
 ck('縦にスクロールしても、グルーピングの並びと列の見出しが上に残る（ライブラリの上の帯の下・重ならない）', sticky.st > 100 && Math.abs(sticky.hdT - sticky.lhB) <= 2 && Math.abs(sticky.chT - sticky.hdB) <= 2 && sticky.chT >= sticky.hostT, JSON.stringify(sticky));
+// ②d 列ごとの並べ替え（v53.061・オーナー「カードビューの各列にソートボタン」）。「その他」の列も、ふだんの列も
+ck('「なし」の列の名前は「その他」（グループ名＋なし ではない）', (await cols(pg))[0].startsWith('その他='), await cols(pg));
+const order = col => pg.evaluate(col => [...document.querySelectorAll(`#svt-root .svt-col[data-name="${col}"] .svt-lc`)].map(w => w.querySelector('.card-title').textContent), col);
+const hasSel = await pg.evaluate(() => document.querySelectorAll('#svt-colhs .svt-csort').length === document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)').length);
+ck('どの列の見出しにも並べ替えがある', hasSel);
+await pg.selectOption('#svt-colhs .svt-colh:has(.svt-tag:text-is("ボトム")) .svt-csort', 'title:1'); await pg.waitForTimeout(200);
+const o1 = await order('ボトム');
+await pg.selectOption('#svt-colhs .svt-colh:has(.svt-tag:text-is("ボトム")) .svt-csort', 'title:0'); await pg.waitForTimeout(200);
+const o2 = await order('ボトム');
+ck('列の並べ替え（タイトル A→Z / Z→A）でその列のカードの順が変わる', o1.length === 2 && JSON.stringify(o1) === JSON.stringify(o1.slice().sort()) && JSON.stringify(o2) === JSON.stringify(o1.slice().reverse()), [o1, o2]);
+ck('並べ替えはこの端末の好みにだけ残る（動画・グルーピングの保存データには書かない）', await pg.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('wk_groupingsPrefs')).colSort).includes('title:0')) && !JSON.stringify(CLOUD[GDOC]).includes('title:0'));
+await pg.selectOption('#svt-colhs .svt-colh:has(.svt-tag:text-is("ボトム")) .svt-csort', ''); await pg.waitForTimeout(200);
 // ③ 取り消しの安全: その後に別の画面で変えたら戻さない
 await pg.evaluate(() => wkGroupings._move('v2', 'pick', 'ボトム', 'トップ'));
 await pg.evaluate(k => { const v = window.videos.find(x => x.id === 'v2'); window.wkSetTagValue(v, k.slice(4), 'ボトム', true); }, tbKey);   // ほかの画面で付け直した
@@ -188,6 +200,19 @@ await dnd('スタンディング', 'トップ', false);
 ck('ふつうのドラッグは移動', setEq(await vtb(pg, 'v2'), ['ボトム', 'トップ']), await vtb(pg, 'v2'));
 await pg.evaluate(() => wkGroupings._undo());
 ck('取り消すと元どおり', setEq(await vtb(pg, 'v2'), ['ボトム', 'スタンディング']), await vtb(pg, 'v2'));
+// ⑤a 見出しの「＋ 新しいタグ」は本物の入力欄（v53.052 まではただの文字で、押しても何も起きなかった）。本物のクリック・キー入力で踏む
+await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; const h = document.getElementById('svt-colhs'); const bd = document.querySelector('#svt-root .svt-board'); if (bd) bd.scrollLeft = 99999; if (h) h.scrollLeft = 99999; });
+// 人と同じように、カードの列を横に右端まで動かす（見出しの帯は列に合わせて動く）。見出しの帯を直接動かさない
+await pg.evaluate(async () => { const bd = document.querySelector('#svt-root .svt-board'); bd.scrollLeft = 0; await new Promise(r => setTimeout(r, 50)); });
+await pg.setViewportSize({ width: 900, height: 900 }); await pg.waitForTimeout(300);
+await pg.evaluate(async () => { const bd = document.querySelector('#svt-root .svt-board'); bd.scrollLeft = bd.scrollWidth; bd.dispatchEvent(new Event('scroll')); await new Promise(r => setTimeout(r, 100)); });
+const ncVis = await pg.evaluate(() => { const e = document.getElementById('svt-newcol'); const r = e.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + 10, r.top + r.height / 2); return { ok: hit === e, left: Math.round(r.left), right: Math.round(r.right), vw: innerWidth }; });
+ck('カードの列を右端まで横に動かすと、見出しの「＋ 新しいタグ」の欄が見えて押せる（v53.054〜061 は届かなかった）', ncVis.ok && ncVis.right <= ncVis.vw, ncVis);
+await pg.setViewportSize({ width: 1400, height: 900 }); await pg.waitForTimeout(300);
+const inHead = await pg.evaluate(() => { const i = document.getElementById('svt-newcol'); return !!i && !!i.closest('#svt-colhs') && i.placeholder.includes('新しいタグ'); });
+ck('見出しの帯に「＋ 新しいタグ」の入力欄がある', inHead);
+await pg.click('#svt-newcol'); await pg.keyboard.type('仮タグ'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(300);
+ck('見出しの欄を本物のクリックで押して打ち、Enter で列が足される', (await cols(pg)).includes('仮タグ=0') && await pg.evaluate(k => window.tagRegistry.group(k.slice(4)).allOptions.includes('仮タグ'), tbKey), await cols(pg));
 // ⑤ 新しいタグ: 選択肢に足すだけ（動画には触らない）
 const vidsBefore = await pg.evaluate(() => JSON.stringify(window.videos));
 await pg.evaluate(() => { document.getElementById('svt-newcol').value = '膝立ち'; wkGroupings._addCol(); });
@@ -203,9 +228,37 @@ await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('進捗');
   document.getElementById('svt-pnew').value = '使える'; wkGroupings._pnew(); wkGroupings._es(); });
 const ngid = await pg.evaluate(() => (window.tagRegistry.groups().find(g => g.name === '進捗') || {}).id);
 ck('新しいタググループが本物のタグの一覧に入る（未使用）・選択肢も入る', await pg.evaluate(([n, id]) => window.tagRegistry.groups().length === n + 1 && JSON.stringify(window.tagRegistry.group(id).allOptions) === '["理解した","使える"]' && window.tagRegistry.group(id).slot < 0, [ng0, ngid]));
-ck('列: 進捗なし=4・理解した=0・使える=0・最後に非表示=0', JSON.stringify(await cols(pg)) === JSON.stringify(['進捗なし=4', '理解した=0', '使える=0', '非表示=0']), await cols(pg));
+ck('列: 進捗なし=4・理解した=0・使える=0・最後に非表示=0', JSON.stringify(await cols(pg)) === JSON.stringify(['その他=4', '理解した=0', '使える=0', '非表示=0']), await cols(pg));
 await pg.evaluate(() => wkGroupings._move('v1', 'pick', '__wk_none__', '使える'));
 ck('作ったグループへ動かすと v.tg[グループid] に入る', await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id]), ngid) === '["使える"]');
+// ⑥b 保存した後でタグ設定にタグを足すと、グルーピングの列にも自動で出る（v53.055・オーナー「なんで反映されてないんだよ」）。外したタグは出さない
+await pg.evaluate(id => window.tagRegistry.addOption(id, 'あとで足した'), ngid); await pg.waitForTimeout(200);
+await pg.evaluate(() => window.AF()); await pg.waitForTimeout(300);
+const nb1 = await cols(pg);
+ck('タグ設定で足したタグが、グルーピングの列の最後に出る', JSON.stringify(nb1) === JSON.stringify(['その他=3', '理解した=0', '使える=1', 'あとで足した=0', '非表示=0']), nb1);
+const dd2 = await pg.evaluate(() => { const b = () => document.querySelector('#svt-root .svt-card .svt-cardx .svt-sm:not(.svt-hidebtn)'); b().click(); if (!document.querySelector('#svt-root .svt-multi')) b().click(); return [...document.querySelectorAll('#svt-root .svt-card .svt-o')].map(x => x.textContent); });
+ck('カードの ▾ にも出る', dd2.includes('あとで足した'), dd2);
+await pg.evaluate(() => { wkGroupings._edit(); wkGroupings._pv('理解した'); wkGroupings._es(); });
+await pg.evaluate(id => window.tagRegistry.addOption(id, 'さらに足した'), ngid); await pg.evaluate(() => window.AF()); await pg.waitForTimeout(300);
+const nb2 = await cols(pg);
+ck('編集で外したタグは出ないまま、そのあと足したタグは出る', !nb2.some(x => x.startsWith('理解した=')) && nb2.includes('さらに足した=0') && nb2.includes('あとで足した=0'), nb2);
+await pg.evaluate(id => wkGroupings.importMerge({ items: { glegacy1: { id: 'glegacy1', list: 'master', name: '前の版', gb: 'pick', pg: 'tag:' + id, picks: [{ g: 'tag:' + id, v: '理解した' }, { g: 'tag:' + id, v: '使える' }], showNone: true, created: 5, at: 5 } } }), ngid);
+await pg.evaluate(() => wkGroupings._pick('glegacy1')); await pg.waitForTimeout(300);
+const nb3 = await cols(pg);
+ck('前の版のグルーピング（known が無い）でも、後から増えたタグが出る（オーナーの「リテンション」の形）', ['理解した=0', '使える=1', 'あとで足した=0', 'さらに足した=0'].every(x => nb3.includes(x)), nb3);
+await pg.evaluate(id => wkGroupings._pick(id), g1.id);
+// ⑥c 「その他」の列のカードに ▾ でタグを続けて付けても、閉じるまでは元の列に残る（v53.062・オーナー「1個目を入れた瞬間に移動して複数入れられない」）
+await pg.evaluate(() => wkGroupings._pick(wkGroupings.list().find(e => e.name === '進捗').id)); await pg.waitForTimeout(300);
+const ovid = await pg.evaluate(() => document.querySelector('#svt-root .svt-col[data-name="その他"] .svt-lc').dataset.vid);
+await pg.evaluate(v => { document.querySelector(`#svt-root .svt-col[data-name="その他"] .svt-lc[data-vid="${v}"] .svt-cardx .svt-sm:not(.svt-hidebtn)`).click(); }, ovid); await pg.waitForTimeout(150);
+const inOther = v => pg.evaluate(v => !!document.querySelector(`#svt-root .svt-col[data-name="その他"] .svt-lc[data-vid="${v}"]`), v);
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-o')].find(b => b.textContent.includes('あとで足した')).click()); await pg.waitForTimeout(200);
+ck('1つ目を付けてもカードは「その他」の列に残り、▾ も開いたまま', await inOther(ovid) && await pg.evaluate(() => !!document.querySelector('#svt-root .svt-col[data-name="その他"] .svt-multi')));
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-o')].find(b => b.textContent.includes('使える')).click()); await pg.waitForTimeout(200);
+ck('続けて2つ目も付けられる（まだ「その他」の列にある）', await inOther(ovid) && await pg.evaluate(([v, id]) => { const t = (window.videos.find(x => x.id === v).tg || {})[id] || []; return t.includes('あとで足した') && t.includes('使える'); }, [ovid, ngid]));
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-sm')].find(b => b.textContent === '閉じる').click()); await pg.waitForTimeout(200);
+ck('「閉じる」を押すと、付けた2つの列へ移る（「その他」からは消える）', !(await inOther(ovid)) && await pg.evaluate(v => ['あとで足した', '使える'].every(n => !!document.querySelector(`#svt-root .svt-col[data-name="${n}"] .svt-lc[data-vid="${v}"]`)), ovid));
+await pg.evaluate(() => { wkGroupings._undo(); wkGroupings._undo(); }); await pg.waitForTimeout(150);
 // ⑦ カスタム列（セレクト・評価）
 await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('フェーズ'); wkGroupings._eg('cf:gc_phase1'); wkGroupings._es(); });
 await pg.evaluate(() => wkGroupings._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));
@@ -226,7 +279,7 @@ await pg.evaluate(() => { wkGroupings._edit(); wkGroupings._del(); });
 ck('消すとクラウドには del の印（欄は消さない）・動画は1文字も変わらない', await until(() => CLOUD[GDOC].items[plId] && CLOUD[GDOC].items[plId].del === true) && vids2 === await pg.evaluate(() => JSON.stringify(window.videos)), CLOUD[GDOC].items[plId]);
 await pg.evaluate(() => wkGroupings._tu());
 ck('お知らせの「元に戻す」で戻る', await until(() => CLOUD[GDOC].items[plId] && !CLOUD[GDOC].items[plId].del && CLOUD[GDOC].items[plId].name));
-const ids1 = Object.keys(CLOUD[GDOC].items).sort();
+let ids1 = Object.keys(CLOUD[GDOC].items).sort();
 ck('クラウドの文書には items と savedBy/updatedAt だけ', JSON.stringify(Object.keys(CLOUD[GDOC]).sort()) === JSON.stringify(['items', 'savedBy', 'updatedAt']), Object.keys(CLOUD[GDOC]));
 // ⑨ テーブルは本番の表に見出しの行
 await pg.evaluate(id => wkGroupings._pick(id), g1.id);
@@ -237,7 +290,7 @@ await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500)
 // ⑨b 非表示（v53.051）: カードの下段・テーブルの右端のボタン、「非表示」の列から戻す。隠すのはそのグルーピングの中だけ（動画・タグは変えない）
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
 const vH0 = await pg.evaluate(() => JSON.stringify(window.videos));
-const hideBtn = await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'ボトム').querySelector('.svt-card'); const b = card.querySelector('.svt-hidebtn'); const t = card.querySelector('.svt-tt').textContent; const inLow = b && b.parentElement.classList.contains('svt-mt'); b.click(); return { t, inLow, label: b.textContent }; });
+const hideBtn = await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'ボトム').querySelector('.svt-card'); const b = card.querySelector('.svt-hidebtn'); const t = card.querySelector('.card-title').textContent; const inLow = b && b.parentElement.classList.contains('svt-cardx'); b.click(); return { t, inLow, label: b.textContent }; });
 const ch1 = await cols(pg);
 ck('カードの下段に「非表示」・押すとその列から消えて最後の「非表示」の列に入る', hideBtn.inLow && hideBtn.label === '非表示' && ch1.includes('ボトム=1') && ch1[ch1.length - 1] === '非表示=1', [hideBtn, ch1]);
 const hidVid = await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-hidcol .svt-card')].map(c => c.querySelector('.svt-hidebtn').getAttribute('onclick').match(/_hide\('([^']+)'/)[1])[0]);
@@ -276,7 +329,7 @@ ck('「すべて」にすると右端の列は無くなる', await pg.evaluate((
 await pg.evaluate(id => wkGroupings._pick(id), g1.id);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
 // ⑨c 絞り込みがその場で反映される（サイドバーと同じ window.filters＋AF・検索語・テーブルでも）
-const nCards = () => pg.evaluate(() => new Set([...document.querySelectorAll('#svt-root .svt-col:not(.svt-hidcol) .svt-card')].map(c => c.querySelector('.svt-tt').textContent)).size);
+const nCards = () => pg.evaluate(() => new Set([...document.querySelectorAll('#svt-root .svt-col:not(.svt-hidcol) .svt-card')].map(c => c.querySelector('.card-title').textContent)).size);
 const nAll = await nCards();
 await pg.evaluate(() => { window.filters.playlist.add('ラッソー対策集'); window.AF(); }); await pg.waitForTimeout(400);
 const nPl = await nCards();
@@ -294,6 +347,135 @@ const tr1 = await tRows();
 ck('テーブルでも絞り込みがその場で反映される', tr1 < tr0 && tr1 >= 2, [tr0, tr1]);
 await pg.evaluate(() => { window.filters.playlist.clear(); window.AF(); }); await pg.waitForTimeout(600);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
+ck('上の帯に「分ける基準 …」の文は出さない（v53.059・オーナー「この文言はいらない」）', await pg.evaluate(() => !document.getElementById('svt-sum').textContent.includes('分ける基準') && document.getElementById('svt-sum').textContent.includes('グルーピングを編集')));
+// ⑨d ボタンを全部、本物のクリックで（下までスクロールした状態から）。押した結果が画面の見える所に出ることまで見る
+// （v53.055・オーナー「効かないボタンばっかりじゃねえか」。「✎ グルーピングを編集」は見出しが上に残るので下からも押せるのに、
+//   編集の画面は一覧の上に出ていたので、スクロールしていると画面の外に開いて何も起きないように見えた）
+await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+await pg.setViewportSize({ width: 1400, height: 600 });
+const scrollDown = () => pg.evaluate(async () => { const sb = document.getElementById('svt-body'); sb.style.minHeight = '2500px'; const h = document.getElementById('lib-card-host'); h.scrollTop = 1500; await new Promise(r => setTimeout(r, 150)); return h.scrollTop; });
+const onScreen = sel => pg.evaluate(sel => { const e = document.querySelector(sel); if (!e) return 'ない'; const r = e.getBoundingClientRect(); if (!r.height) return '高さ0';
+  const x = r.left + Math.min(r.width / 2, 40), y = r.top + Math.min(r.height / 2, 20); if (y < 0 || y > innerHeight) return '画面の外 top=' + Math.round(r.top);
+  const hit = document.elementFromPoint(x, y); return hit && e.contains(hit) ? 'ok' : '隠れている: ' + (hit && (hit.id || hit.className)) + ' rect=' + [r.left, r.top, r.width, r.height].map(Math.round) + ' vw=' + innerWidth; }, sel);
+const realClick = async (sel, label) => { try { await pg.click(sel, { timeout: 3000 }); return true; } catch (e) { ck(label + ' を本物のクリックで押せる', false, String(e.message).split('\n')[0]); return false; } };
+await scrollDown();
+if (await realClick('#svt-sum button:has-text("グルーピングを編集")', '「✎ グルーピングを編集」')) {
+  await pg.waitForTimeout(200);
+  ck('下までスクロールしていても「✎ グルーピングを編集」で編集の画面が見える所に開く', await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  ck('編集の画面の「保存」が見える所にあり押せる', await onScreen('#svt-ed .foot .svt-sm.pri') === 'ok', await onScreen('#svt-ed .foot .svt-sm.pri'));
+  await realClick('#svt-ed .foot .svt-sm:has-text("やめる")', '「やめる」');
+  await pg.waitForTimeout(150);
+  ck('「やめる」で閉じる', !(await pg.evaluate(() => !!document.querySelector('#svt-ed .svt-ed'))));
+}
+await scrollDown();
+if (await realClick('#svt-tabs .svt-vt.add', '「＋ グルーピング」')) {
+  await pg.waitForTimeout(200);
+  ck('下までスクロールしていても「＋ グルーピング」で作る画面が見える所に開く', await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  await realClick('#svt-ed .foot .svt-sm:has-text("やめる")', '「やめる」');
+}
+await scrollDown();
+if (await realClick('#svt-tabs .svt-vt:has-text("すべて")', 'タブ「すべて」')) { await pg.waitForTimeout(200); ck('タブ「すべて」で分けない表示になる', await pg.evaluate(() => getComputedStyle(document.getElementById('cardList')).display !== 'none')); }
+await realClick('#svt-tabs .svt-vt:has-text("タグ1別")', 'タブ「タグ1別」'); await pg.waitForTimeout(300);
+ck('タブ「タグ1別」で列が出る', await pg.evaluate(() => document.querySelectorAll('#svt-root .svt-col').length > 2));
+for (const [w, h] of [[1400, 600], [390, 760]]) {
+  await pg.setViewportSize({ width: w, height: h }); await pg.evaluate(() => { const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+  await scrollDown();
+  if (!(await realClick('#svt-sum button:has-text("グルーピングを編集")', `${w}px「✎ グルーピングを編集」`))) continue;
+  await pg.waitForTimeout(200);
+  ck(`${w}px: 編集の画面が見える所に開く`, await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  for (const b of ['全部外す', '全部選ぶ']) { if (await realClick(`#svt-ed button:has-text("${b}")`, `${w}px「${b}」`)) await pg.waitForTimeout(100); }
+  ck(`${w}px: 「全部外す」「全部選ぶ」が効く`, await pg.evaluate(() => wkGroupings._state().editing.picks.length >= 3));
+  await pg.fill('#svt-pnew', 'クリック確認' + w);
+  await realClick('#svt-ed button:has-text("足す")', `${w}px 編集の「足す」`); await pg.waitForTimeout(150);
+  ck(`${w}px: 編集の「＋ 新しいタグ」の「足す」が効く`, await pg.evaluate(n => wkGroupings._state().editing.picks.some(p => p.v === n), 'クリック確認' + w));
+  ck(`${w}px: 「保存」が見える所にある`, await onScreen('#svt-ed .foot .svt-sm.pri') === 'ok', await onScreen('#svt-ed .foot .svt-sm.pri'));
+  await realClick('#svt-ed .foot .svt-sm.pri', `${w}px「保存」`); await pg.waitForTimeout(250);
+  ck(`${w}px: 「保存」で閉じて列に入る`, !(await pg.evaluate(() => !!document.querySelector('#svt-ed .svt-ed'))) && (await cols(pg)).includes('クリック確認' + w + '=0'), await cols(pg));
+}
+// テーブルでも「✎ グルーピングを編集」が効く
+await pg.setViewportSize({ width: 1400, height: 900 });
+await pg.evaluate(() => { const sb = document.getElementById('svt-body'); sb.style.minHeight = ''; document.getElementById('lib-card-host').scrollTop = 0; });
+await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
+await pg.evaluate(() => { const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+if (await realClick('#svt-sum button:has-text("グルーピングを編集")', 'テーブルの「✎ グルーピングを編集」')) { await pg.waitForTimeout(200);
+  ck('テーブルでも編集の画面が見える所に開く', await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  await realClick('#svt-ed .foot .svt-sm:has-text("やめる")', 'テーブルの「やめる」'); }
+await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500);
+await pg.setViewportSize({ width: 1400, height: 900 });
+await pg.evaluate(() => { const sb = document.getElementById('svt-body'); sb.style.minHeight = ''; document.getElementById('lib-card-host').scrollTop = 0; });
+const v2tb = await vtb(pg, 'v2');
+if (await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-cardx .svt-sm:not(.svt-hidebtn)', 'カードの ▾')) {
+  await pg.waitForTimeout(150);
+  ck('カードの ▾ でタグが並ぶ', await onScreen('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-o') === 'ok');
+  await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-o:has-text("トップ")', '▾ の中のタグ');
+  await pg.waitForTimeout(150);
+  ck('▾ の中のタグを押すと付く', (await vtb(pg, 'v2')).includes('トップ'), await vtb(pg, 'v2'));
+}
+// カードの ▾ は複数選べる（v53.055・オーナー「ここは複数選択できるようにして」）。押すたびにカードが別の列へ移っても開いたまま
+await pg.evaluate(() => wkGroupings._undo()); await pg.waitForTimeout(150);   // 上の ▾ の確認で付けた「トップ」を戻す
+const mv0 = await pg.evaluate(() => { const c = [...document.querySelectorAll('#svt-root .svt-col')].find(x => x.dataset.name === '膝立ち'); return c.querySelector('.svt-card .svt-hidebtn').getAttribute('onclick').match(/_hide\('([^']+)'/)[1]; });
+const mtb0 = await vtb(pg, mv0);
+await realClick('#svt-root .svt-col[data-name="膝立ち"] .svt-card .svt-cardx .svt-sm:not(.svt-hidebtn)', '「膝立ち」の列のカードの ▾'); await pg.waitForTimeout(150);
+await realClick('#svt-root .svt-multi .svt-o:has-text("トップ")', '▾ の「トップ」'); await pg.waitForTimeout(200);
+ck('1つ押しても ▾ は開いたまま（いくつでも選べます）', await pg.evaluate(() => !!document.querySelector('#svt-root .svt-multi') && document.querySelector('#svt-root .svt-multi').textContent.includes('いくつでも選べます')));
+await realClick('#svt-root .svt-multi .svt-o:has-text("スタンディング")', '▾ の「スタンディング」'); await pg.waitForTimeout(200);
+ck('続けて押すと両方付く（複数選択・元のタグも残る）', setEq(await vtb(pg, mv0), [...mtb0, 'トップ', 'スタンディング']), await vtb(pg, mv0));
+ck('付いているタグに ✓', await pg.evaluate(() => document.querySelectorAll('#svt-root .svt-multi .svt-o.on').length) === mtb0.length + 2);
+await realClick('#svt-root .svt-multi .svt-o:has-text("トップ")', '▾ の「トップ」をもう一度'); await pg.waitForTimeout(200);
+ck('もう一度押すと外れる', setEq(await vtb(pg, mv0), [...mtb0, 'スタンディング']), await vtb(pg, mv0));
+await realClick('#svt-root .svt-multi .svt-sm:has-text("閉じる")', '▾ の「閉じる」'); await pg.waitForTimeout(150);
+ck('「閉じる」で閉じる', await pg.evaluate(() => !document.querySelector('#svt-root .svt-multi')));
+await pg.evaluate(() => { wkGroupings._undo(); wkGroupings._undo(); wkGroupings._undo(); }); await pg.waitForTimeout(150);
+ck('（取り消して元に）', setEq(await vtb(pg, mv0), mtb0), await vtb(pg, mv0));
+await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-cardx .svt-sm:not(.svt-hidebtn)', 'カードの ▾'); await pg.waitForTimeout(100);
+await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-o:has-text("トップ")', '▾ の中のタグ'); await pg.waitForTimeout(150);
+if (await realClick('#svt-sum button:has-text("1つ戻す")', '「↶ 1つ戻す」')) { await pg.waitForTimeout(150); ck('「↶ 1つ戻す」で戻る', setEq(await vtb(pg, 'v2'), v2tb), await vtb(pg, 'v2')); }
+const hidN = async () => +((await cols(pg)).find(x => x.startsWith('非表示=')) || '=0').split('=')[1];
+const hid0 = await hidN();
+if (await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-hidebtn', 'カードの「非表示」')) { await pg.waitForTimeout(150);
+  ck('カードの「非表示」で非表示の列に入る', await hidN() === hid0 + 1, await cols(pg));
+  if (await realClick('#svt-toast .svt-tu', 'お知らせの「↶ 元に戻す」')) { await pg.waitForTimeout(150); ck('お知らせの「↶ 元に戻す」で戻る', await hidN() === hid0, await cols(pg)); } }
+// ⑨e カードはライブラリと同じ（v53.057・オーナー「通常とグルーピングで見え方が違う。同じにして。プレビューも」）
+await pg.evaluate(() => { document.getElementById('lib-card-host').scrollTop = 0; });
+const lc = await pg.evaluate(() => { const w = document.querySelector('#svt-root .svt-col[data-name="ボトム"] .svt-lc'); return { wrap: !!w.querySelector('.card-wrap .card .card-thumb'), pv: !!w.querySelector('.card-pv-btn'), act: [...w.querySelectorAll('.card-actions button')].map(b => b.textContent.trim()).join('|'), title: !!w.querySelector('.card-title') }; });
+ck('グルーピングのカードはライブラリのカードそのもの（サムネ・プレビュー・メモ／アーカイブ）', lc.wrap && lc.pv && lc.title && /メモ/.test(lc.act) && /アーカイブ/.test(lc.act), lc);
+// v2 は「ボトム」と「スタンディング」の2つの列に出る。2つ目（スタンディング）の方のプレビューを本物のクリックで押す
+const dupOk = await pg.evaluate(() => { const a = document.querySelector('#svt-root .svt-col[data-name="ボトム"] .svt-lc[data-vid="v2"]'), b = document.querySelector('#svt-root .svt-col[data-name="スタンディング"] .svt-lc[data-vid="v2"]'); return !!a && !!b && a.dataset.copy !== b.dataset.copy && document.querySelectorAll('[id="card-v2"]').length >= 1; });
+ck('同じ動画が2つの列に出る（2つ目は id を変えて重ならない）', dupOk && await pg.evaluate(() => [...document.querySelectorAll('#svt-root [id="card-v2"]')].length === 1));
+if (await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-lc[data-vid="v2"] .card-pv-btn', '2つ目の列のカードの「プレビュー」')) { await pg.waitForTimeout(300);
+  ck('2つ目の列のカードでも、押したカードの中でプレビューが始まる', await pg.evaluate(() => !!document.querySelector('#svt-root .svt-col[data-name="スタンディング"] .svt-lc[data-vid="v2"] .card-pv-layer') && !document.querySelector('#svt-root .svt-col[data-name="ボトム"] .svt-lc[data-vid="v2"] .card-pv-layer')));
+  await pg.evaluate(() => window.wkCardPreviewStop?.()); }
+if (await realClick('#svt-root .svt-col[data-name="ボトム"] .svt-lc[data-vid="v2"] .card-pv-btn', '1つ目の列のカードの「プレビュー」')) { await pg.waitForTimeout(300);
+  ck('もう一方の列のカードでもプレビューできる', await pg.evaluate(() => !!document.querySelector('#svt-root .svt-col[data-name="ボトム"] .svt-lc[data-vid="v2"] .card-pv-layer')));
+  await pg.evaluate(() => window.wkCardPreviewStop?.()); }
+// ⑨f 複数のタググループを同時に使う（v53.057・オーナー決定 A）
+const mg = await pg.evaluate(([tk, nk]) => { wkGroupings._new(); wkGroupings._en('2グループ'); wkGroupings._eg(tk); wkGroupings._eg(nk);
+  const ed = wkGroupings._state().editing; const on = [...document.querySelectorAll('#svt-ed .svt-o.on')].map(b => b.textContent); wkGroupings._es();
+  const e = wkGroupings.list().find(x => x.name === '2グループ'); return { pgs: e.pgs, pg: e.pg, n: e.picks.length, groups: [...new Set(e.picks.map(p => p.g))], on }; }, [tbKey, 'tag:' + ngid]);
+ck('編集でタググループを2つ押すと両方選ばれ、両方のタグが列の候補になる・保存される（pg は前の版用に1つ目）', mg.pgs.length === 2 && mg.pg === tbKey && mg.groups.length === 2, mg);
+const mc = await cols(pg);
+ck('2つのグループのタグが横に並んで列になる（「その他」が先頭）', mc[0].startsWith('その他=') && ['ボトム', 'トップ', '使える', 'あとで足した'].every(x => mc.some(c => c.startsWith(x + '='))), mc);
+const sep = await pg.evaluate(() => { const hs = [...document.querySelectorAll('#svt-colhs .svt-colh')]; const colored = hs.filter(h => h.style.getPropertyValue('--gc')); const colors = [...new Set(colored.map(h => h.style.getPropertyValue('--gc')))]; return { colors: colors.length, starts: document.querySelectorAll('#svt-colhs .svt-gstart').length, boardStarts: document.querySelectorAll('#svt-root .svt-board .svt-col.svt-gstart').length,
+  order: colored.map(h => h.style.getPropertyValue('--gc')) }; });
+const contiguous = sep.order.every((c, i) => i === 0 || c === sep.order[i - 1] || !sep.order.slice(0, i).includes(c));
+ck('2つのグループの列は色で分かれ、グループごとにまとまり、境目に区切りがある（見出しと列の両方）', sep.colors === 2 && sep.starts === 1 && sep.boardStarts === 1 && contiguous, sep);
+await pg.evaluate(() => wkGroupings._edit());
+const blk = await pg.evaluate(() => [...document.querySelectorAll('#svt-ed .svt-pgrow')].map(b => ({ name: b.querySelector('.svt-gname').textContent, gc: b.style.getPropertyValue('--gc'), chips: b.querySelectorAll('.svt-chip').length })));
+ck('編集の画面はタググループごとの枠に分かれ、それぞれ色の線・名前・選んだタグを持つ', blk.length === 2 && blk.every(b => b.gc && b.chips > 0) && blk[0].gc !== blk[1].gc, blk);
+await pg.evaluate(nk => wkGroupings._gup(nk), 'tag:' + ngid);
+ck('「↑ 前へ」でグループの順を入れ替えられる', await pg.evaluate(nk => wkGroupings._state().editing.pgs[0] === nk && wkGroupings._state().editing.picks[0].g === nk, 'tag:' + ngid));
+if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/multi-ed.png' });
+await pg.evaluate(() => wkGroupings._ec());
+const v1tb = await vtb(pg, 'v1'), v1tg = await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id] || []), ngid);
+await pg.evaluate(() => wkGroupings._move('v1', 'pick', 'ボトム', 'あとで足した'));
+ck('グループをまたいで動かすと、元のグループのタグを外して先のグループのタグを付ける', !(await vtb(pg, 'v1')).includes('ボトム') && await pg.evaluate(id => (window.videos.find(v => v.id === 'v1').tg[id] || []).includes('あとで足した'), ngid), [await vtb(pg, 'v1')]);
+await pg.evaluate(() => wkGroupings._undo());
+ck('取り消すと両方元どおり', setEq(await vtb(pg, 'v1'), v1tb) && await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id] || []), ngid) === v1tg);
+await pg.evaluate(nk => { wkGroupings._edit(); wkGroupings._eg(nk); wkGroupings._es(); }, 'tag:' + ngid);
+const mc2 = await cols(pg);
+ck('編集でもう一度押すとそのグループは外れる', !mc2.some(c => c.startsWith('使える=')) && mc2.some(c => c.startsWith('ボトム=')), mc2);
+await pg.evaluate(id => wkGroupings._pick(id), g1.id);
+await wait(800); ids1 = Object.keys(CLOUD[GDOC].items).sort();
 // ⑩ 2台目: 開くと同じグルーピングが出る・作ると1台目に届く
 const cx2 = await newCtx(); const pg2 = await open(cx2);
 await pg2.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
