@@ -136,6 +136,23 @@ await pg.evaluate(() => wkSubviewsTrial._reset());
 const ed0 = await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('選んだタグ'); wkSubviewsTrial._eg(k);
   const st = wkSubviewsTrial._state(); return { picks: st.editing.picks.map(p => p.v), hasOldBtn: document.getElementById('svt-ed').textContent.includes('タグを選んでまとめる'), open: !!document.querySelector('#svt-ed .svt-pick') }; }, tbKey);
 ck('タググループを押すと、その下にそのグループのタグが全部選ばれた状態で開く・「タグを選んでまとめる」のボタンは無い', ed0.open && !ed0.hasOldBtn && ed0.picks.length === 3 && ['トップ','ボトム','スタンディング'].every(x => ed0.picks.includes(x)), ed0);
+const one = await pg.evaluate(() => { const box = document.querySelector('#svt-ed .svt-pick'); const txt = box.textContent;
+  return { chips: [...box.querySelectorAll('#svt-chips .svt-chip')].map(c => c.textContent.replace(/[⠿✓\d\s]/g, '')), dup: (txt.match(/トップ/g) || []).length, noOrderRow: !txt.includes('列の順（'),
+    btns: [...box.querySelectorAll('button')].map(b => b.textContent).filter(t => t.startsWith('全部')) }; });
+ck('タグは1つの並びにだけ出る（列の順の行は無い）・「全部選ぶ」「全部外す」がある', one.dup === 1 && one.noOrderRow && one.btns.join() === '全部選ぶ,全部外す', JSON.stringify(one));
+await pg.evaluate(() => wkSubviewsTrial._pall(false));
+ck('全部外すと ✓ が0', await pg.evaluate(() => wkSubviewsTrial._state().editing.picks.length === 0 && document.querySelectorAll('#svt-chips .svt-chip').length === 0));
+await pg.evaluate(() => wkSubviewsTrial._pall(true));
+ck('全部選ぶと ✓ が全部', await pg.evaluate(() => wkSubviewsTrial._state().editing.picks.length === 3));
+const ord0 = await pg.evaluate(() => wkSubviewsTrial._state().editing.picks.map(p => p.v));
+// ⠿ を本物のポインターでドラッグして、3番目を先頭へ（検査用の新しいブラウザで出る「はじめに」の覆いとサイドバーをどける）
+await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; document.querySelector('#svt-chips')?.scrollIntoView({ block: 'center' }); });
+const gb = await pg.evaluate(() => { const g = [...document.querySelectorAll('#svt-chips .svt-grip')]; const r = i => { const b = g[i].getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }; return [r(2), document.querySelectorAll('#svt-chips .svt-chip')[0].getBoundingClientRect().left + 3]; });
+await pg.mouse.move(gb[0][0], gb[0][1]); await pg.mouse.down(); await pg.mouse.move(gb[0][0] - 20, gb[0][1], { steps: 3 }); await pg.mouse.move(gb[1], gb[0][1], { steps: 8 }); await pg.mouse.up();
+const ord1 = await pg.evaluate(() => wkSubviewsTrial._state().editing.picks.map(p => p.v));
+ck('⠿ をドラッグすると列の順が入れ替わる（3番目 → 先頭）', JSON.stringify(ord1) === JSON.stringify([ord0[2], ord0[0], ord0[1]]), [ord0, ord1]);
+await pg.evaluate(() => wkSubviewsTrial._mvpick(0, 3));
+ck('並べ替えを戻せる', JSON.stringify(await pg.evaluate(() => wkSubviewsTrial._state().editing.picks.map(p => p.v))) === JSON.stringify(ord0));
 await pg.evaluate(() => { const st = wkSubviewsTrial._state(); st.editing.picks.map(p => p.v).forEach(v => wkSubviewsTrial._pv(v)); wkSubviewsTrial._pv('スタンディング'); wkSubviewsTrial._pv('トップ'); wkSubviewsTrial._es(); });
 const p1 = await cols();
 ck('タグを選んでまとめる: 選んだタグだけが選んだ順に列になる・その他 が先頭', JSON.stringify(p1) === JSON.stringify(['その他=2','スタンディング=1','トップ=1']), p1);
@@ -153,13 +170,17 @@ ck('両方に入れても本物の動画のタグは変わらない', await pg.e
 await pg.evaluate(() => wkSubviewsTrial._undo());
 ck('両方に入れたのも取り消せる', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
 await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
-const kb = await pg.evaluate(() => [...document.querySelectorAll('#svt-toast button')].map(b => b.textContent));
-ck('ふつうに動かした直後のお知らせに「両方に残す」と「取り消す」が出る', kb.includes('両方に残す') && kb.includes('取り消す'), kb);
+const kb = await pg.evaluate(() => ({ btns: [...document.querySelectorAll('#svt-toast button')].map(b => b.textContent), msg: document.getElementById('svt-toast').textContent,
+  undoBtn: [...document.querySelectorAll('#svt-sum button')].some(b => b.textContent.includes('1つ戻す')) }));
+ck('ふつうに動かした直後のお知らせは「〜へ移動しました」とボタン「「元のタグ」にも残す」の1つだけ・取り消しはお知らせに無く上の帯の「↶ 1つ戻す」', kb.btns.length === 1 && kb.btns[0] === '「スタンディング」にも残す' && kb.msg.includes('「トップ」へ移動しました') && !kb.msg.includes('取り消す') && kb.undoBtn, kb);
 await pg.evaluate(() => wkSubviewsTrial._tx());
 const kb2 = await cols();
 ck('「両方に残す」を押すと、元の列にも戻って両方に入る', JSON.stringify(kb2) === JSON.stringify(['その他=2','スタンディング=1','トップ=2']), kb2);
 await pg.evaluate(() => wkSubviewsTrial._undo());
-ck('その後の取り消しで、動かす前に戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
+ck('1つ戻すと「にも残す」の前（移動した状態）に戻る', JSON.stringify(await cols()) === JSON.stringify(['その他=2','スタンディング=0','トップ=2']), await cols());
+await pg.keyboard.press('Control+z');
+await pg.waitForTimeout(100);
+ck('Ctrl+Z でもう1つ戻すと、動かす前に戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
 // 本物のドラッグの出来事（dragstart → dragover → drop）で、Alt を押したときだけ両方に入る
 const dnd = alt => pg.evaluate(alt => {
   const cols = [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')];

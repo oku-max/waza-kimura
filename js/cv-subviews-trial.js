@@ -12,6 +12,7 @@
   const S = {
     views: [{ id: 'all', name: 'すべて', gb: null, f: {} }],
     newTags: {},
+    undo: [],       // 戻す順の山（新しいものが最後）。画面の中だけ
     newGroups: [],  // 試験版でその場で作ったタググループ（{key, name}）。画面の中だけ（tagRegistry には書かない）   // 試験版でその場で足したタグ（グループのキー → 値の配列）。画面の中だけ
     cur: 'all', mode: 'board', sim: new Map(), closed: {}, editing: null, toast: null, more: {},
   };
@@ -133,7 +134,7 @@
     if (!S.sim.has(vid)) S.sim.set(vid, new Map());
     S.sim.get(vid).set(g.key, arr);
     const nm = x => x == null ? '' : x;
-    toast(`試しに動かしました（本物のタグは変わっていません）: ${arr.join('・') || g.name + 'なし'}`, () => { S.sim.get(vid).set(g.key, before); });
+    toast(`${arr.join('・') || g.name + 'なし'} にしました（試験版・本物のタグは変わっていません）`, () => { S.sim.get(vid).set(g.key, before); });
   }
   // 選んだタグの列のあいだを動かす: 元の列のタグを外し、先の列のタグを付ける（グループが違ってもよい）
   function pickChange(vid, g, offLabel, onLabel, copy) {
@@ -150,11 +151,13 @@
       if (!S.sim.has(vid)) S.sim.set(vid, new Map()); S.sim.get(vid).set(G.key, after); });
     const undo = () => saved.slice().reverse().forEach(([G, b]) => S.sim.get(vid).set(G.key, b));
     // 「両方に残す」: 移動で外した元のタグを付け直す（先のタグはそのまま）。元が「その他」・先が「その他」のときは出さない
-    const keepBoth = (offLabel && onLabel) ? { label: '両方に残す', fn: () => {
-        const p = it(offLabel); const G = GR0(p.g); const cur = vals(v, G); if (!cur.includes(p.v)) S.sim.get(vid).set(G.key, [...cur, p.v]);
-        toast(`「${offLabel}」と「${onLabel}」の両方に入れました（本物のタグは変わっていません）`, undo); } } : null;
-    toast(copy ? `「${onLabel}」にも入れました（${offLabel ? '「' + offLabel + '」にも残っています・' : ''}本物のタグは変わっていません）`
-               : `試しに動かしました（本物のタグは変わっていません）: ${offLabel ? offLabel + ' → ' : ''}${onLabel || 'その他'}`, undo, copy ? null : keepBoth);
+    const keepBoth = (offLabel && onLabel) ? { label: `「${offLabel}」にも残す`, fn: () => {
+        const p = it(offLabel); const G = GR0(p.g); const cur = vals(v, G); if (cur.includes(p.v)) return;
+        S.sim.get(vid).set(G.key, [...cur, p.v]);
+        toast(`「${offLabel}」と「${onLabel}」の両方に入れました（試験版・本物のタグは変わっていません）`, () => S.sim.get(vid).set(G.key, cur)); } } : null;
+    const copyMsg = `「${onLabel}」にも追加しました（${offLabel ? '「' + offLabel + '」にも残っています・' : ''}試験版）`;
+    toast(copy ? copyMsg
+               : onLabel ? `「${onLabel}」へ移動しました（試験版・本物のタグは変わっていません）` : `「${offLabel}」から外しました（試験版・本物のタグは変わっていません）`, undo, copy ? null : keepBoth);
     draw();
   }
   // copy … Option（Windows は Alt）を押しながら落としたとき。元のタグを外さず、先のタグを足すだけ（オーナー「移動前と移動後のどちらにも同じタグを入れたい」）
@@ -180,12 +183,14 @@
     const after = g.kind === 'tag' ? (before.includes(val) ? before.filter(x => x !== val) : [...before, val]) : (before[0] === val ? [] : [val]);
     simSet(vid, g, after, before); draw();
   }
+  // undo … 戻す処理（お知らせには出さず、山に積む）／ extra … お知らせに出すボタンは1つだけ（例: 「◯◯」にも残す）
   function toast(msg, undo, extra) {
-    S.toast = { msg, undo, extra }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; drawToast(); }, 5000); drawToast();
+    if (undo) S.undo.push(undo);
+    S.toast = { msg, extra }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; drawToast(); }, 5000); drawToast();
   }
   function drawToast() {
     const el = document.getElementById('svt-toast'); if (!el) return;
-    el.innerHTML = S.toast ? `<div class="svt-toast">${esc(S.toast.msg)}${S.toast.extra ? `<button onclick="wkSubviewsTrial._tx()">${esc(S.toast.extra.label)}</button>` : ''}${S.toast.undo ? '<button onclick="wkSubviewsTrial._undo()">取り消す</button>' : ''}</div>` : '';
+    el.innerHTML = S.toast ? `<div class="svt-toast">${esc(S.toast.msg)}${S.toast.extra ? `<button class="svt-tx" onclick="wkSubviewsTrial._tx()">${esc(S.toast.extra.label)}</button>` : ''}</div>` : '';
   }
 
   // ── 画面 ──
@@ -249,20 +254,51 @@
     const p = Object.entries(f || {}).filter(([, a]) => a && a.length).map(([k, a]) => { const g = GR(k); return (g ? g.name : k) + ': ' + a.map(x => x === '\u0000none' ? 'なし' : x).join('・'); });
     return p.length ? p.join(' / ') : 'なし';
   }
+  // タグの選び方は1つの並び（オーナー「二重に同じタグが出ているのは冗長。表示はひとつに、順番はドラッグ＆ドロップで」）。
+  // ✓ のタグが左から列の順に並び、⠿ をドラッグ（マウスでも指でも）して入れ替える。✓ の無いタグはその後ろに薄く並ぶ。
   function pickEd(d, gs) {
     const G = GR0(d.pg); if (!G) return '';
     const all = allVals(d.pg);
-    const on = x => (d.picks || []).some(p => p.g === d.pg && p.v === x);
+    const sel = (d.picks || []).filter(p => p.g === d.pg).map(p => p.v);
+    const rest = all.filter(x => !sel.includes(x));
     const cnt = x => source().filter(v => vals(v, G).includes(x)).length;
-    const pg = pickGrouper(d);
     return `<div class="setbox svt-pick">
-      <div class="svt-grp" style="margin-top:0">「${esc(G.name)}」のタグ（✓ が列になります。列にしないタグは押して外す・数はいまのフィルターでの本数）</div>
-      <div class="svt-opts">${all.map(x => `<button class="svt-o${on(x) ? ' on' : ''}" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${on(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp">このタググループにはまだタグがありません。下で足してください。</span>'}</div>
+      <div class="svt-ph"><span class="svt-grp" style="margin:0">「${esc(G.name)}」のタグ　<b>✓ が列になります</b>（⠿ をドラッグで列の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）</span>
+        <span class="svt-phb"><button class="svt-sm" onclick="wkSubviewsTrial._pall(true)">全部選ぶ</button><button class="svt-sm" onclick="wkSubviewsTrial._pall(false)">全部外す</button></span></div>
+      <div class="svt-opts" id="svt-chips">${sel.map((x, i) => `<span class="svt-o on svt-chip" data-i="${i}"><span class="svt-grip" title="ドラッグで順番を入れ替え" onpointerdown="wkSubviewsTrial._gd(event,${i})">⠿</span><button class="svt-cb" onclick="wkSubviewsTrial._pv('${jsq(x)}')">✓ ${esc(x)}<small> ${cnt(x)}</small></button></span>`).join('')}${rest.map(x => `<button class="svt-o svt-off" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || (sel.length ? '' : '<span class="svt-grp">このタググループにはまだタグがありません。下で足してください。</span>')}</div>
       <div class="svt-opts"><input id="svt-pnew" type="text" placeholder="＋ 新しいタグ（${esc(G.name)}に足す）" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._pnew()"><button class="svt-sm" onclick="wkSubviewsTrial._pnew()">足す</button></div>
-      <div class="svt-grp">列の順（✕で外す・外したタグを押し直すと最後に入る）</div>
-      <div class="svt-opts">${pg.items.map((p, i) => `<span class="svt-o on">${i + 1}. ${esc(p.label)} <button class="svt-x" aria-label="外す" onclick="wkSubviewsTrial._px(${i})">✕</button></span>`).join('') || '<span class="svt-grp">まだ1つも選んでいません。</span>'}</div>
-      <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkSubviewsTrial._pn(this.checked)"> 選んだタグがどれも付いていない動画も列（「${esc(noneName(d, pg.items))}」）に出す</label>
+      <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkSubviewsTrial._pn(this.checked)"> 選んだタグがどれも付いていない動画も列（「${esc(noneName(d, pickGrouper(d).items))}」）に出す</label>
     </div>`;
+  }
+  // ⠿ のドラッグで並べ替え（Pointer Events なのでマウスでも指でも動く）。離したときに1回だけ並びを書き換える
+  let _gdS = null;
+  function gripDown(e, i) {
+    e.preventDefault();
+    const chips = [...document.querySelectorAll('#svt-chips .svt-chip')]; const me = chips[i]; if (!me) return;
+    _gdS = { i, to: i, x: e.clientX, y: e.clientY, moved: false, me };
+    const mv = ev => {
+      if (!_gdS) return;
+      if (!_gdS.moved && Math.hypot(ev.clientX - _gdS.x, ev.clientY - _gdS.y) < 4) return;
+      _gdS.moved = true; me.classList.add('dragging');
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY); const c = hit && hit.closest && hit.closest('#svt-chips .svt-chip');
+      document.querySelectorAll('#svt-chips .svt-chip').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+      if (c && c !== me) { const j = +c.dataset.i; const r = c.getBoundingClientRect(); const after = ev.clientX > r.left + r.width / 2;
+        c.classList.add(after ? 'drop-after' : 'drop-before'); _gdS.to = after ? j + 1 : j; }
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+      const st = _gdS; _gdS = null; if (!st || !st.moved) { drawEd(); return; }
+      reorderPick(st.i, st.to);
+    };
+    document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+  }
+  // 選んだタグ（このグループの分）の i 番目を、to 番目の前へ動かす
+  function reorderPick(i, to) {
+    const d = S.editing; if (!d) return;
+    const mine = d.picks.filter(p => p.g === d.pg); const others = d.picks.filter(p => p.g !== d.pg);
+    if (i < 0 || i >= mine.length) return;
+    const [x] = mine.splice(i, 1); if (to > i) to--; mine.splice(Math.max(0, Math.min(to, mine.length)), 0, x);
+    d.picks = [...others, ...mine]; drawEd();
   }
   function drawEd() {
     const el = document.getElementById('svt-ed'); if (!el) return;
@@ -271,8 +307,8 @@
     const gb = g => `<button class="svt-o${d.gb === g.key ? ' on' : ''}" onclick="wkSubviewsTrial._eg('${jsq(g.key)}')">${esc(g.name)}${g.sub ? `<small> ${esc(g.sub)}</small>` : ''}</button>`;
     el.innerHTML = `<div class="svt-ed">
       <div class="r"><div class="k">名前</div><input id="svt-name" type="text" value="${esc(d.name)}" oninput="wkSubviewsTrial._en(this.value)"></div>
-      <div class="r"><div class="k">グループ分け</div><div class="svt-opts">
-        <button class="svt-o${!d.gb ? ' on' : ''}" onclick="wkSubviewsTrial._eg('')">グループ分けしない</button>
+      <div class="r"><div class="k">分ける基準</div><div class="svt-opts">
+        <button class="svt-o${!d.gb ? ' on' : ''}" onclick="wkSubviewsTrial._eg('')">分けない</button>
         <div class="svt-grp">タグ（グループを押すと、その下に中のタグが開きます）</div>${gs.filter(g => g.kind === 'tag').map(g => `<button class="svt-o${d.gb === 'pick' && d.pg === g.key ? ' on' : ''}" onclick="wkSubviewsTrial._eg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}
         <input id="svt-ngroup" type="text" placeholder="＋ 新しいタググループ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._ng()"><button class="svt-sm" onclick="wkSubviewsTrial._ng()">作る</button>
         <div class="svt-grp">チャンネル・プレイリスト</div>${gs.filter(g => g.kind === 'src').map(gb).join('')}
@@ -280,17 +316,18 @@
       </div></div>
       ${d.gb === 'pick' && d.pg ? pickEd(d, gs) : ''}
       <div class="svt-grp">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。</div>
-      <div class="foot">${d.id !== 'all' && S.views.some(v => v.id === d.id) ? '<button class="svt-sm danger" onclick="wkSubviewsTrial._del()">このビューを消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkSubviewsTrial._ec()">やめる</button><button class="svt-sm pri" onclick="wkSubviewsTrial._es()">決める</button></div>
+      <div class="foot">${d.id !== 'all' && S.views.some(v => v.id === d.id) ? '<button class="svt-sm danger" onclick="wkSubviewsTrial._del()">このグルーピングを消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkSubviewsTrial._ec()">やめる</button><button class="svt-sm pri" onclick="wkSubviewsTrial._es()">決める</button></div>
     </div>`;
   }
   function drawTabs() {
     const el = document.getElementById('svt-tabs'); if (!el) return;
     el.innerHTML = S.views.map(v => `<button class="svt-vt${v.id === S.cur ? ' on' : ''}" onclick="wkSubviewsTrial._pick('${jsq(v.id)}')">${v.gb ? '⊞ ' : '▦ '}${esc(v.name)}</button>`).join('') +
-      `<button class="svt-vt add" onclick="wkSubviewsTrial._new()">＋ ビュー</button>`;
+      `<button class="svt-vt add" onclick="wkSubviewsTrial._new()">＋ グルーピング</button>`;
     const V = VW(); const g = V.gb ? GR(V.gb) : null;
-    document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>グループ分け <b>${esc(!g ? 'グループ分けしない' : g.kind === 'pick' ? (GR0(V.pg) ? GR0(V.pg).name + ': ' : '') + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
-      (V.id !== 'all' ? `<button class="svt-sm" onclick="wkSubviewsTrial._edit()">✎ ビューを編集</button>` : '') +
-      (S.sim.size ? `<button class="svt-sm" onclick="wkSubviewsTrial._reset()">ドラッグを全部取り消す</button>` : '');
+    document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>分ける基準 <b>${esc(!g ? '分けない' : g.kind === 'pick' ? (GR0(V.pg) ? GR0(V.pg).name + ': ' : '') + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
+      (V.id !== 'all' ? `<button class="svt-sm" onclick="wkSubviewsTrial._edit()">✎ グルーピングを編集</button>` : '') +
+      (S.undo.length ? `<button class="svt-sm" onclick="wkSubviewsTrial._undo()" title="⌘Z / Ctrl+Z">↶ 1つ戻す</button>` : '') +
+      (S.sim.size ? `<button class="svt-sm" onclick="wkSubviewsTrial._reset()">全部戻す</button>` : '');
     const mc = document.getElementById('svt-mc'), mt = document.getElementById('svt-mt');
     if (mc) mc.className = 'wk-seg-btn' + (S.mode === 'board' ? ' lvt-active' : '');
     if (mt) mt.className = 'wk-seg-btn' + (S.mode === 'table' ? ' lvt-active' : '');
@@ -339,12 +376,22 @@
 #svt-root .svt-addbox{display:grid;gap:6px;padding:0 2px 4px}
 #svt-root .svt-addbox input,#svt-root .svt-addbox select,#svt-root #svt-pnew,#svt-root #svt-ngroup{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
 #svt-root .svt-new{font-size:9.5px;padding:0 5px;border-radius:4px;background:var(--gold-soft);color:var(--gold)}
+#svt-root .svt-ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+#svt-root .svt-phb{display:flex;gap:6px}
+#svt-root .svt-chip{display:inline-flex;align-items:center;gap:2px;padding:0 4px 0 0}
+#svt-root .svt-grip{cursor:grab;padding:4px 4px 4px 8px;touch-action:none;user-select:none;opacity:.7}
+#svt-root .svt-cb{border:none;background:none;color:inherit;font:inherit;cursor:pointer;padding:4px 6px 4px 0}
+#svt-root .svt-chip.dragging{opacity:.45}
+#svt-root .svt-chip.drop-before{box-shadow:-3px 0 0 var(--gold)}
+#svt-root .svt-chip.drop-after{box-shadow:3px 0 0 var(--gold)}
+#svt-root .svt-off{opacity:.65}
 #svt-root .svt-x{border:none;background:none;color:inherit;font-size:11px;padding:0 0 0 4px;cursor:pointer}
 #svt-root .svt-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px;scroll-snap-type:x proximity}
 #svt-root .svt-col{flex:0 0 calc(var(--svt-cw,250px) + 12px);border-radius:10px;padding:6px;scroll-snap-align:start}
 #svt-root .svt-col.over{background:var(--gold-soft)}
 #svt-root .svt-col.copy{outline:2px dashed var(--gold);outline-offset:-2px}
-#svt-root .svt-col.copy .svt-colh::after{content:'＋ 追加（元の列にも残る）';font-size:10.5px;color:var(--gold);margin-left:auto}
+#svt-root .svt-col.over:not(.copy) .svt-colh::after{content:'ここへ移動（Option で両方に）';font-size:10.5px;color:var(--text3);margin-left:auto}
+#svt-root .svt-col.copy .svt-colh::after{content:'＋ ここにも追加';font-size:10.5px;color:var(--gold);margin-left:auto}
 #svt-root .svt-colh{display:flex;gap:6px;align-items:center;padding:2px 2px 8px}
 #svt-root .svt-tag{font-size:12px;padding:2px 8px;border-radius:5px;background:var(--blue-soft);color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #svt-root .svt-tag.none{background:var(--surface3)}
@@ -368,6 +415,7 @@
 #svt-root td.t{white-space:normal;min-width:220px}
 #svt-root tr.gh td{background:var(--surface2);font-weight:700;cursor:pointer}
 #svt-toast .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
+#svt-toast .svt-tx{border:1px solid currentColor!important;border-radius:6px;padding:3px 9px;text-decoration:none!important;font-weight:700}
 #svt-toast .svt-toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px;white-space:nowrap;cursor:pointer}
 @media (max-width:560px){#svt-root .svt-top h2{flex-basis:100%}#svt-root .svt-col{flex-basis:min(82%,calc(var(--svt-cw,250px) + 12px))}#svt-root .svt-ed .r{grid-template-columns:minmax(0,1fr)}}
 `;
@@ -426,6 +474,12 @@
     const rc = document.getElementById('rc'); if (rc) _obs.observe(rc, { childList: true, characterData: true, subtree: true });
     draw();
   }
+  function onKey(e) {
+    if (!isOpen() || !(e.metaKey || e.ctrlKey) || e.shiftKey || (e.key !== 'z' && e.key !== 'Z')) return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (!S.undo.length) return; e.preventDefault(); wkSubviewsTrial._undo();
+  }
+  document.addEventListener('keydown', onKey);
   function close() {
     const r = document.getElementById('svt-root'); if (r) r.remove();
     document.getElementById('svt-seg')?.remove();
@@ -439,12 +493,18 @@
   window.wkSubviewsTrial = {
     open, close,
     _pick: id => { S.cur = id; S.editing = null; S.more = {}; draw(); },
-    _new: () => { S.editing = { id: 'n' + Date.now(), name: '新しいビュー', gb: null, picks: [], showNone: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
+    _new: () => { S.editing = { id: 'n' + Date.now(), name: '新しいグルーピング', gb: null, picks: [], showNone: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
     _edit: () => { const v = VW(); S.editing = { id: v.id, name: v.name, gb: v.gb, picks: (v.picks || []).map(p => ({ ...p })), showNone: v.showNone !== false, pg: v.pg }; draw(); },
     _pg: k => wkSubviewsTrial._eg(k),
     _pv: x => { const d = S.editing; d.picks = d.picks || []; const i = d.picks.findIndex(p => p.g === d.pg && p.v === x); i < 0 ? d.picks.push({ g: d.pg, v: x }) : d.picks.splice(i, 1); drawEd(); },
     _px: i => { const d = S.editing; const items = pickGrouper(d).items; const it = items[i]; if (!it) return; d.picks = d.picks.filter(p => !(p.g === it.g && p.v === it.v)); drawEd(); },
     _pn: on => { S.editing.showNone = on; },
+    _pall: on => { const d = S.editing; if (!d || !d.pg) return; const mine = (d.picks || []).filter(p => p.g === d.pg).map(p => p.v);
+      d.picks = (d.picks || []).filter(p => p.g !== d.pg);
+      if (on) d.picks.push(...[...mine, ...allVals(d.pg).filter(x => !mine.includes(x))].map(v => ({ g: d.pg, v })));
+      drawEd(); },
+    _gd: (e, i) => gripDown(e, i),
+    _mvpick: (i, to) => reorderPick(i, to),
     _pnew: () => { const d = S.editing; const inp = document.getElementById('svt-pnew'); const v = addNewTag(d.pg, inp && inp.value); if (!v) return;
       d.picks = d.picks || []; if (!d.picks.some(p => p.g === d.pg && p.v === v)) d.picks.push({ g: d.pg, v }); drawEd(); setTimeout(() => document.getElementById('svt-pnew')?.focus(), 0); },
     _addCol: () => addColumn(),
@@ -461,7 +521,7 @@
       else { d.gb = k || null; if (k !== 'pick') d.pg = null; }
       drawEd(); },
     _ec: () => { S.editing = null; draw(); },
-    _es: () => { const d = S.editing; const name = (d.name || '').trim() || 'ビュー'; const ex = S.views.find(v => v.id === d.id);
+    _es: () => { const d = S.editing; const name = (d.name || '').trim() || 'グルーピング'; const ex = S.views.find(v => v.id === d.id);
       const keep = { name, gb: d.gb, picks: (d.picks || []).map(p => ({ ...p })), showNone: d.showNone !== false, pg: d.pg };
       if (ex) Object.assign(ex, keep); else S.views.push({ id: d.id, ...keep });
       S.cur = d.id; S.editing = null; S.more = {}; draw(); },
@@ -475,8 +535,8 @@
     _dov: (e, el) => { e.preventDefault(); const cp = !!e.altKey; el.classList.add('over'); el.classList.toggle('copy', cp); try { e.dataTransfer.dropEffect = cp ? 'copy' : 'move'; } catch (x) {} },
     _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null; move(v, gk, f, to, !!e.altKey); },
     _tx: () => { const t = S.toast; if (t && t.extra) { t.extra.fn(); draw(); } },
-    _undo: () => { if (S.toast && S.toast.undo) S.toast.undo(); S.toast = null; draw(); },
-    _reset: () => { S.sim.clear(); draw(); },
+    _undo: () => { const f = S.undo.pop(); if (f) f(); S.toast = null; draw(); },
+    _reset: () => { S.sim.clear(); S.undo = []; S.toast = null; draw(); },
     _move: move, _state: () => S, _groupers: groupers,
   };
 
