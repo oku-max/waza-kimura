@@ -24,6 +24,9 @@
   const LIMIT = 60;
   // 「なし／その他」の列の印。画面の属性（onclick 等）に入るので、NUL（\u0000）は使わない（HTML が U+FFFD に置き換え、カードの ▾ と「なし」の列へのドラッグが効かなかった v53.049）
   const NONE = '__wk_none__';
+  // 「非表示」の列（v53.051・オーナー「このグルーピングの中で表示させたくないものを非表示に。非表示の列から復活できるように」）。
+  // 隠すのはそのグルーピングの中だけ: グルーピングの entry.hidden（動画idの配列）に足す／外すだけ。動画・タグ・リストには触らない
+  const HID = '__wk_hidden__';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const jsq = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
   const tr = t => (window.WK_LANG?.() === 'en' && window._wkAutoI18n?.tryTranslate?.(t)) || t;
@@ -36,7 +39,7 @@
     if (o && typeof o === 'object') { D.uid = typeof o.uid === 'string' ? o.uid : null; D.items = o.items && typeof o.items === 'object' ? o.items : {}; } } catch (e) {}
   const persist = () => { try { localStorage.setItem(LS, JSON.stringify(D)); } catch (e) { console.warn('[groupings] 端末に保存できません', e); } };
   const okEntry = (e, id) => !!e && typeof e === 'object' && e.id === id && typeof id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(id) &&
-    (e.del === true || (typeof e.list === 'string' && typeof e.name === 'string' && (e.picks == null || Array.isArray(e.picks))));
+    (e.del === true || (typeof e.list === 'string' && typeof e.name === 'string' && (e.picks == null || Array.isArray(e.picks)) && (e.hidden == null || Array.isArray(e.hidden))));
   function put(entry) {
     entry.at = Math.max(Date.now(), (Number(D.items[entry.id]?.at) || 0) + 1);
     D.items[entry.id] = entry;
@@ -128,6 +131,30 @@
     const all = Array.isArray(window.videos) ? window.videos : [];
     try { return typeof window.filt === 'function' ? window.filt(all) : all.filter(v => !v.archived); }
     catch (e) { return all.filter(v => !v.archived); }
+  }
+  const hiddenOf = V => new Set(Array.isArray(V && V.hidden) ? V.hidden : []);
+  // 列＝ふだんの列（非表示の動画を除く）＋最後に「非表示」の列
+  function colsH(list, g) {
+    const hs = hiddenOf(VW());
+    const cs = columns(list.filter(v => !hs.has(v.id)), g);
+    cs.push({ key: HID, name: '非表示', ids: list.filter(v => hs.has(v.id)).map(v => v.id), hid: true });
+    return cs;
+  }
+  function setHidden(vid, on, quiet) {
+    const V = VW(); if (!V || V.id === 'all') return false;
+    const cur = D.items[V.id]; if (!cur || cur.del) return false;
+    const hs = hiddenOf(cur); if (hs.has(vid) === !!on) return false;
+    on ? hs.add(vid) : hs.delete(vid);
+    put({ ...cur, hidden: [...hs] });
+    if (!quiet) {
+      const t = (videoOf(vid) || {}).title || '';
+      toast(on ? `「${t}」を非表示にしました` : `「${t}」を表示に戻しました`, () => {
+        const W = D.items[V.id]; if (!W || W.del) return;
+        const h2 = hiddenOf(W); if (h2.has(vid) !== !!on) return;   // その後に変えていたら戻さない
+        on ? h2.delete(vid) : h2.add(vid); put({ ...W, hidden: [...h2] }); draw(); });
+    }
+    draw(); window.renderOrg && isTable() && rerenderTable();
+    return true;
   }
   function columns(list, g) {
     if (g.kind === 'pick') {
@@ -256,11 +283,11 @@
   const fmtDur = s => { s = Number(s) || 0; if (!s) return ''; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.floor(s % 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
   function card(v, g, colKey) {
     const mv = movable(g); const th = thumbOf(v); const x = vals(v, g);
-    const k = v.id + '|' + colKey; const open = S.openCard === k;
-    return `<div class="svt-card" ${mv ? `draggable="true" ondragstart="wkGroupings._ds(event,'${jsq(v.id)}','${jsq(colKey)}')"` : ''}>
+    const k = v.id + '|' + colKey; const open = S.openCard === k && colKey !== HID;
+    return `<div class="svt-card" ${mv || colKey === HID ? `draggable="true" ondragstart="wkGroupings._ds(event,'${jsq(v.id)}','${jsq(colKey)}')"` : ''}>
       <div class="svt-th" onclick="wkGroupings._play('${jsq(v.id)}')">${th ? `<img src="${esc(th)}" loading="lazy" alt="">` : ''}${v.duration ? `<span>${esc(fmtDur(v.duration))}</span>` : ''}</div>
       <div class="svt-tt">${esc(v.title || '')}</div>
-      <div class="svt-mt"><span>${esc(v.channel || '')}</span>${mv ? `<button class="svt-sm" onclick="wkGroupings._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}</div>
+      <div class="svt-mt"><span>${esc(v.channel || '')}</span>${mv && colKey !== HID ? `<button class="svt-sm" onclick="wkGroupings._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>
       ${mv && open ? `<div class="svt-mt">${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${esc(o)}</button>`).join('')}</div>` : ''}
       ${(g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : ''}
     </div>`;
@@ -273,13 +300,13 @@
     if (!list.length) { el.innerHTML = '<div class="svt-note">今のフィルターに当たる動画はありません。サイドバーやフィルターで条件を変えてください。</div>'; return; }
     const mv = movable(g);
     const byId = new Map(list.map(v => [v.id, v]));
-    const cs = columns(list, g);
+    const cs = colsH(list, g);
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
-    const hd = c => `<div class="svt-colh"><span class="svt-tag${c.none ? ' none' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
+    const hd = c => `<div class="svt-colh"><span class="svt-tag${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
     el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? '<div class="svt-colh"><span class="svt-tag none">＋ 新しいタグ</span></div>' : ''}</div></div>` +
       `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft">` + cs.map(c => {
       const n = S.more[c.key] || LIMIT;
-      return `<div class="svt-col" data-name="${esc(c.name)}" ${mv ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
+      return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}" data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => card(byId.get(id), g, c.key)).join('')}</div>
         ${c.ids.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${jsq(c.key)}')">さらに ${c.ids.length - n} 本</button>` : ''}
       </div>`; }).join('') + addColBox(g) + `</div>` +
@@ -380,7 +407,7 @@
     const host = document.getElementById('lib-card-host');
     // 「すべて」（分けない）のときは、ふだんのカード一覧をそのまま出す
     if (host) host.classList.toggle('svt-on', !!VW().gb && !isTable());
-    drawTabs(); drawEd(); if (isTable()) rerenderTable(); else drawBody(); drawToast(); stickTops();
+    drawTabs(); drawEd(); if (isTable()) rerenderTable(); else drawBody(); drawToast(); stickTops(); tableExtras();
   }
 
   function css() {
@@ -451,6 +478,11 @@
 #svt-root .svt-mt{padding:0 8px 8px;font-size:10px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 #svt-root .svt-mt .svt-sm{margin-left:auto;font-size:10px;padding:2px 7px}
 #svt-root .svt-also{padding-top:0}
+#svt-root .svt-hidebtn{margin-left:0!important}
+#svt-root .svt-mt .svt-sm+.svt-hidebtn{margin-left:4px!important}
+#svt-root .svt-mt>span+.svt-hidebtn{margin-left:auto!important}
+#svt-root .svt-hidcol{background:var(--surface2);opacity:.85}
+.svt-tblhide{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
 #svt-root .svt-note{font-size:11.5px;color:var(--text3);padding:8px 2px 16px;line-height:1.6}
 #svt-toast .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
 #svt-toast .svt-tsep{width:1px;align-self:stretch;background:currentColor;opacity:.3;margin:0 2px}
@@ -493,13 +525,16 @@
     const rc = document.getElementById('rc'); if (rc) _obs.observe(rc, { childList: true, characterData: true, subtree: true });
     const oh = document.getElementById('lib-org-host'); if (oh) _obs.observe(oh, { attributes: true, attributeFilter: ['style', 'class'] });
     window._orgRowGrouper = orgGrouper; window._orgGroupToggle = orgGroupToggle;
+    watchTable();
     draw();
   }
   function close(keepPref) {
     const wasTable = isTable();
     window._orgRowGrouper = null; window._orgGroupToggle = null;
+    if (_tblObs) { _tblObs.disconnect(); _tblObs = null; }
     document.getElementById('svt-root')?.remove();
     if (wasTable) window.renderOrg?.();
+    { const hr = document.getElementById('orgTheadRow'); hr?.querySelector('th.svt-hideth')?.remove(); document.querySelectorAll('#orgList td.svt-hidecell').forEach(x => x.remove()); }
     document.getElementById('lib-card-host')?.classList.remove('svt-on');
     if (_obs) { _obs.disconnect(); _obs = null; }
     S.toast = null; S.editing = null;
@@ -527,9 +562,41 @@
   function orgGrouper(list) {
     if (!isOpen() || !isTable()) return null;
     const V = VW(); const g = V.gb ? GR(V.gb) : null; if (!g) return null;
-    return columns(list, g).map(c => ({ key: c.key, name: c.name, ids: c.ids, open: !S.closed[V.id + '|' + c.key] }));
+    // 非表示のグループは最初は畳んでおく（開けば行の右端の「表示に戻す」で戻せる）
+    return colsH(list, g).map(c => ({ key: c.key, name: c.name, ids: c.ids, open: c.hid ? !!S.closed[V.id + '|' + c.key] : !S.closed[V.id + '|' + c.key] }));
   }
   function orgGroupToggle(k) { const ck = VW().id + '|' + k; S.closed[ck] = !S.closed[ck]; window.renderOrg?.(); }
+  // テーブルの右端に「非表示／表示に戻す」の列を足す（organize.js の表は変えず、描き終わった表に1列足すだけ。
+  // リストのカスタム列（custom-view.js が後から足す）より右に来るように、描き終わりの変化を見てから足す）
+  let _tblObs = null;
+  function tableExtras() {
+    const tb = document.getElementById('orgList'); const hr = document.getElementById('orgTheadRow'); if (!tb || !hr) return;
+    const V = VW(); const on = isOpen() && isTable() && !!V.gb;
+    const table = tb.closest('table');
+    if (!on) {
+      hr.querySelector('th.svt-hideth')?.remove(); tb.querySelectorAll('td.svt-hidecell').forEach(x => x.remove());
+      if (table && table.dataset.svtW) { if (table.style.width === table.dataset.svtW) table.style.width = (parseFloat(table.style.width) - 84) + 'px'; delete table.dataset.svtW; }
+      return;
+    }
+    const hs = hiddenOf(V);
+    let th = hr.querySelector('th.svt-hideth');
+    if (!th || th !== hr.lastElementChild) { th?.remove(); th = document.createElement('th'); th.className = 'org-th svt-hideth'; th.style.cssText = 'width:84px;min-width:84px;text-align:center'; th.textContent = '非表示'; hr.appendChild(th); }
+    tb.querySelectorAll('tr.org-tr').forEach(tr => {
+      const vid = tr.id.replace(/^org-row-/, ''); const hid = hs.has(vid);
+      let td = tr.querySelector('td.svt-hidecell');
+      if (td && td !== tr.lastElementChild) { td.remove(); td = null; }
+      const html = `<button class="svt-tblhide" onclick="event.stopPropagation();wkGroupings._hide('${jsq(vid)}',${hid ? 'false' : 'true'})">${hid ? '表示に戻す' : '非表示'}</button>`;
+      if (!td) { td = document.createElement('td'); td.className = 'org-td svt-hidecell'; td.style.cssText = 'width:84px;min-width:84px;text-align:center'; tr.appendChild(td); }
+      if (td.innerHTML !== html) td.innerHTML = html;
+    });
+    if (table && table.style.width && table.style.width !== table.dataset.svtW) { const w = (parseFloat(table.style.width) + 84) + 'px'; table.style.width = w; table.dataset.svtW = w; }
+  }
+  function watchTable() {
+    if (_tblObs) return;
+    const tb = document.getElementById('orgList'); const hr = document.getElementById('orgTheadRow'); if (!tb || !hr) return;
+    _tblObs = new MutationObserver(() => { _tblObs.takeRecords(); tableExtras(); _tblObs.takeRecords(); });
+    _tblObs.observe(tb, { childList: true, subtree: true }); _tblObs.observe(hr, { childList: true });
+  }
   let _rot = null;
   function rerenderTable() { if (!isTable()) return; clearTimeout(_rot); _rot = setTimeout(() => window.renderOrg?.(), 0); }
 
@@ -582,6 +649,7 @@
       const e = { id: d.id, list: prev && !prev.del ? prev.list : listKey(), name, gb: d.gb || null, pg: d.gb === 'pick' ? d.pg : null,
         picks: d.gb === 'pick' ? (d.picks || []).filter(p => p.g === d.pg).map(p => ({ g: p.g, v: p.v })) : [],
         showNone: d.showNone !== false, created: prev && prev.created || Date.now() };
+      if (prev && !prev.del && Array.isArray(prev.hidden) && prev.hidden.length) e.hidden = prev.hidden.slice();   // 編集しても非表示は消さない
       put(e);
       P.cur[e.list] = e.id; savePrefs();
       S.editing = null; S.more = {}; draw(); },
@@ -597,7 +665,12 @@
     _play: vid => { try { window.openVPanel?.(vid); } catch (e) {} },
     _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from; try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },
     _dov: (e, el) => { e.preventDefault(); const cp = !!e.altKey; el.classList.add('over'); el.classList.toggle('copy', cp); try { e.dataTransfer.dropEffect = cp ? 'copy' : 'move'; } catch (x) {} },
-    _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null; move(v, gk, f, to, !!e.altKey); },
+    _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null;
+      if (f === to) return;
+      if (to === HID) { setHidden(v, true); return; }                       // 非表示の列へ落とす＝隠す（タグは変えない）
+      if (f === HID) { setHidden(v, false); if (to !== NONE && movable(GR(gk))) move(v, gk, NONE, to, true); return; }   // 非表示から出す＝戻す（先の列のタグを足すだけ。何も外さない）
+      move(v, gk, f, to, !!e.altKey); },
+    _hide: (vid, on) => setHidden(vid, !!on),
     _tx: () => { const t = S.toast; if (t && t.extra) { const f = t.extra; t.extra = null; f.fn(); draw(); } },
     _undo: () => { const f = S.undo.pop(); S.toast = null; if (f) f(); draw(); },
     _tu: () => { const t = S.toast; if (!t || !t.undo) return; const i = S.undo.lastIndexOf(t.undo); if (i >= 0) S.undo.splice(i, 1); S.toast = null; t.undo(); draw(); },
