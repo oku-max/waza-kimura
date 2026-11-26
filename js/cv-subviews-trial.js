@@ -136,7 +136,7 @@
     toast(`試しに動かしました（本物のタグは変わっていません）: ${arr.join('・') || g.name + 'なし'}`, () => { S.sim.get(vid).set(g.key, before); });
   }
   // 選んだタグの列のあいだを動かす: 元の列のタグを外し、先の列のタグを付ける（グループが違ってもよい）
-  function pickChange(vid, g, offLabel, onLabel) {
+  function pickChange(vid, g, offLabel, onLabel, copy) {
     const v = (window.videos || []).find(x => x.id === vid); if (!v) return;
     const it = l => g.items.find(p => p.label === l);
     const ops = [];
@@ -148,15 +148,26 @@
       const after = on ? (before.includes(p.v) ? before : [...before, p.v]) : before.filter(x => x !== p.v);
       saved.push([G, before]);
       if (!S.sim.has(vid)) S.sim.set(vid, new Map()); S.sim.get(vid).set(G.key, after); });
-    toast(`試しに動かしました（本物のタグは変わっていません）: ${offLabel ? offLabel + ' → ' : ''}${onLabel || 'その他'}`,
-      () => saved.slice().reverse().forEach(([G, b]) => S.sim.get(vid).set(G.key, b)));
+    const undo = () => saved.slice().reverse().forEach(([G, b]) => S.sim.get(vid).set(G.key, b));
+    // 「両方に残す」: 移動で外した元のタグを付け直す（先のタグはそのまま）。元が「その他」・先が「その他」のときは出さない
+    const keepBoth = (offLabel && onLabel) ? { label: '両方に残す', fn: () => {
+        const p = it(offLabel); const G = GR0(p.g); const cur = vals(v, G); if (!cur.includes(p.v)) S.sim.get(vid).set(G.key, [...cur, p.v]);
+        toast(`「${offLabel}」と「${onLabel}」の両方に入れました（本物のタグは変わっていません）`, undo); } } : null;
+    toast(copy ? `「${onLabel}」にも入れました（${offLabel ? '「' + offLabel + '」にも残っています・' : ''}本物のタグは変わっていません）`
+               : `試しに動かしました（本物のタグは変わっていません）: ${offLabel ? offLabel + ' → ' : ''}${onLabel || 'その他'}`, undo, copy ? null : keepBoth);
     draw();
   }
-  function move(vid, gkey, from, to) {
-    if (gkey === 'pick') { if (from !== to) pickChange(vid, GR('pick'), from === '\u0000none' ? null : from, to === '\u0000none' ? null : to); return; }
+  // copy … Option（Windows は Alt）を押しながら落としたとき。元のタグを外さず、先のタグを足すだけ（オーナー「移動前と移動後のどちらにも同じタグを入れたい」）
+  function move(vid, gkey, from, to, copy) {
+    if (gkey === 'pick') {
+      if (from === to) return;
+      const off = from === '\u0000none' ? null : from, on = to === '\u0000none' ? null : to;
+      if (copy && !on) return;   // 「その他」へのコピーは意味がない（何も外さない・何も付けない）
+      pickChange(vid, GR('pick'), copy ? null : off, on, copy);
+      return; }
     const g = GR(gkey); const v = (window.videos || []).find(x => x.id === vid); if (!g || !v || !movable(g) || from === to) return;
     const before = vals(v, g); let after;
-    if (g.kind === 'tag') { after = before.filter(x => x !== from); if (to !== '\u0000none' && !after.includes(to)) after.push(to); }
+    if (g.kind === 'tag') { after = copy ? before.slice() : before.filter(x => x !== from); if (to !== '\u0000none' && !after.includes(to)) after.push(to); }
     else after = to === '\u0000none' ? [] : [to];
     if (JSON.stringify(after) === JSON.stringify(before)) return;
     simSet(vid, g, after, before); draw();
@@ -169,12 +180,12 @@
     const after = g.kind === 'tag' ? (before.includes(val) ? before.filter(x => x !== val) : [...before, val]) : (before[0] === val ? [] : [val]);
     simSet(vid, g, after, before); draw();
   }
-  function toast(msg, undo) {
-    S.toast = { msg, undo }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; drawToast(); }, 5000); drawToast();
+  function toast(msg, undo, extra) {
+    S.toast = { msg, undo, extra }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; drawToast(); }, 5000); drawToast();
   }
   function drawToast() {
     const el = document.getElementById('svt-toast'); if (!el) return;
-    el.innerHTML = S.toast ? `<div class="svt-toast">${esc(S.toast.msg)}${S.toast.undo ? '<button onclick="wkSubviewsTrial._undo()">取り消す</button>' : ''}</div>` : '';
+    el.innerHTML = S.toast ? `<div class="svt-toast">${esc(S.toast.msg)}${S.toast.extra ? `<button onclick="wkSubviewsTrial._tx()">${esc(S.toast.extra.label)}</button>` : ''}${S.toast.undo ? '<button onclick="wkSubviewsTrial._undo()">取り消す</button>' : ''}</div>` : '';
   }
 
   // ── 画面 ──
@@ -219,12 +230,12 @@
     const mv = movable(g);
     el.innerHTML = `<div class="svt-board">` + columns(list, g).map(c => {
       const n = S.more[c.key] || LIMIT;
-      return `<div class="svt-col" ${mv ? `ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wkSubviewsTrial._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
+      return `<div class="svt-col" ${mv ? `ondragover="wkSubviewsTrial._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkSubviewsTrial._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-colh"><span class="svt-tag${c.none ? ' none' : ''}">${esc(c.name)}</span>${c.isNew ? '<span class="svt-new">新</span>' : ''}<span class="n">${c.ids.length}</span></div>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => card(list.find(v => v.id === id), g, c.key)).join('')}</div>
         ${c.ids.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkSubviewsTrial._mr('${jsq(c.key)}')">さらに ${c.ids.length - n} 本</button>` : ''}
       </div>`; }).join('') + addColBox(g) + `</div>` +
-      `<div class="svt-note">${mv ? 'カードを別の列へドラッグ（スマホはカードの「' + esc(g.name) + ' ▾」）。<b>試験版なので、本物のタグは変わりません</b>（閉じる・再読み込みで元どおり）。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません。'}</div>`;
+      `<div class="svt-note">${mv ? 'カードを別の列へドラッグすると移動、<b>Option（Windows は Alt）を押しながら</b>ドラッグすると両方に入ります（移動の直後のお知らせの「両方に残す」でも同じ）。スマホはカードの「' + esc(g.name) + ' ▾」で付け外し。<b>試験版なので、本物のタグは変わりません</b>（閉じる・再読み込みで元どおり）。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません。'}</div>`;
   }
   function addColBox(g) {
     if (!g || (g.kind !== 'tag' && g.kind !== 'pick')) return '';
@@ -332,6 +343,8 @@
 #svt-root .svt-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px;scroll-snap-type:x proximity}
 #svt-root .svt-col{flex:0 0 calc(var(--svt-cw,250px) + 12px);border-radius:10px;padding:6px;scroll-snap-align:start}
 #svt-root .svt-col.over{background:var(--gold-soft)}
+#svt-root .svt-col.copy{outline:2px dashed var(--gold);outline-offset:-2px}
+#svt-root .svt-col.copy .svt-colh::after{content:'＋ 追加（元の列にも残る）';font-size:10.5px;color:var(--gold);margin-left:auto}
 #svt-root .svt-colh{display:flex;gap:6px;align-items:center;padding:2px 2px 8px}
 #svt-root .svt-tag{font-size:12px;padding:2px 8px;border-radius:5px;background:var(--blue-soft);color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #svt-root .svt-tag.none{background:var(--surface3)}
@@ -458,8 +471,10 @@
     _mr: k => { S.more[k] = (S.more[k] || LIMIT) + LIMIT; drawBody(); },
     _oc: k => { S.openCard = S.openCard === k ? null : k; drawBody(); },
     _tg: (vid, gk, val) => toggle(vid, gk, val),
-    _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from; try { e.dataTransfer.setData('text/plain', vid); } catch (x) {} },
-    _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null; move(v, gk, f, to); },
+    _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from; try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },
+    _dov: (e, el) => { e.preventDefault(); const cp = !!e.altKey; el.classList.add('over'); el.classList.toggle('copy', cp); try { e.dataTransfer.dropEffect = cp ? 'copy' : 'move'; } catch (x) {} },
+    _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null; move(v, gk, f, to, !!e.altKey); },
+    _tx: () => { const t = S.toast; if (t && t.extra) { t.extra.fn(); draw(); } },
     _undo: () => { if (S.toast && S.toast.undo) S.toast.undo(); S.toast = null; draw(); },
     _reset: () => { S.sim.clear(); draw(); },
     _move: move, _state: () => S, _groupers: groupers,

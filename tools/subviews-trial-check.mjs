@@ -145,6 +145,37 @@ ck('選んだタグの列のあいだを動かすと画面だけ変わる', JSON
 ck('選んだタグで動かしても本物の動画のタグは変わらない', await pg.evaluate(() => JSON.stringify(window.videos.find(v => v.id === 'v2').tb) === JSON.stringify(['ボトム','スタンディング'])));
 await pg.evaluate(() => wkSubviewsTrial._undo());
 ck('取り消すと戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
+// Option（Alt）を押しながらのドラッグ＝両方に入れる／移動の直後の「両方に残す」
+await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ', true));
+const cp1 = await cols();
+ck('Option を押しながら動かすと、元の列にも残ったまま先の列にも入る', JSON.stringify(cp1) === JSON.stringify(['その他=2','スタンディング=1','トップ=2']), cp1);
+ck('両方に入れても本物の動画のタグは変わらない', await pg.evaluate(() => JSON.stringify(window.videos.find(v => v.id === 'v2').tb) === JSON.stringify(['ボトム','スタンディング'])));
+await pg.evaluate(() => wkSubviewsTrial._undo());
+ck('両方に入れたのも取り消せる', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
+await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
+const kb = await pg.evaluate(() => [...document.querySelectorAll('#svt-toast button')].map(b => b.textContent));
+ck('ふつうに動かした直後のお知らせに「両方に残す」と「取り消す」が出る', kb.includes('両方に残す') && kb.includes('取り消す'), kb);
+await pg.evaluate(() => wkSubviewsTrial._tx());
+const kb2 = await cols();
+ck('「両方に残す」を押すと、元の列にも戻って両方に入る', JSON.stringify(kb2) === JSON.stringify(['その他=2','スタンディング=1','トップ=2']), kb2);
+await pg.evaluate(() => wkSubviewsTrial._undo());
+ck('その後の取り消しで、動かす前に戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
+// 本物のドラッグの出来事（dragstart → dragover → drop）で、Alt を押したときだけ両方に入る
+const dnd = alt => pg.evaluate(alt => {
+  const cols = [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')];
+  const from = cols.find(c => c.querySelector('.svt-tag').textContent === 'スタンディング'); const to = cols.find(c => c.querySelector('.svt-tag').textContent === 'トップ');
+  const card = from.querySelector('.svt-card[draggable=true]'); const dt = new DataTransfer();
+  card.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+  to.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, altKey: alt }));
+  const copyLook = to.classList.contains('copy');
+  to.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, altKey: alt }));
+  return copyLook; }, alt);
+const look1 = await dnd(true);
+ck('Alt を押したドラッグ中は落とす先に「＋ 追加」の見た目・落とすと両方に入る', look1 && JSON.stringify(await cols()) === JSON.stringify(['その他=2','スタンディング=1','トップ=2']), [look1, await cols()]);
+await pg.evaluate(() => wkSubviewsTrial._undo());
+const look2 = await dnd(false);
+ck('何も押さないドラッグは移動', !look2 && JSON.stringify(await cols()) === JSON.stringify(['その他=2','スタンディング=0','トップ=2']), [look2, await cols()]);
+await pg.evaluate(() => wkSubviewsTrial._undo());
 await pg.evaluate(() => { wkSubviewsTrial._edit(); wkSubviewsTrial._pn(false); wkSubviewsTrial._es(); });
 ck('「その他」を出さないこともできる', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1']), await cols());
 // その場で新しいタグを足す（試験版: 選択肢・動画には書かない）
