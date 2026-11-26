@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>リストの中の見え方</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+/* レイアウト: 上にリスト名と「見え方」のタブ（Notion のビューと同じ並び）、右端にカード/テーブル。
+   その下に編集の欄（開いたときだけ）、本体はまとめ方の列（カード）か見出し付きの表（テーブル）。 */
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--on-accent:#fff;--gold:#c8831a;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--ban-bg:#3a2f12;--ban-fg:#f3dc9f;--thumb:#d9d6cf;
+ --c1:#f6dcd6;--c2:#dbe7f5;--c3:#e3f0d9;--c4:#efe2f5;--c5:#f7ebcf;--c0:#ebebe8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold:#e5a34a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--thumb:#48484a;--c1:#5a3530;--c2:#2e4059;--c3:#33482a;--c4:#46345a;--c5:#54452a;--c0:#3a3a3c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold:#e5a34a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--thumb:#48484a;--c1:#5a3530;--c2:#2e4059;--c3:#33482a;--c4:#46345a;--c5:#54452a;--c0:#3a3a3c;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text)}
+body{margin:0 auto;max-width:1180px;font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;font-size:13px;padding-bottom:60px}
+button,select,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.banner{background:var(--ban-bg);color:var(--ban-fg);font-size:12px;line-height:1.7;padding-block:10px}
+h1{font-size:22px;margin:16px 0 4px;text-wrap:balance}
+.sub{font-size:11.5px;color:var(--text3);margin-bottom:10px}
+/* 見え方のタブ */
+.vbar{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);padding-block:6px;flex-wrap:wrap}
+.vtabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.vt{flex-shrink:0;display:flex;align-items:center;gap:5px;font-size:12.5px;padding:6px 11px;border-radius:8px;border:none;background:none;color:var(--text2);white-space:nowrap}
+.vt.on{background:var(--surface2);color:var(--text);font-weight:700}
+.vt .ic{font-size:11px;color:var(--text3)}
+.vt.dirty::after{content:'●';color:var(--gold);font-size:8px}
+.vt.add{color:var(--text3)}
+.tools{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.seg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.seg button{border:none;background:var(--surface);font-size:11.5px;padding:5px 10px;color:var(--text2)}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.btn{font-size:11.5px;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.sm{font-size:10.5px;padding:3px 8px}
+/* 今の見え方の要約 */
+.sum{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-block:8px;font-size:11.5px;color:var(--text3)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:11.5px}
+.pill b{color:var(--text);font-weight:600}
+.dirtybar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;font-size:11.5px;color:var(--gold)}
+/* 編集の欄 */
+.ed{margin-block:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;gap:12px}
+.ed .r{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;align-items:start}
+.ed .k{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em;padding-top:5px}
+.ed input[type=text]{font-size:13px;padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);width:100%;max-width:320px}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.o{font-size:11.5px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.o.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.o small{opacity:.7;margin-left:3px}
+.grpk{font-size:10px;color:var(--text3);width:100%;margin-top:4px}
+.setbox{border:1px dashed var(--border);border-radius:9px;padding:8px 10px;display:grid;gap:6px;margin-top:6px}
+.setbox .hd{font-size:11.5px;color:var(--text2)}
+.optrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tagc{font-size:11.5px;padding:2px 8px;border-radius:5px;color:var(--text)}
+.x{border:none;background:none;color:var(--text3);font-size:12px;padding:0 2px}
+.ed .foot{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--border);padding-top:10px}
+.ed .foot .del{margin-right:auto;color:#b24a3a}
+/* ボード（カード） */
+.board{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory;align-items:flex-start}
+.col{flex:0 0 260px;scroll-snap-align:start;border-radius:10px;padding:6px;min-height:80px;transition:background .12s}
+.col.over{background:var(--gold-soft)}
+.colh{display:flex;align-items:center;gap:6px;padding:4px 4px 8px}
+.colh .n{font-size:10.5px;color:var(--text3);font-variant-numeric:tabular-nums}
+.cards{display:grid;gap:8px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;cursor:grab}
+.card.drag{opacity:.4}
+.card .th{aspect-ratio:16/9;background:var(--thumb);position:relative;max-width:100%}
+.card .th span{position:absolute;right:4px;bottom:4px;font-size:9.5px;background:rgba(0,0,0,.65);color:#fff;padding:0 4px;border-radius:3px;font-variant-numeric:tabular-nums}
+.card .tt{padding:7px 9px 4px;font-size:12px;line-height:1.4}
+.card .mt{padding:0 9px 8px;font-size:10px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.card select{font-size:10px;padding:1px 3px;border-radius:4px;border:1px solid var(--border);background:var(--surface);margin-left:auto}
+.addcol{flex:0 0 160px;border:1px dashed var(--border);border-radius:10px;background:none;color:var(--text3);font-size:12px;padding:14px;align-self:flex-start}
+.flat{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+/* テーブル */
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:12px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+th{font-size:11px;color:var(--text3);font-weight:600;background:var(--surface2)}
+td.t{white-space:normal;min-width:200px}
+tr.gh td{background:var(--surface2);font-weight:700;font-size:12px;cursor:pointer}
+tr.gh .n{font-weight:400;color:var(--text3);margin-left:6px}
+td select{font-size:11px;padding:2px 4px;border-radius:5px;border:1px solid var(--border);background:var(--surface)}
+.data{margin-block:16px;padding:12px 14px;border:1px dashed var(--border);border-radius:10px;font-size:12px;line-height:1.8;color:var(--text2);max-width:760px}
+.data h3{margin:0 0 4px;font-size:12.5px;color:var(--text)}
+.data code{font-size:11px;background:var(--surface2);padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}
+.data ul{margin:2px 0 8px;padding-left:18px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center}
+.toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px}
+@media (max-width:560px){.col{flex-basis:82%}.ed .r{grid-template-columns:minmax(0,1fr)}.ed .k{padding-top:0}h1{font-size:19px}}
+@media (prefers-reduced-motion: reduce){.col{transition:none}}
+</style>
+</head>
+<body>
+<div class="banner"><div class="wrap">見本の画面です。本物のデータには書き込みません。<br>上のタブで「見え方」を切り替え、カードは列のあいだをドラッグ（スマホはカード下の欄）で置き場所を変えられます。「✎ 見え方を編集」で絞り込みとまとめ方を変えてみてください。</div></div>
+<div class="wrap">
+  <h1>ラッソー・スパイダー・デラヒーバ</h1>
+  <div class="sub">カスタムリスト・14本（見本）</div>
+  <div class="vbar">
+    <div class="vtabs" id="vtabs" role="tablist"></div>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="表示"><button id="m-card" onclick="mode='card';render()">カード</button><button id="m-table" onclick="mode='table';render()">テーブル</button></div>
+    </div>
+  </div>
+  <div class="sum" id="sum"></div>
+  <div id="ed"></div>
+  <div id="body"></div>
+  <div class="data">
+    <h3>この形の考え方</h3>
+    <ul>
+      <li><b>リスト</b> … どの動画を入れるか（今までどおり。手で選ぶ／条件で作る）</li>
+      <li><b>見え方</b>（リストの中に何個でも・名前つき） … そのリストの動画を<b>どう絞って</b>、<b>どうまとめて</b>見せるか。Notion の「ビュー」と同じ</li>
+      <li><b>カード／テーブル</b> … 今までどおりボタンでいつでも切り替え。見え方には含めない（どの見え方もカードでもテーブルでも見られる）</li>
+    </ul>
+    <h3>まとめ方は2種類</h3>
+    <ul>
+      <li><b>今ある情報で</b>（タグ・チャンネル・プレイリスト） … 絞り込みと同じ情報を、絞る代わりに列に分けて見せる。付け替えは動画のタグを変えること＝ライブラリ全体に効く</li>
+      <li><b>このリストの分け方で</b>（自分で作る） … 「相手のポスチャー」「習熟度」など、名前も選択肢も自由。<b>このリストの中だけ</b>の置き場所なので、動画のタグは変わらない。1つのリストに分け方をいくつでも作れて、どの見え方からでも使える</li>
+    </ul>
+    <h3>データの持ち方（案）</h3>
+    リストの中に2つ足すだけ。リストの動画（<code>videoIds</code>・条件）には触らない。<br>
+    <code>view.subViews = [{id, name, filter, groupBy, at}]</code>（groupBy は <code>{set:'分け方id'}</code> か <code>{tag:'グループid'}</code>・<code>'channel'</code>・<code>'playlist'</code>・なし）<br>
+    <code>view.groupSets = [{id, name, options:[{id, name, color}], of:{動画id: 選択肢id}}]</code><br>
+    <ul>
+      <li>選択肢を消しても、そこにいた動画は「〇〇なし」の列に戻るだけ（リストからは消えない）</li>
+      <li>分け方を消すときは本数を出して確かめ、直後に取り消せる。その分け方を使っていた見え方は「まとめない」に戻る</li>
+      <li>見え方の絞り込みを変えると「変更あり」になり、<b>上書き保存を押したときだけ</b>覚える（v53.020 の条件リストと同じ決まり）。置き場所の付け替えはその場で保存（動画を動かした＝データを変えた、なので）</li>
+      <li>端末をまたぐ同期は、今のリストの同期に乗る（1件ずつ・新しい方を採る）</li>
+      <li>最初の見え方「すべて」は今の画面そのもの。何も作らなければ今と何も変わらない</li>
+    </ul>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const VIDS=[
+ {id:1,t:'250721 石井晴先生プライベートレッスン ラッソーキープ',d:'24:10',pl:'プライベート',ch:'自分の練習',tb:'ボトム'},
+ {id:2,t:'デッドリフト対策',d:'8:42',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
+ {id:3,t:'相手のポスチャー・重心を見極め',d:'6:15',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
+ {id:4,t:'スパイダーからのシザースイープ・三角・オモプラッタ・腕十字',d:'14:30',pl:'スパイダー基礎',ch:'Keenan Online',tb:'ボトム'},
+ {id:5,t:'立ちあがる相手をコントロールするポイント',d:'9:05',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
+ {id:6,t:'ラッソーからのオモプラッタ',d:'7:22',pl:'ラッソー基礎',ch:'Keenan Online',tb:'ボトム'},
+ {id:7,t:'膝立ちの相手へのラッソースイープ',d:'6:48',pl:'ラッソー基礎',ch:'Keenan Online',tb:'ボトム'},
+ {id:8,t:'後ろ重心の相手を前に崩す',d:'5:30',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
+ {id:9,t:'デラヒーバ → ラッソーへの切り替え',d:'8:10',pl:'デラヒーバ',ch:'Mikey Musumeci',tb:'ボトム'},
+ {id:10,t:'座っている相手へのスパイダー',d:'7:55',pl:'スパイダー基礎',ch:'Keenan Online',tb:'ボトム'},
+ {id:11,t:'ラッソーのグリップの作り方',d:'4:40',pl:'ラッソー基礎',ch:'Keenan Online',tb:'ボトム'},
+ {id:12,t:'スタンディングでラッソーを潰されたら',d:'10:20',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
+ {id:13,t:'ベリンボロへの入り',d:'11:35',pl:'デラヒーバ',ch:'Mikey Musumeci',tb:'ボトム'},
+ {id:14,t:'スパー振り返り 11/20',d:'18:02',pl:'プライベート',ch:'自分の練習',tb:'ボトム'}];
+const V=id=>VIDS.find(v=>v.id===id);
+// このリストの分け方（自分で作る）
+let sets=[
+ {id:'posture',name:'相手のポスチャー',options:[{id:'st',name:'スタンディング',c:1},{id:'bk',name:'後ろ重心',c:2},{id:'kn',name:'膝立ち',c:3},{id:'sit',name:'座り',c:4}],
+  of:{2:'st',5:'st',12:'st',8:'bk',3:'bk',7:'kn',4:'kn',10:'sit'}},
+ {id:'level',name:'習熟度',options:[{id:'u',name:'理解',c:5},{id:'p',name:'練習中',c:2},{id:'s',name:'スパーで使える',c:3}],
+  of:{11:'s',6:'p',7:'p',2:'u',4:'p',13:'u',9:'u'}}];
+// 見え方
+let views=[
+ {id:'all',name:'すべて',filter:{},groupBy:null,fixed:true},
+ {id:'v1',name:'相手のポスチャー',filter:{},groupBy:{set:'posture'}},
+ {id:'v2',name:'習熟度',filter:{},groupBy:{set:'level'}},
+ {id:'v3',name:'スタンディング対策',filter:{pl:['ラッソー対策集']},groupBy:{set:'level'}},
+ {id:'v4',name:'チャンネル別',filter:{},groupBy:'channel'}];
+let cur='v1', mode='card', editing=false, draft=null, closed={}, toast=null;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+const VW=()=>views.find(v=>v.id===cur);
+const live=()=>draft||VW();               // 編集中・変更中は draft を見る
+const isDirty=()=>!!draft&&JSON.stringify({f:draft.filter,g:draft.groupBy,n:draft.name})!==JSON.stringify({f:VW().filter,g:VW().groupBy,n:VW().name});
+const setOf=gb=>gb&&gb.set?sets.find(s=>s.id===gb.set):null;
+const FKEYS=[['pl','プレイリスト'],['ch','チャンネル']];
+function filtered(f){return VIDS.filter(v=>FKEYS.every(([k])=>!(f[k]&&f[k].length)||f[k].includes(v[k]))&&sets.every(s=>!(f['s:'+s.id]&&f['s:'+s.id].length)||f['s:'+s.id].includes(s.of[v.id]||'_none')))}
+function groupsFor(vs,gb){
+  if(!gb) return null;
+  const s=setOf(gb);
+  if(s){const g=s.options.map(o=>({key:o.id,name:o.name,c:o.c,ids:vs.filter(v=>s.of[v.id]===o.id).map(v=>v.id)}));
+    g.unshift({key:'_none',name:s.name+'なし',c:0,ids:vs.filter(v=>!s.of[v.id]||!s.options.find(o=>o.id===s.of[v.id])).map(v=>v.id),none:true});return g;}
+  const k=gb==='channel'?'ch':'pl'; const m=new Map(); vs.forEach(v=>{if(!m.has(v[k]))m.set(v[k],[]);m.get(v[k]).push(v.id)});
+  return [...m].map(([n,ids],i)=>({key:n,name:n,c:(i%5)+1,ids,ro:true}));
+}
+function gbLabel(gb){if(!gb)return 'まとめない';if(gb==='channel')return 'チャンネル';if(gb==='playlist')return 'プレイリスト';const s=setOf(gb);return s?s.name:'まとめない'}
+function fLabel(f){const parts=[];FKEYS.forEach(([k,l])=>{if(f[k]&&f[k].length)parts.push(l+': '+f[k].join('・'))});sets.forEach(s=>{const a=f['s:'+s.id];if(a&&a.length)parts.push(s.name+': '+a.map(id=>id==='_none'?'なし':s.options.find(o=>o.id===id)?.name).join('・'))});return parts.length?parts.join(' / '):'なし'}
+function setGroup(vid,setId,optId){
+  const s=sets.find(x=>x.id===setId); const before=s.of[vid];
+  if(optId==='_none'||!optId) delete s.of[vid]; else s.of[vid]=optId;
+  showToast(`「${V(vid).t.slice(0,14)}…」を ${optId&&optId!=='_none'?s.options.find(o=>o.id===optId).name:s.name+'なし'} へ`,()=>{if(before)s.of[vid]=before;else delete s.of[vid]});
+  render();
+}
+function showToast(msg,undo){toast={msg,undo};clearTimeout(showToast.t);showToast.t=setTimeout(()=>{toast=null;drawToast()},4000);drawToast()}
+function drawToast(){const el=document.getElementById('toast');el.innerHTML=toast?`<div class="toast" role="status">${esc(toast.msg)}${toast.undo?'<button onclick="toast.undo();toast=null;render()">取り消す</button>':''}</div>`:''}
+
+/* ---- タブ・要約 ---- */
+function drawTabs(){
+  document.getElementById('vtabs').innerHTML=views.map(v=>{const g=v.groupBy;const ic=!g?'▦':(g.set?'◧':'⊞');return `<button class="vt${v.id===cur?' on':''}${v.id===cur&&isDirty()?' dirty':''}" role="tab" aria-selected="${v.id===cur}" onclick="pick('${v.id}')"><span class="ic">${ic}</span>${esc(v.name)}</button>`}).join('')+`<button class="vt add" onclick="newView()">＋ 見え方</button>`;
+  document.getElementById('m-card').className=mode==='card'?'on':'';document.getElementById('m-table').className=mode==='table'?'on':'';
+  const L=live();
+  document.getElementById('sum').innerHTML=`<span class="pill">絞り込み <b>${esc(fLabel(L.filter))}</b></span><span class="pill">まとめ方 <b>${esc(gbLabel(L.groupBy))}</b></span>`+
+   (VW().fixed?'':`<button class="btn sm" onclick="openEd()">✎ 見え方を編集</button>`)+
+   (isDirty()&&!editing?`<span class="dirtybar">変更あり <button class="btn sm" onclick="draft=null;render()">元に戻す</button><button class="btn sm pri" onclick="saveDraft()">上書き保存</button></span>`:'');
+}
+function pick(id){if(isDirty()&&!editing){/* 離れたら保存した状態に戻る（v53.020 と同じ） */}draft=null;editing=false;cur=id;render()}
+function newView(){const id='v'+Date.now();views.push({id,name:'新しい見え方',filter:{},groupBy:null});cur=id;draft=null;openEd();}
+function openEd(){draft=draft||clone(VW());editing=true;render();setTimeout(()=>{const i=document.getElementById('ed-name');i&&i.focus()},0)}
+function saveDraft(){const v=VW();v.name=draft.name.trim()||v.name;v.filter=draft.filter;v.groupBy=draft.groupBy;draft=null;editing=false;showToast(`見え方「${v.name}」を保存しました`);render()}
+
+/* ---- 編集の欄 ---- */
+function drawEd(){
+  const el=document.getElementById('ed'); if(!editing){el.innerHTML='';return}
+  const d=draft;
+  const fChips=(key,label,vals)=>`<div class="r"><div class="k">${esc(label)}</div><div class="opts">${vals.map(([val,name])=>{const on=(d.filter[key]||[]).includes(val);return `<button class="o${on?' on':''}" onclick="togF('${key}','${esc(val)}')">${esc(name)}</button>`}).join('')}</div></div>`;
+  const uniq=k=>[...new Set(VIDS.map(v=>v[k]))].map(x=>[x,x]);
+  let h=`<div class="r"><div class="k">名前</div><div><input type="text" id="ed-name" value="${esc(d.name)}" oninput="draft.name=this.value"></div></div>`;
+  h+=`<div class="r"><div class="k">まとめ方</div><div><div class="opts">`+
+     `<button class="o${!d.groupBy?' on':''}" onclick="draft.groupBy=null;render()">まとめない</button>`+
+     sets.map(s=>`<button class="o${d.groupBy&&d.groupBy.set===s.id?' on':''}" onclick="draft.groupBy={set:'${s.id}'};render()">◧ ${esc(s.name)}</button>`).join('')+
+     `<button class="o" onclick="newSet()">＋ 分け方を作る</button>`+
+     `<div class="grpk">今ある情報で</div>`+
+     `<button class="o${d.groupBy==='channel'?' on':''}" onclick="draft.groupBy='channel';render()">⊞ チャンネル</button><button class="o${d.groupBy==='playlist'?' on':''}" onclick="draft.groupBy='playlist';render()">⊞ プレイリスト</button><button class="o" disabled title="見本では省略">⊞ タグ1〜4</button>`+
+     `</div>`;
+  const s=setOf(d.groupBy);
+  if(s) h+=`<div class="setbox"><div class="hd">「${esc(s.name)}」の選択肢（このリストの中だけ・名前は押して変える）</div><div class="optrow">`+
+     s.options.map(o=>`<span class="tagc" style="background:var(--c${o.c})"><span contenteditable="true" spellcheck="false" onblur="renOpt('${s.id}','${o.id}',this.textContent)">${esc(o.name)}</span> <button class="x" aria-label="${esc(o.name)}を消す" onclick="delOpt('${s.id}','${o.id}')">✕</button></span>`).join('')+
+     `<button class="btn sm" onclick="addOpt('${s.id}')">＋ 選択肢</button></div></div>`;
+  h+=`</div></div>`;
+  h+=fChips('pl','絞り込み: プレイリスト',uniq('pl'))+fChips('ch','絞り込み: チャンネル',uniq('ch'));
+  sets.forEach(x=>{h+=fChips('s:'+x.id,'絞り込み: '+x.name,[...x.options.map(o=>[o.id,o.name]),['_none','なし']])});
+  h+=`<div class="foot"><button class="btn del" onclick="delView()">この見え方を消す</button><button class="btn" onclick="draft=null;editing=false;render()">やめる</button><button class="btn pri" onclick="saveDraft()">保存</button></div>`;
+  el.innerHTML=`<div class="ed">${h}</div>`;
+}
+function togF(k,val){const a=draft.filter[k]=draft.filter[k]||[];const i=a.indexOf(val);i<0?a.push(val):a.splice(i,1);render()}
+function newSet(){const id='s'+Date.now();sets.push({id,name:'新しい分け方',options:[{id:'o1',name:'A',c:1},{id:'o2',name:'B',c:2}],of:{}});draft.groupBy={set:id};render()}
+function addOpt(sid){const s=sets.find(x=>x.id===sid);s.options.push({id:'o'+Date.now(),name:'新しい選択肢',c:(s.options.length%5)+1});render()}
+function renOpt(sid,oid,t){t=t.trim();const o=sets.find(x=>x.id===sid).options.find(x=>x.id===oid);if(t&&t!==o.name){o.name=t;render()}}
+function delOpt(sid,oid){const s=sets.find(x=>x.id===sid);const o=s.options.find(x=>x.id===oid);const ids=Object.keys(s.of).filter(k=>s.of[k]===oid);const idx=s.options.indexOf(o);
+  s.options.splice(idx,1);ids.forEach(k=>delete s.of[k]);
+  showToast(`選択肢「${o.name}」を消しました（${ids.length}本は「${s.name}なし」へ）`,()=>{s.options.splice(idx,0,o);ids.forEach(k=>s.of[k]=oid)});render()}
+function delView(){const v=VW();const i=views.indexOf(v);views.splice(i,1);draft=null;editing=false;cur='all';showToast(`見え方「${v.name}」を消しました（動画とリストはそのまま）`,()=>{views.splice(i,0,v);cur=v.id});render()}
+
+/* ---- 本体 ---- */
+function card(v,s){return `<div class="card" draggable="${s?'true':'false'}" ondragstart="dragId=${v.id};this.classList.add('drag')" ondragend="this.classList.remove('drag')"><div class="th"><span>${v.d}</span></div><div class="tt">${esc(v.t)}</div><div class="mt"><span>${esc(v.ch)}</span>${s?placeSel(v.id,s):''}</div></div>`}
+function placeSel(vid,s){const curO=s.of[vid]||'_none';return `<select aria-label="${esc(s.name)}" onchange="setGroup(${vid},'${s.id}',this.value)">${s.options.map(o=>`<option value="${o.id}"${o.id===curO?' selected':''}>${esc(o.name)}</option>`).join('')}<option value="_none"${curO==='_none'?' selected':''}>${esc(s.name)}なし</option></select>`}
+let dragId=null;
+function drop(e,setId,key){e.preventDefault();e.currentTarget.classList.remove('over');if(dragId==null)return;const s=sets.find(x=>x.id===setId);if((s.of[dragId]||'_none')!==key)setGroup(dragId,setId,key);dragId=null}
+function drawBody(){
+  const L=live(); const vs=filtered(L.filter); const gs=groupsFor(vs,L.groupBy); const s=setOf(L.groupBy);
+  const el=document.getElementById('body');
+  if(!vs.length){el.innerHTML='<div class="sum">この絞り込みに当たる動画はありません。</div>';return}
+  if(mode==='card'){
+    if(!gs){el.innerHTML=`<div class="flat">${vs.map(v=>card(v,null)).join('')}</div>`;return}
+    el.innerHTML=`<div class="board">`+gs.map(g=>`<div class="col" ${s?`ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="drop(event,'${s.id}','${g.key}')"`:''}><div class="colh"><span class="tagc" style="background:var(--c${g.c})">${esc(g.name)}</span><span class="n">${g.ids.length}</span></div><div class="cards">${g.ids.map(id=>card(V(id),s)).join('')}</div></div>`).join('')+
+      (s?`<button class="addcol" onclick="openEd()">＋ 選択肢を足す</button>`:'')+`</div>`+
+      (gs.some(g=>g.ro)?'<div class="sum">今ある情報でまとめた列は、ここでは動かせません（動画のチャンネル・プレイリストそのものなので）。</div>':'');
+    return;
+  }
+  const head=`<tr><th>タイトル</th><th>長さ</th><th>チャンネル</th><th>プレイリスト</th>${sets.map(x=>`<th>${esc(x.name)}</th>`).join('')}</tr>`;
+  const tr=v=>`<tr><td class="t">${esc(v.t)}</td><td>${v.d}</td><td>${esc(v.ch)}</td><td>${esc(v.pl)}</td>${sets.map(x=>`<td>${placeSel(v.id,x)}</td>`).join('')}</tr>`;
+  let rows='';
+  if(!gs) rows=vs.map(tr).join('');
+  else gs.forEach(g=>{const k=cur+'|'+g.key;const o=!closed[k];rows+=`<tr class="gh" onclick="closed['${esc(k)}']=${o};render()"><td colspan="${4+sets.length}">${o?'▼':'▶'} <span class="tagc" style="background:var(--c${g.c})">${esc(g.name)}</span><span class="n">${g.ids.length}本</span></td></tr>`+(o?g.ids.map(id=>tr(V(id))).join(''):'')});
+  el.innerHTML=`<div class="tw"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div><div class="sum">テーブルでは、このリストの分け方がそのまま列になります（カスタム列と同じように選んで変えられる）。</div>`;
+}
+function render(){drawTabs();drawEd();drawBody();drawToast()}
+render();
+</script>
+</body>
+</html>
