@@ -81,6 +81,7 @@
   const movable = g => g && g.kind !== 'src';
 
   function source() {
+    if (isOpen() && isTable() && Array.isArray(window.filteredVideos)) return window.filteredVideos;
     const all = Array.isArray(window.videos) ? window.videos : [];
     try { return typeof window.filt === 'function' ? window.filt(all) : all.filter(v => !v.archived); }
     catch (e) { return all.filter(v => !v.archived); }
@@ -186,11 +187,11 @@
   // undo … 戻す処理（お知らせには出さず、山に積む）／ extra … お知らせに出すボタンは1つだけ（例: 「◯◯」にも残す）
   function toast(msg, undo, extra) {
     if (undo) S.undo.push(undo);
-    S.toast = { msg, extra }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; drawToast(); }, 5000); drawToast();
+    S.toast = { msg, extra, undo }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; drawToast(); }, 5000); drawToast();
   }
   function drawToast() {
     const el = document.getElementById('svt-toast'); if (!el) return;
-    el.innerHTML = S.toast ? `<div class="svt-toast">${esc(S.toast.msg)}${S.toast.extra ? `<button class="svt-tx" onclick="wkSubviewsTrial._tx()">${esc(S.toast.extra.label)}</button>` : ''}</div>` : '';
+    el.innerHTML = S.toast ? `<div class="svt-toast">${esc(S.toast.msg)}${S.toast.extra ? `<button class="svt-tx" onclick="wkSubviewsTrial._tx()">${esc(S.toast.extra.label)}</button>` : ''}${S.toast.undo ? `<span class="svt-tsep"></span><button class="svt-tu" onclick="wkSubviewsTrial._tu()" title="この操作を元に戻す">↶ 元に戻す</button>` : ''}</div>` : '';
   }
 
   // ── 画面 ──
@@ -334,15 +335,16 @@
     // 上の本数は描くたびに数え直す（開いた時点の本数のまま残すと、絞り込みの本数と食い違う）
 
   }
-  function draw() { _gc = null; drawTabs(); drawEd(); drawBody(); drawToast(); }
+  function draw() { _gc = null; drawTabs(); drawEd(); if (isTable()) rerenderTable(); else drawBody(); drawToast(); }
 
   function css() {
     if (document.getElementById('svt-style')) return;
     const st = document.createElement('style'); st.id = 'svt-style';
     st.textContent = `
 #lib-card-host.svt-on #cardList{display:none!important}
-#lib-card-host.svt-on #lib-results-header .hdr-lvt:not(#svt-seg){display:none!important}
 #svt-root{color:var(--text);font-size:13px}
+#svt-root.svt-tbl #svt-body{display:none}
+#svt-root.svt-tbl .svt-main{padding-bottom:0}
 #svt-root .svt-head{padding:8px 16px 6px;border-bottom:1px solid var(--border);display:grid;gap:6px}
 #svt-root .svt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #svt-root .svt-top h2{font-size:15px;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -415,6 +417,8 @@
 #svt-root td.t{white-space:normal;min-width:220px}
 #svt-root tr.gh td{background:var(--surface2);font-weight:700;cursor:pointer}
 #svt-toast .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
+#svt-toast .svt-tsep{width:1px;align-self:stretch;background:currentColor;opacity:.3;margin:0 2px}
+#svt-toast .svt-tu{opacity:.85;font-weight:400}
 #svt-toast .svt-tx{border:1px solid currentColor!important;border-radius:6px;padding:3px 9px;text-decoration:none!important;font-weight:700}
 #svt-toast .svt-toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px;white-space:nowrap;cursor:pointer}
 @media (max-width:560px){#svt-root .svt-top h2{flex-basis:100%}#svt-root .svt-col{flex-basis:min(82%,calc(var(--svt-cw,250px) + 12px))}#svt-root .svt-ed .r{grid-template-columns:minmax(0,1fr)}}
@@ -461,18 +465,13 @@
       <div class="svt-main"><div id="svt-ed"></div><div id="svt-body"></div></div><div id="svt-toast"></div>`;
     host.insertBefore(root, list);
     host.classList.add('svt-on');
-    const libSeg = document.querySelector('#lib-results-header .hdr-lvt');
-    if (libSeg && !document.getElementById('svt-seg')) {
-      const seg = document.createElement('div'); seg.id = 'svt-seg';
-      seg.innerHTML = `<div class="wk-seg hdr-lvt" style="margin-left:6px"><button id="svt-mc" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('board')" title="カード"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="8" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="1.5" y="8" width="4.5" height="4.5" rx="1"/><rect x="8" y="8" width="4.5" height="4.5" rx="1"/></svg><span class="hdr-lbl">カード</span></button><button id="svt-mt" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('table')" title="テーブル"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="11" height="11" rx="1.5"/><path d="M1.5 5.2h11M1.5 8.8h11M5.2 5.2v7.3"/></svg><span class="hdr-lbl">テーブル</span></button></div>`;
-      libSeg.after(seg.firstElementChild); seg.remove();
-      const added = libSeg.nextElementSibling; if (added) added.id = 'svt-seg';
-    }
     const btn = document.getElementById('svt-open-btn'); if (btn) btn.classList.add('lvt-active');
-    _obs = new MutationObserver(() => { clearTimeout(_redrawT); _redrawT = setTimeout(() => { if (isOpen()) draw(); }, 60); });
+    _obs = new MutationObserver(() => { clearTimeout(_redrawT); _redrawT = setTimeout(() => { if (isOpen()) { place(); draw(); } }, 60); });
     _obs.observe(list, { childList: true });
     const rc = document.getElementById('rc'); if (rc) _obs.observe(rc, { childList: true, characterData: true, subtree: true });
-    draw();
+    const oh = document.getElementById('lib-org-host'); if (oh) _obs.observe(oh, { attributes: true, attributeFilter: ['style', 'class'] });   // カード⇔テーブルの切り替え
+    window._orgRowGrouper = orgGrouper; window._orgGroupToggle = orgGroupToggle;
+    place(); draw();
   }
   function onKey(e) {
     if (!isOpen() || !(e.metaKey || e.ctrlKey) || e.shiftKey || (e.key !== 'z' && e.key !== 'Z')) return;
@@ -480,9 +479,35 @@
     if (!S.undo.length) return; e.preventDefault(); wkSubviewsTrial._undo();
   }
   document.addEventListener('keydown', onKey);
+  // ── テーブルは本番の表（v53.047・オーナー「テーブルも本番の表に合わせて」）──
+  // ライブラリがテーブル表示（#lib-org-host が出ている）なら、試験版の見出し（グルーピングの並び・分ける基準・編集）を表の上に移し、
+  // 表そのものは organize.js の renderOrg が本番と同じ行で描く。試験版は window._orgRowGrouper で「どの行をどのグループに入れるか」だけを渡す。
+  const isTable = () => { const oh = document.getElementById('lib-org-host'); return !!oh && getComputedStyle(oh).display !== 'none'; };
+  function place() {
+    const root = document.getElementById('svt-root'); if (!root) return;
+    if (isTable()) {
+      const oh = document.getElementById('lib-org-host'); const bar = oh.querySelector('.org-count-bar');
+      if (root.parentElement !== oh) { if (bar && bar.parentElement === oh) bar.after(root); else oh.prepend(root); }
+      root.classList.add('svt-tbl');
+    } else {
+      const host = document.getElementById('lib-card-host'), list = document.getElementById('cardList');
+      if (host && list && root.nextElementSibling !== list) host.insertBefore(root, list);
+      root.classList.remove('svt-tbl');
+    }
+  }
+  function orgGrouper(list) {
+    if (!isOpen() || !isTable()) return null;
+    const V = VW(); const g = V.gb ? GR(V.gb) : null; if (!g) return null;
+    return columns(list, g).map(c => ({ key: c.key, name: c.name, ids: c.ids, open: !S.closed[V.id + '|' + c.key] }));
+  }
+  function orgGroupToggle(k) { const ck = VW().id + '|' + k; S.closed[ck] = !S.closed[ck]; window.renderOrg?.(); }
+  let _rot = null;
+  function rerenderTable() { if (!isTable()) return; clearTimeout(_rot); _rot = setTimeout(() => window.renderOrg?.(), 0); }
   function close() {
+    const wasTable = isTable();
+    window._orgRowGrouper = null; window._orgGroupToggle = null;
     const r = document.getElementById('svt-root'); if (r) r.remove();
-    document.getElementById('svt-seg')?.remove();
+    if (wasTable) window.renderOrg?.();   // 見出しの無い、ふだんの表に戻す
     document.getElementById('lib-card-host')?.classList.remove('svt-on');
     document.getElementById('svt-open-btn')?.classList.remove('lvt-active');
     if (_obs) { _obs.disconnect(); _obs = null; }
@@ -526,7 +551,7 @@
       if (ex) Object.assign(ex, keep); else S.views.push({ id: d.id, ...keep });
       S.cur = d.id; S.editing = null; S.more = {}; draw(); },
     _del: () => { const i = S.views.findIndex(v => v.id === S.editing.id); if (i > 0) S.views.splice(i, 1); S.cur = 'all'; S.editing = null; draw(); },
-    _mode: m => { S.mode = m; draw(); },
+    _mode: m => { window._cvSetView?.(m === 'table' ? 'table' : 'card'); },
     _cl: k => { S.closed[k] = !S.closed[k]; drawBody(); },
     _mr: k => { S.more[k] = (S.more[k] || LIMIT) + LIMIT; drawBody(); },
     _oc: k => { S.openCard = S.openCard === k ? null : k; drawBody(); },
@@ -536,6 +561,8 @@
     _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null; move(v, gk, f, to, !!e.altKey); },
     _tx: () => { const t = S.toast; if (t && t.extra) { t.extra.fn(); draw(); } },
     _undo: () => { const f = S.undo.pop(); if (f) f(); S.toast = null; draw(); },
+    // お知らせの「↶ 元に戻す」: そのお知らせの操作だけを戻す（山からも外す）
+    _tu: () => { const t = S.toast; if (!t || !t.undo) return; const i = S.undo.lastIndexOf(t.undo); if (i >= 0) S.undo.splice(i, 1); t.undo(); S.toast = null; draw(); },
     _reset: () => { S.sim.clear(); S.undo = []; S.toast = null; draw(); },
     _move: move, _state: () => S, _groupers: groupers,
   };

@@ -105,6 +105,9 @@ await pg.waitForTimeout(2500);
 const snap = () => pg.evaluate(async () => ({ vids: JSON.stringify(window.videos), ls: JSON.stringify(Object.keys(localStorage).sort().map(k => [k, localStorage.getItem(k)])), cloud: await window.__fsAll() }));
 await pg.waitForFunction(() => getComputedStyle(document.getElementById('svt-open-btn')).display !== 'none', null, { timeout: 8000 }).catch(() => {});
 ck('オーナーのとき、入口のボタンが出る', await pg.evaluate(() => getComputedStyle(document.getElementById('svt-open-btn')).display !== 'none'));
+await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
+const plainBefore = await pg.evaluate(() => document.getElementById('orgList').innerHTML);
+await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500);
 const libW0 = await pg.evaluate(() => { const c = document.querySelector('#lib-card-host .card-wrap'); return c && c.offsetWidth; });
 const before = await snap();
 await pg.evaluate(() => document.getElementById('svt-open-btn').click());
@@ -172,7 +175,7 @@ ck('両方に入れたのも取り消せる', JSON.stringify(await cols()) === J
 await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
 const kb = await pg.evaluate(() => ({ btns: [...document.querySelectorAll('#svt-toast button')].map(b => b.textContent), msg: document.getElementById('svt-toast').textContent,
   undoBtn: [...document.querySelectorAll('#svt-sum button')].some(b => b.textContent.includes('1つ戻す')) }));
-ck('ふつうに動かした直後のお知らせは「〜へ移動しました」とボタン「「元のタグ」にも残す」の1つだけ・取り消しはお知らせに無く上の帯の「↶ 1つ戻す」', kb.btns.length === 1 && kb.btns[0] === '「スタンディング」にも残す' && kb.msg.includes('「トップ」へ移動しました') && !kb.msg.includes('取り消す') && kb.undoBtn, kb);
+ck('ふつうに動かした直後のお知らせは「〜へ移動しました」・ボタンは「「元のタグ」にも残す」と、区切りの右に「↶ 元に戻す」・上の帯にも「↶ 1つ戻す」', JSON.stringify(kb.btns) === JSON.stringify(['「スタンディング」にも残す','↶ 元に戻す']) && kb.msg.includes('「トップ」へ移動しました') && !kb.msg.includes('取り消す') && kb.undoBtn, kb);
 await pg.evaluate(() => wkSubviewsTrial._tx());
 const kb2 = await cols();
 ck('「両方に残す」を押すと、元の列にも戻って両方に入る', JSON.stringify(kb2) === JSON.stringify(['その他=2','スタンディング=1','トップ=2']), kb2);
@@ -181,6 +184,15 @@ ck('1つ戻すと「にも残す」の前（移動した状態）に戻る', JSO
 await pg.keyboard.press('Control+z');
 await pg.waitForTimeout(100);
 ck('Ctrl+Z でもう1つ戻すと、動かす前に戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
+// お知らせの「↶ 元に戻す」は、そのお知らせの操作だけを戻す
+await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
+await pg.evaluate(() => wkSubviewsTrial._tx());
+const tb2 = await pg.evaluate(() => [...document.querySelectorAll('#svt-toast button')].map(b => b.textContent));
+ck('「にも残す」の後のお知らせ（両方に入れました）にも「↶ 元に戻す」がある', JSON.stringify(tb2) === JSON.stringify(['↶ 元に戻す']), tb2);
+await pg.evaluate(() => wkSubviewsTrial._tu());
+ck('お知らせの「↶ 元に戻す」で「にも残す」だけが戻る（移動した状態）', JSON.stringify(await cols()) === JSON.stringify(['その他=2','スタンディング=0','トップ=2']), await cols());
+await pg.evaluate(() => wkSubviewsTrial._undo());
+ck('残りは「1つ戻す」で動かす前に戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
 // 本物のドラッグの出来事（dragstart → dragover → drop）で、Alt を押したときだけ両方に入る
 const dnd = alt => pg.evaluate(alt => {
   const cols = [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')];
@@ -245,20 +257,31 @@ const zW = await pg.evaluate(w => { const c = document.querySelector('#svt-root 
 console.log('    幅(zoom 1.25)', JSON.stringify(zW));
 ck('表示の大きさ（zoom）を変えていても、画面上の幅がライブラリのカードと同じ（±3px）', !!zW.lib && Math.abs(zW.trial - zW.lib) <= 3, zW);
 await pg.evaluate(() => { document.body.style.zoom = ''; });
-await pg.evaluate(() => wkSubviewsTrial._mode('table'));
-ck('テーブル表示も出る', await pg.evaluate(() => document.querySelectorAll('#svt-root tr.gh').length >= 3));
-ck('プレイリストでまとめたテーブルに「プレイリスト」の列が2本出ない', await pg.evaluate(() => [...document.querySelectorAll('#svt-root th')].filter(th => th.textContent === 'プレイリスト').length === 1));
-const lay = await pg.evaluate(() => { const hdr = document.getElementById('lib-results-header'); const seg = document.getElementById('svt-seg');
-  const libSeg = [...hdr.querySelectorAll('.hdr-lvt')].find(x => x.id !== 'svt-seg'); const rc = document.getElementById('rc'); const sb = document.getElementById('lib-sb-toggle-btn');
-  const vis = el => !!el && getComputedStyle(el).display !== 'none' && el.offsetWidth > 0;
-  return { segInHdr: !!seg && hdr.contains(seg), segVis: vis(seg), libSegHidden: !vis(libSeg), rcVis: vis(rc), sbVis: vis(sb), rcLeft: rc && seg && rc.getBoundingClientRect().left < seg.getBoundingClientRect().left,
-    cardListHidden: !vis(document.getElementById('cardList')), active: document.getElementById('svt-mt').classList.contains('lvt-active'),
-    rcN: (rc.textContent.match(/(\d+)\s*本/) || [])[1], sumN: (document.getElementById('svt-sum').textContent.match(/（(\d+)本）/) || [])[1] }; });
-ck('ライブラリの上の帯（≡・本数と時間）がそのまま出ていて、試験版の「カード｜テーブル」がその並びにある（ライブラリのは隠れる）', lay.segInHdr && lay.segVis && lay.libSegHidden && lay.rcVis && lay.sbVis && lay.rcLeft && lay.active && lay.cardListHidden, lay);
-ck('上の本数（ライブラリの数え方）と試験版の本数が同じ', lay.rcN && lay.rcN === lay.sumN, lay);
+// テーブルは本番の表（organize.js の renderOrg）に見出しの行を挟む。切り替えはライブラリ本来の「カード｜テーブル」
+await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
+const tb = await pg.evaluate(() => ({ hd: [...document.querySelectorAll('#orgList tr.org-group-hd')].map(r => r.textContent.replace(/\s+/g, ' ').trim()), rows: document.querySelectorAll('#orgList tr.org-tr').length,
+  inOrg: document.getElementById('lib-org-host').contains(document.getElementById('svt-root')), bodyHidden: getComputedStyle(document.getElementById('svt-body')).display === 'none',
+  noOwnTable: !document.querySelector('#svt-root table'), noOwnSeg: !document.getElementById('svt-seg'), sumN: (document.getElementById('svt-sum').textContent.match(/（(\d+)本）/) || [])[1], fv: (window.filteredVideos || []).length }));
+ck('テーブルにすると本番の表の行（#orgList）にグループの見出しの行が入る・試験版の見出しは表の上・自前の表と自前の切り替えは無い', tb.hd.length >= 3 && tb.rows >= 4 && tb.inOrg && tb.bodyHidden && tb.noOwnTable && tb.noOwnSeg, tb);
+ck('テーブルのとき、試験版の本数は本番の表の本数と同じ', String(tb.fv) === tb.sumN, tb);
+if (process.env.SHOT) { await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; }); await pg.screenshot({ path: process.env.SHOT + '/svt-table.png' }); }
+const r0 = tb.rows;
+await pg.evaluate(() => document.querySelector('#orgList tr.org-group-hd:nth-of-type(1)') && [...document.querySelectorAll('#orgList tr.org-group-hd')].find(r => /[1-9]\d*本$/.test(r.textContent.trim())).click());
+await pg.waitForTimeout(200);
+const r1 = await pg.evaluate(() => document.querySelectorAll('#orgList tr.org-tr').length);
+ck('見出しの行を押すとそのグループを畳める', r1 < r0, [r0, r1]);
+await pg.evaluate(() => [...document.querySelectorAll('#orgList tr.org-group-hd')].find(r => r.textContent.includes('▶')).click());
+await pg.waitForTimeout(200);
+ck('もう一度押すと開く', await pg.evaluate(n => document.querySelectorAll('#orgList tr.org-tr').length === n, r0));
+await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500);
+ck('カードに戻すと試験版はカード一覧の場所に戻る', await pg.evaluate(() => document.getElementById('lib-card-host').contains(document.getElementById('svt-root')) && getComputedStyle(document.getElementById('svt-body')).display !== 'none'));
 await pg.evaluate(() => wkSubviewsTrial.close());
 ck('閉じるとライブラリのカード一覧と「カード｜テーブル」が元どおり', await pg.evaluate(() => { const vis = el => !!el && getComputedStyle(el).display !== 'none';
   const libSeg = [...document.querySelectorAll('#lib-results-header .hdr-lvt')]; return !document.getElementById('svt-root') && !document.getElementById('svt-seg') && libSeg.length === 1 && vis(libSeg[0]) && vis(document.getElementById('cardList')); }));
+await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
+const plainAfter = await pg.evaluate(() => document.getElementById('orgList').innerHTML);
+await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500);
+ck('試験版を閉じた後のふつうの表は、試験版を開く前と1文字も同じ（見出しの行も残らない）', plainAfter === plainBefore && !plainAfter.includes('org-group-hd'), [plainBefore.length, plainAfter.length]);
 await pg.waitForTimeout(3500);   // 保存の遅延（debounce）を待つ
 const after = await snap();
 ck('閉じた後: 動画のデータが1文字も変わっていない', before.vids === after.vids);

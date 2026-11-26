@@ -878,6 +878,18 @@ export function renderOrg() {
     </tr>`;
   }
 
+  // ── グルーピング（試験版 js/cv-subviews-trial.js が渡したときだけ・v53.047）──
+  // 行の作りは上の _buildRowHTML のまま（本番の表と同じ列・幅・セル）。グループの見出しの行を間に挟むだけ。
+  // window._orgRowGrouper が無い・null を返すときは、下の今までの描き方をそのまま通る（ふだんの表は1文字も変わらない）。
+  // 見出しの行は org-tr ではないので、リストのカスタム列の追加（custom-view.js の _cvAfterRender）は行にだけ足す。
+  const _grp = typeof window._orgRowGrouper === 'function' ? window._orgRowGrouper(displayList) : null;
+  if (Array.isArray(_grp)) {
+    if (window._orgScrollObs) { window._orgScrollObs.disconnect(); window._orgScrollObs = null; }
+    const _byId = new Map(displayList.map(v => [v.id, v]));
+    tbody.innerHTML = _grp.map(g => `<tr class="org-group-hd" data-gk="${_orgEsc(g.key)}" onclick="window._orgGroupToggle && window._orgGroupToggle(this.dataset.gk)">
+        <td colspan="99" class="org-td" style="background:var(--surface2);cursor:pointer;padding:0"><div style="position:sticky;left:0;display:inline-flex;gap:8px;align-items:center;padding:8px 12px;font-weight:700;font-size:12px">${g.open ? '▼' : '▶'} ${_orgEsc(g.name)}<span style="font-weight:400;color:var(--text3)">${(g.ids || []).length}本</span></div></td></tr>`
+      + (g.open ? (g.ids || []).map(id => _byId.get(id)).filter(Boolean).map(v => _buildRowHTML(v)).join('') : '')).join('');
+  } else {
   // ── バッチレンダリング: 最初の60行を即時描画、残りはスクロールで追加 ──
   const BATCH = 60;
   const firstBatch = displayList.slice(0, BATCH);
@@ -913,6 +925,7 @@ export function renderOrg() {
       }
     }, { root: document.querySelector('.org-table-wrap'), rootMargin: '200px' });
     window._orgScrollObs.observe(sentinel);
+  }
   }
 
   syncOrgColHeaders();
