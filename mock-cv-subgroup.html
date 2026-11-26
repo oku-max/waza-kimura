@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>リストのサブグループ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+/* レイアウト: スマホ幅の1列。上に案のタブ、下に「その案だとリストがこう見える」画面と、データの持ち方の説明 */
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#111;--on-accent:#fff;--gold:#c8831a;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--ban-bg:#3a2f12;--ban-fg:#f3dc9f;--thumb:#d9d6cf}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold:#e5a34a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--ban-bg:#3a2f12;--ban-fg:#f3dc9f;--thumb:#48484a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold:#e5a34a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--ban-bg:#3a2f12;--ban-fg:#f3dc9f;--thumb:#48484a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text)}
+body{margin:0 auto;max-width:640px;font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;font-size:13px;padding-bottom:60px;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+button,select,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.banner{background:var(--ban-bg);color:var(--ban-fg);font-size:12px;line-height:1.7;padding-block:10px}
+.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding-block:10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;border-bottom:1px solid var(--border)}
+.tab{padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--text2);text-align:left;line-height:1.4}
+.tab b{display:block;font-size:12.5px;color:var(--text)}
+.tab.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.desc{margin-block:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.75;color:var(--text2)}
+.desc b{color:var(--text)}
+.desc ul{margin:4px 0 0;padding-left:18px}
+.screen{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.lname{font-weight:700;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crumb{font-size:12px;color:var(--text3);display:flex;gap:4px;align-items:center;min-width:0;flex-wrap:wrap}
+.crumb button{border:none;background:none;padding:0;color:var(--text3);text-decoration:underline;font-size:12px}
+.cnt{font-size:11px;color:var(--text3);white-space:nowrap}
+.sp{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);white-space:nowrap}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.vrow{display:flex;align-items:center;gap:9px;padding:7px 12px;border-bottom:1px solid var(--border)}
+.thumb{width:56px;aspect-ratio:16/9;border-radius:4px;background:var(--thumb);flex-shrink:0;position:relative}
+.thumb span{position:absolute;right:2px;bottom:2px;font-size:8.5px;background:rgba(0,0,0,.65);color:#fff;padding:0 3px;border-radius:2px;font-variant-numeric:tabular-nums}
+.vt{flex:1;min-width:0;font-size:12.5px;line-height:1.35}
+.vt small{display:block;font-size:10.5px;color:var(--text3)}
+.mv{font-size:10.5px;padding:3px 4px;border-radius:5px;border:1px solid var(--border);background:var(--surface);max-width:108px;flex-shrink:0}
+.grip{color:var(--text3);font-size:13px;flex-shrink:0;cursor:grab}
+/* A: 見出し */
+.gh{display:flex;align-items:center;gap:7px;width:100%;padding:10px 12px 6px;border:none;border-bottom:2px solid var(--text3);background:var(--surface2);text-align:left}
+.gh .car{width:12px;font-size:10px;color:var(--text3);transition:transform .15s}
+.gh.open .car{transform:rotate(90deg)}
+.gh .gn{font-weight:700;font-size:12.5px;flex:1;min-width:0}
+.gh .gm{font-size:10.5px;color:var(--text3);font-variant-numeric:tabular-nums}
+.gh.un{border-bottom-style:dashed}
+/* B: チップ */
+.chips{display:flex;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.chip{flex-shrink:0;font-size:11.5px;padding:4px 11px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap}
+.chip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip i{font-style:normal;opacity:.7;margin-left:3px;font-variant-numeric:tabular-nums}
+.chip.add{border-style:dashed}
+/* C: ピッカー */
+.pk{padding:6px 0}
+.pkr{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border:none;background:none;text-align:left;border-bottom:1px solid var(--border)}
+.pkr .pn{flex:1;min-width:0;font-size:13px}
+.pkr.child{padding-left:34px}
+.pkr.child .pn{font-size:12.5px;color:var(--text2)}
+.pkr .tw{width:14px;font-size:10px;color:var(--text3);border:none;background:none;padding:0}
+.pkr.on{background:var(--gold-soft)}
+.kind{font-size:9.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--border);color:var(--text3);white-space:nowrap}
+/* D */
+.gsel{font-size:11.5px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface)}
+.note{padding:10px 12px;font-size:11px;color:var(--text3);line-height:1.6;background:var(--surface2)}
+.empty{padding:14px 12px;font-size:11.5px;color:var(--text3)}
+.data{margin-block:12px;padding:10px 12px;border:1px dashed var(--border);border-radius:10px;font-size:11.5px;line-height:1.7;color:var(--text2)}
+.data h3{margin:0 0 4px;font-size:12px;color:var(--text)}
+.data code{font-size:11px;background:var(--surface2);padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}
+.ok{color:#3a8a4a}.ng{color:#b24a3a}
+.inline-add{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border)}
+.inline-add input{flex:1;min-width:0;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface)}
+@media (prefers-reduced-motion: reduce){.gh .car{transition:none}}
+</style>
+</head>
+<body>
+<div class="banner"><div class="wrap">見本の画面です。本物のデータには書き込みません。<br>上のタブで4案を切り替えてください。どの案も、見本のリスト「Guard Retention」（12本）で動きます。</div></div>
+<div class="tabs wrap" id="tabs"></div>
+<div class="wrap">
+  <div class="desc" id="desc"></div>
+  <div class="screen" id="screen"></div>
+  <div class="data" id="data"></div>
+</div>
+<script>
+const VIDS=[
+ {id:1,t:'Guard Retention Overview',d:'12:40',pl:'Guard Retention Vol.1',tb:'ボトム'},
+ {id:2,t:'Frames: the forearm frame',d:'8:15',pl:'Guard Retention Vol.1',tb:'ボトム'},
+ {id:3,t:'Frames: shin shield',d:'9:02',pl:'Guard Retention Vol.1',tb:'ボトム'},
+ {id:4,t:'Hip escape fundamentals',d:'6:30',pl:'Guard Retention Vol.1',tb:'ボトム'},
+ {id:5,t:'Inversion basics',d:'10:11',pl:'Guard Retention Vol.2',tb:'ボトム'},
+ {id:6,t:'Granby roll for retention',d:'7:48',pl:'Guard Retention Vol.2',tb:'ボトム'},
+ {id:7,t:'Knee-elbow connection',d:'5:20',pl:'Guard Retention Vol.1',tb:'ボトム'},
+ {id:8,t:'Recovering from knee cut',d:'11:05',pl:'Guard Retention Vol.2',tb:'トップ'},
+ {id:9,t:'Retention vs. torreando',d:'9:33',pl:'Guard Retention Vol.2',tb:'トップ'},
+ {id:10,t:'Retention vs. leg drag',d:'8:47',pl:'Guard Retention Vol.2',tb:'トップ'},
+ {id:11,t:'Drill: shrimp chain',d:'4:10',pl:'Guard Retention Vol.1',tb:'ボトム'},
+ {id:12,t:'Live rounds breakdown',d:'15:22',pl:'Guard Retention Vol.2',tb:'スタンディング'}];
+const V=id=>VIDS.find(v=>v.id===id);
+let groups=[{id:'g1',name:'基礎',ids:[1,4,7]},{id:'g2',name:'フレーム',ids:[2,3]},{id:'g3',name:'インバージョン',ids:[5,6]},{id:'g4',name:'パス別の対処',ids:[8,9,10]}];
+const grouped=()=>new Set(groups.flatMap(g=>g.ids));
+const ungrouped=()=>VIDS.filter(v=>!grouped().has(v.id)).map(v=>v.id);
+const open={}; let chip='all'; let adding=false;
+let cSel='parent', cOpen=true; let dBy='pl';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function moveSel(id){
+  const cur=(groups.find(g=>g.ids.includes(id))||{}).id||'';
+  return `<select class="mv" aria-label="グループを変える" onchange="moveTo(${id},this.value)">`+
+    `<option value=""${cur?'':' selected'}>未分類</option>`+
+    groups.map(g=>`<option value="${g.id}"${g.id===cur?' selected':''}>${esc(g.name)}</option>`).join('')+`</select>`;
+}
+function row(id,opt={}){const v=V(id);return `<div class="vrow">${opt.grip?'<span class="grip" aria-hidden="true">⠿</span>':''}<div class="thumb"><span>${v.d}</span></div><div class="vt">${esc(v.t)}<small>${esc(v.pl)}</small></div>${opt.mv?moveSel(id):''}</div>`}
+function moveTo(id,gid){groups.forEach(g=>g.ids=g.ids.filter(x=>x!==id));if(gid){const g=groups.find(g=>g.id===gid);g.ids.push(id)}render()}
+function addGroup(){const el=document.getElementById('ng');const n=(el&&el.value||'').trim();if(!n)return;const id='g'+Date.now();groups.push({id,name:n,ids:[]});open[id]=true;adding=false;if(P==='B')chip=id;render()}
+function addBox(){return adding?`<div class="inline-add"><input id="ng" placeholder="グループの名前（例: 試合で使う）" onkeydown="if(event.key==='Enter')addGroup()"><button class="btn pri" onclick="addGroup()">作る</button><button class="btn" onclick="adding=false;render()">やめる</button></div>`:''}
+function totalMin(ids){let s=0;ids.forEach(i=>{const[m,x]=V(i).d.split(':').map(Number);s+=m*60+x});return Math.round(s/60)+'分'}
+
+const PAT={
+ A:{t:'A 見出しで区切る',s:'1つのリストの中に見出しを作り、開閉する',
+  desc:`リストの中に<b>見出し（グループ）</b>を作り、動画を振り分けます。見出しを押すと開閉。どこにも入れていない動画は一番下の「未分類」に出ます。<ul><li>右の選び欄でグループを変える（本番では ⠿ のドラッグでも）</li><li>開くと今までどおり全部の動画が並ぶ。区切りが入るだけ</li><li>ブックマークの仕切りと同じ考え方</li></ul>`,
+  render(){
+   let h=`<div class="bar"><span class="lname">Guard Retention</span><span class="cnt">${VIDS.length}本</span><span class="sp"><button class="btn" onclick="toggleAll()">${allOpen()?'全部閉じる':'全部開く'}</button><button class="btn" onclick="adding=true;render();setTimeout(()=>document.getElementById('ng').focus())">＋ グループ</button></span></div>`+addBox();
+   const sec=(key,name,ids,un)=>{const o=open[key]!==false;return `<button class="gh${o?' open':''}${un?' un':''}" aria-expanded="${o}" onclick="open['${key}']=${!o};render()"><span class="car">▶</span><span class="gn">${esc(name)}</span><span class="gm">${ids.length}本 · ${ids.length?totalMin(ids):'—'}</span></button>`+(o?(ids.length?ids.map(i=>row(i,{grip:1,mv:1})).join(''):'<div class="empty">まだ動画がありません。動画の右の欄でこのグループを選ぶと入ります。</div>'):'')};
+   h+=groups.map(g=>sec(g.id,g.name,g.ids)).join('');
+   const u=ungrouped(); if(u.length) h+=sec('un','未分類',u,true);
+   return h;},
+  data:`<h3>データの持ち方</h3>リストの中に <code>view.groups = [{id, name, ids:[動画id…]}]</code> を足すだけ。リストの動画（<code>videoIds</code>・条件）は変えません。<br>
+  <span class="ok">✔</span> グループを消しても、中の動画は「未分類」に戻るだけ（リストからは消えない）<br>
+  <span class="ok">✔</span> 条件で作ったリストでも使える。新しく条件に当たった動画は「未分類」に入る<br>
+  <span class="ng">△</span> 条件から外れた動画のidは groups に残る（表示しないだけ・消さない）`},
+ B:{t:'B 上のタブで切り替え',s:'グループをチップにして、押すとその中だけ',
+  desc:`Aと同じグループを、リストの上に<b>タブ（チップ）</b>で並べます。押すとそのグループの動画だけ。「すべて」で全部に戻ります。<ul><li>動画が多いグループでも1画面に収まる</li><li>フィルター・検索はそのグループの中で効く</li><li>データはAと同じなので、あとで見せ方だけA⇔Bを切り替えられる</li></ul>`,
+  render(){
+   const u=ungrouped();
+   const list=[{id:'all',name:'すべて',ids:VIDS.map(v=>v.id)},...groups,...(u.length?[{id:'un',name:'未分類',ids:u}]:[])];
+   if(!list.find(g=>g.id===chip))chip='all';
+   const cur=list.find(g=>g.id===chip);
+   let h=`<div class="bar"><span class="lname">Guard Retention</span><span class="cnt">${cur.ids.length}本</span></div>`;
+   h+=`<div class="chips" role="tablist">`+list.map(g=>`<button class="chip${g.id===chip?' on':''}" role="tab" aria-selected="${g.id===chip}" onclick="chip='${g.id}';render()">${esc(g.name)}<i>${g.ids.length}</i></button>`).join('')+`<button class="chip add" onclick="adding=true;render();setTimeout(()=>document.getElementById('ng').focus())">＋</button></div>`+addBox();
+   h+=cur.ids.length?cur.ids.map(i=>row(i,{mv:1})).join(''):'<div class="empty">まだ動画がありません。「すべて」に戻って、動画の右の欄でこのグループを選ぶと入ります。</div>';
+   return h;},
+  data:`<h3>データの持ち方</h3>Aと同じ <code>view.groups</code>。今どのタブを見ているかは画面の中だけ（保存しない）。<br>
+  <span class="ok">✔</span> A と同じく、グループを消しても動画はリストに残る<br>
+  <span class="ng">△</span> 「すべて」以外を開いていると、ほかのグループの動画が見えないので「どこにある？」となりやすい`},
+ C:{t:'C 子リスト',s:'リストの一覧で、リストの下にリストをぶら下げる',
+  desc:`リストの一覧（ピッカー）で、リストの下に<b>子リスト</b>を作ります。子リストはそれぞれ1つのふつうのリストで、手で選ぶ・条件で作るのどちらでもよい。<ul><li>親を開くと子リスト全部の動画（重なりは1本）</li><li>子リストごとに列設定・並べ方・カード/テーブルを別にできる</li><li>上の「›」の道筋で親に戻る</li></ul>`,
+  render(){
+   const kids=groups;
+   let h=`<div class="bar"><span class="lname">リスト一覧（見本）</span></div><div class="pk">`;
+   h+=`<div class="pkr${cSel==='parent'?' on':''}"><button class="tw" aria-label="子リストを開閉" onclick="cOpen=!cOpen;render()">${cOpen?'▼':'▶'}</button><button style="all:unset;flex:1;cursor:pointer" onclick="cSel='parent';render()"><span class="pn">Guard Retention</span></button><span class="cnt">${VIDS.length}本</span></div>`;
+   if(cOpen) h+=kids.map(g=>`<button class="pkr child${cSel===g.id?' on':''}" onclick="cSel='${g.id}';render()"><span class="pn">${esc(g.name)}</span><span class="kind">${g.id==='g4'?'条件':'手動'}</span><span class="cnt">${g.ids.length}本</span></button>`).join('')+`<button class="pkr child" onclick="adding=true;render();setTimeout(()=>document.getElementById('ng').focus())"><span class="pn" style="color:var(--text3)">＋ 子リストを作る</span></button>`;
+   h+=`<button class="pkr"><span class="tw"></span><span class="pn">Half Guard まとめ</span><span class="cnt">34本</span></button></div>`+addBox();
+   if(cSel==='parent'){
+     h+=`<div class="bar"><span class="lname">Guard Retention</span><span class="cnt">${VIDS.length}本</span></div><div class="note">親のリストを開いています。子リストに入っていない動画も、親に直接入っていれば出ます（見本では最後の2本）。</div>`+VIDS.map(v=>row(v.id)).join('');
+   }else{
+     const g=groups.find(x=>x.id===cSel);
+     h+=`<div class="bar"><span class="crumb"><button onclick="cSel='parent';render()">Guard Retention</button>›<b style="color:var(--text)">${esc(g.name)}</b></span><span class="cnt">${g.ids.length}本</span></div>`+(g.ids.length?g.ids.map(i=>row(i)).join(''):'<div class="empty">まだ動画がありません。</div>');
+   }
+   return h;},
+  data:`<h3>データの持ち方</h3>子リストは今と同じリスト（<code>_views</code> の1件）に <code>parentId</code> を足したもの。親は自分の動画＋子の動画を出す。<br>
+  <span class="ok">✔</span> 今のリストの仕組み（条件・列・並べ替え・端末をまたぐ同期）をそのまま使える<br>
+  <span class="ng">△</span> 親を消すとき、子をどうするか決める必要がある（子は消さずに親なしの普通のリストに戻す、が安全）<br>
+  <span class="ng">△</span> 1本の動画をグループ間で「移す」操作は無い（子リストに足す・外す）`},
+ D:{t:'D 自動でまとめる',s:'作らない。タグやプレイリストで見出しを自動で出す',
+  desc:`グループを作らず、<b>「まとめ方」を選ぶだけ</b>で見出しが自動で出ます（プレイリスト・タグ1・チャンネル・カスタム列など）。<ul><li>振り分けの手間がゼロ</li><li>動画のタグを変えれば見出しも変わる</li><li>自分の好きな分け方をしたいときは、先にタグを付ける必要がある</li></ul>`,
+  render(){
+   const key=dBy;const m=new Map();
+   VIDS.forEach(v=>{const k=key==='none'?'':v[key];if(!m.has(k))m.set(k,[]);m.get(k).push(v.id)});
+   let h=`<div class="bar"><span class="lname">Guard Retention</span><span class="cnt">${VIDS.length}本</span><span class="sp"><label class="cnt" for="dby">まとめ方</label><select id="dby" class="gsel" onchange="dBy=this.value;render()"><option value="none"${key==='none'?' selected':''}>まとめない</option><option value="pl"${key==='pl'?' selected':''}>プレイリスト</option><option value="tb"${key==='tb'?' selected':''}>タグ1</option></select></span></div>`;
+   if(key==='none') return h+VIDS.map(v=>row(v.id)).join('');
+   m.forEach((ids,k)=>{const o=open['d'+k]!==false;h+=`<button class="gh${o?' open':''}" aria-expanded="${o}" onclick="open['d${esc(k)}']=${!o};render()"><span class="car">▶</span><span class="gn">${esc(k)}</span><span class="gm">${ids.length}本 · ${totalMin(ids)}</span></button>`+(o?ids.map(i=>row(i)).join(''):'')});
+   return h;},
+  data:`<h3>データの持ち方</h3>新しいデータは無し。「まとめ方」はリストの表示の好みとして1つ覚えるだけ（並べ方と同じ扱い）。<br>
+  <span class="ok">✔</span> データを壊す可能性がいちばん低い<br>
+  <span class="ng">△</span> 「この3本はこのリストの中だけで“基礎”にしたい」はできない（タグで付けるとライブラリ全体に付く）`}
+};
+let P='A';
+function allOpen(){return groups.every(g=>open[g.id]!==false)&&open.un!==false}
+function toggleAll(){const o=!allOpen();groups.forEach(g=>open[g.id]=o);open.un=o;render()}
+function render(){
+ document.getElementById('tabs').innerHTML=Object.entries(PAT).map(([k,p])=>`<button class="tab${k===P?' on':''}" onclick="P='${k}';adding=false;render()"><b>${p.t}</b>${p.s}</button>`).join('');
+ document.getElementById('desc').innerHTML=PAT[P].desc;
+ document.getElementById('screen').innerHTML=PAT[P].render();
+ document.getElementById('data').innerHTML=PAT[P].data;
+}
+render();
+</script>
+</body>
+</html>
