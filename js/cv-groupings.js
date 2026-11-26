@@ -303,13 +303,13 @@
     const cs = colsH(list, g);
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
     const hd = c => `<div class="svt-colh"><span class="svt-tag${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
-    el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? '<div class="svt-colh"><span class="svt-tag none">＋ 新しいタグ</span></div>' : ''}</div></div>` +
+    el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh"><input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft">` + cs.map(c => {
       const n = S.more[c.key] || LIMIT;
       return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}" data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => card(byId.get(id), g, c.key)).join('')}</div>
         ${c.ids.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${jsq(c.key)}')">さらに ${c.ids.length - n} 本</button>` : ''}
-      </div>`; }).join('') + addColBox(g) + `</div>` +
+      </div>`; }).join('') + `</div>` +
       `<div class="svt-note">${mv ? 'カードを別の列へドラッグすると移動、<b>Option（Windows は Alt）を押しながら</b>ドラッグすると両方に入ります。スマホはカードの「' + esc(g.name) + ' ▾」で付け外し。動かすと動画のタグが変わります（直後のお知らせの「元に戻す」・上の「1つ戻す」・⌘Z / Ctrl+Z で戻せます）。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません。'}</div>`;
     stickTops();
   }
@@ -323,12 +323,8 @@
     root.style.setProperty('--svt-hh', (head ? head.offsetHeight : 0) + 'px');
     const bd = root.querySelector('.svt-board'), hs = document.getElementById('svt-colhs'); if (bd && hs) hs.scrollLeft = bd.scrollLeft;
   }
-  function addColBox(g) {
-    if (!g || g.kind !== 'pick') return '';
-    return `<div class="svt-col svt-addcol" data-name="＋ 新しいタグ">
-      <div class="svt-addbox"><input id="svt-newcol" type="text" placeholder="タグの名前" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">列を足す</button>
-      <div class="svt-grp">タグの選択肢に足して、列にします。カードをドラッグすると、そのタグが付きます。</div></div></div>`;
-  }
+  // 「＋ 新しいタグ」は見出しの帯（上に残る）に入力欄として置く（v53.053・前は見出しがただの文字で、押しても何も起きなかった。入力欄は列の下にあった）
+
   function pickEd(d) {
     const G = GR0(d.pg); if (!G) return '';
     const all = allVals(d.pg);
@@ -443,6 +439,8 @@
 #svt-root .setbox{border:1px dashed var(--border);border-radius:9px;padding:10px;display:grid;gap:6px}
 #svt-root .svt-addcol{border:1px dashed var(--border);background:var(--surface)}
 #svt-root .svt-addbox{display:grid;gap:6px;padding:0 2px 4px}
+#svt-root .svt-addh{gap:4px}
+#svt-root .svt-addh input{flex:1;min-width:0;font-size:12px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border);background:var(--surface);color:var(--text);font-family:inherit}
 #svt-root .svt-addbox input,#svt-root #svt-pnew,#svt-root #svt-ngroup{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
 #svt-root .svt-ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
 #svt-root .svt-phb{display:flex;gap:6px}
