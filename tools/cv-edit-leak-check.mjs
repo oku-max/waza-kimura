@@ -127,7 +127,7 @@ console.log('── ② ほかの端末で同じリストを開いている ─�
 const B = await open(await newCtx());
 await openList(B, '_d1');
 await A.evaluate(() => window.cvOpenConditionEditor('_d1')); await wait(600);
-for (const p of ['P2','P3']) { await A.evaluate(p => window.uniToggle('playlist', p), p); await wait(900); }
+for (const p of ['P2','P3']) { await A.evaluate(p => window.uniToggle('playlist', p, true), p); await wait(900); }   // 外す（v53.063 から、行を2回押すと除外）
 await wait(2000);
 ck('★ A が編集している間、B の画面は条件どおりのまま', await n(B) === ALL, await n(B));
 

@@ -307,7 +307,7 @@
     // r.warn … 選択中なのに「どの動画にも無い」「選択肢に無い」値の印（タグ列だけが付ける）
     // 値は data 属性で渡す（' を含む名前で onclick の文字列が壊れていた）
     const _mkRow = r =>
-      `<div class="uni-row${r.sel ? ' on' : ''}${r.ex ? ' ex' : ''}" data-k="${_esc(opts.rowKeys && r.key ? r.key : opts.filterKey)}" data-n="${_esc(r.name)}" onclick="uniToggleEl(this)">` +
+      `<div class="uni-row${r.sel ? ' on' : ''}${r.ex ? ' ex' : ''}" data-k="${_esc(opts.rowKeys && r.key ? r.key : opts.filterKey)}" data-n="${_esc(r.name)}"${r.warn && r.sel ? ' data-rm="1"' : ''} onclick="uniToggleEl(this)">` +
       `<span class="uni-nm"${r.pin && !r.sel && !r.ex ? ' style="color:var(--text3)"' : ''}>${_esc(r.label || r.name)}</span>` +
       (r.ex ? `<span class="uni-exb">除外</span>` : '') +
       (r.warn ? `<span class="uni-warn" style="font-size:10px;color:#d97706;margin-left:6px;margin-right:auto;white-space:nowrap">⚠ ${_esc(r.warn)}</span>` : '') +
@@ -1007,7 +1007,8 @@
     }
     _render();
   };
-  window.uniToggleEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n); };
+  // ⚠ の付いた値（どの動画にも無い・選択肢に無い）は、押すと外すだけ（無い値を除外にしても意味が無い）
+  window.uniToggleEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n, el.dataset.rm === '1'); };
   // 「選択中」の × … その値を外すだけ（切り替えない）。値は入れ物に入っているそのまま（除外は「(除外)名前」）
   window.uniRemoveEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n, true); };
   // 行を押すたびに 選ぶ → 除外 → なし（v53.063・オーナー決定 mock-filter-exclude.html の B）。

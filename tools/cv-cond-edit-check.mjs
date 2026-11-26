@@ -149,7 +149,9 @@ ck('問題の無いリストには出ない', r7.txt.length === 1, JSON.stringif
 console.log('\n── 印の付いた値を外して保存できる ──');
 const r8 = await pg.evaluate(async () => {
   window.cvOpenConditionEditor('_t2'); await new Promise(r => setTimeout(r, 400));
-  window.uniToggle('posNew', '消えた値'); await new Promise(r => setTimeout(r, 200));
+  // ⚠ の付いた行を本当に押す（v53.063: ふつうの行は 選ぶ → 除外 → なし。⚠ の行は押すと外すだけ）
+  window.uniSetTab('tag'); await new Promise(r => setTimeout(r, 200));
+  [...document.querySelectorAll('#uni-popup .uni-row')].find(r => r.dataset.n === '消えた値').click(); await new Promise(r => setTimeout(r, 200));
   window._cvSaveDynamic(); await new Promise(r => setTimeout(r, 300));
   const v = JSON.parse(localStorage.getItem('wk_cv_views') || '[]').find(x => x.id === '_t2');
   return v && v.filterConditions;
