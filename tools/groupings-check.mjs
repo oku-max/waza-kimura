@@ -108,7 +108,7 @@ let _cx0 = null; const cx0 = async () => _cx0;
 const GDOC = 'users/u1/data/groupings';
 const vtb = (pg, id, f = 'tb') => pg.evaluate(([id, f]) => (window.videos.find(v => v.id === id) || {})[f], [id, f]);
 const setEq = (a, b) => Array.isArray(a) && a.length === b.length && b.every(x => a.includes(x));
-const cols = pg => pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')].map(c => c.querySelector('.svt-tag').textContent + '=' + c.querySelectorAll('.svt-card').length));
+const cols = pg => pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')].map(c => c.dataset.name + '=' + c.querySelectorAll('.svt-card').length));
 const cloudVideos = () => (CLOUD['users/u1/videos.json'] || {}).videos || [];
 
 const cx = await newCtx();
@@ -145,6 +145,25 @@ await pg.evaluate(() => wkGroupings._tu());
 ck('お知らせの「元に戻す」は「にも残す」だけを戻す', setEq(await vtb(pg, 'v2'), ['スタンディング', 'トップ']), await vtb(pg, 'v2'));
 await pg.keyboard.press('Control+z'); await pg.waitForTimeout(150);
 ck('Ctrl+Z で動かす前に戻る', setEq(await vtb(pg, 'v2'), ['ボトム', 'スタンディング']), await vtb(pg, 'v2'));
+// ②b カードの ▾（スマホでの付け外し）を本物のクリックで。「なし」の列のカードでも開く（v53.049 まで NUL の印が属性の中で化けて開かなかった）
+const tbName = await pg.evaluate(k => wkGroupings._groupers().find(g => g.key === k).name, tbKey);
+const dd = await pg.evaluate(() => { const col = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name));
+  const btn = col.querySelector('.svt-card .svt-mt .svt-sm'); const label = btn.textContent; btn.click();
+  const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name)).querySelector('.svt-card');
+  return { label, opts: [...card.querySelectorAll('.svt-o')].map(b => b.textContent) }; });
+ck('カードの ▾ はタググループの名前（「選んだタグ」ではない）で、押すと選んだタグが並ぶ（「なし」の列のカードでも）', dd.label.startsWith(tbName) && !dd.label.includes('選んだタグ') && dd.opts.length === 3, dd);
+await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => /なし$/.test(c.dataset.name)).querySelector('.svt-card'); [...card.querySelectorAll('.svt-o')].find(b => b.textContent === 'トップ').click(); });
+ck('並んだタグを押すとそのタグが付く', JSON.stringify(await vtb(pg, 'v4')) === '["トップ"]', await vtb(pg, 'v4'));
+await pg.evaluate(() => wkGroupings._undo());
+ck('（取り消して元に）', JSON.stringify(await vtb(pg, 'v4')) === '[]', await vtb(pg, 'v4'));
+// ②c 見出しは縦にスクロールしても上に残る
+const sticky = await pg.evaluate(async () => { const host = document.getElementById('lib-card-host'); host.style.height = '400px'; host.scrollTop = 0; const sb = document.getElementById('svt-body'); sb.style.minHeight = '2500px'; await new Promise(r => setTimeout(r, 200)); await new Promise(r => setTimeout(r, 100));
+  const before = document.getElementById('svt-colhs').getBoundingClientRect().top;
+  host.scrollTop = 600; await new Promise(r => setTimeout(r, 150));
+  const lh = document.getElementById('lib-results-header').getBoundingClientRect(), hd = document.querySelector('#svt-root .svt-head').getBoundingClientRect(), ch = document.getElementById('svt-colhs').getBoundingClientRect(), hr = host.getBoundingClientRect();
+  const r = { sh: host.scrollHeight, chh: host.clientHeight, pv: (() => { let e = document.getElementById('svt-colhs'); const o = []; while (e) { const c = getComputedStyle(e); if (/auto|scroll/.test(c.overflowY)) o.push((e.id||e.className)+':'+e.scrollHeight+'/'+e.clientHeight); e = e.parentElement; } return o.join(','); })(), before, lhB: lh.bottom, hdT: hd.top, hdB: hd.bottom, chT: ch.top, hostT: hr.top, st: host.scrollTop };
+  host.scrollTop = 0; host.style.height = ''; sb.style.minHeight = ''; return r; });
+ck('縦にスクロールしても、グルーピングの並びと列の見出しが上に残る（ライブラリの上の帯の下・重ならない）', sticky.st > 100 && Math.abs(sticky.hdT - sticky.lhB) <= 2 && Math.abs(sticky.chT - sticky.hdB) <= 2 && sticky.chT >= sticky.hostT, JSON.stringify(sticky));
 // ③ 取り消しの安全: その後に別の画面で変えたら戻さない
 await pg.evaluate(() => wkGroupings._move('v2', 'pick', 'ボトム', 'トップ'));
 await pg.evaluate(k => { const v = window.videos.find(x => x.id === 'v2'); window.wkSetTagValue(v, k.slice(4), 'ボトム', true); }, tbKey);   // ほかの画面で付け直した
@@ -156,7 +175,7 @@ ck('（元の値に戻した）', setEq(await vtb(pg, 'v2'), ['ボトム', 'ス�
 // ④ 本物のドラッグ（Alt で両方）
 const dnd = (from, to, alt) => pg.evaluate(([from, to, alt]) => {
   const cs = [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')];
-  const f = cs.find(c => c.querySelector('.svt-tag').textContent === from), t = cs.find(c => c.querySelector('.svt-tag').textContent === to);
+  const f = cs.find(c => c.dataset.name === from), t = cs.find(c => c.dataset.name === to);
   const card = f.querySelector('.svt-card[draggable=true]'); const dt = new DataTransfer();
   card.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
   t.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, altKey: alt }));
@@ -174,7 +193,7 @@ const vidsBefore = await pg.evaluate(() => JSON.stringify(window.videos));
 await pg.evaluate(() => { document.getElementById('svt-newcol').value = '膝立ち'; wkGroupings._addCol(); });
 ck('列に「膝立ち」（0本）が足され、タグ1の選択肢に入る・動画は変わらない', (await cols(pg)).includes('膝立ち=0') && await pg.evaluate(k => window.tagRegistry.group(k.slice(4)).allOptions.includes('膝立ち'), tbKey) && vidsBefore === await pg.evaluate(() => JSON.stringify(window.videos)), await cols(pg));
 ck('グルーピングの選んだタグにも入って保存される', await pg.evaluate(id => wkGroupings.list().find(e => e.id === id).picks.some(p => p.v === '膝立ち'), g1.id));
-await pg.evaluate(() => wkGroupings._move('v4', 'pick', '\u0000none', '膝立ち'));
+await pg.evaluate(() => wkGroupings._move('v4', 'pick', '__wk_none__', '膝立ち'));
 ck('足した列へ動かすとそのタグが付く', JSON.stringify(await vtb(pg, 'v4')) === '["膝立ち"]', await vtb(pg, 'v4'));
 // ⑥ 新しいタググループ（tagRegistry.createGroup）
 const ng0 = await pg.evaluate(() => window.tagRegistry.groups().length);
@@ -185,7 +204,7 @@ await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('進捗');
 const ngid = await pg.evaluate(() => (window.tagRegistry.groups().find(g => g.name === '進捗') || {}).id);
 ck('新しいタググループが本物のタグの一覧に入る（未使用）・選択肢も入る', await pg.evaluate(([n, id]) => window.tagRegistry.groups().length === n + 1 && JSON.stringify(window.tagRegistry.group(id).allOptions) === '["理解した","使える"]' && window.tagRegistry.group(id).slot < 0, [ng0, ngid]));
 ck('列: 進捗なし=4・理解した=0・使える=0', JSON.stringify(await cols(pg)) === JSON.stringify(['進捗なし=4', '理解した=0', '使える=0']), await cols(pg));
-await pg.evaluate(() => wkGroupings._move('v1', 'pick', '\u0000none', '使える'));
+await pg.evaluate(() => wkGroupings._move('v1', 'pick', '__wk_none__', '使える'));
 ck('作ったグループへ動かすと v.tg[グループid] に入る', await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id]), ngid) === '["使える"]');
 // ⑦ カスタム列（セレクト・評価）
 await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('フェーズ'); wkGroupings._eg('cf:gc_phase1'); wkGroupings._es(); });
@@ -194,7 +213,7 @@ ck('セレクトの列へ動かすと v.cf の値が変わる', await pg.evaluat
 await pg.evaluate(() => wkGroupings._undo());
 ck('取り消すと元の値', await pg.evaluate(() => window.videos.find(v => v.id === 'v1').cf.gc_phase1) === '学習中');
 await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('優先度'); wkGroupings._eg('cf:gc_star1'); wkGroupings._es(); });
-await pg.evaluate(() => wkGroupings._move('v3', 'cf:gc_star1', '\u0000none', '★★★★★'));
+await pg.evaluate(() => wkGroupings._move('v3', 'cf:gc_star1', '__wk_none__', '★★★★★'));
 ck('評価の列へ動かすと数（5）が入る', await pg.evaluate(() => window.videos.find(v => v.id === 'v3').cf.gc_star1) === 5);
 await pg.evaluate(() => wkGroupings._undo());
 ck('取り消すと評価の欄は元どおり（無かった）', await pg.evaluate(() => !('gc_star1' in window.videos.find(v => v.id === 'v3').cf)));
