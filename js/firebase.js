@@ -135,6 +135,7 @@ auth.onAuthStateChanged(async (user) => {
     _vcShow(user.uid);
     _cvFiltStart(user.uid);           // リストごとの絞り込み（小さい文書）。待たない＝動画の読み込みと並んで走る
     _drillStart(user.uid);            // ドリル（data/drills・小さい文書）。待たない
+    _grpStart(user.uid);              // グルーピング（data/groupings・小さい文書）。待たない
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     window.__pmark?.('cv_startup');
@@ -154,6 +155,8 @@ auth.onAuthStateChanged(async (user) => {
     _cvFiltReady = false; _cvFiltUid = null;
     if (_drillUnsub) { _drillUnsub(); _drillUnsub = null; }
     _drillReady = false; _drillUid = null;
+    if (_grpUnsub) { _grpUnsub(); _grpUnsub = null; }
+    _grpReady = false; _grpUid = null;
   }
 });
 
@@ -989,6 +992,52 @@ async function _drillStart(uid) {
       window._drillApplyRemote?.({ items: d.items || {}, menus: d.menus || {}, conf: d.conf || {} }, uid, false);
     } catch (e) { console.warn('[drills] 受け取りに失敗（現状維持）', e); }
   }, e => console.warn('[drills] onSnapshot:', e));
+}
+
+// ── グルーピング（v53.048・js/cv-groupings.js）──────────────
+// 文書 users/{uid}/data/groupings = { items: { [id]: {...} }, savedBy, updatedAt }。リスト・動画・設定の文書とは別。
+// 決まりはドリルと同じ: 読み終えるまで書かない／書くのは変えた1件だけ（update で items.{id}）／消すときも del の印を書く／自分の書き込みは受け取らない
+let _grpReady = false, _grpUid = null, _grpUnsub = null;
+const _grpRef = uid => _dataDoc(uid, 'groupings');
+async function _grpWrite(uid, id, entry) {
+  if (!_DRILL_KEY_OK(id) || !entry || entry.id !== id) return;
+  const payload = JSON.parse(JSON.stringify(entry));
+  const meta = { savedBy: _sessionId, updatedAt: new Date().toISOString() };
+  try {
+    await _grpRef(uid).update({ ['items.' + id]: payload, ...meta });
+  } catch (e) {
+    if (e && (e.code === 'not-found' || /No document to update/i.test(String(e.message)))) {
+      try { await _grpRef(uid).set({ items: { [id]: payload }, ...meta }, { merge: true }); }
+      catch (e2) { console.warn('[groupings] 保存に失敗', e2); }
+    } else console.warn('[groupings] 保存に失敗', e);
+  }
+}
+window._grpPush = function(id, entry) {
+  if (!_grpReady || !currentUser || currentUser.uid !== _grpUid) return;
+  _grpWrite(currentUser.uid, id, entry);
+};
+async function _grpStart(uid) {
+  _grpReady = false; _grpUid = uid;
+  if (_grpUnsub) { _grpUnsub(); _grpUnsub = null; }
+  let cloud = {};
+  try {
+    const snap = await _grpRef(uid).get();
+    if (currentUser?.uid !== uid) return;
+    const d = snap.exists ? (snap.data() || {}) : {};
+    cloud = { items: (d.items && typeof d.items === 'object') ? d.items : {} };
+  } catch (e) { console.warn('[groupings] 読み込みに失敗（この端末の分だけ使う・クラウドへは書かない）', e); return; }
+  const toPush = window._grpApplyRemote?.(cloud, uid, true) || [];
+  _grpReady = true;
+  toPush.forEach(x => _grpWrite(uid, x.id, x.entry));
+  _grpUnsub = _grpRef(uid).onSnapshot(s => {
+    try {
+      if (currentUser?.uid !== uid || !s.exists) return;
+      if (s.metadata?.hasPendingWrites) return;
+      const d = s.data() || {};
+      if (d.savedBy === _sessionId) return;
+      window._grpApplyRemote?.({ items: d.items || {} }, uid, false);
+    } catch (e) { console.warn('[groupings] 受け取りに失敗（現状維持）', e); }
+  }, e => console.warn('[groupings] onSnapshot:', e));
 }
 
 // ── カスタムビューの同期状態を出す（読むだけ・何も書かない）──────

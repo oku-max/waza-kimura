@@ -4222,7 +4222,7 @@ window._cvSave = _save;
 window._cvRefreshViewBar = _renderViewBar;  // 言語切替時の再描画用
 
 // Firestore sync 用: saveUserSettings から参照
-// 開いているリストの id（読むだけ。見え方の試験版 js/cv-subviews-trial.js が名前を出すのに使う）
+// 開いているリストの id（読むだけ。グルーピング js/cv-groupings.js がリストごとに分けて持つのに使う）
 window._cvCurId = () => _curId;
 Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _views = v; _cvFpRemember(); }, configurable: true });
 // 現在選択中のカスタムビューID（master のとき null）。_syncURL 等が「CV 表示中か」を

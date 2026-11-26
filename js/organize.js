@@ -878,7 +878,7 @@ export function renderOrg() {
     </tr>`;
   }
 
-  // ── グルーピング（試験版 js/cv-subviews-trial.js が渡したときだけ・v53.047）──
+  // ── グルーピング（js/cv-groupings.js が渡したときだけ・v53.047〜）──
   // 行の作りは上の _buildRowHTML のまま（本番の表と同じ列・幅・セル）。グループの見出しの行を間に挟むだけ。
   // window._orgRowGrouper が無い・null を返すときは、下の今までの描き方をそのまま通る（ふだんの表は1文字も変わらない）。
   // 見出しの行は org-tr ではないので、リストのカスタム列の追加（custom-view.js の _cvAfterRender）は行にだけ足す。
