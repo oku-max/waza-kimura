@@ -8,7 +8,7 @@
 //     ・リストの本体（_views・settings）・動画・タグの選択肢とは別の文書。書くのは変えた1件だけ（firebase.js _grpPush → update）
 //     ・端末どうしは新しい方（at）を採る。クラウドを読み終えるまで書かない。ほかのアカウントの控えは送らない（ドリルと同じ決まり）
 //     ・消すときも欄は消さない（del の印）。グルーピングを消しても、動画のタグは1文字も変わらない
-//   この端末の好み（どのリストでどのグルーピングを開いていたか・開いていたか）: localStorage wk_groupingsPrefs（同期しない）
+//   この端末の好み（どのリストでどのグルーピングを開いていたか）: localStorage wk_groupingsPrefs（同期しない）
 //   動画のタグ（ドラッグ・カードの ▾ で付け外し）: wkSetTagValue（動画パネルと同じ1か所）→ debounceSave（いつもの動画の保存）
 //     カスタム列（セレクト・評価）: v.cf[列id]（表のセルと同じ）→ debounceSave
 //     ・変えるのは押した動画の、そのグループの値だけ。ほかの動画・ほかのグループには触らない
@@ -454,7 +454,7 @@
   const isOpen = () => !!document.getElementById('svt-root');
   const isTable = () => { const oh = document.getElementById('lib-org-host'); return !!oh && getComputedStyle(oh).display !== 'none'; };
   function open() {
-    if (isOpen()) { close(); return; }
+    if (isOpen()) return;
     css();
     const host = document.getElementById('lib-card-host'); const list = document.getElementById('cardList');
     if (!host || !list) return;
@@ -462,18 +462,16 @@
     const root = document.createElement('div'); root.id = 'svt-root';
     if (cw) root.style.setProperty('--svt-cw', cw + 'px');
     root.innerHTML = `<div class="svt-head">
-        <div class="svt-top"><div class="svt-tabs" id="svt-tabs"></div><button class="svt-sm" onclick="wkGroupings.close()">閉じる</button></div>
+        <div class="svt-top"><div class="svt-tabs" id="svt-tabs"></div></div>
         <div class="svt-sum" id="svt-sum"></div>
       </div>
       <div class="svt-main"><div id="svt-ed"></div><div id="svt-body"></div></div><div id="svt-toast"></div>`;
     host.insertBefore(root, list);
-    document.getElementById('svt-open-btn')?.classList.add('lvt-active');
     _obs = new MutationObserver(() => { clearTimeout(_redrawT); _redrawT = setTimeout(() => { if (isOpen()) draw(); }, 60); });
     _obs.observe(list, { childList: true });
     const rc = document.getElementById('rc'); if (rc) _obs.observe(rc, { childList: true, characterData: true, subtree: true });
     const oh = document.getElementById('lib-org-host'); if (oh) _obs.observe(oh, { attributes: true, attributeFilter: ['style', 'class'] });
     window._orgRowGrouper = orgGrouper; window._orgGroupToggle = orgGroupToggle;
-    if (!P.open) { P.open = true; savePrefs(); }
     draw();
   }
   function close(keepPref) {
@@ -482,10 +480,8 @@
     document.getElementById('svt-root')?.remove();
     if (wasTable) window.renderOrg?.();
     document.getElementById('lib-card-host')?.classList.remove('svt-on');
-    document.getElementById('svt-open-btn')?.classList.remove('lvt-active');
     if (_obs) { _obs.disconnect(); _obs = null; }
     S.toast = null; S.editing = null;
-    if (!keepPref && P.open) { P.open = false; savePrefs(); }
   }
   function onKey(e) {
     if (!isOpen() || !(e.metaKey || e.ctrlKey) || e.shiftKey || (e.key !== 'z' && e.key !== 'Z')) return;
@@ -586,11 +582,11 @@
     _move: move, _toggle: toggle, _state: () => ({ ...S, D, P }), _groupers: groupers,
   };
 
-  // 前回開いていたら、ライブラリの準備ができたところで開き直す（この端末の好み）
-  let _autoTried = false;
+  // いつも出しておく（v53.049・オーナー「グルーピングのボタンはいらない。最初から出しときゃいい」）。
+  // ライブラリの準備ができたら、カード一覧の上にグルーピングの並び（すべて・作ったもの・＋ グルーピング）を出す。描き直しで外れたら付け直す
   setInterval(() => {
-    if (_autoTried || isOpen() || !P.open) return;
+    if (isOpen()) return;
     if (!document.getElementById('cardList') || !(window.videos || []).length || typeof window.filt !== 'function') return;
-    _autoTried = true; open();
+    open();
   }, 1000);
 })();

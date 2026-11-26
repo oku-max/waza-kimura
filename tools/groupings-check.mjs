@@ -116,12 +116,11 @@ await cx.addInitScript(s => { try { localStorage.setItem('wk_cv_shared', s); } c
 const pg = await open(cx); _cx0 = pg;
 await pg.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
 await pg.waitForTimeout(2500);
-ck('入口のボタンが誰にでも出る（オーナー専用ではない）・名前は「グルーピング」', await pg.evaluate(() => { const b = document.getElementById('svt-open-btn'); return !!b && getComputedStyle(b).display !== 'none' && b.textContent.includes('グルーピング') && !b.textContent.includes('試験'); }));
+ck('入口のボタンは無く、グルーピングの並び（すべて・＋ グルーピング）が最初から出ている', await until(() => pg.evaluate(() => !document.getElementById('svt-open-btn') && !!document.getElementById('svt-root') && document.getElementById('svt-tabs').textContent.includes('すべて') && document.getElementById('svt-tabs').textContent.includes('＋ グルーピング') && !document.getElementById('svt-root').textContent.includes('閉じる'))));
 await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
 const plainBefore = await pg.evaluate(() => document.getElementById('orgList').innerHTML);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500);
 const settingsBefore = JSON.stringify(CLOUD['users/u1/data/settings']);
-await pg.evaluate(() => document.getElementById('svt-open-btn').click());
 ck('開くと「試験版」「何も保存しません」の文字は無い', await pg.evaluate(() => { const t = document.getElementById('svt-root').textContent; return !t.includes('試験') && !t.includes('何も保存しません'); }));
 ck('「すべて」（分けない）のときはふだんのカード一覧がそのまま出る', await pg.evaluate(() => getComputedStyle(document.getElementById('cardList')).display !== 'none'));
 const tbKey = await pg.evaluate(() => (wkGroupings._groupers().find(g => g.kind === 'tag' && g.sub === 'タグ1') || {}).key);
@@ -221,20 +220,20 @@ const cx2 = await newCtx(); const pg2 = await open(cx2);
 await pg2.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
 ck('2台目にも同じグルーピングが届く', await until(() => pg2.evaluate(n => wkGroupings.list().filter(e => !e.del).length === n, ids1.length)), await pg2.evaluate(() => wkGroupings.list().map(e => e.name)));
 await pg2.waitForTimeout(1500);
-await pg2.evaluate(() => { wkGroupings.open(); wkGroupings._new(); wkGroupings._en('2台目で作った'); wkGroupings._eg('ch'); wkGroupings._es(); });
+await pg2.evaluate(() => { wkGroupings._new(); wkGroupings._en('2台目で作った'); wkGroupings._eg('ch'); wkGroupings._es(); });
 ck('2台目で作ると、開いたままの1台目に届く（再読み込みなし）', await until(() => pg.evaluate(() => wkGroupings.list().some(e => e.name === '2台目で作った')), 8000));
 ck('2台目が書いても1台目の分は残る', await until(async () => ids1.every(id => CLOUD[GDOC].items[id]) && Object.keys(CLOUD[GDOC].items).length === ids1.length + 1));
 // ⑪ 再読み込み: 開いていた状態・選んでいたグルーピングが戻る
 await reload(pg);
 await pg.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
-ck('再読み込みしても開いたまま・同じグルーピング', await until(() => pg.evaluate(id => !!document.getElementById('svt-root') && document.querySelector('#svt-tabs .svt-vt.on')?.textContent.includes('タグ1別'), g1.id), 8000));
+ck('再読み込みしても同じグルーピングを選んだまま', await until(() => pg.evaluate(id => !!document.getElementById('svt-root') && document.querySelector('#svt-tabs .svt-vt.on')?.textContent.includes('タグ1別'), g1.id), 8000));
 ck('再読み込みしても動かした結果は残る（v4 膝立ち）', JSON.stringify(await vtb(pg, 'v4')) === '["膝立ち"]');
 // ⑫ クラウドを読めない端末は書かない／ほかのアカウントの控えは送らない
 const cx3 = await newCtx();
 await cx3.addInitScript(() => { window.__grpFail = true; });
 const pg3 = await open(cx3);
 await pg3.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
-await pg3.evaluate(() => { wkGroupings.open(); wkGroupings._new(); wkGroupings._en('読めない端末'); wkGroupings._es(); });
+await pg3.evaluate(() => { wkGroupings._new(); wkGroupings._en('読めない端末'); wkGroupings._es(); });
 await wait(1500);
 ck('クラウドを読めなかった端末は書かない', !Object.values(CLOUD[GDOC].items).some(e => e.name === '読めない端末'));
 await cx3.close();
@@ -252,13 +251,12 @@ await pg.evaluate(() => wkGroupings.importMerge({ items: { gbk1: { id: 'gbk1', l
 ck('復元は足し合わせ（今あるものは消さない）', await pg.evaluate(n => wkGroupings.list().length === n + 2 && wkGroupings.list().some(e => e.name === '復元したもの'), ids1.length));
 await pg.evaluate(() => wkGroupings.importMerge({ items: {} }));
 ck('空の復元で何も消えない', await pg.evaluate(n => wkGroupings.list().length === n + 2, ids1.length));
-// ⑭ 閉じた後のふつうの表は、開く前と1文字も同じ
-await pg.evaluate(() => wkGroupings.close());
+// ⑭ 「すべて」のとき、ふだんの表とカードは開く前と同じ（見出しの行は入らない）
+await pg.evaluate(() => wkGroupings._pick('all'));
 await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
 const plainAfter = await pg.evaluate(() => document.getElementById('orgList').innerHTML);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(300);
-const norm = h => h.replace(/膝立ち/g, '');
-ck('閉じた後のふつうの表には見出しの行が残らない', !plainAfter.includes('org-group-hd'), plainAfter.length);
-ck('閉じると次に開いたとき閉じたまま（この端末の好み）', await pg.evaluate(() => JSON.parse(localStorage.getItem('wk_groupingsPrefs')).open === false));
+ck('「すべて」のときの表には見出しの行が入らない', !plainAfter.includes('org-group-hd'), plainAfter.length);
+ck('「すべて」のときはふだんのカード一覧が出る', await pg.evaluate(() => getComputedStyle(document.getElementById('cardList')).display !== 'none' && !document.getElementById('lib-card-host').classList.contains('svt-on')));
 console.log(fail ? `✗ ${fail}件` : '✓ 全部通過');
 await cx2.close(); await cx.close(); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
