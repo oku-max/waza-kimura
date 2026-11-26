@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>過去の自分に聞く モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--accent-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#8a8a90;--border:#48484a;--green:#6bc490;--blue:#7ab8e0;--purple:#a090d0;--mark:#5a4a14}
+body.light{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--accent:#7a6200;--accent-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#70706c;--border:#e0e0dc;--green:#2d6a4f;--blue:#1a3a5c;--purple:#3a3a7a;--mark:#fbe7a0}
+body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.mockbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text3);margin-bottom:14px}
+.mockbar button{font:inherit;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer}
+header h1{font-size:22px;letter-spacing:.02em}
+header p{color:var(--text2);font-size:13px;margin-top:2px}
+/* 検索 */
+.ask{margin:16px 0 6px;position:relative}
+.ask input{width:100%;font:inherit;font-size:16px;padding:13px 14px 13px 40px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none}
+.ask input:focus{border-color:var(--accent)}
+.ask svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3)}
+.hints{display:flex;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--text3);align-items:center}
+.hints button{font:inherit;font-size:12px;padding:2px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer}
+.res{margin-top:12px}
+.res .sum{font-size:13px;color:var(--text2);margin-bottom:8px}
+.res .sum b{color:var(--text)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chips a{font-size:12px;padding:3px 10px;border-radius:14px;background:var(--surface2);color:var(--text2);text-decoration:none;border:1px solid var(--border)}
+.chips a b{color:var(--text);margin-left:3px}
+.grp{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.grp h3{font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.grp h3 small{font-weight:500;color:var(--text3);font-size:11px}
+.grp h3 .n{margin-left:auto;font-size:12px;color:var(--text3);font-weight:600}
+.own{font-size:10px;font-weight:800;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px}
+.it{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);cursor:pointer}
+.it:first-of-type{border-top:none}
+.when{flex-shrink:0;width:86px;font-size:11px;color:var(--accent);font-weight:700;line-height:1.35}
+.when small{display:block;color:var(--text3);font-weight:500}
+.body{flex:1;min-width:0}
+.body .t{font-weight:700;font-size:13px}
+.body .x{font-size:13px;color:var(--text2)}
+.body .src{font-size:11px;color:var(--text3);margin-top:1px}
+.play{font-size:11px;color:var(--blue);font-weight:700;white-space:nowrap}
+mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
+.more{font-size:12px;color:var(--text3);padding-top:6px;cursor:pointer}
+.empty{font-size:13px;color:var(--text3);padding:10px 2px}
+/* 下のカード */
+.cols{display:grid;grid-template-columns:1fr;gap:12px;margin-top:20px}
+@media (min-width:860px){.cols{grid-template-columns:1fr 1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.card h2{font-size:14px;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.card h2 .r{margin-left:auto;display:flex;gap:6px}
+.btn{font:inherit;font-size:12px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer}
+.btn.pri{background:var(--accent);color:#1a1a1a;border-color:var(--accent);font-weight:700}
+.quote{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:6px;padding:10px 12px;font-size:14px}
+.quote .w{font-size:11px;color:var(--accent);font-weight:800;margin-bottom:3px}
+.quote .v{font-size:12px;color:var(--blue);margin-top:6px;font-weight:600}
+.goal-now textarea{width:100%;font:inherit;font-size:14px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);padding:8px 10px;resize:vertical;min-height:64px}
+.goal-past{margin-top:10px}
+.goal-past .g{padding:7px 0;border-top:1px solid var(--border);font-size:13px;display:flex;gap:10px}
+.letter{background:var(--accent-soft);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:8px}
+.letter b{color:var(--accent)}
+.ago .row{padding:8px 0;border-top:1px solid var(--border)}
+.ago .row:first-child{border-top:none}
+.ago .lbl{font-size:12px;font-weight:800;color:var(--accent)}
+.rank{list-style:none;counter-reset:r}
+.rank li{counter-increment:r;display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13px;border-top:1px solid var(--border)}
+.rank li:first-child{border-top:none}
+.rank li::before{content:counter(r);width:18px;height:18px;border-radius:50%;background:var(--surface2);font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--text2)}
+.rank .c{margin-left:auto;color:var(--text3);font-size:12px;white-space:nowrap}
+.bar{height:6px;border-radius:3px;background:var(--accent);opacity:.7}
+.seg{display:flex;gap:4px;margin-bottom:8px}
+.seg button{font:inherit;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer}
+.seg button.on{background:var(--surface2);color:var(--text);font-weight:700}
+.note{font-size:11.5px;color:var(--text3);margin-top:6px}
+.leave{display:flex;gap:8px;margin-top:4px}
+.leave input{flex:1;font:inherit;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);padding:8px 10px;min-width:0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000;color:#fff;font-size:13px;padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:.9}
+.pt{margin-top:28px;font-size:12.5px;color:var(--text2);line-height:1.9;border-top:1px dashed var(--border);padding-top:12px}
+.pt b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="mockbar">モック（中身は作り物のデータ）　<button id="th">ライト表示</button></div>
+
+<header>
+  <h1>過去の自分に聞く</h1>
+  <p>迷ったときは、これまでの自分が残した言葉から。</p>
+</header>
+
+<div class="ask">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+  <input id="q" placeholder="いま詰まっていること（例: ラッソー）" autocomplete="off">
+</div>
+<div class="hints">試す: <button>ラッソー</button><button>lasso</button><button>ベリンボロ</button><button>膝</button></div>
+<div class="res" id="res"></div>
+
+<div class="cols">
+  <!-- 目標 -->
+  <div class="card goal-now">
+    <h2>🎯 いまの目標 <span class="r"><button class="btn pri" id="goal-save">残す</button></span></h2>
+    <textarea id="goal">ラッソーからのスイープを、上の相手が立っても崩せるようにする</textarea>
+    <div class="note">書き直すと、前の目標は消えずに下に残ります（未来の自分への手紙）。</div>
+    <div class="letter"><b>6か月前のあなた</b>はこう書いていました:<br>「ガードを作られる前に、まず足を触らせない。パス側の距離感を覚える」</div>
+    <div class="goal-past" id="goal-past"></div>
+  </div>
+
+  <!-- ランダム -->
+  <div class="card">
+    <h2>🎲 過去の自分から一言 <span class="r"><button class="btn" id="rnd">もう1つ</button></span></h2>
+    <div class="seg" id="rnd-seg"><button class="on" data-k="all">ぜんぶ</button><button data-k="j">つぶやき</button><button data-k="b">★3のブックマーク</button></div>
+    <div id="rnd-box"></div>
+  </div>
+
+  <!-- 〇か月前 -->
+  <div class="card ago">
+    <h2>🗓 〇か月前の今ごろ</h2>
+    <div id="ago"></div>
+  </div>
+
+  <!-- よく見た -->
+  <div class="card">
+    <h2>📺 よく見ていたもの</h2>
+    <div class="seg" id="per"><button data-d="30" class="on">30日</button><button data-d="90">3か月</button><button data-d="180">半年</button></div>
+    <div style="font-size:12px;font-weight:800;color:var(--text2);margin:4px 0 2px">動画</div>
+    <ol class="rank" id="topv"></ol>
+    <div style="font-size:12px;font-weight:800;color:var(--text2);margin:10px 0 2px">チャンネル</div>
+    <ol class="rank" id="topc"></ol>
+    <div class="note">回数は「動画パネルで開いた回数」。この記録は始めた日からの分だけです（それより前は数えられません）。</div>
+  </div>
+
+  <!-- ドリル -->
+  <div class="card">
+    <h2>🏋️ しばらくやっていないドリル</h2>
+    <ol class="rank" id="drills"></ol>
+  </div>
+
+  <!-- 残す -->
+  <div class="card">
+    <h2>✍️ 未来の自分に残す</h2>
+    <div class="leave"><input id="leave" placeholder="いま気づいたこと（Journal に入ります）"><button class="btn pri" id="leave-go">残す</button></div>
+    <div class="note">次に迷ったとき、これが「過去の自分」の言葉になります。</div>
+  </div>
+</div>
+
+<div class="pt">
+<b>モックで見てほしい所</b><br>
+① 検索の結果は「自分の言葉」（Journal → ノート → ブックマーク → メモ・要約）を先に、動画とドリルを後に。<br>
+② 日付は「6か月前のあなた」のように、いまからの距離で出す（日付は小さく下に）。<br>
+③ ブックマーク・要約の見出しで当たったら、その場面から再生（▶ 12:40）。<br>
+④ 表記の揺れ（ラッソー / ラッソ / lasso / Lasso）は全部当たる。関連技（スパイダーなど）には広げない。<br>
+⑤ 「よく見ていたもの」は、視聴の記録を取り始めてからの分だけ。
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TODAY = new Date('2026-11-26');
+const d = (s) => new Date(s);
+// ── 作り物のデータ ──
+const J = [ // Journal
+  { at:'2026-11-20', body:'ラッソーを作ってもすぐ立たれる。引き手より、足の角度で相手の膝を外に向ける方が先かも', v:'Lasso Guard Fundamentals', t:'12:40' },
+  { at:'2026-10-02', body:'今日はラッソーからのスイープが2回決まった。相手が重心を下げた瞬間に足を伸ばすのが良かった' },
+  { at:'2026-08-15', body:'lasso の足を深く入れすぎると、自分の膝が痛い。浅くしてグリップで補う' },
+  { at:'2026-05-28', body:'スランプ。何をやってもパスされる。ガードの種類を増やすより、一つを深くしたい' },
+  { at:'2026-05-12', body:'ベリンボロは今は保留。まずはデラヒーバとラッソの組み合わせを固める' },
+  { at:'2026-02-03', body:'膝を立てられたときの対応が分からない。ラッソーは片足だけだと弱い' },
+];
+const N = [ // ノート
+  { at:'2026-09-10', title:'ラッソー まとめ', body:'グリップ: 袖を深く。足: 相手の腕の外から巻く。崩し: 後ろではなく横へ。よくある失敗: 足を入れすぎる' },
+  { at:'2026-04-22', title:'オープンガード 全体図', body:'デラヒーバ、ラッソ、スパイダーの関係。Lasso は相手が立っているときに強い' },
+];
+const B = [ // ブックマーク（題名・説明）
+  { at:'2026-11-18', title:'ラッソーの足の角度', note:'膝を外に向けて相手の腕を伸ばす', video:'Lasso Guard Fundamentals', t:'12:40', star:3 },
+  { at:'2026-09-03', title:'Lasso からのスイープ', note:'相手が重心を下げた所で足を伸ばす', video:'Open Guard Series Vol.2', t:'08:15', star:2 },
+  { at:'2026-06-01', title:'ベリンボロの入り', note:'内側の足で相手の足を引き寄せる', video:'Berimbolo Basics', t:'03:02', star:3 },
+  { at:'2026-03-20', title:'膝の押し返し', note:'立てた膝は肘ではなく足裏で', video:'Knee Shield Concepts', t:'21:10', star:3 },
+];
+const M = [ // メモ・要約
+  { at:'2026-10-25', title:'要約: ラッソーの崩し', body:'ラッソーの崩しは横方向が基本。後ろに引くと相手は立って逃げる', video:'Lasso Guard Fundamentals', t:'15:02' },
+];
+const V = [ // 動画
+  { title:'Lasso Guard Fundamentals', ch:'Lachlan Giles', last:'2026-11-20', n:9 },
+  { title:'Open Guard Series Vol.2 - Lasso & Spider', ch:'Lachlan Giles', last:'2026-09-03', n:4 },
+  { title:'ラッソーガード 基本の3つ', ch:'BJJ 道場チャンネル', last:'2026-08-14', n:3 },
+  { title:'Berimbolo Basics', ch:'Mikey Musumeci', last:'2026-06-01', n:6 },
+  { title:'Knee Shield Concepts', ch:'John Danaher', last:'2026-11-10', n:7 },
+  { title:'Half Guard Sweeps', ch:'Lachlan Giles', last:'2026-11-22', n:5 },
+  { title:'Guard Retention Drills', ch:'BJJ 道場チャンネル', last:'2026-11-02', n:4 },
+];
+const D = [ // ドリル
+  { name:'ラッソー → スイープ', last:'2026-08-10', n:14 },
+  { name:'ベリンボロの入り', last:'2026-06-01', n:5 },
+  { name:'膝の押し返し', last:'2026-10-01', n:22 },
+  { name:'ハーフ アンダーフック', last:'2026-11-21', n:30 },
+];
+// ── 検索（表記の揺れだけ。辞書の1行＝同じもの） ──
+const DICT = [['ラッソーガード','ラッソー','ラッソ','lasso guard','lasso'],['ベリンボロ','berimbolo'],['デラヒーバ','デラヒバ','de la riva','dlr']];
+const norm = s => String(s||'').toLowerCase().normalize('NFKC').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[ー\s・\-]/g,'').replace(/がーど$|guard$/,'');
+function terms(q){ const n = norm(q); if (!n) return []; const row = DICT.find(r => r.some(w => norm(w) === n)); return row ? [...new Set(row.map(norm))] : [n]; }
+const hit = (s, ts) => { const n = norm(s); return ts.some(t => n.includes(t)); };
+function hl(s, q){ // 元の文字列で色を付ける（揺れの代表的な書き方を順に）
+  const row = DICT.find(r => r.some(w => norm(w) === norm(q))) || [q];
+  const ws = [...row, q].sort((a,b)=>b.length-a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  return esc(s).replace(new RegExp('(' + ws.join('|') + ')','gi'), '<mark>$1</mark>');
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function ago(s){
+  const days = Math.round((TODAY - d(s)) / 864e5);
+  let w = days <= 0 ? '今日の' : days < 14 ? days + '日前の' : days < 60 ? Math.round(days/7) + '週間前の' : days < 365 ? Math.round(days/30) + 'か月前の' : (days/365).toFixed(1).replace('.0','') + '年前の';
+  return `<div class="when">${w}あなた<small>${s.replace(/-/g,'/')}</small></div>`;
+}
+const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 1600); };
+
+function search(q){
+  const box = document.getElementById('res');
+  const ts = terms(q);
+  if (!ts.length) { box.innerHTML = ''; return; }
+  const by = (a,b) => d(b.at || b.last) - d(a.at || a.last);
+  const G = [
+    { k:'j', ic:'💬', name:'Journal', own:1, list: J.filter(x => hit(x.body, ts)).sort(by),
+      row: x => `${ago(x.at)}<div class="body"><div class="x" style="color:var(--text)">${hl(x.body,q)}</div>${x.v?`<div class="src">🎬 ${esc(x.v)} <span class="play">▶ ${x.t}</span></div>`:''}</div>` },
+    { k:'n', ic:'📓', name:'ノート', own:1, list: N.filter(x => hit(x.title + x.body, ts)).sort(by),
+      row: x => `${ago(x.at)}<div class="body"><div class="t">${hl(x.title,q)}</div><div class="x">${hl(x.body,q)}</div></div>` },
+    { k:'b', ic:'🔖', name:'ブックマーク', own:1, sub:'押すとその場面から', list: B.filter(x => hit(x.title + x.note, ts)).sort(by),
+      row: x => `${ago(x.at)}<div class="body"><div class="t">${'★'.repeat(x.star)} ${hl(x.title,q)} <span class="play">▶ ${x.t}</span></div><div class="x">${hl(x.note,q)}</div><div class="src">${esc(x.video)}</div></div>` },
+    { k:'m', ic:'📝', name:'メモ・要約', own:1, list: M.filter(x => hit(x.title + x.body, ts)).sort(by),
+      row: x => `${ago(x.at)}<div class="body"><div class="t">${hl(x.title,q)} <span class="play">▶ ${x.t}</span></div><div class="x">${hl(x.body,q)}</div><div class="src">${esc(x.video)}</div></div>` },
+    { k:'v', ic:'🎬', name:'動画', sub:'過去の自分が見ていたもの', list: V.filter(x => hit(x.title, ts)).sort(by),
+      row: x => `<div class="when" style="color:var(--text3)">最後に開いた<small>${x.last.replace(/-/g,'/')}</small></div><div class="body"><div class="t">${hl(x.title,q)}</div><div class="src">${esc(x.ch)} · 開いた回数 ${x.n}</div></div>` },
+    { k:'d', ic:'🏋️', name:'ドリル', list: D.filter(x => hit(x.name, ts)).sort(by),
+      row: x => `<div class="when" style="color:var(--text3)">最後にやった<small>${x.last.replace(/-/g,'/')}</small></div><div class="body"><div class="t">${hl(x.name,q)}</div><div class="src">これまで ${x.n} 回</div></div>` },
+  ];
+  const total = G.reduce((s,g) => s + g.list.length, 0);
+  if (!total) { box.innerHTML = `<div class="empty">「${esc(q)}」は、まだどこにも残っていません。<br>いま感じていることを下の「未来の自分に残す」に書いておくと、次に探したときに出てきます。</div>`; return; }
+  const own = G.filter(g => g.own).reduce((s,g) => s + g.list.length, 0);
+  box.innerHTML = `<div class="sum">「<b>${esc(q)}</b>」について、過去のあなたが残した言葉が <b>${own}件</b>、見ていた動画・ドリルが <b>${total-own}件</b></div>
+    <div class="chips">${G.filter(g=>g.list.length).map(g=>`<a href="#g-${g.k}">${g.ic} ${g.name}<b>${g.list.length}</b></a>`).join('')}</div>` +
+    G.filter(g => g.list.length).map(g => `<div class="grp" id="g-${g.k}"><h3>${g.ic} ${g.name}${g.own?' <span class="own">自分の言葉</span>':''}${g.sub?` <small>${g.sub}</small>`:''}<span class="n">${g.list.length}件</span></h3>
+      ${g.list.slice(0,3).map(x => `<div class="it" onclick="toast('（本物では開きます）')">${g.row(x)}</div>`).join('')}
+      ${g.list.length > 3 ? `<div class="more">あと ${g.list.length-3} 件を見る</div>` : ''}</div>`).join('');
+}
+const qi = document.getElementById('q');
+qi.addEventListener('input', () => search(qi.value.trim()));
+document.querySelectorAll('.hints button').forEach(b => b.onclick = () => { qi.value = b.textContent; search(qi.value); });
+
+// ── 目標 ──
+const goals = [
+  { at:'2026-05-20', body:'ガードを作られる前に、まず足を触らせない。パス側の距離感を覚える' },
+  { at:'2026-01-08', body:'青帯の試合で1勝する' },
+];
+function drawGoals(){ document.getElementById('goal-past').innerHTML = '<div style="font-size:12px;font-weight:800;color:var(--text2)">これまでの目標</div>' + goals.map(g => `<div class="g">${ago(g.at)}<div>${esc(g.body)}</div></div>`).join(''); }
+drawGoals();
+document.getElementById('goal-save').onclick = () => toast('目標を残しました（前の目標は下に残ります）');
+
+// ── ランダム ──
+let rk = 'all';
+function rnd(){
+  const pool = [...(rk!=='b' ? J.map(x => ({ w:x.at, html:esc(x.body), v:x.v ? `🎬 ${esc(x.v)} ▶ ${x.t}` : '' })) : []),
+                ...(rk!=='j' ? B.filter(x=>x.star===3).map(x => ({ w:x.at, html:`★★★ <b>${esc(x.title)}</b><br>${esc(x.note)}`, v:`🎬 ${esc(x.video)} ▶ ${x.t}` })) : [])];
+  const p = pool[Math.floor(Math.random()*pool.length)];
+  const days = Math.round((TODAY - d(p.w)) / 864e5);
+  document.getElementById('rnd-box').innerHTML = `<div class="quote"><div class="w">${days < 60 ? Math.round(days/7)+'週間' : Math.round(days/30)+'か月'}前のあなた（${p.w.replace(/-/g,'/')}）</div>${p.html}${p.v?`<div class="v">${p.v}</div>`:''}</div>`;
+}
+document.getElementById('rnd').onclick = rnd;
+document.querySelectorAll('#rnd-seg button').forEach(b => b.onclick = () => { document.querySelectorAll('#rnd-seg button').forEach(x=>x.classList.toggle('on', x===b)); rk = b.dataset.k; rnd(); });
+rnd();
+
+// ── 〇か月前 ──
+const AGO = [
+  { m:1, items:['💬 「今日はラッソーからのスイープが2回決まった。相手が重心を下げた瞬間に足を伸ばすのが良かった」'] },
+  { m:3, items:['💬 「lasso の足を深く入れすぎると、自分の膝が痛い。浅くしてグリップで補う」','🔖 ★★ Lasso からのスイープ ▶ 08:15'] },
+  { m:6, items:['💬 「スランプ。何をやってもパスされる。ガードの種類を増やすより、一つを深くしたい」','🎯 目標を書き直した'] },
+];
+document.getElementById('ago').innerHTML = AGO.map(a => `<div class="row"><div class="lbl">${a.m}か月前の今ごろ</div>${a.items.map(i => `<div style="font-size:13px;margin-top:2px">${esc(i)}</div>`).join('')}</div>`).join('');
+
+// ── よく見た ──
+function drawTop(days){
+  const scale = days/30;
+  const vs = V.map(v => ({ ...v, c: Math.max(0, Math.round(v.n * Math.min(1, scale/3) * (d(v.last) > new Date(TODAY - days*864e5) ? 1 : 0))) })).filter(v => v.c).sort((a,b)=>b.c-a.c).slice(0,5);
+  const max = Math.max(1, ...vs.map(v => v.c));
+  document.getElementById('topv').innerHTML = vs.map(v => `<li><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title)}</div><div class="bar" style="width:${v.c/max*100}%"></div></div><span class="c">${v.c}回</span></li>`).join('') || '<li style="list-style:none">この期間はまだ記録がありません</li>';
+  const ch = {}; vs.forEach(v => ch[v.ch] = (ch[v.ch]||0) + v.c);
+  document.getElementById('topc').innerHTML = Object.entries(ch).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,c]) => `<li>${esc(k)}<span class="c">${c}回</span></li>`).join('');
+}
+document.querySelectorAll('#per button').forEach(b => b.onclick = () => { document.querySelectorAll('#per button').forEach(x=>x.classList.toggle('on', x===b)); drawTop(+b.dataset.d); });
+drawTop(30);
+
+// ── ドリル ──
+document.getElementById('drills').innerHTML = D.slice().sort((a,b)=>d(a.last)-d(b.last)).slice(0,3).map(x => {
+  const days = Math.round((TODAY - d(x.last)) / 864e5);
+  return `<li>${esc(x.name)}<span class="c">${days < 60 ? days+'日' : Math.round(days/30)+'か月'}やっていない · ${x.n}回</span></li>`; }).join('');
+
+document.getElementById('leave-go').onclick = () => { const i = document.getElementById('leave'); if (!i.value.trim()) return; J.unshift({ at:'2026-11-26', body:i.value.trim() }); i.value=''; toast('Journal に残しました'); if (qi.value) search(qi.value.trim()); };
+document.getElementById('th').onclick = function(){ const l = document.body.classList.toggle('light'); this.textContent = l ? 'ダーク表示' : 'ライト表示'; };
+qi.value = 'ラッソー'; search('ラッソー');
+</script>
+</body>
+</html>
