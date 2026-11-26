@@ -195,6 +195,7 @@
 
   const STATIC_AUTO = {
     // グルーピング（v53.048）
+    '非表示':'Hidden','表示に戻す':'Show again',
     '（⠿ をドラッグで列の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to toggle · the number is the count with the current filters)',
     '↶ 1つ戻す':'↶ Undo one',
     '＋ グルーピング':'＋ Grouping',
@@ -2402,6 +2403,8 @@
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
     // ── グルーピング（v53.048・js/cv-groupings.js）。タグ・グルーピングの名前はユーザーが付けたもの（訳さない） ──
+    [/^「(.+)」を非表示にしました$/, (m, a) => `Hid “${a}”`],
+    [/^「(.+)」を表示に戻しました$/, (m, a) => `Showing “${a}” again`],
     [/^「(.+)」と「(.+)」の両方に入れました$/, (m, a, b) => `Put it in both “${a}” and “${b}”`],
     [/^「(.+)」にも残す$/, (m, a) => `Also keep “${a}”`],
     [/^「(.+)」にも追加しました$/, (m, a) => `Also added to “${a}”`],
