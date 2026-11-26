@@ -313,21 +313,21 @@
 #svt-root .svt-new{font-size:9.5px;padding:0 5px;border-radius:4px;background:var(--gold-soft);color:var(--gold)}
 #svt-root .svt-x{border:none;background:none;color:inherit;font-size:11px;padding:0 0 0 4px;cursor:pointer}
 #svt-root .svt-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px;scroll-snap-type:x proximity}
-#svt-root .svt-col{flex:0 0 250px;border-radius:10px;padding:6px;scroll-snap-align:start}
+#svt-root .svt-col{flex:0 0 calc(var(--svt-cw,250px) + 12px);border-radius:10px;padding:6px;scroll-snap-align:start}
 #svt-root .svt-col.over{background:var(--gold-soft)}
 #svt-root .svt-colh{display:flex;gap:6px;align-items:center;padding:2px 2px 8px}
 #svt-root .svt-tag{font-size:12px;padding:2px 8px;border-radius:5px;background:var(--blue-soft);color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #svt-root .svt-tag.none{background:var(--surface3)}
 #svt-root .n{font-size:10.5px;color:var(--text3)}
 #svt-root .svt-cards{display:grid;gap:8px}
-#svt-root .svt-flat{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-#svt-root .svt-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden}
+#svt-root .svt-flat{display:grid;grid-template-columns:repeat(auto-fill,var(--svt-cw,250px));gap:8px}
+#svt-root .svt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 #svt-root .svt-card[draggable=true]{cursor:grab}
 #svt-root .svt-th{aspect-ratio:16/9;background:var(--surface3);position:relative;overflow:hidden}
 #svt-root .svt-th img{width:100%;height:100%;object-fit:cover;display:block}
 #svt-root .svt-th span{position:absolute;right:4px;bottom:4px;font-size:9.5px;background:rgba(0,0,0,.65);color:#fff;padding:0 4px;border-radius:3px}
-#svt-root .svt-tt{padding:7px 9px 4px;font-size:12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-#svt-root .svt-mt{padding:0 9px 8px;font-size:10px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+#svt-root .svt-tt{padding:7px 8px 4px;font-size:11px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#svt-root .svt-mt{padding:0 8px 8px;font-size:10px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 #svt-root .svt-mt .svt-sm{margin-left:auto;font-size:10px;padding:2px 7px}
 #svt-root .svt-also{padding-top:0}
 #svt-root .svt-note{font-size:11.5px;color:var(--text3);padding:8px 2px;line-height:1.6}
@@ -339,7 +339,7 @@
 #svt-root tr.gh td{background:var(--surface2);font-weight:700;cursor:pointer}
 #svt-root .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
 #svt-root .svt-toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px;white-space:nowrap;cursor:pointer}
-@media (max-width:560px){#svt-root .svt-top h2{flex-basis:100%}#svt-root .svt-col{flex-basis:82%}#svt-root .svt-ed .r{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){#svt-root .svt-top h2{flex-basis:100%}#svt-root .svt-col{flex-basis:min(82%,calc(var(--svt-cw,250px) + 12px))}#svt-root .svt-ed .r{grid-template-columns:minmax(0,1fr)}}
 `;
     document.head.appendChild(st);
   }
@@ -349,10 +349,24 @@
     const el = document.querySelector('#cv-toolbar .cv-tb-name, #cv-toolbar b');
     return (el && el.textContent.trim()) || 'いま出ている動画';
   }
+  // ライブラリのカード1枚の幅（カードビューと同じ大きさで並べる。オーナー「カードのサイズは、現在のカードビューと同じに」）。
+  // offsetWidth は表示の大きさ（body.style.zoom）を掛ける前の幅なので、そのまま CSS の幅に使える。
+  // カードが出ていない（テーブル表示・0本・スマホの横長の行）ときは、ライブラリの段組み（PC 4列・タブレット 3列）から割り出す。
+  function libCardW() {
+    const el = document.querySelector('#lib-card-host .card-wrap');
+    const w = el && el.offsetWidth;
+    if (w && w >= 160) return w;
+    const host = document.getElementById('lib-card-host'); const hw = (host && host.offsetWidth) || window.innerWidth;
+    if (window.innerWidth >= 1200) return Math.max(180, Math.floor((hw - 40 - 24) / 4));
+    if (window.innerWidth >= 768) return Math.max(180, Math.floor((hw - 32 - 16) / 3));
+    return 0;
+  }
   function open() {
     css();
+    const cw = libCardW();
     let root = document.getElementById('svt-root');
     if (!root) { root = document.createElement('div'); root.id = 'svt-root'; document.body.appendChild(root); }
+    if (cw) root.style.setProperty('--svt-cw', cw + 'px'); else root.style.removeProperty('--svt-cw');
     root.innerHTML = `<div class="svt-head">
         <div class="svt-top"><h2>${esc(listName())}（${source().length}本）</h2><span class="svt-trial">試験版・何も保存しません</span>
           <div class="svt-seg"><button id="svt-mc" onclick="wkSubviewsTrial._mode('board')">カード</button><button id="svt-mt" onclick="wkSubviewsTrial._mode('table')">テーブル</button></div>

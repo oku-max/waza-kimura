@@ -108,6 +108,8 @@ ck('オーナーのとき、入口のボタンが出る', await pg.evaluate(() =
 const before = await snap();
 await pg.evaluate(() => document.getElementById('svt-open-btn').click());
 ck('開くと試験版の画面が出る・「何も保存しません」', await pg.evaluate(() => !!document.getElementById('svt-root') && document.getElementById('svt-root').textContent.includes('何も保存しません')));
+const cwChk = await pg.evaluate(() => { const lib = document.querySelector('#lib-card-host .card-wrap'); return { lib: lib && lib.offsetWidth, cw: getComputedStyle(document.getElementById('svt-root')).getPropertyValue('--svt-cw').trim() }; });
+ck('カードの幅はライブラリのカードと同じ（開いた時点で測る）', !!cwChk.lib && cwChk.cw === cwChk.lib + 'px', cwChk);
 const gks = await pg.evaluate(() => wkSubviewsTrial._groupers().map(g => g.key + ':' + g.kind));
 ck('まとめ方: タグ・プレイリスト・チャンネル・カスタム列（セレクト・評価だけ）', gks.includes('pl:src') && gks.includes('ch:src') && gks.some(k => k.startsWith('tag:')) && gks.includes('cf:gc_phase1:one') && gks.includes('cf:gc_star1:one') && !gks.some(k => k.includes('gc_txt1')), gks);
 // タグ1でまとめる見え方を作る
@@ -116,6 +118,9 @@ await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('タグ1別
 const cols = () => pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')].map(c => c.querySelector('.svt-tag').textContent + '=' + c.querySelectorAll('.svt-card').length));
 if (process.env.SHOT) { await pg.screenshot({ path: process.env.SHOT + '/svt-pc.png' }); await pg.setViewportSize({ width: 390, height: 800 }); await pg.screenshot({ path: process.env.SHOT + '/svt-sp.png' }); await pg.setViewportSize({ width: 1400, height: 900 }); }
 const c1 = await cols();
+const cardW = await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-col:not(.svt-addcol) .svt-card'); const lib = document.querySelector('#lib-card-host .card-wrap'); return { trial: c && c.offsetWidth, lib: lib && lib.offsetWidth }; });
+console.log('    幅', JSON.stringify(cardW));
+ck('並んだカードの幅がライブラリのカードと同じ（±2px）', !!cardW.lib && Math.abs(cardW.trial - cardW.lib) <= 2, cardW);
 ck('アーカイブを出さない・複数のタグは両方の列に出る・なしの列が先頭', c1[0].endsWith('なし=1') && c1.includes('ボトム=2') && c1.includes('スタンディング=1') && c1.includes('トップ=1'), c1);
 await pg.evaluate(k => wkSubviewsTrial._move('v2', k, 'ボトム', 'トップ'), tbKey);
 const c2 = await cols();
@@ -156,6 +161,13 @@ await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('cf:gc_pha
 await pg.evaluate(() => wkSubviewsTrial._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));
 await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('pl'); wkSubviewsTrial._es(); });
 ck('プレイリストは動かせない（ドラッグできるカードが無い）', await pg.evaluate(() => document.querySelectorAll('#svt-root .svt-card[draggable=true]').length === 0));
+await pg.evaluate(() => { wkSubviewsTrial.close(); document.body.style.zoom = '1.25'; });
+await pg.waitForTimeout(400);
+await pg.evaluate(() => { document.getElementById('svt-open-btn').click(); wkSubviewsTrial._pick(wkSubviewsTrial._state().views.find(v => v.name === 'タグ1別').id); });
+const zW = await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-col:not(.svt-addcol) .svt-card'); const lib = document.querySelector('#lib-card-host .card-wrap'); return { trial: c && c.getBoundingClientRect().width, lib: lib && lib.getBoundingClientRect().width }; });
+console.log('    幅(zoom 1.25)', JSON.stringify(zW));
+ck('表示の大きさ（zoom）を変えていても、画面上の幅がライブラリのカードと同じ（±3px）', !!zW.lib && Math.abs(zW.trial - zW.lib) <= 3, zW);
+await pg.evaluate(() => { document.body.style.zoom = ''; });
 await pg.evaluate(() => wkSubviewsTrial._mode('table'));
 ck('テーブル表示も出る', await pg.evaluate(() => document.querySelectorAll('#svt-root tr.gh').length >= 3));
 await pg.evaluate(() => wkSubviewsTrial.close());
