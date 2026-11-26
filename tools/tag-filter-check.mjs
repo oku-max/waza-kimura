@@ -77,8 +77,13 @@ console.log('── ② 判定 ──');
   ck('件数を数えるときは、そのグループだけ外せる', TF.match(v2, f, 'lib', { except: 'f_cat' }));
   ck('何も選んでいなければ全部通る', TF.match(v2, {}, 'lib') && TF.compile({ tbNew: S() }, 'lib')(v1));
   const blank = { tb: S('(空白)') };
-  ck('整理の表の「(空白)」＝何も付いていない動画', TF.match({ tb: [] }, blank, 'org', { allowBlank: true }) && !TF.match(v1, blank, 'org', { allowBlank: true }));
-  ck('「(空白)」はライブラリでは値として扱わない（allowBlank なし）', !TF.match({ tb: [] }, blank, 'org'));
+  ck('整理の表の「(空白)」＝何も付いていない動画', TF.match({ tb: [] }, blank, 'org') && !TF.match(v1, blank, 'org'));
+  // v53.051: 「タグなし」はどの画面でも選べる（ライブラリ・リストの条件も同じ値・同じ判定）
+  ck('「タグなし」の値は表の「(空白)」と同じ1つ・画面では「タグなし」', TF.NONE === '(空白)' && TF.labelOf(TF.NONE) === 'タグなし' && TF.labelOf('トップ') === 'トップ');
+  ck('ライブラリでも「タグなし」＝何も付いていない動画', TF.match({ tb: [] }, { tbNew: S(TF.NONE) }, 'lib') && TF.match({}, { tbNew: S(TF.NONE) }, 'lib') && !TF.match(v1, { tbNew: S(TF.NONE) }, 'lib'));
+  ck('「タグなし」とタグを一緒に選ぶと、どちらかに当たる動画', TF.match({ tb: [] }, { tbNew: S(TF.NONE, 'トップ') }, 'lib') && TF.match(v1, { tbNew: S(TF.NONE, 'トップ') }, 'lib') && !TF.match(v2, { tbNew: S(TF.NONE, 'トップ') }, 'lib'));
+  ck('「タグなし」はグループごと（ほかのグループが空でも当たらない）', !TF.match({ tb: ['トップ'], pos: [] }, { tbNew: S(TF.NONE) }, 'lib') && TF.match({ tb: ['トップ'], pos: [] }, { posNew: S(TF.NONE) }, 'lib'));
+  ck('リストの条件（配列）でも「タグなし」が効き、保存の形に乗る', TF.match({ tb: [] }, { tb: [TF.NONE] }, 'fc') && J(TF.toPlain({ tbNew: S(TF.NONE) }, 'lib', 'fc')) === J({ tb: [TF.NONE] }));
   ck('判定は動画を書き換えない', J(v1) === J({ tb: ['トップ'], cat: ['パスガード'], pos: ['ハーフ'], tags: [] }));
   ck('hasAny: 古い呼び名だけに入っていても「絞り込み中」', TF.hasAny({ position: S('X') }, 'lib') && !TF.hasAny({ channel: S('x') }, 'lib'));
 }
@@ -118,7 +123,7 @@ ck('URL の対応表にタグを書かない（タグは tag-filter.js の url �
 ck('URL の書き出し・読み戻しが tag-filter.js を通る', /_TF\.keyFor\(g\.id, 'url'\)/.test(filterJs) && /_TF\.gidForKey\(param, 'url'\)/.test(filterJs));
 for (const [f, re] of [
   ['js/filter.js', /window\.tagFilter\.compile\(window\.filters, 'lib'\)/],
-  ['js/organize.js', /window\.tagFilter\.compile\(orgFilters, 'org', \{ allowBlank: true \}\)/],
+  ['js/organize.js', /window\.tagFilter\.compile\(orgFilters, 'org'\)/],
   ['js/unified-filter.js', /_TF\(\)\.compile\(f, _sch\(\)/],
   ['js/custom-view.js', /window\.tagFilter\.compile\(fc, 'fc'(, \{ except: _skip \})?\)/],
   ['js/filter-overlay.js', /window\.tagFilter\.compile\(f \|\| \{\}, 'lib'/],

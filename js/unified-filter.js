@@ -290,16 +290,19 @@
   function _colHtml(title, listKey, items, opts) {
     opts = opts || {};
     let arr = items.slice();
-    if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+    if (_q) arr = arr.filter(r => (r.label || r.name).toLowerCase().includes(_q));
     // ゼロ件は非表示。選択中は残す
     arr = arr.filter(r => r.sel || r.cnt > 0);
+    // r.pin … 並べ方に関わらず先頭に出す行（タグの列の「タグなし」）。r.label … 見せる名前（値は r.name のまま）
+    const _pinned = arr.filter(r => r.pin);
+    arr = arr.filter(r => !r.pin);
     const sortMode = (opts.sortable !== false) ? (_sort[listKey] || 'abc') : null;
 
     // r.warn … 選択中なのに「どの動画にも無い」「選択肢に無い」値の印（タグ列だけが付ける）
     // 値は data 属性で渡す（' を含む名前で onclick の文字列が壊れていた）
     const _mkRow = r =>
       `<div class="uni-row${r.sel ? ' on' : ''}" data-k="${_esc(opts.rowKeys && r.key ? r.key : opts.filterKey)}" data-n="${_esc(r.name)}" onclick="uniToggleEl(this)">` +
-      `<span>${_esc(r.name)}</span>` +
+      `<span${r.pin ? ' style="color:var(--text3)"' : ''}>${_esc(r.label || r.name)}</span>` +
       (r.warn ? `<span class="uni-warn" style="font-size:10px;color:#d97706;margin-left:6px;margin-right:auto;white-space:nowrap">⚠ ${_esc(r.warn)}</span>` : '') +
       `<span class="uni-cnt">${r.cnt}</span></div>`;
 
@@ -311,6 +314,7 @@
       arr.sort((a,b) => { const ai=_rec.indexOf(a.name), bi=_rec.indexOf(b.name); return (ai<0?9999:ai)-(bi<0?9999:bi); });
     } else if (sortMode === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
     else if (sortMode === 'cnt') arr.sort((a,b) => b.cnt - a.cnt);
+    arr = _pinned.concat(arr);
     rows = arr.length ? arr.map(_mkRow).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
 
     const sortSel = opts.sortable === false ? '' :
@@ -706,15 +710,19 @@
         .filter(g => !_FIELDS.includes(g.store) || _tsV(g.store));
       const _mkItems = (g, src, ctx) => {
         const sel = _TF().selected(f, g.id, _sch());   // どの呼び名で入っていても選択として見せる
-        const names = src.slice();
-        [...sel].forEach(n => { if (!names.includes(n)) names.push(n); });
+        const NONE = _TF().NONE;
+        const names = src.filter(n => n !== NONE);
+        [...sel].forEach(n => { if (n !== NONE && !names.includes(n)) names.push(n); });
         const inOpt = new Set(src);
-        return names.map(n => {
+        // 「タグなし」＝このグループに何も付いていない動画（v53.051）。いつも先頭。0本で選んでもいなければ出ない
+        const none = { name: NONE, label: _TF().NONE_LABEL, pin: true, sel: sel.has(NONE),
+          cnt: ctx.filter(v => !_TF().valuesOf(v, g.id).length).length };
+        return [none].concat(names.map(n => {
           const it = { name: n, cnt: ctx.filter(v => _TF().valuesOf(v, g.id).includes(n)).length, sel: sel.has(n) };
           if (it.sel && _allVids.length && !_allVids.some(v => _TF().valuesOf(v, g.id).includes(n))) it.warn = '該当する動画なし';
           else if (it.sel && !inOpt.has(n)) it.warn = '選択肢に無い';
           return it;
-        });
+        }));
       };
       const tagCols = _gs.map(g => {
         const listKey = _FIELDS.includes(g.store) ? g.store : g.id;   // 並べ替えの記憶（今の4つは今までどおり）
@@ -743,7 +751,11 @@
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
     // タグ: すべてのグループの選択を出す（枠に無い・しまってあるグループの選択も、見えない条件にしない）
-    _TF().groups().forEach(g => [..._TF().selected(f, g.id, _sch())].forEach(v => pills.push([_TF().keyFor(g.id, _sch()), v])));
+    // 「タグなし」はどのグループのことか分かるように「グループ名: タグなし」と出す
+    _TF().groups().forEach(g => [..._TF().selected(f, g.id, _sch())].forEach(v => {
+      const k = _TF().keyFor(g.id, _sch());
+      if (v === _TF().NONE) pills.push([k, v, g.name + ': ' + _TF().NONE_LABEL]); else pills.push([k, v]);
+    }));
     [...(f.videoIds||[])].forEach(id => {
       const vid = (window.videos||[]).find(v => v.id === id);
       const lbl = vid?.title ? (vid.title.length > 25 ? vid.title.slice(0, 25) + '…' : vid.title) : id;

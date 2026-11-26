@@ -119,13 +119,21 @@
     return obj;
   }
 
+  // 「タグなし」＝そのグループに何も付いていない動画を選ぶ値（v53.051）。
+  // 整理の表の見出しの ▾ が前から使っている「(空白)」と同じ値（表とライブラリで選択を写し合うので、値は1つ）。
+  // 画面では「タグなし」と出す（labelOf）。タグの名前ではないので、動画・選択肢には書かない。
+  const NONE = '(空白)';
+  const NONE_LABEL = 'タグなし';
+  const labelOf = val => (val === NONE ? NONE_LABEL : val);
+
   // 動画が、そのグループの選択に当たるか（選択が無ければ true）。
-  // allowBlank: 整理の表の「(空白)」＝そのグループに何も付いていない動画
-  function _hit(v, gid, sel, allowBlank) {
+  // 「タグなし」（NONE）が選ばれていれば、そのグループに何も付いていない動画も当たる。
+  // どの画面でも同じ（v53.051 より前は整理の表だけ＝allowBlank。いまは引数を見ない）
+  function _hit(v, gid, sel) {
     if (!sel.size) return true;
     const vals = R() ? R().valuesOf(v, gid) : (Array.isArray(v[fieldOf(gid)]) ? v[fieldOf(gid)] : []);
     // 以前の習得の条件「未着手」＝習得のタグが付いていない動画（v52.876 から未着手はタグにしない）
-    if (!vals.length) return (!!allowBlank && sel.has('(空白)')) || (gid === 'status' && sel.has('未着手'));
+    if (!vals.length) return sel.has(NONE) || (gid === 'status' && sel.has('未着手'));
     return vals.some(x => sel.has(x));
   }
   // すべてのタグの絞り込みに当たるかを判定する関数を作る（グループ同士は AND、グループの中は OR）。
@@ -135,13 +143,12 @@
   function compile(obj, scheme, opts) {
     const ex = opts && opts.except;
     const skip = new Set(ex == null ? [] : Array.isArray(ex) ? ex : [ex]);
-    const allowBlank = !!(opts && opts.allowBlank);
     const active = groups()
       .filter(g => !skip.has(g.id))
       .map(g => ({ id: g.id, sel: selected(obj, g.id, scheme) }))
       .filter(x => x.sel.size);
     if (!active.length) return () => true;
-    return v => active.every(x => _hit(v, x.id, x.sel, allowBlank));
+    return v => active.every(x => _hit(v, x.id, x.sel));
   }
   function match(v, obj, scheme, opts) { return compile(obj, scheme, opts)(v); }
   function hasAny(obj, scheme) {
@@ -202,7 +209,7 @@
   }
 
   window.tagFilter = {
-    FIELD_KEYS, FIELDS, SCHEMES,
+    FIELD_KEYS, FIELDS, SCHEMES, NONE, NONE_LABEL, labelOf,
     groups, gidOfField, fieldOf, keyFor, gidForKey,
     selected, setFor, normalize, compile, match, hasAny, valuesOf, toPlain, fromPlain, clear, renameIn,
   };
