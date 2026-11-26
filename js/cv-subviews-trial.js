@@ -1,4 +1,4 @@
-// ═══ 見え方（試験版）— リストの中で「絞り込み＋まとめ方」を名前つきで持つ（v53.037・オーナー確認用） ═══
+// ═══ 見え方（試験版）— リストの中で「まとめ方」を名前つきで持つ（v53.038・オーナー確認用。絞り込みはふだんのフィルター・まとめ方は「タグを選んでまとめる」も） ═══
 // オーナー決定までの試し（モック mock-cv-subviews.html の本物版）。オーナーのときだけ、カード表示の上に「見え方（試験）」が出る。
 //
 // 【データ経路】読むだけ。どこにも書かない。
@@ -25,8 +25,10 @@
     } catch (e) { return []; }
   }
   const optName = o => typeof o === 'string' ? o : (o && (o.label || o.name || o.value)) || '';
+  let _gc = null;   // 1回の描画の間だけ覚える（動画×選んだタグの数だけ組み立て直さない）
   function groupers() {
-    const out = [];
+    if (_gc) return _gc;
+    const out = _gc = [];
     const TR = window.tagRegistry;
     if (TR) (TR.groups() || []).forEach(g => { if (!g) return;
       out.push({ key: 'tag:' + g.id, kind: 'tag', name: g.name, sub: g.slot >= 0 ? ('タグ' + (g.slot + 1)) : '未使用',
@@ -41,9 +43,21 @@
     });
     return out;
   }
-  const GR = key => groupers().find(g => g.key === key) || null;
+  const GR0 = key => groupers().find(g => g.key === key) || null;
+  // 「タグを選んでまとめる」（オーナー: 1つのタググループにいろんな切り口の値を詰め込み、そのリストで列にしたい値だけを選ぶ）
+  // picks = [{g:'tag:グループid', v:値}]。どのタググループの値でもよい。列は選んだ順。
+  function pickGrouper(view) {
+    const picks = (view && view.picks || []).filter(p => GR0(p.g));
+    const dup = new Map(); picks.forEach(p => dup.set(p.v, (dup.get(p.v) || 0) + 1));
+    const label = p => dup.get(p.v) > 1 ? `${p.v}（${GR0(p.g).name}）` : p.v;
+    const items = picks.map(p => ({ ...p, label: label(p) }));
+    return { key: 'pick', kind: 'pick', name: '選んだタグ', items, opts: items.map(x => x.label), showNone: !view || view.showNone !== false,
+      read: () => [] };
+  }
+  const GR = key => key === 'pick' ? pickGrouper(S.editing && S.editing.gb === 'pick' ? S.editing : VW()) : GR0(key);
   // 試しに動かした分を先に見る（本物の値は読むだけ）
   function vals(v, g) {
+    if (g.kind === 'pick') return g.items.filter(p => vals(v, GR0(p.g)).includes(p.v)).map(p => p.label);
     const m = S.sim.get(v.id);
     if (m && m.has(g.key)) return m.get(g.key).slice();
     return (g.read(v) || []).map(String);
@@ -55,13 +69,19 @@
     try { return typeof window.filt === 'function' ? window.filt(all) : all.filter(v => !v.archived); }
     catch (e) { return all.filter(v => !v.archived); }
   }
-  function applyF(list, f) {
+  // 絞り込みはふだんのフィルター（source）だけ。見え方は名前とまとめ方だけを持つ（オーナー「フィルタは既存のパネルでよくないか」）
+  function _unusedApplyF(list, f) {
     const ent = Object.entries(f || {}).filter(([, a]) => a && a.length);
     if (!ent.length) return list;
     const gs = ent.map(([k, a]) => [GR(k), a]).filter(([g]) => g);
     return list.filter(v => gs.every(([g, a]) => { const x = vals(v, g); return a.some(s => s === '\u0000none' ? !x.length : x.includes(s)); }));
   }
   function columns(list, g) {
+    if (g.kind === 'pick') {
+      const cols = g.items.map(p => ({ key: p.label, name: p.label, ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
+      if (g.showNone) cols.unshift({ key: '\u0000none', name: 'どれにも当てはまらない', ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
+      return cols;
+    }
     const seen = new Set(); const keys = [];
     (g.opts || []).forEach(o => { if (!seen.has(o)) { seen.add(o); keys.push(o); } });
     list.forEach(v => vals(v, g).forEach(x => { if (!seen.has(x)) { seen.add(x); keys.push(x); } }));   // 選択肢に無い値も落とさない
@@ -78,7 +98,25 @@
     const nm = x => x == null ? '' : x;
     toast(`試しに動かしました（本物のタグは変わっていません）: ${arr.join('・') || g.name + 'なし'}`, () => { S.sim.get(vid).set(g.key, before); });
   }
+  // 選んだタグの列のあいだを動かす: 元の列のタグを外し、先の列のタグを付ける（グループが違ってもよい）
+  function pickChange(vid, g, offLabel, onLabel) {
+    const v = (window.videos || []).find(x => x.id === vid); if (!v) return;
+    const it = l => g.items.find(p => p.label === l);
+    const ops = [];
+    if (offLabel && it(offLabel)) ops.push([it(offLabel), false]);
+    if (onLabel && it(onLabel)) ops.push([it(onLabel), true]);
+    if (!ops.length) return;
+    const saved = [];
+    ops.forEach(([p, on]) => { const G = GR0(p.g); const before = vals(v, G);
+      const after = on ? (before.includes(p.v) ? before : [...before, p.v]) : before.filter(x => x !== p.v);
+      saved.push([G, before]);
+      if (!S.sim.has(vid)) S.sim.set(vid, new Map()); S.sim.get(vid).set(G.key, after); });
+    toast(`試しに動かしました（本物のタグは変わっていません）: ${offLabel ? offLabel + ' → ' : ''}${onLabel || 'どれにも当てはまらない'}`,
+      () => saved.slice().reverse().forEach(([G, b]) => S.sim.get(vid).set(G.key, b)));
+    draw();
+  }
   function move(vid, gkey, from, to) {
+    if (gkey === 'pick') { if (from !== to) pickChange(vid, GR('pick'), from === '\u0000none' ? null : from, to === '\u0000none' ? null : to); return; }
     const g = GR(gkey); const v = (window.videos || []).find(x => x.id === vid); if (!g || !v || !movable(g) || from === to) return;
     const before = vals(v, g); let after;
     if (g.kind === 'tag') { after = before.filter(x => x !== from); if (to !== '\u0000none' && !after.includes(to)) after.push(to); }
@@ -87,6 +125,8 @@
     simSet(vid, g, after, before); draw();
   }
   function toggle(vid, gkey, val) {
+    if (gkey === 'pick') { const g = GR('pick'); const v = (window.videos || []).find(x => x.id === vid); if (!v) return;
+      const has = vals(v, g).includes(val); pickChange(vid, g, has ? val : null, has ? null : val); return; }
     const g = GR(gkey); const v = (window.videos || []).find(x => x.id === vid); if (!g || !v) return;
     const before = vals(v, g);
     const after = g.kind === 'tag' ? (before.includes(val) ? before.filter(x => x !== val) : [...before, val]) : (before[0] === val ? [] : [val]);
@@ -118,14 +158,14 @@
       <div class="svt-tt">${esc(v.title || '')}</div>
       <div class="svt-mt"><span>${esc(v.channel || '')}</span>${mv ? `<button class="svt-sm" onclick="wkSubviewsTrial._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}</div>
       ${mv && open ? `<div class="svt-mt">${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="wkSubviewsTrial._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${esc(o)}</button>`).join('')}</div>` : ''}
-      ${g && g.kind === 'tag' && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : ''}
+      ${g && (g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : ''}
     </div>`;
   }
   function drawBody() {
     const el = document.getElementById('svt-body'); if (!el) return;
     const V = VW(); const g = V.gb ? GR(V.gb) : null;
-    const list = applyF(source(), V.f);
-    if (!list.length) { el.innerHTML = '<div class="svt-note">この絞り込みに当たる動画はありません。</div>'; return; }
+    const list = source();
+    if (!list.length) { el.innerHTML = '<div class="svt-note">今のフィルターに当たる動画はありません。閉じてフィルターを変えてください。</div>'; return; }
     if (S.mode === 'table') {
       const head = `<tr><th>タイトル</th><th>チャンネル</th><th>プレイリスト</th>${g ? `<th>${esc(g.name)}</th>` : ''}</tr>`;
       const tr = v => `<tr><td class="t">${esc(v.title || '')}</td><td>${esc(v.channel || '')}</td><td>${esc(v.pl || '')}</td>${g ? `<td>${esc(vals(v, g).join('・') || '—')}</td>` : ''}</tr>`;
@@ -152,27 +192,41 @@
     const p = Object.entries(f || {}).filter(([, a]) => a && a.length).map(([k, a]) => { const g = GR(k); return (g ? g.name : k) + ': ' + a.map(x => x === '\u0000none' ? 'なし' : x).join('・'); });
     return p.length ? p.join(' / ') : 'なし';
   }
+  function pickEd(d, gs) {
+    const tags = gs.filter(g => g.kind === 'tag');
+    if (!d.pg || !tags.find(g => g.key === d.pg)) d.pg = (tags[0] || {}).key;
+    const G = GR0(d.pg); if (!G) return '';
+    const seen = new Set(G.opts); const extra = [];
+    source().forEach(v => (G.read(v) || []).forEach(x => { x = String(x); if (!seen.has(x)) { seen.add(x); extra.push(x); } }));
+    const all = [...G.opts, ...extra];
+    const on = x => (d.picks || []).some(p => p.g === d.pg && p.v === x);
+    const cnt = x => source().filter(v => vals(v, G).includes(x)).length;
+    const pg = pickGrouper(d);
+    return `<div class="setbox svt-pick">
+      <div class="svt-grp" style="margin-top:0">① どのタグから選ぶか</div>
+      <div class="svt-opts">${tags.map(g => `<button class="svt-o${g.key === d.pg ? ' on' : ''}" onclick="wkSubviewsTrial._pg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}</div>
+      <div class="svt-grp">② 列にしたいタグを押す（いまのフィルターでの本数）</div>
+      <div class="svt-opts">${all.map(x => `<button class="svt-o${on(x) ? ' on' : ''}" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${on(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp">このタググループには値がありません。</span>'}</div>
+      <div class="svt-grp">③ 列になる順（選んだ順・✕で外す）</div>
+      <div class="svt-opts">${pg.items.map((p, i) => `<span class="svt-o on">${i + 1}. ${esc(p.label)} <button class="svt-x" aria-label="外す" onclick="wkSubviewsTrial._px(${i})">✕</button></span>`).join('') || '<span class="svt-grp">まだ選んでいません。</span>'}</div>
+      <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkSubviewsTrial._pn(this.checked)"> 選んだタグがどれも付いていない動画を「どれにも当てはまらない」の列に出す</label>
+    </div>`;
+  }
   function drawEd() {
     const el = document.getElementById('svt-ed'); if (!el) return;
     const d = S.editing; if (!d) { el.innerHTML = ''; return; }
     const gs = groupers();
     const gb = g => `<button class="svt-o${d.gb === g.key ? ' on' : ''}" onclick="wkSubviewsTrial._eg('${jsq(g.key)}')">${esc(g.name)}${g.sub ? `<small> ${esc(g.sub)}</small>` : ''}</button>`;
-    const fk = d.fk || '';
-    const fg = fk ? GR(fk) : null;
-    const fvals = fg ? (fg.kind === 'src' ? [...new Set(source().map(v => fg.read(v)[0]).filter(Boolean))].sort() : [...fg.opts, '\u0000none']) : [];
     el.innerHTML = `<div class="svt-ed">
       <div class="r"><div class="k">名前</div><input id="svt-name" type="text" value="${esc(d.name)}" oninput="wkSubviewsTrial._en(this.value)"></div>
       <div class="r"><div class="k">まとめ方</div><div class="svt-opts">
         <button class="svt-o${!d.gb ? ' on' : ''}" onclick="wkSubviewsTrial._eg('')">まとめない</button>
-        <div class="svt-grp">タグ</div>${gs.filter(g => g.kind === 'tag').map(gb).join('')}
+        <div class="svt-grp">タグ</div><button class="svt-o${d.gb === 'pick' ? ' on' : ''}" onclick="wkSubviewsTrial._eg('pick')">☑ タグを選んでまとめる</button>${gs.filter(g => g.kind === 'tag').map(g => gb(g)).join('')}
         <div class="svt-grp">動画の出どころ（動かせない）</div>${gs.filter(g => g.kind === 'src').map(gb).join('')}
         ${gs.some(g => g.kind === 'one') ? `<div class="svt-grp">カスタム列（セレクト・評価）</div>${gs.filter(g => g.kind === 'one').map(gb).join('')}` : ''}
       </div></div>
-      <div class="r"><div class="k">絞り込み</div><div class="svt-opts">
-        <select id="svt-fk" onchange="wkSubviewsTrial._fk(this.value)"><option value="">（なし）</option>${gs.map(g => `<option value="${esc(g.key)}"${g.key === fk ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</select>
-        ${fvals.map(x => `<button class="svt-o${(d.f[fk] || []).includes(x) ? ' on' : ''}" onclick="wkSubviewsTrial._fv('${jsq(x)}')">${esc(x === '\u0000none' ? 'なし' : x)}</button>`).join('')}
-        <div class="svt-grp">今の絞り込み: ${esc(fLabel(d.f))}</div>
-      </div></div>
+      ${d.gb === 'pick' ? pickEd(d, gs) : ''}
+      <div class="svt-grp">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。</div>
       <div class="foot">${d.id !== 'all' && S.views.some(v => v.id === d.id) ? '<button class="svt-sm danger" onclick="wkSubviewsTrial._del()">この見え方を消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkSubviewsTrial._ec()">やめる</button><button class="svt-sm pri" onclick="wkSubviewsTrial._es()">決める</button></div>
     </div>`;
   }
@@ -181,13 +235,13 @@
     el.innerHTML = S.views.map(v => `<button class="svt-vt${v.id === S.cur ? ' on' : ''}" onclick="wkSubviewsTrial._pick('${jsq(v.id)}')">${v.gb ? '⊞ ' : '▦ '}${esc(v.name)}</button>`).join('') +
       `<button class="svt-vt add" onclick="wkSubviewsTrial._new()">＋ 見え方</button>`;
     const V = VW(); const g = V.gb ? GR(V.gb) : null;
-    document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>${esc(fLabel(V.f))}</b></span><span>まとめ方 <b>${esc(g ? g.name + (g.sub === '未使用' ? '（未使用のタグ）' : '') : 'まとめない')}</b></span>` +
+    document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>まとめ方 <b>${esc(!g ? 'まとめない' : g.kind === 'pick' ? '選んだタグ: ' + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
       (V.id !== 'all' ? `<button class="svt-sm" onclick="wkSubviewsTrial._edit()">✎ 見え方を編集</button>` : '') +
       (S.sim.size ? `<button class="svt-sm" onclick="wkSubviewsTrial._reset()">試しに動かした分を戻す</button>` : '');
     document.getElementById('svt-mc').className = S.mode === 'board' ? 'on' : '';
     document.getElementById('svt-mt').className = S.mode === 'table' ? 'on' : '';
   }
-  function draw() { drawTabs(); drawEd(); drawBody(); drawToast(); }
+  function draw() { _gc = null; drawTabs(); drawEd(); drawBody(); drawToast(); }
 
   function css() {
     if (document.getElementById('svt-style')) return;
@@ -220,6 +274,8 @@
 #svt-root .svt-o{font-size:11.5px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
 #svt-root .svt-o.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #svt-root .svt-o small{opacity:.7}
+#svt-root .setbox{border:1px dashed var(--border);border-radius:9px;padding:10px;display:grid;gap:6px}
+#svt-root .svt-x{border:none;background:none;color:inherit;font-size:11px;padding:0 0 0 4px;cursor:pointer}
 #svt-root .svt-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px;scroll-snap-type:x proximity}
 #svt-root .svt-col{flex:0 0 250px;border-radius:10px;padding:6px;scroll-snap-align:start}
 #svt-root .svt-col.over{background:var(--gold-soft)}
@@ -278,15 +334,18 @@
   window.wkSubviewsTrial = {
     open, close,
     _pick: id => { S.cur = id; S.editing = null; S.more = {}; draw(); },
-    _new: () => { S.editing = { id: 'n' + Date.now(), name: '新しい見え方', gb: null, f: {}, fk: '' }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
-    _edit: () => { const v = VW(); S.editing = { id: v.id, name: v.name, gb: v.gb, f: JSON.parse(JSON.stringify(v.f || {})), fk: Object.keys(v.f || {})[0] || '' }; draw(); },
+    _new: () => { S.editing = { id: 'n' + Date.now(), name: '新しい見え方', gb: null, picks: [], showNone: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
+    _edit: () => { const v = VW(); S.editing = { id: v.id, name: v.name, gb: v.gb, picks: (v.picks || []).map(p => ({ ...p })), showNone: v.showNone !== false, pg: v.pg }; draw(); },
+    _pg: k => { S.editing.pg = k; drawEd(); },
+    _pv: x => { const d = S.editing; d.picks = d.picks || []; const i = d.picks.findIndex(p => p.g === d.pg && p.v === x); i < 0 ? d.picks.push({ g: d.pg, v: x }) : d.picks.splice(i, 1); drawEd(); },
+    _px: i => { const d = S.editing; const items = pickGrouper(d).items; const it = items[i]; if (!it) return; d.picks = d.picks.filter(p => !(p.g === it.g && p.v === it.v)); drawEd(); },
+    _pn: on => { S.editing.showNone = on; },
     _en: t => { if (S.editing) S.editing.name = t; },
     _eg: k => { S.editing.gb = k || null; drawEd(); },
-    _fk: k => { S.editing.fk = k; drawEd(); },
-    _fv: x => { const d = S.editing, k = d.fk; if (!k) return; const a = d.f[k] = d.f[k] || []; const i = a.indexOf(x); i < 0 ? a.push(x) : a.splice(i, 1); if (!a.length) delete d.f[k]; drawEd(); },
     _ec: () => { S.editing = null; draw(); },
     _es: () => { const d = S.editing; const name = (d.name || '').trim() || '見え方'; const ex = S.views.find(v => v.id === d.id);
-      if (ex) Object.assign(ex, { name, gb: d.gb, f: d.f }); else S.views.push({ id: d.id, name, gb: d.gb, f: d.f });
+      const keep = { name, gb: d.gb, picks: (d.picks || []).map(p => ({ ...p })), showNone: d.showNone !== false, pg: d.pg };
+      if (ex) Object.assign(ex, keep); else S.views.push({ id: d.id, ...keep });
       S.cur = d.id; S.editing = null; S.more = {}; draw(); },
     _del: () => { const i = S.views.findIndex(v => v.id === S.editing.id); if (i > 0) S.views.splice(i, 1); S.cur = 'all'; S.editing = null; draw(); },
     _mode: m => { S.mode = m; draw(); },

@@ -124,6 +124,20 @@ ck('本物の動画のタグは変わらない', await pg.evaluate(() => JSON.st
 await pg.evaluate(() => wkSubviewsTrial._undo());
 ck('取り消すと画面も戻る', JSON.stringify(await cols()) === JSON.stringify(c1), await cols());
 await pg.evaluate(k => wkSubviewsTrial._move('v4', k, '\u0000none', 'ボトム'), tbKey);
+// タグを選んでまとめる（タグ1の中から スタンディング・トップ だけを列にする）
+await pg.evaluate(() => wkSubviewsTrial._reset());
+await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('選んだタグ'); wkSubviewsTrial._eg('pick'); wkSubviewsTrial._pg(k); wkSubviewsTrial._pv('スタンディング'); wkSubviewsTrial._pv('トップ'); wkSubviewsTrial._es(); }, tbKey);
+const p1 = await cols();
+ck('タグを選んでまとめる: 選んだタグだけが選んだ順に列になる・どれにも当てはまらない が先頭', JSON.stringify(p1) === JSON.stringify(['どれにも当てはまらない=2','スタンディング=1','トップ=1']), p1);
+await pg.evaluate(() => wkSubviewsTrial._move('v2', 'pick', 'スタンディング', 'トップ'));
+const p2 = await cols();
+ck('選んだタグの列のあいだを動かすと画面だけ変わる', JSON.stringify(p2) === JSON.stringify(['どれにも当てはまらない=2','スタンディング=0','トップ=2']), p2);
+ck('選んだタグで動かしても本物の動画のタグは変わらない', await pg.evaluate(() => JSON.stringify(window.videos.find(v => v.id === 'v2').tb) === JSON.stringify(['ボトム','スタンディング'])));
+await pg.evaluate(() => wkSubviewsTrial._undo());
+ck('取り消すと戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
+await pg.evaluate(() => { wkSubviewsTrial._edit(); wkSubviewsTrial._pn(false); wkSubviewsTrial._es(); });
+ck('「どれにも当てはまらない」を出さないこともできる', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1']), await cols());
+if (process.env.SHOT) { await pg.evaluate(() => wkSubviewsTrial._edit()); await pg.screenshot({ path: process.env.SHOT + '/svt-pick.png' }); await pg.evaluate(() => wkSubviewsTrial._ec()); }
 await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('cf:gc_phase1'); wkSubviewsTrial._es(); });
 await pg.evaluate(() => wkSubviewsTrial._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));
 await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('pl'); wkSubviewsTrial._es(); });
