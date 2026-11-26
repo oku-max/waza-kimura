@@ -93,13 +93,13 @@ td select{font-size:11px;padding:2px 4px;border-radius:5px;border:1px solid var(
 .data code{font-size:11px;background:var(--surface2);padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}
 .data ul{margin:2px 0 8px;padding-left:18px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center}
-.toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px}
+.toast{width:max-content;max-width:calc(100% - 32px)}.toast button{white-space:nowrap;flex-shrink:0;border:none;background:none;color:inherit;text-decoration:underline;font-size:12px}
 @media (max-width:560px){.col{flex-basis:82%}.ed .r{grid-template-columns:minmax(0,1fr)}.ed .k{padding-top:0}h1{font-size:19px}}
 @media (prefers-reduced-motion: reduce){.col{transition:none}}
 </style>
 </head>
 <body>
-<div class="banner"><div class="wrap">見本の画面です。本物のデータには書き込みません。<br>上のタブで「見え方」を切り替え、カードは列のあいだをドラッグ（スマホはカード下の欄）で置き場所を変えられます。「✎ 見え方を編集」で絞り込みとまとめ方を変えてみてください。</div></div>
+<div class="banner"><div class="wrap">見本の画面です。本物のデータには書き込みません。<br>上のタブで「見え方」を切り替え、カードは列のあいだをドラッグ（スマホはカード下の欄）で置き場所を変えられます。動かすと動画のタグそのものが変わります（見本の中だけ）。「✎ 見え方を編集」で絞り込みとまとめ方を変えられます。</div></div>
 <div class="wrap">
   <h1>ラッソー・スパイダー・デラヒーバ</h1>
   <div class="sub">カスタムリスト・14本（見本）</div>
@@ -117,95 +117,124 @@ td select{font-size:11px;padding:2px 4px;border-radius:5px;border:1px solid var(
     <ul>
       <li><b>リスト</b> … どの動画を入れるか（今までどおり。手で選ぶ／条件で作る）</li>
       <li><b>見え方</b>（リストの中に何個でも・名前つき） … そのリストの動画を<b>どう絞って</b>、<b>どうまとめて</b>見せるか。Notion の「ビュー」と同じ</li>
-      <li><b>カード／テーブル</b> … 今までどおりボタンでいつでも切り替え。見え方には含めない（どの見え方もカードでもテーブルでも見られる）</li>
+      <li><b>カード／テーブル</b> … 今までどおりボタンでいつでも切り替え。見え方には含めない</li>
     </ul>
-    <h3>まとめ方は2種類</h3>
+    <h3>まとめ方は4種類（今ある情報だけ）</h3>
     <ul>
-      <li><b>今ある情報で</b>（タグ・チャンネル・プレイリスト） … 絞り込みと同じ情報を、絞る代わりに列に分けて見せる。付け替えは動画のタグを変えること＝ライブラリ全体に効く</li>
-      <li><b>このリストの分け方で</b>（自分で作る） … 「相手のポスチャー」「習熟度」など、名前も選択肢も自由。<b>このリストの中だけ</b>の置き場所なので、動画のタグは変わらない。1つのリストに分け方をいくつでも作れて、どの見え方からでも使える</li>
+      <li><b>タグ</b>（タググループごと） … タグ1〜4の枠に入っていない<b>未使用のタググループ</b>も選べる。1本に複数付いていれば、その数だけ列に出る</li>
+      <li><b>プレイリスト</b>・<b>チャンネル</b> … 動画の出どころなので動かせない</li>
+      <li><b>カスタム列</b>（セレクト・評価だけ） … 1本に1つ</li>
+    </ul>
+    <h3>ドラッグで変わるもの</h3>
+    <ul>
+      <li><b>動画のタグ・カスタム列の値そのもの</b>が変わる＝ほかのリスト・ライブラリにも効く（動画パネルで付け外ししたのと同じ書き込み <code>wkSetTagValue</code>）</li>
+      <li>A の列から B の列へ … A を外して B を付ける。<b>ほかのタグは触らない</b>（スタンディング＋後ろ重心 の動画を 後ろ重心 → 膝立ち に動かすと、スタンディング＋膝立ち）</li>
+      <li>「〇〇なし」へ … 動かした列の値だけ外す／「〇〇なし」から … 付けるだけ</li>
+      <li>動かした直後のトーストで取り消せる</li>
     </ul>
     <h3>データの持ち方（案）</h3>
-    リストの中に2つ足すだけ。リストの動画（<code>videoIds</code>・条件）には触らない。<br>
-    <code>view.subViews = [{id, name, filter, groupBy, at}]</code>（groupBy は <code>{set:'分け方id'}</code> か <code>{tag:'グループid'}</code>・<code>'channel'</code>・<code>'playlist'</code>・なし）<br>
-    <code>view.groupSets = [{id, name, options:[{id, name, color}], of:{動画id: 選択肢id}}]</code><br>
-    <ul>
-      <li>選択肢を消しても、そこにいた動画は「〇〇なし」の列に戻るだけ（リストからは消えない）</li>
-      <li>分け方を消すときは本数を出して確かめ、直後に取り消せる。その分け方を使っていた見え方は「まとめない」に戻る</li>
-      <li>見え方の絞り込みを変えると「変更あり」になり、<b>上書き保存を押したときだけ</b>覚える（v53.020 の条件リストと同じ決まり）。置き場所の付け替えはその場で保存（動画を動かした＝データを変えた、なので）</li>
-      <li>端末をまたぐ同期は、今のリストの同期に乗る（1件ずつ・新しい方を採る）</li>
-      <li>最初の見え方「すべて」は今の画面そのもの。何も作らなければ今と何も変わらない</li>
-    </ul>
+    リストに <code>view.subViews = [{id, name, filter, groupBy, at}]</code> を足すだけ（groupBy は <code>'tag:グループid'</code>・<code>'pl'</code>・<code>'ch'</code>・<code>'cf:列id'</code>・なし）。
+    動画に新しい欄は作らない。見え方を消しても動画・タグは1文字も変わらない。見え方を何も作らなければ今と同じ画面。
+    見え方の絞り込み・まとめ方は「上書き保存」を押したときだけ覚える（v53.020 の条件リストと同じ）。端末をまたぐ同期は今のリストの同期に乗る。
   </div>
 </div>
 <div id="toast"></div>
 <script>
 const VIDS=[
- {id:1,t:'250721 石井晴先生プライベートレッスン ラッソーキープ',d:'24:10',pl:'プライベート',ch:'自分の練習',tb:'ボトム'},
- {id:2,t:'デッドリフト対策',d:'8:42',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
- {id:3,t:'相手のポスチャー・重心を見極め',d:'6:15',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
- {id:4,t:'スパイダーからのシザースイープ・三角・オモプラッタ・腕十字',d:'14:30',pl:'スパイダー基礎',ch:'Keenan Online',tb:'ボトム'},
- {id:5,t:'立ちあがる相手をコントロールするポイント',d:'9:05',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
- {id:6,t:'ラッソーからのオモプラッタ',d:'7:22',pl:'ラッソー基礎',ch:'Keenan Online',tb:'ボトム'},
- {id:7,t:'膝立ちの相手へのラッソースイープ',d:'6:48',pl:'ラッソー基礎',ch:'Keenan Online',tb:'ボトム'},
- {id:8,t:'後ろ重心の相手を前に崩す',d:'5:30',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
- {id:9,t:'デラヒーバ → ラッソーへの切り替え',d:'8:10',pl:'デラヒーバ',ch:'Mikey Musumeci',tb:'ボトム'},
- {id:10,t:'座っている相手へのスパイダー',d:'7:55',pl:'スパイダー基礎',ch:'Keenan Online',tb:'ボトム'},
- {id:11,t:'ラッソーのグリップの作り方',d:'4:40',pl:'ラッソー基礎',ch:'Keenan Online',tb:'ボトム'},
- {id:12,t:'スタンディングでラッソーを潰されたら',d:'10:20',pl:'ラッソー対策集',ch:'Lachlan Giles',tb:'ボトム'},
- {id:13,t:'ベリンボロへの入り',d:'11:35',pl:'デラヒーバ',ch:'Mikey Musumeci',tb:'ボトム'},
- {id:14,t:'スパー振り返り 11/20',d:'18:02',pl:'プライベート',ch:'自分の練習',tb:'ボトム'}];
+ {id:1,t:'250721 石井晴先生プライベートレッスン ラッソーキープ',d:'24:10',pl:'プライベート',ch:'自分の練習',tg:{tb:['ボトム'],posture:[],status:['練習中'],mark:['お気に入り']},cf:{phase:'反復中',prio:3}},
+ {id:2,t:'デッドリフト対策',d:'8:42',pl:'ラッソー対策集',ch:'Lachlan Giles',tg:{tb:['ボトム'],posture:['スタンディング'],status:['理解']},cf:{phase:'学習中',prio:2}},
+ {id:3,t:'相手のポスチャー・重心を見極め',d:'6:15',pl:'ラッソー対策集',ch:'Lachlan Giles',tg:{tb:['ボトム'],posture:['後ろ重心'],status:[]},cf:{prio:3}},
+ {id:4,t:'スパイダーからのシザースイープ・三角・オモプラッタ・腕十字',d:'14:30',pl:'スパイダー基礎',ch:'Keenan Online',tg:{tb:['ボトム'],posture:['膝立ち','座り'],status:['練習中']},cf:{phase:'反復中',prio:2}},
+ {id:5,t:'立ちあがる相手をコントロールするポイント',d:'9:05',pl:'ラッソー対策集',ch:'Lachlan Giles',tg:{tb:['ボトム'],posture:['スタンディング','後ろ重心'],status:['理解']},cf:{phase:'学習中'}},
+ {id:6,t:'ラッソーからのオモプラッタ',d:'7:22',pl:'ラッソー基礎',ch:'Keenan Online',tg:{tb:['ボトム'],posture:[],status:['練習中'],mark:['Next']},cf:{phase:'反復中',prio:1}},
+ {id:7,t:'膝立ちの相手へのラッソースイープ',d:'6:48',pl:'ラッソー基礎',ch:'Keenan Online',tg:{tb:['ボトム'],posture:['膝立ち'],status:['練習中']},cf:{phase:'反復中'}},
+ {id:8,t:'後ろ重心の相手を前に崩す',d:'5:30',pl:'ラッソー対策集',ch:'Lachlan Giles',tg:{tb:['ボトム'],posture:['後ろ重心'],status:[]},cf:{}},
+ {id:9,t:'デラヒーバ → ラッソーへの切り替え',d:'8:10',pl:'デラヒーバ',ch:'Mikey Musumeci',tg:{tb:['ボトム'],posture:[],status:['理解']},cf:{phase:'学習中',prio:2}},
+ {id:10,t:'座っている相手へのスパイダー',d:'7:55',pl:'スパイダー基礎',ch:'Keenan Online',tg:{tb:['ボトム'],posture:['座り'],status:[]},cf:{}},
+ {id:11,t:'ラッソーのグリップの作り方',d:'4:40',pl:'ラッソー基礎',ch:'Keenan Online',tg:{tb:['ボトム'],posture:[],status:['マスター']},cf:{phase:'使えてる',prio:1}},
+ {id:12,t:'スタンディングでラッソーを潰されたら',d:'10:20',pl:'ラッソー対策集',ch:'Lachlan Giles',tg:{tb:['ボトム'],posture:['スタンディング'],status:['理解']},cf:{phase:'学習中',prio:3}},
+ {id:13,t:'ベリンボロへの入り',d:'11:35',pl:'デラヒーバ',ch:'Mikey Musumeci',tg:{tb:['ボトム'],posture:[],status:[]},cf:{}},
+ {id:14,t:'スパー振り返り 11/20',d:'18:02',pl:'プライベート',ch:'自分の練習',tg:{tb:['スタンディング'],posture:[],status:[]},cf:{}}];
 const V=id=>VIDS.find(v=>v.id===id);
-// このリストの分け方（自分で作る）
-let sets=[
- {id:'posture',name:'相手のポスチャー',options:[{id:'st',name:'スタンディング',c:1},{id:'bk',name:'後ろ重心',c:2},{id:'kn',name:'膝立ち',c:3},{id:'sit',name:'座り',c:4}],
-  of:{2:'st',5:'st',12:'st',8:'bk',3:'bk',7:'kn',4:'kn',10:'sit'}},
- {id:'level',name:'習熟度',options:[{id:'u',name:'理解',c:5},{id:'p',name:'練習中',c:2},{id:'s',name:'スパーで使える',c:3}],
-  of:{11:'s',6:'p',7:'p',2:'u',4:'p',13:'u',9:'u'}}];
+// まとめ方に使えるもの（今ある情報だけ）
+const STARS=n=>'★'.repeat(n);
+const G=[
+ {id:'tag:tb',kind:'tag',gid:'tb',name:'タグ1',slot:'タグ1',opts:['トップ','ボトム','スタンディング']},
+ {id:'tag:mark',kind:'tag',gid:'mark',name:'マーク',slot:'タグ4',opts:['お気に入り','Next','ドリル']},
+ {id:'tag:posture',kind:'tag',gid:'posture',name:'相手のポスチャー',slot:null,opts:['スタンディング','後ろ重心','膝立ち','座り']},
+ {id:'tag:status',kind:'tag',gid:'status',name:'習得',slot:null,opts:['理解','練習中','マスター']},
+ {id:'pl',kind:'src',key:'pl',name:'プレイリスト'},
+ {id:'ch',kind:'src',key:'ch',name:'チャンネル'},
+ {id:'cf:phase',kind:'select',col:'phase',name:'フェーズ',ctype:'セレクト',opts:['学習中','反復中','使えてる']},
+ {id:'cf:prio',kind:'stars',col:'prio',name:'優先度',ctype:'評価',opts:[STARS(3),STARS(2),STARS(1)]}];
+const GG=id=>G.find(g=>g.id===id);
+function valsOf(v,g){
+  if(g.kind==='tag') return (v.tg[g.gid]||[]).slice();
+  if(g.kind==='src') return [v[g.key]];
+  if(g.kind==='select') return v.cf[g.col]?[v.cf[g.col]]:[];
+  if(g.kind==='stars') return v.cf[g.col]?[STARS(v.cf[g.col])]:[];
+}
+function optsOf(g,vs){return g.kind==='src'?[...new Set(vs.map(v=>v[g.key]))]:g.opts}
+const editable=g=>g&&g.kind!=='src';
+// 1本の動画の値を書き換える（本番では wkSetTagValue / カスタム列の書き込み）
+function writeVals(v,g,arr){
+  if(g.kind==='tag') v.tg[g.gid]=arr;
+  else if(g.kind==='select'){ if(arr[0]) v.cf[g.col]=arr[0]; else delete v.cf[g.col]; }
+  else if(g.kind==='stars'){ if(arr[0]) v.cf[g.col]=arr[0].length; else delete v.cf[g.col]; }
+}
+function moveVal(vid,gid,from,to){
+  const v=V(vid),g=GG(gid); const before=valsOf(v,g); let after;
+  if(g.kind==='tag'){ after=before.filter(x=>x!==from); if(to!=='_none'&&!after.includes(to)) after.push(to); }
+  else after=to==='_none'?[]:[to];
+  if(JSON.stringify(after)===JSON.stringify(before)) return;
+  writeVals(v,g,after);
+  const nm=x=>x==='_none'?g.name+'なし':x;
+  showToast(`「${v.t.slice(0,12)}…」${nm(from)} → ${nm(to)}（動画の${g.kind==='tag'?'タグ':'値'}を変えました）`,()=>writeVals(v,g,before));
+  render();
+}
+function toggleVal(vid,gid,val){
+  const v=V(vid),g=GG(gid); const before=valsOf(v,g); let after;
+  if(g.kind==='tag') after=before.includes(val)?before.filter(x=>x!==val):[...before,val];
+  else after=before[0]===val?[]:[val];
+  writeVals(v,g,after); showToast(`${g.name}: ${after.join('・')||'なし'}`,()=>writeVals(v,g,before)); render();
+}
 // 見え方
 let views=[
  {id:'all',name:'すべて',filter:{},groupBy:null,fixed:true},
- {id:'v1',name:'相手のポスチャー',filter:{},groupBy:{set:'posture'}},
- {id:'v2',name:'習熟度',filter:{},groupBy:{set:'level'}},
- {id:'v3',name:'スタンディング対策',filter:{pl:['ラッソー対策集']},groupBy:{set:'level'}},
- {id:'v4',name:'チャンネル別',filter:{},groupBy:'channel'}];
-let cur='v1', mode='card', editing=false, draft=null, closed={}, toast=null;
+ {id:'v1',name:'相手のポスチャー',filter:{},groupBy:'tag:posture'},
+ {id:'v2',name:'習得',filter:{},groupBy:'tag:status'},
+ {id:'v3',name:'スタンディング対策',filter:{'tag:posture':['スタンディング']},groupBy:'tag:status'},
+ {id:'v4',name:'チャンネル別',filter:{},groupBy:'ch'},
+ {id:'v5',name:'フェーズ',filter:{},groupBy:'cf:phase'}];
+let cur='v1', mode='card', editing=false, draft=null, closed={}, toast=null, openCard=null;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone=o=>JSON.parse(JSON.stringify(o));
 const VW=()=>views.find(v=>v.id===cur);
-const live=()=>draft||VW();               // 編集中・変更中は draft を見る
+const live=()=>draft||VW();
 const isDirty=()=>!!draft&&JSON.stringify({f:draft.filter,g:draft.groupBy,n:draft.name})!==JSON.stringify({f:VW().filter,g:VW().groupBy,n:VW().name});
-const setOf=gb=>gb&&gb.set?sets.find(s=>s.id===gb.set):null;
-const FKEYS=[['pl','プレイリスト'],['ch','チャンネル']];
-function filtered(f){return VIDS.filter(v=>FKEYS.every(([k])=>!(f[k]&&f[k].length)||f[k].includes(v[k]))&&sets.every(s=>!(f['s:'+s.id]&&f['s:'+s.id].length)||f['s:'+s.id].includes(s.of[v.id]||'_none')))}
-function groupsFor(vs,gb){
-  if(!gb) return null;
-  const s=setOf(gb);
-  if(s){const g=s.options.map(o=>({key:o.id,name:o.name,c:o.c,ids:vs.filter(v=>s.of[v.id]===o.id).map(v=>v.id)}));
-    g.unshift({key:'_none',name:s.name+'なし',c:0,ids:vs.filter(v=>!s.of[v.id]||!s.options.find(o=>o.id===s.of[v.id])).map(v=>v.id),none:true});return g;}
-  const k=gb==='channel'?'ch':'pl'; const m=new Map(); vs.forEach(v=>{if(!m.has(v[k]))m.set(v[k],[]);m.get(v[k]).push(v.id)});
-  return [...m].map(([n,ids],i)=>({key:n,name:n,c:(i%5)+1,ids,ro:true}));
+const FG=()=>G.filter(g=>g.kind!=='stars');   // 絞り込みに出すもの（見本では評価は省略）
+function filtered(f){return VIDS.filter(v=>Object.entries(f).every(([gid,sel])=>{if(!sel||!sel.length)return true;const vals=valsOf(v,GG(gid));return sel.some(x=>x==='_none'?!vals.length:vals.includes(x))}))}
+function groupsFor(vs,gid){
+  if(!gid) return null; const g=GG(gid);
+  const out=optsOf(g,vs).map((o,i)=>({key:o,name:o,c:(i%5)+1,ids:vs.filter(v=>valsOf(v,g).includes(o)).map(v=>v.id)}));
+  if(g.kind!=='src') out.unshift({key:'_none',name:g.name+'なし',c:0,ids:vs.filter(v=>!valsOf(v,g).length).map(v=>v.id)});
+  return out;
 }
-function gbLabel(gb){if(!gb)return 'まとめない';if(gb==='channel')return 'チャンネル';if(gb==='playlist')return 'プレイリスト';const s=setOf(gb);return s?s.name:'まとめない'}
-function fLabel(f){const parts=[];FKEYS.forEach(([k,l])=>{if(f[k]&&f[k].length)parts.push(l+': '+f[k].join('・'))});sets.forEach(s=>{const a=f['s:'+s.id];if(a&&a.length)parts.push(s.name+': '+a.map(id=>id==='_none'?'なし':s.options.find(o=>o.id===id)?.name).join('・'))});return parts.length?parts.join(' / '):'なし'}
-function setGroup(vid,setId,optId){
-  const s=sets.find(x=>x.id===setId); const before=s.of[vid];
-  if(optId==='_none'||!optId) delete s.of[vid]; else s.of[vid]=optId;
-  showToast(`「${V(vid).t.slice(0,14)}…」を ${optId&&optId!=='_none'?s.options.find(o=>o.id===optId).name:s.name+'なし'} へ`,()=>{if(before)s.of[vid]=before;else delete s.of[vid]});
-  render();
-}
-function showToast(msg,undo){toast={msg,undo};clearTimeout(showToast.t);showToast.t=setTimeout(()=>{toast=null;drawToast()},4000);drawToast()}
+function gbLabel(gid){if(!gid)return 'まとめない';const g=GG(gid);return g.name+(g.kind==='tag'&&!g.slot?'（未使用のタグ）':'')}
+function fLabel(f){const p=Object.entries(f).filter(([,a])=>a&&a.length).map(([gid,a])=>GG(gid).name+': '+a.map(x=>x==='_none'?'なし':x).join('・'));return p.length?p.join(' / '):'なし'}
+function showToast(msg,undo){toast={msg,undo};clearTimeout(showToast.t);showToast.t=setTimeout(()=>{toast=null;drawToast()},5000);drawToast()}
 function drawToast(){const el=document.getElementById('toast');el.innerHTML=toast?`<div class="toast" role="status">${esc(toast.msg)}${toast.undo?'<button onclick="toast.undo();toast=null;render()">取り消す</button>':''}</div>`:''}
 
 /* ---- タブ・要約 ---- */
 function drawTabs(){
-  document.getElementById('vtabs').innerHTML=views.map(v=>{const g=v.groupBy;const ic=!g?'▦':(g.set?'◧':'⊞');return `<button class="vt${v.id===cur?' on':''}${v.id===cur&&isDirty()?' dirty':''}" role="tab" aria-selected="${v.id===cur}" onclick="pick('${v.id}')"><span class="ic">${ic}</span>${esc(v.name)}</button>`}).join('')+`<button class="vt add" onclick="newView()">＋ 見え方</button>`;
+  document.getElementById('vtabs').innerHTML=views.map(v=>{const ic=!v.groupBy?'▦':'⊞';return `<button class="vt${v.id===cur?' on':''}${v.id===cur&&isDirty()?' dirty':''}" role="tab" aria-selected="${v.id===cur}" onclick="pick('${v.id}')"><span class="ic">${ic}</span>${esc(v.name)}</button>`}).join('')+`<button class="vt add" onclick="newView()">＋ 見え方</button>`;
   document.getElementById('m-card').className=mode==='card'?'on':'';document.getElementById('m-table').className=mode==='table'?'on':'';
   const L=live();
   document.getElementById('sum').innerHTML=`<span class="pill">絞り込み <b>${esc(fLabel(L.filter))}</b></span><span class="pill">まとめ方 <b>${esc(gbLabel(L.groupBy))}</b></span>`+
    (VW().fixed?'':`<button class="btn sm" onclick="openEd()">✎ 見え方を編集</button>`)+
    (isDirty()&&!editing?`<span class="dirtybar">変更あり <button class="btn sm" onclick="draft=null;render()">元に戻す</button><button class="btn sm pri" onclick="saveDraft()">上書き保存</button></span>`:'');
 }
-function pick(id){if(isDirty()&&!editing){/* 離れたら保存した状態に戻る（v53.020 と同じ） */}draft=null;editing=false;cur=id;render()}
+function pick(id){draft=null;editing=false;openCard=null;cur=id;render()}
 function newView(){const id='v'+Date.now();views.push({id,name:'新しい見え方',filter:{},groupBy:null});cur=id;draft=null;openEd();}
 function openEd(){draft=draft||clone(VW());editing=true;render();setTimeout(()=>{const i=document.getElementById('ed-name');i&&i.focus()},0)}
 function saveDraft(){const v=VW();v.name=draft.name.trim()||v.name;v.filter=draft.filter;v.groupBy=draft.groupBy;draft=null;editing=false;showToast(`見え方「${v.name}」を保存しました`);render()}
@@ -214,57 +243,53 @@ function saveDraft(){const v=VW();v.name=draft.name.trim()||v.name;v.filter=draf
 function drawEd(){
   const el=document.getElementById('ed'); if(!editing){el.innerHTML='';return}
   const d=draft;
-  const fChips=(key,label,vals)=>`<div class="r"><div class="k">${esc(label)}</div><div class="opts">${vals.map(([val,name])=>{const on=(d.filter[key]||[]).includes(val);return `<button class="o${on?' on':''}" onclick="togF('${key}','${esc(val)}')">${esc(name)}</button>`}).join('')}</div></div>`;
-  const uniq=k=>[...new Set(VIDS.map(v=>v[k]))].map(x=>[x,x]);
+  const gb=(g,extra)=>`<button class="o${d.groupBy===g.id?' on':''}" onclick="draft.groupBy='${g.id}';render()">${esc(g.name)}${extra?`<small>${extra}</small>`:''}</button>`;
   let h=`<div class="r"><div class="k">名前</div><div><input type="text" id="ed-name" value="${esc(d.name)}" oninput="draft.name=this.value"></div></div>`;
-  h+=`<div class="r"><div class="k">まとめ方</div><div><div class="opts">`+
-     `<button class="o${!d.groupBy?' on':''}" onclick="draft.groupBy=null;render()">まとめない</button>`+
-     sets.map(s=>`<button class="o${d.groupBy&&d.groupBy.set===s.id?' on':''}" onclick="draft.groupBy={set:'${s.id}'};render()">◧ ${esc(s.name)}</button>`).join('')+
-     `<button class="o" onclick="newSet()">＋ 分け方を作る</button>`+
-     `<div class="grpk">今ある情報で</div>`+
-     `<button class="o${d.groupBy==='channel'?' on':''}" onclick="draft.groupBy='channel';render()">⊞ チャンネル</button><button class="o${d.groupBy==='playlist'?' on':''}" onclick="draft.groupBy='playlist';render()">⊞ プレイリスト</button><button class="o" disabled title="見本では省略">⊞ タグ1〜4</button>`+
-     `</div>`;
-  const s=setOf(d.groupBy);
-  if(s) h+=`<div class="setbox"><div class="hd">「${esc(s.name)}」の選択肢（このリストの中だけ・名前は押して変える）</div><div class="optrow">`+
-     s.options.map(o=>`<span class="tagc" style="background:var(--c${o.c})"><span contenteditable="true" spellcheck="false" onblur="renOpt('${s.id}','${o.id}',this.textContent)">${esc(o.name)}</span> <button class="x" aria-label="${esc(o.name)}を消す" onclick="delOpt('${s.id}','${o.id}')">✕</button></span>`).join('')+
-     `<button class="btn sm" onclick="addOpt('${s.id}')">＋ 選択肢</button></div></div>`;
-  h+=`</div></div>`;
-  h+=fChips('pl','絞り込み: プレイリスト',uniq('pl'))+fChips('ch','絞り込み: チャンネル',uniq('ch'));
-  sets.forEach(x=>{h+=fChips('s:'+x.id,'絞り込み: '+x.name,[...x.options.map(o=>[o.id,o.name]),['_none','なし']])});
+  h+=`<div class="r"><div class="k">まとめ方</div><div><div class="opts"><button class="o${!d.groupBy?' on':''}" onclick="draft.groupBy=null;render()">まとめない</button>`+
+     `<div class="grpk">タグ</div>`+G.filter(g=>g.kind==='tag').map(g=>gb(g,g.slot||'未使用')).join('')+
+     `<div class="grpk">動画の出どころ（動かせない）</div>`+G.filter(g=>g.kind==='src').map(g=>gb(g)).join('')+
+     `<div class="grpk">カスタム列（セレクト・評価）</div>`+G.filter(g=>g.kind==='select'||g.kind==='stars').map(g=>gb(g,g.ctype)).join('')+
+     `</div>`+(d.groupBy&&GG(d.groupBy).kind==='tag'&&!GG(d.groupBy).slot?`<div class="setbox"><div class="hd">「${esc(GG(d.groupBy).name)}」はタグ1〜4の枠に入っていないタググループです。ここでは列のあいだをドラッグしてタグを付けられます。</div></div>`:'')+`</div></div>`;
+  FG().forEach(g=>{const vals=[...optsOf(g,VIDS),...(g.kind==='src'?[]:['_none'])];
+    h+=`<div class="r"><div class="k">絞り込み: ${esc(g.name)}</div><div class="opts">${vals.map(x=>{const on=(d.filter[g.id]||[]).includes(x);return `<button class="o${on?' on':''}" onclick="togF('${g.id}','${esc(x)}')">${esc(x==='_none'?'なし':x)}</button>`}).join('')}</div></div>`});
   h+=`<div class="foot"><button class="btn del" onclick="delView()">この見え方を消す</button><button class="btn" onclick="draft=null;editing=false;render()">やめる</button><button class="btn pri" onclick="saveDraft()">保存</button></div>`;
   el.innerHTML=`<div class="ed">${h}</div>`;
 }
 function togF(k,val){const a=draft.filter[k]=draft.filter[k]||[];const i=a.indexOf(val);i<0?a.push(val):a.splice(i,1);render()}
-function newSet(){const id='s'+Date.now();sets.push({id,name:'新しい分け方',options:[{id:'o1',name:'A',c:1},{id:'o2',name:'B',c:2}],of:{}});draft.groupBy={set:id};render()}
-function addOpt(sid){const s=sets.find(x=>x.id===sid);s.options.push({id:'o'+Date.now(),name:'新しい選択肢',c:(s.options.length%5)+1});render()}
-function renOpt(sid,oid,t){t=t.trim();const o=sets.find(x=>x.id===sid).options.find(x=>x.id===oid);if(t&&t!==o.name){o.name=t;render()}}
-function delOpt(sid,oid){const s=sets.find(x=>x.id===sid);const o=s.options.find(x=>x.id===oid);const ids=Object.keys(s.of).filter(k=>s.of[k]===oid);const idx=s.options.indexOf(o);
-  s.options.splice(idx,1);ids.forEach(k=>delete s.of[k]);
-  showToast(`選択肢「${o.name}」を消しました（${ids.length}本は「${s.name}なし」へ）`,()=>{s.options.splice(idx,0,o);ids.forEach(k=>s.of[k]=oid)});render()}
-function delView(){const v=VW();const i=views.indexOf(v);views.splice(i,1);draft=null;editing=false;cur='all';showToast(`見え方「${v.name}」を消しました（動画とリストはそのまま）`,()=>{views.splice(i,0,v);cur=v.id});render()}
+function delView(){const v=VW();const i=views.indexOf(v);views.splice(i,1);draft=null;editing=false;cur='all';showToast(`見え方「${v.name}」を消しました（動画とタグはそのまま）`,()=>{views.splice(i,0,v);cur=v.id});render()}
 
 /* ---- 本体 ---- */
-function card(v,s){return `<div class="card" draggable="${s?'true':'false'}" ondragstart="dragId=${v.id};this.classList.add('drag')" ondragend="this.classList.remove('drag')"><div class="th"><span>${v.d}</span></div><div class="tt">${esc(v.t)}</div><div class="mt"><span>${esc(v.ch)}</span>${s?placeSel(v.id,s):''}</div></div>`}
-function placeSel(vid,s){const curO=s.of[vid]||'_none';return `<select aria-label="${esc(s.name)}" onchange="setGroup(${vid},'${s.id}',this.value)">${s.options.map(o=>`<option value="${o.id}"${o.id===curO?' selected':''}>${esc(o.name)}</option>`).join('')}<option value="_none"${curO==='_none'?' selected':''}>${esc(s.name)}なし</option></select>`}
-let dragId=null;
-function drop(e,setId,key){e.preventDefault();e.currentTarget.classList.remove('over');if(dragId==null)return;const s=sets.find(x=>x.id===setId);if((s.of[dragId]||'_none')!==key)setGroup(dragId,setId,key);dragId=null}
+let dragV=null, dragFrom=null;
+function card(v,g,colKey){
+  const ed=editable(g);
+  const vals=g?valsOf(v,g):[];
+  const key=v.id+'|'+colKey;
+  return `<div class="card" draggable="${ed?'true':'false'}" ondragstart="dragV=${v.id};dragFrom='${esc(colKey)}';this.classList.add('drag')" ondragend="this.classList.remove('drag')">
+   <div class="th"><span>${v.d}</span></div><div class="tt">${esc(v.title||v.t)}</div>
+   <div class="mt"><span>${esc(v.ch)}</span>${ed?`<button class="btn sm" style="margin-left:auto" aria-expanded="${openCard===key}" onclick="openCard=openCard==='${key}'?null:'${key}';render()">${esc(g.name)} ▾</button>`:''}</div>
+   ${ed&&openCard===key?`<div class="mt" style="padding-top:0">${g.opts.map(o=>`<button class="o${vals.includes(o)?' on':''}" onclick="toggleVal(${v.id},'${g.id}','${esc(o)}')">${esc(o)}</button>`).join('')}</div>`:''}
+   ${g&&g.kind==='tag'&&vals.length>1?`<div class="mt" style="padding-top:0">ほかの列にも: ${esc(vals.filter(x=>x!==colKey).join('・'))}</div>`:''}
+  </div>`;
+}
+function drop(e,gid,key){e.preventDefault();e.currentTarget.classList.remove('over');if(dragV==null)return;if(dragFrom!==key)moveVal(dragV,gid,dragFrom,key);dragV=null}
 function drawBody(){
-  const L=live(); const vs=filtered(L.filter); const gs=groupsFor(vs,L.groupBy); const s=setOf(L.groupBy);
+  const L=live(); const vs=filtered(L.filter); const g=L.groupBy?GG(L.groupBy):null; const gs=groupsFor(vs,L.groupBy);
   const el=document.getElementById('body');
   if(!vs.length){el.innerHTML='<div class="sum">この絞り込みに当たる動画はありません。</div>';return}
   if(mode==='card'){
-    if(!gs){el.innerHTML=`<div class="flat">${vs.map(v=>card(v,null)).join('')}</div>`;return}
-    el.innerHTML=`<div class="board">`+gs.map(g=>`<div class="col" ${s?`ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="drop(event,'${s.id}','${g.key}')"`:''}><div class="colh"><span class="tagc" style="background:var(--c${g.c})">${esc(g.name)}</span><span class="n">${g.ids.length}</span></div><div class="cards">${g.ids.map(id=>card(V(id),s)).join('')}</div></div>`).join('')+
-      (s?`<button class="addcol" onclick="openEd()">＋ 選択肢を足す</button>`:'')+`</div>`+
-      (gs.some(g=>g.ro)?'<div class="sum">今ある情報でまとめた列は、ここでは動かせません（動画のチャンネル・プレイリストそのものなので）。</div>':'');
+    if(!gs){el.innerHTML=`<div class="flat">${vs.map(v=>card(v,null,'')).join('')}</div>`;return}
+    const ed=editable(g);
+    el.innerHTML=`<div class="board">`+gs.map(c=>`<div class="col" ${ed?`ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="drop(event,'${g.id}','${esc(c.key)}')"`:''}><div class="colh"><span class="tagc" style="background:var(--c${c.c})">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div><div class="cards">${c.ids.map(id=>card(V(id),g,c.key)).join('')}</div></div>`).join('')+`</div>`+
+      `<div class="sum">${ed?'カードを別の列へドラッグすると、その動画の'+(g.kind==='tag'?'タグ':'値')+'が変わります（スマホはカードの「'+esc(g.name)+' ▾」）。ほかのリスト・ライブラリにも効きます。':'プレイリスト・チャンネルは動画の出どころなので、列のあいだを動かせません。'}</div>`;
     return;
   }
-  const head=`<tr><th>タイトル</th><th>長さ</th><th>チャンネル</th><th>プレイリスト</th>${sets.map(x=>`<th>${esc(x.name)}</th>`).join('')}</tr>`;
-  const tr=v=>`<tr><td class="t">${esc(v.t)}</td><td>${v.d}</td><td>${esc(v.ch)}</td><td>${esc(v.pl)}</td>${sets.map(x=>`<td>${placeSel(v.id,x)}</td>`).join('')}</tr>`;
-  let rows='';
+  const extra=g&&g.kind!=='src'?`<th>${esc(g.name)}</th>`:'';
+  const head=`<tr><th>タイトル</th><th>長さ</th><th>チャンネル</th><th>プレイリスト</th>${extra}</tr>`;
+  const tr=v=>`<tr><td class="t">${esc(v.t)}</td><td>${v.d}</td><td>${esc(v.ch)}</td><td>${esc(v.pl)}</td>${extra?`<td>${esc(valsOf(v,g).join('・')||'—')}</td>`:''}</tr>`;
+  let rows='';const nc=4+(extra?1:0);
   if(!gs) rows=vs.map(tr).join('');
-  else gs.forEach(g=>{const k=cur+'|'+g.key;const o=!closed[k];rows+=`<tr class="gh" onclick="closed['${esc(k)}']=${o};render()"><td colspan="${4+sets.length}">${o?'▼':'▶'} <span class="tagc" style="background:var(--c${g.c})">${esc(g.name)}</span><span class="n">${g.ids.length}本</span></td></tr>`+(o?g.ids.map(id=>tr(V(id))).join(''):'')});
-  el.innerHTML=`<div class="tw"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div><div class="sum">テーブルでは、このリストの分け方がそのまま列になります（カスタム列と同じように選んで変えられる）。</div>`;
+  else gs.forEach(c=>{const k=cur+'|'+c.key;const o=!closed[k];rows+=`<tr class="gh" onclick="closed['${esc(k)}']=${o};render()"><td colspan="${nc}">${o?'▼':'▶'} <span class="tagc" style="background:var(--c${c.c})">${esc(c.name)}</span><span class="n">${c.ids.length}本</span></td></tr>`+(o?c.ids.map(id=>tr(V(id))).join(''):'')});
+  el.innerHTML=`<div class="tw"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div><div class="sum">タグが複数付いている動画は、その数だけ見出しの下に出ます。</div>`;
 }
 function render(){drawTabs();drawEd();drawBody();drawToast()}
 render();
