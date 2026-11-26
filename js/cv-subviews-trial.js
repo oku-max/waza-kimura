@@ -11,7 +11,8 @@
 (function () {
   const S = {
     views: [{ id: 'all', name: 'すべて', gb: null, f: {} }],
-    newTags: {},   // 試験版でその場で足したタグ（グループのキー → 値の配列）。画面の中だけ
+    newTags: {},
+    newGroups: [],  // 試験版でその場で作ったタググループ（{key, name}）。画面の中だけ（tagRegistry には書かない）   // 試験版でその場で足したタグ（グループのキー → 値の配列）。画面の中だけ
     cur: 'all', mode: 'board', sim: new Map(), closed: {}, editing: null, toast: null, more: {},
   };
   const LIMIT = 60;           // 1列に最初に出す本数（3,000本でも固まらないように）
@@ -34,6 +35,7 @@
     if (TR) (TR.groups() || []).forEach(g => { if (!g) return;
       out.push({ key: 'tag:' + g.id, kind: 'tag', name: g.name, sub: g.slot >= 0 ? ('タグ' + (g.slot + 1)) : '未使用',
         opts: [...(g.allOptions || []), ...(S.newTags['tag:' + g.id] || []).filter(x => !(g.allOptions || []).includes(x))], read: v => TR.valuesOf(v, g.id) }); });
+    S.newGroups.forEach(g => out.push({ key: g.key, kind: 'tag', name: g.name, sub: '新規・試験', opts: (S.newTags[g.key] || []).slice(), read: () => [] }));
     out.push({ key: 'pl', kind: 'src', name: 'プレイリスト', read: v => v.pl ? [v.pl] : [] });
     out.push({ key: 'ch', kind: 'src', name: 'チャンネル', read: v => v.channel ? [v.channel] : [] });
     sharedCols().forEach(c => {
@@ -188,7 +190,7 @@
     const el = document.getElementById('svt-body'); if (!el) return;
     const V = VW(); const g = V.gb ? GR(V.gb) : null;
     const list = source();
-    if (!list.length) { el.innerHTML = '<div class="svt-note">今のフィルターに当たる動画はありません。閉じてフィルターを変えてください。</div>'; return; }
+    if (!list.length) { el.innerHTML = '<div class="svt-note">今のフィルターに当たる動画はありません。サイドバーやフィルターで条件を変えてください。</div>'; return; }
     if (S.mode === 'table') {
       const gc = g && g.kind !== 'src';   // プレイリスト・チャンネルは既に列があるので足さない
       const head = `<tr><th>タイトル</th><th>チャンネル</th><th>プレイリスト</th>${gc ? `<th>${esc(g.name)}</th>` : ''}</tr>`;
@@ -236,7 +238,8 @@
     const pg = pickGrouper(d);
     return `<div class="setbox svt-pick">
       <div class="svt-grp" style="margin-top:0">① どのタグから選ぶか</div>
-      <div class="svt-opts">${tags.map(g => `<button class="svt-o${g.key === d.pg ? ' on' : ''}" onclick="wkSubviewsTrial._pg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}</div>
+      <div class="svt-opts">${tags.map(g => `<button class="svt-o${g.key === d.pg ? ' on' : ''}" onclick="wkSubviewsTrial._pg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}
+        <input id="svt-ngroup" type="text" placeholder="＋ 新しいタググループ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._ng()"><button class="svt-sm" onclick="wkSubviewsTrial._ng()">作る</button></div>
       <div class="svt-grp">② 列にしたいタグを押す（いまのフィルターでの本数）</div>
       <div class="svt-opts">${all.map(x => `<button class="svt-o${on(x) ? ' on' : ''}" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${on(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp">このタググループには値がありません。</span>'}</div>
       <div class="svt-opts"><input id="svt-pnew" type="text" placeholder="＋ 新しいタグ（${esc(G.name)}に足す）" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._pnew()"><button class="svt-sm" onclick="wkSubviewsTrial._pnew()">足して選ぶ</button></div>
@@ -271,10 +274,11 @@
     document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>まとめ方 <b>${esc(!g ? 'まとめない' : g.kind === 'pick' ? '選んだタグ: ' + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
       (V.id !== 'all' ? `<button class="svt-sm" onclick="wkSubviewsTrial._edit()">✎ 見え方を編集</button>` : '') +
       (S.sim.size ? `<button class="svt-sm" onclick="wkSubviewsTrial._reset()">試しに動かした分を戻す</button>` : '');
-    document.getElementById('svt-mc').className = 'wk-seg-btn' + (S.mode === 'board' ? ' lvt-active' : '');
-    document.getElementById('svt-mt').className = 'wk-seg-btn' + (S.mode === 'table' ? ' lvt-active' : '');
+    const mc = document.getElementById('svt-mc'), mt = document.getElementById('svt-mt');
+    if (mc) mc.className = 'wk-seg-btn' + (S.mode === 'board' ? ' lvt-active' : '');
+    if (mt) mt.className = 'wk-seg-btn' + (S.mode === 'table' ? ' lvt-active' : '');
     // 上の本数は描くたびに数え直す（開いた時点の本数のまま残すと、絞り込みの本数と食い違う）
-    const t = document.getElementById('svt-title'); if (t) t.textContent = `${listName()}（${source().length}本）`;
+
   }
   function draw() { _gc = null; drawTabs(); drawEd(); drawBody(); drawToast(); }
 
@@ -282,12 +286,14 @@
     if (document.getElementById('svt-style')) return;
     const st = document.createElement('style'); st.id = 'svt-style';
     st.textContent = `
-#svt-root{position:fixed;inset:0;z-index:9000;background:var(--bg);color:var(--text);display:flex;flex-direction:column;font-size:13px}
-#svt-root .svt-head{padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--border);display:grid;gap:6px;background:var(--surface)}
+#lib-card-host.svt-on #cardList{display:none!important}
+#lib-card-host.svt-on #lib-results-header .hdr-lvt:not(#svt-seg){display:none!important}
+#svt-root{color:var(--text);font-size:13px}
+#svt-root .svt-head{padding:8px 16px 6px;border-bottom:1px solid var(--border);display:grid;gap:6px}
 #svt-root .svt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #svt-root .svt-top h2{font-size:15px;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #svt-root .svt-trial{font-size:11px;color:var(--gold);background:var(--gold-soft);padding:3px 8px;border-radius:6px}
-#svt-root .svt-tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+#svt-root .svt-tabs{flex:1;min-width:0;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 #svt-root .svt-vt{flex-shrink:0;font-size:12.5px;padding:6px 11px;border-radius:8px;border:none;background:none;color:var(--text2);white-space:nowrap;cursor:pointer;font-family:inherit}
 #svt-root .svt-vt.on{background:var(--surface2);color:var(--text);font-weight:700}
 #svt-root .svt-sum{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--text3)}
@@ -300,7 +306,7 @@
 #svt-root .svt-sm{font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
 #svt-root .svt-sm.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #svt-root .svt-sm.danger{color:var(--red)}
-#svt-root .svt-main{flex:1;overflow:auto;padding:10px max(14px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px))}
+#svt-root .svt-main{padding:10px 16px 20px}
 #svt-root .svt-ed{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;gap:12px;margin-bottom:10px}
 #svt-root .svt-ed .r{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:start}
 #svt-root .svt-ed .k{font-size:11px;font-weight:700;color:var(--text3);padding-top:5px}
@@ -314,7 +320,7 @@
 #svt-root .setbox{border:1px dashed var(--border);border-radius:9px;padding:10px;display:grid;gap:6px}
 #svt-root .svt-addcol{border:1px dashed var(--border);background:var(--surface)}
 #svt-root .svt-addbox{display:grid;gap:6px;padding:0 2px 4px}
-#svt-root .svt-addbox input,#svt-root .svt-addbox select,#svt-root #svt-pnew{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
+#svt-root .svt-addbox input,#svt-root .svt-addbox select,#svt-root #svt-pnew,#svt-root #svt-ngroup{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
 #svt-root .svt-new{font-size:9.5px;padding:0 5px;border-radius:4px;background:var(--gold-soft);color:var(--gold)}
 #svt-root .svt-x{border:none;background:none;color:inherit;font-size:11px;padding:0 0 0 4px;cursor:pointer}
 #svt-root .svt-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px;scroll-snap-type:x proximity}
@@ -342,8 +348,8 @@
 #svt-root th{font-size:11px;color:var(--text3);background:var(--surface2)}
 #svt-root td.t{white-space:normal;min-width:220px}
 #svt-root tr.gh td{background:var(--surface2);font-weight:700;cursor:pointer}
-#svt-root .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
-#svt-root .svt-toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px;white-space:nowrap;cursor:pointer}
+#svt-toast .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
+#svt-toast .svt-toast button{border:none;background:none;color:inherit;text-decoration:underline;font-size:12px;white-space:nowrap;cursor:pointer}
 @media (max-width:560px){#svt-root .svt-top h2{flex-basis:100%}#svt-root .svt-col{flex-basis:min(82%,calc(var(--svt-cw,250px) + 12px))}#svt-root .svt-ed .r{grid-template-columns:minmax(0,1fr)}}
 `;
     document.head.appendChild(st);
@@ -366,24 +372,49 @@
     if (window.innerWidth >= 768) return Math.max(180, Math.floor((hw - 32 - 16) / 3));
     return 0;
   }
+  // 開き方（v53.042）: 全画面を覆う窓ではなく、ライブラリのカード一覧（#cardList）の場所に差し込む。
+  // 上の帯（≡・本数と時間・ⓘ・並べ替え・リセット）とサイドバーはライブラリのものをそのまま使う＝フィルターはいつもどおり掛けられる。
+  // ライブラリの「カード｜テーブル」は開いている間だけ隠し、同じ位置に試験版の切り替えを出す（ライブラリの表示を切り替えない）。
+  // 絞り込みが変わると AF が #cardList を描き直すので、それを見張って試験版も描き直す（ライブラリのコードは変えない）。
+  let _obs = null, _redrawT = null, _cw = 0;
+  const isOpen = () => !!document.getElementById('svt-root');
   function open() {
+    if (isOpen()) { close(); return; }   // 入口のボタンは開け閉め
     css();
-    const cw = libCardW();
-    let root = document.getElementById('svt-root');
-    if (!root) { root = document.createElement('div'); root.id = 'svt-root'; document.body.appendChild(root); }
-    if (cw) root.style.setProperty('--svt-cw', cw + 'px'); else root.style.removeProperty('--svt-cw');
+    const host = document.getElementById('lib-card-host'); const list = document.getElementById('cardList');
+    if (!host || !list) return;
+    _cw = libCardW();   // 一覧を隠す前に測る
+    const root = document.createElement('div'); root.id = 'svt-root';
+    if (_cw) root.style.setProperty('--svt-cw', _cw + 'px');
     root.innerHTML = `<div class="svt-head">
-        <div class="svt-top"><h2 id="svt-title"></h2><span class="svt-trial">試験版・何も保存しません</span>
+        <div class="svt-top"><div class="svt-tabs" id="svt-tabs"></div><span class="svt-trial">試験版・何も保存しません</span>
           <button class="svt-sm" onclick="wkSubviewsTrial.close()">閉じる</button></div>
-        <div class="svt-tabs" id="svt-tabs"></div>
-        <div class="svt-row2"><div class="wk-seg hdr-lvt"><button id="svt-mc" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('board')" title="カード"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="8" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="1.5" y="8" width="4.5" height="4.5" rx="1"/><rect x="8" y="8" width="4.5" height="4.5" rx="1"/></svg><span class="hdr-lbl">カード</span></button><button id="svt-mt" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('table')" title="テーブル"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="11" height="11" rx="1.5"/><path d="M1.5 5.2h11M1.5 8.8h11M5.2 5.2v7.3"/></svg><span class="hdr-lbl">テーブル</span></button></div>
-          <div class="svt-sum" id="svt-sum"></div></div>
+        <div class="svt-sum" id="svt-sum"></div>
       </div>
       <div class="svt-main"><div id="svt-ed"></div><div id="svt-body"></div></div><div id="svt-toast"></div>`;
-    root.style.display = 'flex';
+    host.insertBefore(root, list);
+    host.classList.add('svt-on');
+    const libSeg = document.querySelector('#lib-results-header .hdr-lvt');
+    if (libSeg && !document.getElementById('svt-seg')) {
+      const seg = document.createElement('div'); seg.id = 'svt-seg';
+      seg.innerHTML = `<div class="wk-seg hdr-lvt" style="margin-left:6px"><button id="svt-mc" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('board')" title="カード"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="8" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="1.5" y="8" width="4.5" height="4.5" rx="1"/><rect x="8" y="8" width="4.5" height="4.5" rx="1"/></svg><span class="hdr-lbl">カード</span></button><button id="svt-mt" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('table')" title="テーブル"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="11" height="11" rx="1.5"/><path d="M1.5 5.2h11M1.5 8.8h11M5.2 5.2v7.3"/></svg><span class="hdr-lbl">テーブル</span></button></div>`;
+      libSeg.after(seg.firstElementChild); seg.remove();
+      const added = libSeg.nextElementSibling; if (added) added.id = 'svt-seg';
+    }
+    const btn = document.getElementById('svt-open-btn'); if (btn) btn.classList.add('lvt-active');
+    _obs = new MutationObserver(() => { clearTimeout(_redrawT); _redrawT = setTimeout(() => { if (isOpen()) draw(); }, 60); });
+    _obs.observe(list, { childList: true });
+    const rc = document.getElementById('rc'); if (rc) _obs.observe(rc, { childList: true, characterData: true, subtree: true });
     draw();
   }
-  function close() { const r = document.getElementById('svt-root'); if (r) r.remove(); S.toast = null; S.editing = null; }
+  function close() {
+    const r = document.getElementById('svt-root'); if (r) r.remove();
+    document.getElementById('svt-seg')?.remove();
+    document.getElementById('lib-card-host')?.classList.remove('svt-on');
+    document.getElementById('svt-open-btn')?.classList.remove('lvt-active');
+    if (_obs) { _obs.disconnect(); _obs = null; }
+    S.toast = null; S.editing = null;
+  }
 
   let _dragV = null, _dragFrom = null;
   window.wkSubviewsTrial = {
@@ -398,6 +429,13 @@
     _pnew: () => { const d = S.editing; const inp = document.getElementById('svt-pnew'); const v = addNewTag(d.pg, inp && inp.value); if (!v) return;
       d.picks = d.picks || []; if (!d.picks.some(p => p.g === d.pg && p.v === v)) d.picks.push({ g: d.pg, v }); drawEd(); setTimeout(() => document.getElementById('svt-pnew')?.focus(), 0); },
     _addCol: () => addColumn(),
+    // 新しいタググループ（オーナー「新しいタググループもここで作れるように」）。試験版は画面の中だけ。
+    // 本番では tagRegistry.createGroup（タグ設定の「新しく作る」と同じ）で一覧に足す（動画には触らない）。
+    _ng: () => { const d = S.editing; const inp = document.getElementById('svt-ngroup'); const name = String(inp && inp.value || '').trim(); if (!name || !d) return;
+      const ex = groupers().find(g => g.kind === 'tag' && g.name === name);
+      if (ex) { d.pg = ex.key; drawEd(); return; }
+      const key = 'tag:svtnew_' + Date.now().toString(36); S.newGroups.push({ key, name }); _gc = null; d.pg = key;
+      toast(`タググループ「${name}」を作りました（試験版: タグの設定には保存していません）`); drawEd(); setTimeout(() => document.getElementById('svt-pnew')?.focus(), 0); },
     _en: t => { if (S.editing) S.editing.name = t; },
     _eg: k => { S.editing.gb = k || null; drawEd(); },
     _ec: () => { S.editing = null; draw(); },
