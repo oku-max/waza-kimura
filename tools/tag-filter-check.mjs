@@ -78,7 +78,7 @@ console.log('── ② 判定 ──');
   ck('何も選んでいなければ全部通る', TF.match(v2, {}, 'lib') && TF.compile({ tbNew: S() }, 'lib')(v1));
   const blank = { tb: S('(空白)') };
   ck('整理の表の「(空白)」＝何も付いていない動画', TF.match({ tb: [] }, blank, 'org') && !TF.match(v1, blank, 'org'));
-  // v53.050: 「タグなし」はどの画面でも選べる（ライブラリ・リストの条件も同じ値・同じ判定）
+  // v53.051: 「タグなし」はどの画面でも選べる（ライブラリ・リストの条件も同じ値・同じ判定）
   ck('「タグなし」の値は表の「(空白)」と同じ1つ・画面では「タグなし」', TF.NONE === '(空白)' && TF.labelOf(TF.NONE) === 'タグなし' && TF.labelOf('トップ') === 'トップ');
   ck('ライブラリでも「タグなし」＝何も付いていない動画', TF.match({ tb: [] }, { tbNew: S(TF.NONE) }, 'lib') && TF.match({}, { tbNew: S(TF.NONE) }, 'lib') && !TF.match(v1, { tbNew: S(TF.NONE) }, 'lib'));
   ck('「タグなし」とタグを一緒に選ぶと、どちらかに当たる動画', TF.match({ tb: [] }, { tbNew: S(TF.NONE, 'トップ') }, 'lib') && TF.match(v1, { tbNew: S(TF.NONE, 'トップ') }, 'lib') && !TF.match(v2, { tbNew: S(TF.NONE, 'トップ') }, 'lib'));

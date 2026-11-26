@@ -714,7 +714,7 @@
         const names = src.filter(n => n !== NONE);
         [...sel].forEach(n => { if (n !== NONE && !names.includes(n)) names.push(n); });
         const inOpt = new Set(src);
-        // 「タグなし」＝このグループに何も付いていない動画（v53.050）。いつも先頭。0本で選んでもいなければ出ない
+        // 「タグなし」＝このグループに何も付いていない動画（v53.051）。いつも先頭。0本で選んでもいなければ出ない
         const none = { name: NONE, label: _TF().NONE_LABEL, pin: true, sel: sel.has(NONE),
           cnt: ctx.filter(v => !_TF().valuesOf(v, g.id).length).length };
         return [none].concat(names.map(n => {
