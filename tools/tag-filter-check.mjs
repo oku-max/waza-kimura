@@ -197,7 +197,7 @@ console.log('── ⑨ 整理の表・カスタムリストの表も枠から�
 {
   const org = code['js/organize.js'] || fs.readFileSync(path.join(ROOT, 'js/organize.js'), 'utf8');
   // 列キー tb/action/position/technique は「タグ1〜4の枠」。保存済みの列の並び・表示・幅を読めるよう、列キーは変えない
-  ck('タグの列は枠のグループを読む（_orgSlotGroup）', /const g = R\.slots\(\)\[k\]/.test(org) && /_ORG_SLOT_COL = \{ tb:0, action:1, position:2, technique:3 \}/.test(org));
+  ck('タグの列は枠のグループを読む（_orgSlotGroup）', /const g = R\.slots\(\)\[k\]/.test(org) && /_ORG_SLOT_COL = \{ tb:0, action:1, position:2, technique:3, tag5:4,/.test(org));
   ck('タグの列の中身・並べ替え・その場の編集で v.tb / v.cat / v.pos / v.tags を直接読まない',
     !/mkTagCell\(v\.(tb|cat|pos|tags)/.test(org) && !/orgSortCol === '(tb|action|position|technique)'/.test(org) && !/v\[field\]/.test(org.slice(org.indexOf('function _openTagPicker'), org.indexOf('function _openMemoEditor'))));
   ck('その場の編集の書き込みは wkSetTagValue（動画パネルと同じ入口）', /window\.wkSetTagValue\(v, g\.id, val, on\)/.test(org) && !/tb:\s*\{ field: 'tb'/.test(org));

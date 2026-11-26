@@ -36,6 +36,7 @@ const TYPE_DEFS = [
 // 列の種類をパッと見で分かるようにするアイコン（列設定の一覧・表の見出し）。
 // 最初からある列は種類名を出さずアイコンだけ（灰色）、カスタム列は金色。
 const _STD_KIND = { channel:'text', playlist:'text', memo:'text', tb:'tag', action:'tag', position:'tag', technique:'tag',
+  tag5:'tag', tag6:'tag', tag7:'tag', tag8:'tag', tag9:'tag', tag10:'tag',
   duration:'time', addedAt:'date', counter:'count' };
 const _STD_KIND_ICON = { text:'T', tag:'🏷', time:'⏱', date:'📅', count:'#' };
 function _colIconHTML(id, col) {
@@ -1586,7 +1587,7 @@ function _renderTable(view) {
 // カスタム列IDかどうか（標準列IDは固定セット）
 // fav/next/drill/status は v52.876 で無くなった列。保存済みの並びに残っている名前をカスタム列と
 // 取り違えないよう、ここには残す（表に出さないのは organize.js の _ORG_GONE_COLS）。
-const _STD_COL_IDS = new Set(['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo']);
+const _STD_COL_IDS = new Set(['fav','next','drill','tb','action','position','technique','tag5','tag6','tag7','tag8','tag9','tag10','counter','status','channel','playlist','addedAt','duration','memo']);
 const _isCustomColId = id => !_STD_COL_IDS.has(id);
 
 // マスター用: 標準列の並びは常に orgColOrder に従い、共有列は「直前の標準列」の後ろに置く。

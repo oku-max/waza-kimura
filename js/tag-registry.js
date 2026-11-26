@@ -19,6 +19,17 @@
   const LS_KEY = 'wk_tagRegistry';
   const VERSION = 1;
   const FIELD_STORES = ['tb', 'cat', 'pos', 'tags'];
+  // 枠の数（v53.052・オーナー「最大4件を最大10件に」）。保存する slots は 4〜10 個の配列。
+  // 5つ目より後ろは、使っている所までしか持たない（末尾の空きは切る）＝5つ目以降を使っていなければ
+  // 今までと同じ4個の形のまま（前の版のアプリもそのまま読める）。
+  // 前の版のアプリは5個以上の形を「形が合わない」として受け取らず、書きもしない（上書きされない）。
+  const MIN_SLOTS = 4, MAX_SLOTS = 10;
+  function _normSlots(a) {
+    const b = (Array.isArray(a) ? a : []).slice(0, MAX_SLOTS).map(x => (x == null ? null : x));
+    while (b.length < MIN_SLOTS) b.push(null);
+    while (b.length > MIN_SLOTS && b[b.length - 1] === null) b.pop();
+    return b;
+  }
   // 動画のタグは v.tb / v.cat / v.pos / v.tags に入っている（保存場所の名前＝動画の項目名）。
   // 読み込みのたびの変換（tag-master.js migrateVideo）・タグ付けウィザード・取り込みもこの名前で書く。
   // tbNew / posNew はライブラリの絞り込み（window.filters）の呼び名で、動画の項目名ではない。
@@ -63,7 +74,7 @@
   // ── 形の検査。合わないものは受け取らない（壊れた値で上書きしない）──
   function _valid(r) {
     if (!r || typeof r !== 'object') return false;
-    if (!Array.isArray(r.slots) || r.slots.length !== 4) return false;
+    if (!Array.isArray(r.slots) || r.slots.length < MIN_SLOTS || r.slots.length > MAX_SLOTS) return false;
     if (!Array.isArray(r.groups) || !r.groups.length) return false;
     const ids = new Set();
     for (const g of r.groups) {
@@ -262,27 +273,31 @@
   // 空いた枠も一緒に動く。どのグループが使用中かは変わらない（未使用のものは未使用のまま）
   function moveSlot(from, to) {
     if (!_editable()) return false;
-    if (![from, to].every(k => Number.isInteger(k) && k >= 0 && k <= 3) || from === to) return false;
+    if (![from, to].every(k => Number.isInteger(k) && k >= 0 && k < MAX_SLOTS) || from === to) return false;
     const b = _reg.slots.slice();
+    while (b.length <= Math.max(from, to)) b.push(null);   // 画面の最後の「空き」の行との入れ替え
     const [x] = b.splice(from, 1);
     b.splice(to, 0, x);
-    _reg.slots = b;
+    const next = _normSlots(b);
+    if (JSON.stringify(next) === JSON.stringify(_reg.slots)) return false;
+    _reg.slots = next;
     return _commit();
   }
 
-  // 使う場所を変える。k = 0〜3（タグ1〜4）、-1 = 未使用。
+  // 使う場所を変える。k = 0〜9（タグ1〜10）、-1 = 未使用。
   // 入れた枠に別のグループがいたら、入れ替える（元の枠へ。元が未使用なら、そちらが未使用になる）。
   function setSlot(id, k) {
     if (!_editable() || !_g(id)) return false;
     const b = _reg.slots.slice(), from = b.indexOf(id);
-    if (k < 0 || k > 3) { if (from < 0) return false; b[from] = null; }
+    if (!Number.isInteger(k) || k < 0 || k >= MAX_SLOTS) { if (from < 0) return false; b[from] = null; }
     else {
       if (from === k) return false;
+      while (b.length <= k) b.push(null);
       const prev = b[k];
       b[k] = id;
       if (from >= 0) b[from] = (prev && prev !== id) ? prev : null;
     }
-    _reg.slots = b;
+    _reg.slots = _normSlots(b);
     return _commit();
   }
   function setSearch(id, on) {
@@ -341,7 +356,7 @@
     const base = String(name == null ? '' : name).trim() || (_en() ? 'New tag group' : '新しいタググループ');
     let id; do { id = 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); } while (_g(id));
     _reg.groups.push({ id, store: 'map', name: base, opts: [], search: true });
-    if (k >= 0 && k <= 3) _reg.slots[k] = id;
+    if (Number.isInteger(k) && k >= 0 && k < MAX_SLOTS) { const b = _reg.slots.slice(); while (b.length <= k) b.push(null); b[k] = id; _reg.slots = _normSlots(b); }
     _commit();
     return id;
   }
@@ -450,7 +465,7 @@
   window.tagRegistry = {
     groups, group, slots, slotInfo, valuesOf, allTagValues, optionLabel, searchIds, searchText, searchTagText, raw,
     strayFieldOf, readField,
-    CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
+    CHIP_MAX, MAX_SLOTS, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
     migrateMarkStatus, MARK_VALUES, STATUS_VALUES,
     setSlot, moveSlot, setSearch, setName, addOption, removeOption, setOptionOrder, setOptionHidden, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
     _valid, _fresh, LS_KEY,

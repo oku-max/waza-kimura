@@ -178,7 +178,7 @@ function _cands(g, cur) {
 function _renderGroups() {
   var box = document.getElementById('tw-groups'); if (!box) return;
   var gs = _twGroups();
-  if (!gs.length) { box.innerHTML = '<div class="tw-empty">タグ1〜4に使うタググループがありません（タグ設定で選べます）</div>'; return; }
+  if (!gs.length) { box.innerHTML = '<div class="tw-empty">タグに使うタググループがありません（タグ設定で選べます）</div>'; return; }
   box.innerHTML = gs.map(function(g){
     var sel = _sel[g.id] || [];
     var h = '<div><div class="tw-glbl" data-user-text="1">' + _esc(g.name) + '</div>';

@@ -67,11 +67,16 @@
     h += `<div class="ts-cap">${_t('使用中のタグ')}</div><div class="ts-card">`;
     // 行の左のつかむ所（⠿）を押したまま上下に動かすと、タグ1〜4の順番を並べ替えられる（_bindDrag）
     const grip = k => ro ? '' : `<span class="ts-grip" data-grip="${k}" title="${_t('ドラッグで並べ替え')}" aria-label="${_t('ドラッグで並べ替え')}">⠿</span>`;
-    slots.forEach((g, k) => {
-      h += `<div class="ts-slot" data-k="${k}">`;
+    // 最後に空きの行を1つ足す（タグ5〜10 を足す入口。最大 MAX_SLOTS。v53.052）
+    const rows = slots.slice();
+    if (!ro && rows.length < (R().MAX_SLOTS || 4) && rows[rows.length - 1] !== null) rows.push(null);
+    rows.forEach((g, k) => {
+      // 足すための最後の空きの行は、並べ替えの対象にしない（つかむ所も出さない）
+      const extra = k >= slots.length;
+      h += `<div class="${extra ? 'ts-slotnew' : 'ts-slot'}" data-k="${k}">`;
       if (!g) {
         const key = 'slot' + k, open = S.exp === key;
-        h += `<div class="ts-slotrow">${grip(k)}<button class="ts-row" data-act="exp" data-key="${key}"><span class="ts-num off">${_t('タグ' + (k + 1))}</span><span class="ts-unset">${_t('未設定')}</span><span class="ts-car">${open ? '▲' : '▼'}</span></button></div>`;
+        h += `<div class="ts-slotrow">${extra ? '' : grip(k)}<button class="ts-row" data-act="exp" data-key="${key}"><span class="ts-num off">${_t('タグ' + (k + 1))}</span><span class="ts-unset">${_t('未設定')}</span><span class="ts-car">${open ? '▲' : '▼'}</span></button></div>`;
         if (open) h += `<div class="ts-panel">${_slotPicker(k, all)}</div>`;
       } else {
         h += _row(g, k, all, grip(k));
@@ -130,7 +135,9 @@
         + `<option value="-1"${k < 0 ? ' selected' : ''}>${_t('未使用')}</option>`;
       // 入れ替え相手の名前はユーザーのもの。訳させないよう、この行は画面側で言語に合わせて組み立てる
       const en = window.WK_LANG && window.WK_LANG() === 'en';
-      R().slots().forEach((x, j) => {
+      const _sl = R().slots().slice();
+      if (_sl.length < (R().MAX_SLOTS || 4) && _sl[_sl.length - 1] !== null) _sl.push(null);   // 次の空き（タグ5〜10）
+      _sl.forEach((x, j) => {
         h += `<option value="${j}"${j === k ? ' selected' : ''} data-user-text="1">${en ? 'Tag ' : 'タグ'}${j + 1}${x && x.id !== g.id ? ' ⇄ ' + _esc(x.name) : ''}</option>`;
       });
       h += `</select>`;
@@ -442,7 +449,7 @@
       items.forEach(x => { x.style.transform = ''; });
       box.classList.remove('ts-dragging');
       if (from === to) return;
-      if (S.exp && /^slot\d$/.test(S.exp)) S.exp = null;   // 空いた枠の番号で開いていたものは閉じる（番号がずれるため）
+      if (S.exp && /^slot\d+$/.test(S.exp)) S.exp = null;   // 空いた枠の番号で開いていたものは閉じる（番号がずれるため）
       R().moveSlot(from, to);
       _after();
     };
@@ -491,6 +498,8 @@
 #tag-display-settings .ts-capbtn{background:none;border:none;display:flex;width:100%;justify-content:space-between;padding:10px 2px 6px;font-family:inherit;cursor:pointer}
 #tag-display-settings .ts-card{border-top:1px solid var(--border2)}
 #tag-display-settings .ts-slot{position:relative;background:var(--surface);transition:transform .15s}
+#tag-display-settings .ts-slotnew{position:relative;background:var(--surface)}
+#tag-display-settings .ts-slotnew .ts-row{padding-left:27px}
 #tag-display-settings .ts-slot.ts-dragging{transition:none;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.25);border-radius:8px}
 #tag-display-settings .ts-slotrow{display:flex;align-items:center}
 #tag-display-settings .ts-slotrow .ts-row{flex:1;min-width:0}

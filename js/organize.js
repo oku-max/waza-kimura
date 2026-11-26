@@ -13,7 +13,7 @@ export let orgMemoSearch = ''; export let orgChannelSearch = ''; export let orgP
 export let orgPrRank = null, orgPrDate = null;
 const _ORG_DEFAULT_ORDER = ['tb', 'action', 'position', 'technique', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, playlist: true, memo: true, addedAt: true, duration: true};
-const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', duration:'64px'};
+const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', tag5:'120px', tag6:'120px', tag7:'120px', tag8:'120px', tag9:'120px', tag10:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
@@ -60,7 +60,7 @@ function _saveOrgColPrefs() {
   buildOrgTblSortOptions();
 }
 
-const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','channel','playlist','addedAt','duration','lastPlayed']);
+const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','tag5','tag6','tag7','tag8','tag9','tag10','channel','playlist','addedAt','duration','lastPlayed']);
 function _syncOrgTblSortUI() {
   const sel = document.getElementById('org-tbl-sort-key');
   const btn = document.getElementById('org-tbl-sort-dir');
@@ -87,7 +87,24 @@ window.orgTblTogDir  = function() { orgSortAsc = !orgSortAsc; _syncOrgTblSortUI(
 // 中身は枠に入っているグループ（設定で入れ替えれば列の中身も付いてくる）。
 // 列キーは変えない。保存済みの列の並び・表示・幅（この端末・クラウド・カスタムリストごと）を
 // そのまま読めるようにするため。見出しはグループの名前（ユーザーが付けた名前。ここに直接書かない）。
-const _ORG_SLOT_COL = { tb:0, action:1, position:2, technique:3 };
+// タグ5〜10 の枠（v53.052）の列キーは tag5〜tag10。
+const _ORG_SLOT_COL = { tb:0, action:1, position:2, technique:3, tag5:4, tag6:5, tag7:6, tag8:7, tag9:8, tag10:9 };
+const _ORG_SLOT_KEYS = Object.keys(_ORG_SLOT_COL);
+// タグ5〜10 の列キーは、その枠を使っているときだけ列の並びに足す（足すだけ・外さない・並びは変えない）。
+// 使っていなければ保存される列の並びは今までと1文字も変わらない。入れる場所は、手前のタグの列のすぐ後ろ。
+function _orgEnsureTagCols(order) {
+  const R = window.tagRegistry;
+  if (!Array.isArray(order) || !R || !R.slotInfo) return order;
+  let info; try { info = R.slotInfo(); } catch (e) { return order; }
+  for (let k = 4; k < info.length; k++) {
+    const key = _ORG_SLOT_KEYS[k];
+    if (!info[k] || !key || order.includes(key)) continue;
+    let at = -1;
+    for (let j = k - 1; j >= 0 && at < 0; j--) at = order.indexOf(_ORG_SLOT_KEYS[j]);
+    if (at >= 0) order.splice(at + 1, 0, key); else order.push(key);
+  }
+  return order;
+}
 const _ORG_FIELDS = ['tb', 'cat', 'pos', 'tags'];
 const _orgEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const _isOrgTagCol = col => Object.prototype.hasOwnProperty.call(_ORG_SLOT_COL, col);
@@ -161,7 +178,7 @@ Object.defineProperty(window, 'orgMemoOnly',    {get: () => orgMemoOnly,    set:
 Object.defineProperty(window, 'orgImgOnly',     {get: () => orgImgOnly,     set: v => { orgImgOnly = v; }});
 Object.defineProperty(window, 'orgPrRank',     {get: () => orgPrRank,     set: v => { orgPrRank = v; }});
 Object.defineProperty(window, 'orgPrDate',     {get: () => orgPrDate,     set: v => { orgPrDate = v; }});
-Object.defineProperty(window, 'orgColOrder', {get: () => orgColOrder, set: v => { orgColOrder = v; }});
+Object.defineProperty(window, 'orgColOrder', {get: () => _orgEnsureTagCols(orgColOrder), set: v => { orgColOrder = v; }});
 Object.defineProperty(window, 'orgColVisibility', {get: () => orgColVisibility, set: v => { orgColVisibility = v; }});
 Object.defineProperty(window, 'orgSortCol', {get: () => orgSortCol, set: v => { orgSortCol = v; }});
 Object.defineProperty(window, 'orgSortAsc', {get: () => orgSortAsc, set: v => { orgSortAsc = v; }});
@@ -740,6 +757,7 @@ function _orgTotalDurLabel(list) {
 window._wkTotalDurLabel = _orgTotalDurLabel;
 
 export function renderOrg() {
+  _orgEnsureTagCols(orgColOrder);   // タグ5〜10 の枠を使っていれば、その列を並びに足す（足すだけ）
   _closeOrgInlineEditor(false);
   initOrgFixedHeaders();
   _updateOrgResetBtn();
@@ -1200,6 +1218,7 @@ export function orgTogSelAll(cb) {
 // ─── 列メニュー ───
 // 列メニューに並ぶ標準列（フィルタ設定で丸ごと隠れている列は出さない）
 function _orgMenuCols() {
+  _orgEnsureTagCols(orgColOrder);
   return orgColOrder.filter(col => {
     if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
@@ -1829,7 +1848,7 @@ export function openOrgColFilter(col, thEl) {
   });
 
   const filterSet = cfg ? (orgFilters[cfg.filterKey] || (orgFilters[cfg.filterKey] = new Set())) : new Set();
-  const sortableCols = ['channel','playlist','addedAt','duration','tb','action','position','technique'];   // memo は並べ替えの処理が無い（押しても何も起きなかった）ので出さない
+  const sortableCols = ['channel','playlist','addedAt','duration','tb','action','position','technique','tag5','tag6','tag7','tag8','tag9','tag10'];   // memo は並べ替えの処理が無い（押しても何も起きなかった）ので出さない
 
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');
