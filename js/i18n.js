@@ -197,6 +197,8 @@
     // グルーピング（v53.048）
     '非表示':'Hidden','表示に戻す':'Show again',
     'いくつでも選べます':'You can pick as many as you like',
+    '（⠿ をドラッグで列の順を入れ替え・押すと外す・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to remove · the number is the count with the current filters)',
+    'タグ（グループを押すと、その下に中のタグが開きます。いくつでも選べます）':'Tags (press a group to open its tags below; you can pick several groups)','（押すと列に入る）':' (press to add as a column)','全部選んでいます':'All selected','まだ列にするタグを選んでいません。下のタグを押してください。':'No tags chosen as columns yet. Press a tag below.','足すタググループ':'Tag group to add to',
     '（⠿ をドラッグで列の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to toggle · the number is the count with the current filters)',
     '↶ 1つ戻す':'↶ Undo one',
     '＋ グルーピング':'＋ Grouping',
@@ -2414,6 +2416,7 @@
     [/^「(.+)」へ移動しました$/, (m, a) => `Moved to “${a}”`],
     [/^「(.+)」から外しました$/, (m, a) => `Removed from “${a}”`],
     [/^「(.+)」を付けました$/, (m, a) => `Added “${a}”`],
+    [/^((?:「[^」]+」)+)のタグ\s*$/, (m, a) => `Tags in ${a.replace(/「/g, '“').replace(/」/g, '” ').trim()}`],
     [/^「(.+)」のタグ$/, (m, a) => `Tags in “${a}”`],
     [/^タグ「(.+)」を足しました$/, (m, a) => `Added the tag “${a}”`],
     [/^タググループ「(.+)」を作りました（タグの設定の「未使用のタググループ」に入っています）$/, (m, a) => `Created the tag group “${a}” (it is under “Unused tag groups” in the tag settings)`],
