@@ -113,7 +113,7 @@ ck('まとめ方: タグ・プレイリスト・チャンネル・カスタム�
 // タグ1でまとめる見え方を作る
 const tbKey = await pg.evaluate(() => (wkSubviewsTrial._groupers().find(g => g.kind === 'tag' && g.sub === 'タグ1') || {}).key);
 await pg.evaluate(k => { wkSubviewsTrial._new(); wkSubviewsTrial._en('タグ1別'); wkSubviewsTrial._eg(k); wkSubviewsTrial._es(); }, tbKey);
-const cols = () => pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-col')].map(c => c.querySelector('.svt-tag').textContent + '=' + c.querySelectorAll('.svt-card').length));
+const cols = () => pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)')].map(c => c.querySelector('.svt-tag').textContent + '=' + c.querySelectorAll('.svt-card').length));
 if (process.env.SHOT) { await pg.screenshot({ path: process.env.SHOT + '/svt-pc.png' }); await pg.setViewportSize({ width: 390, height: 800 }); await pg.screenshot({ path: process.env.SHOT + '/svt-sp.png' }); await pg.setViewportSize({ width: 1400, height: 900 }); }
 const c1 = await cols();
 ck('アーカイブを出さない・複数のタグは両方の列に出る・なしの列が先頭', c1[0].endsWith('なし=1') && c1.includes('ボトム=2') && c1.includes('スタンディング=1') && c1.includes('トップ=1'), c1);
@@ -137,6 +137,20 @@ await pg.evaluate(() => wkSubviewsTrial._undo());
 ck('取り消すと戻る', JSON.stringify(await cols()) === JSON.stringify(p1), await cols());
 await pg.evaluate(() => { wkSubviewsTrial._edit(); wkSubviewsTrial._pn(false); wkSubviewsTrial._es(); });
 ck('「どれにも当てはまらない」を出さないこともできる', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1']), await cols());
+// その場で新しいタグを足す（試験版: 選択肢・動画には書かない）
+const opts0 = await pg.evaluate(k => JSON.stringify(window.tagRegistry.group(k.slice(4)).allOptions), tbKey);
+await pg.evaluate(k => { wkSubviewsTrial._pick(wkSubviewsTrial._state().views.find(v => v.name === 'タグ1別').id); }, tbKey);
+await pg.evaluate(() => { document.getElementById('svt-newcol').value = '膝立ち'; wkSubviewsTrial._addCol(); });
+const n1 = await cols();
+ck('タグでまとめた列に、その場で新しいタグの列を足せる（0本で出る）', n1.includes('膝立ち=0'), n1);
+await pg.evaluate(k => wkSubviewsTrial._move('v4', k, '\u0000none', '膝立ち'), tbKey);
+ck('足した列へ動かすと画面では付く', (await cols()).includes('膝立ち=1'), await cols());
+ck('足したタグは本物の選択肢に入らない・動画にも付かない', await pg.evaluate(([k, o]) => JSON.stringify(window.tagRegistry.group(k.slice(4)).allOptions) === o && JSON.stringify(window.videos.find(v => v.id === 'v4').tb) === '[]', [tbKey, opts0]));
+await pg.evaluate(() => wkSubviewsTrial._pick(wkSubviewsTrial._state().views.find(v => v.name === '選んだタグ').id));
+await pg.evaluate(k => { const s = document.getElementById('svt-newcol-g'); if (s) s.value = k; document.getElementById('svt-newcol').value = '座り'; wkSubviewsTrial._addCol(); }, tbKey);
+ck('選んだタグでまとめた見え方でも、新しいタグの列を足すと選んだ列の最後に入る', JSON.stringify(await cols()) === JSON.stringify(['スタンディング=1','トップ=1','座り=0']), await cols());
+await pg.evaluate(() => { wkSubviewsTrial._edit(); document.getElementById('svt-pnew').value = '後ろ重心'; wkSubviewsTrial._pnew(); wkSubviewsTrial._es(); });
+ck('選ぶ画面でも新しいタグを足して選べる', (await cols()).includes('後ろ重心=0'), await cols());
 if (process.env.SHOT) { await pg.evaluate(() => wkSubviewsTrial._edit()); await pg.screenshot({ path: process.env.SHOT + '/svt-pick.png' }); await pg.evaluate(() => wkSubviewsTrial._ec()); }
 await pg.evaluate(() => { wkSubviewsTrial._new(); wkSubviewsTrial._eg('cf:gc_phase1'); wkSubviewsTrial._es(); });
 await pg.evaluate(() => wkSubviewsTrial._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));

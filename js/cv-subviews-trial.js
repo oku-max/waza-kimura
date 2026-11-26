@@ -11,6 +11,7 @@
 (function () {
   const S = {
     views: [{ id: 'all', name: 'すべて', gb: null, f: {} }],
+    newTags: {},   // 試験版でその場で足したタグ（グループのキー → 値の配列）。画面の中だけ
     cur: 'all', mode: 'board', sim: new Map(), closed: {}, editing: null, toast: null, more: {},
   };
   const LIMIT = 60;           // 1列に最初に出す本数（3,000本でも固まらないように）
@@ -32,7 +33,7 @@
     const TR = window.tagRegistry;
     if (TR) (TR.groups() || []).forEach(g => { if (!g) return;
       out.push({ key: 'tag:' + g.id, kind: 'tag', name: g.name, sub: g.slot >= 0 ? ('タグ' + (g.slot + 1)) : '未使用',
-        opts: (g.allOptions || []).slice(), read: v => TR.valuesOf(v, g.id) }); });
+        opts: [...(g.allOptions || []), ...(S.newTags['tag:' + g.id] || []).filter(x => !(g.allOptions || []).includes(x))], read: v => TR.valuesOf(v, g.id) }); });
     out.push({ key: 'pl', kind: 'src', name: 'プレイリスト', read: v => v.pl ? [v.pl] : [] });
     out.push({ key: 'ch', kind: 'src', name: 'チャンネル', read: v => v.channel ? [v.channel] : [] });
     sharedCols().forEach(c => {
@@ -78,17 +79,39 @@
   }
   function columns(list, g) {
     if (g.kind === 'pick') {
-      const cols = g.items.map(p => ({ key: p.label, name: p.label, ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
+      const cols = g.items.map(p => ({ key: p.label, name: p.label, isNew: isNew(p.g, p.v), ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
       if (g.showNone) cols.unshift({ key: '\u0000none', name: 'どれにも当てはまらない', ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
       return cols;
     }
     const seen = new Set(); const keys = [];
     (g.opts || []).forEach(o => { if (!seen.has(o)) { seen.add(o); keys.push(o); } });
     list.forEach(v => vals(v, g).forEach(x => { if (!seen.has(x)) { seen.add(x); keys.push(x); } }));   // 選択肢に無い値も落とさない
-    const cols = keys.map(k => ({ key: k, name: k, ids: list.filter(v => vals(v, g).includes(k)).map(v => v.id) }));
+    const cols = keys.map(k => ({ key: k, name: k, isNew: isNew(g.key, k), ids: list.filter(v => vals(v, g).includes(k)).map(v => v.id) }));
     const shown = g.kind === 'src' ? cols.sort((a, b) => b.ids.length - a.ids.length) : cols.filter(c => c.ids.length || (g.opts || []).includes(c.key));
     if (g.kind !== 'src') shown.unshift({ key: '\u0000none', name: g.name + 'なし', ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
     return shown;
+  }
+
+  // ── その場で新しいタグを足す（オーナー「タグに関しては、新しいタグもリアルタイムで付け加えられるように」）──
+  // 試験版では S.newTags にだけ持つ（選択肢・動画には書かない）。本番ではタグの選択肢に足す（tagRegistry / tagSettings）。
+  const isNew = (gkey, x) => (S.newTags[gkey] || []).includes(x);
+  function addNewTag(gkey, name) {
+    name = String(name || '').trim(); if (!name) return null;
+    const G = GR0(gkey); if (!G || G.kind !== 'tag') return null;
+    _gc = null;
+    if (!GR0(gkey).opts.includes(name)) { (S.newTags[gkey] = S.newTags[gkey] || []).push(name); _gc = null; }
+    return name;
+  }
+  function addColumn() {
+    const V = VW(); const inp = document.getElementById('svt-newcol'); const name = inp && inp.value;
+    if (V.gb === 'pick') {
+      const gk = (document.getElementById('svt-newcol-g') || {}).value || V.pg;
+      const v = addNewTag(gk, name); if (!v) return;
+      V.picks = V.picks || []; if (!V.picks.some(p => p.g === gk && p.v === v)) V.picks.push({ g: gk, v });
+    } else if (V.gb && V.gb.startsWith('tag:')) { if (!addNewTag(V.gb, name)) return; }
+    else return;
+    toast(`列「${String(name).trim()}」を足しました（試験版: タグの選択肢には保存していません）`);
+    draw(); setTimeout(() => document.getElementById('svt-newcol')?.focus(), 0);
   }
 
   // ── 試しに動かす（本物には書かない）──
@@ -182,11 +205,19 @@
     el.innerHTML = `<div class="svt-board">` + columns(list, g).map(c => {
       const n = S.more[c.key] || LIMIT;
       return `<div class="svt-col" ${mv ? `ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wkSubviewsTrial._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
-        <div class="svt-colh"><span class="svt-tag${c.none ? ' none' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>
+        <div class="svt-colh"><span class="svt-tag${c.none ? ' none' : ''}">${esc(c.name)}</span>${c.isNew ? '<span class="svt-new">新</span>' : ''}<span class="n">${c.ids.length}</span></div>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => card(list.find(v => v.id === id), g, c.key)).join('')}</div>
         ${c.ids.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkSubviewsTrial._mr('${jsq(c.key)}')">さらに ${c.ids.length - n} 本</button>` : ''}
-      </div>`; }).join('') + `</div>` +
+      </div>`; }).join('') + addColBox(g) + `</div>` +
       `<div class="svt-note">${mv ? 'カードを別の列へドラッグ（スマホはカードの「' + esc(g.name) + ' ▾」）。<b>試験版なので、本物のタグは変わりません</b>（閉じる・再読み込みで元どおり）。' : 'プレイリスト・チャンネルは動画の出どころなので、列のあいだを動かせません。'}</div>`;
+  }
+  function addColBox(g) {
+    if (!g || (g.kind !== 'tag' && g.kind !== 'pick')) return '';
+    const V = VW(); const tags = groupers().filter(x => x.kind === 'tag');
+    const sel = g.kind === 'pick' ? `<select id="svt-newcol-g" aria-label="どのタググループに足すか">${tags.map(t => `<option value="${esc(t.key)}"${t.key === (V.pg || (V.picks && V.picks[0] && V.picks[0].g)) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : '';
+    return `<div class="svt-col svt-addcol"><div class="svt-colh"><span class="svt-tag none">＋ 新しいタグ</span></div>
+      <div class="svt-addbox">${sel}<input id="svt-newcol" type="text" placeholder="タグの名前" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._addCol()"><button class="svt-sm pri" onclick="wkSubviewsTrial._addCol()">列を足す</button>
+      <div class="svt-grp">足した列へカードをドラッグすると、そのタグが付きます（試験版なので保存しません）。</div></div></div>`;
   }
   function fLabel(f) {
     const p = Object.entries(f || {}).filter(([, a]) => a && a.length).map(([k, a]) => { const g = GR(k); return (g ? g.name : k) + ': ' + a.map(x => x === '\u0000none' ? 'なし' : x).join('・'); });
@@ -207,6 +238,7 @@
       <div class="svt-opts">${tags.map(g => `<button class="svt-o${g.key === d.pg ? ' on' : ''}" onclick="wkSubviewsTrial._pg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}</div>
       <div class="svt-grp">② 列にしたいタグを押す（いまのフィルターでの本数）</div>
       <div class="svt-opts">${all.map(x => `<button class="svt-o${on(x) ? ' on' : ''}" onclick="wkSubviewsTrial._pv('${jsq(x)}')">${on(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp">このタググループには値がありません。</span>'}</div>
+      <div class="svt-opts"><input id="svt-pnew" type="text" placeholder="＋ 新しいタグ（${esc(G.name)}に足す）" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkSubviewsTrial._pnew()"><button class="svt-sm" onclick="wkSubviewsTrial._pnew()">足して選ぶ</button></div>
       <div class="svt-grp">③ 列になる順（選んだ順・✕で外す）</div>
       <div class="svt-opts">${pg.items.map((p, i) => `<span class="svt-o on">${i + 1}. ${esc(p.label)} <button class="svt-x" aria-label="外す" onclick="wkSubviewsTrial._px(${i})">✕</button></span>`).join('') || '<span class="svt-grp">まだ選んでいません。</span>'}</div>
       <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${d.showNone !== false ? 'checked' : ''} onchange="wkSubviewsTrial._pn(this.checked)"> 選んだタグがどれも付いていない動画を「どれにも当てはまらない」の列に出す</label>
@@ -275,6 +307,10 @@
 #svt-root .svt-o.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #svt-root .svt-o small{opacity:.7}
 #svt-root .setbox{border:1px dashed var(--border);border-radius:9px;padding:10px;display:grid;gap:6px}
+#svt-root .svt-addcol{border:1px dashed var(--border);background:var(--surface)}
+#svt-root .svt-addbox{display:grid;gap:6px;padding:0 2px 4px}
+#svt-root .svt-addbox input,#svt-root .svt-addbox select,#svt-root #svt-pnew{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
+#svt-root .svt-new{font-size:9.5px;padding:0 5px;border-radius:4px;background:var(--gold-soft);color:var(--gold)}
 #svt-root .svt-x{border:none;background:none;color:inherit;font-size:11px;padding:0 0 0 4px;cursor:pointer}
 #svt-root .svt-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding-bottom:8px;scroll-snap-type:x proximity}
 #svt-root .svt-col{flex:0 0 250px;border-radius:10px;padding:6px;scroll-snap-align:start}
@@ -340,6 +376,9 @@
     _pv: x => { const d = S.editing; d.picks = d.picks || []; const i = d.picks.findIndex(p => p.g === d.pg && p.v === x); i < 0 ? d.picks.push({ g: d.pg, v: x }) : d.picks.splice(i, 1); drawEd(); },
     _px: i => { const d = S.editing; const items = pickGrouper(d).items; const it = items[i]; if (!it) return; d.picks = d.picks.filter(p => !(p.g === it.g && p.v === it.v)); drawEd(); },
     _pn: on => { S.editing.showNone = on; },
+    _pnew: () => { const d = S.editing; const inp = document.getElementById('svt-pnew'); const v = addNewTag(d.pg, inp && inp.value); if (!v) return;
+      d.picks = d.picks || []; if (!d.picks.some(p => p.g === d.pg && p.v === v)) d.picks.push({ g: d.pg, v }); drawEd(); setTimeout(() => document.getElementById('svt-pnew')?.focus(), 0); },
+    _addCol: () => addColumn(),
     _en: t => { if (S.editing) S.editing.name = t; },
     _eg: k => { S.editing.gb = k || null; drawEd(); },
     _ec: () => { S.editing = null; draw(); },
