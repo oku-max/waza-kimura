@@ -1957,11 +1957,11 @@ function _cvApplyGlobalFilters(list) {
     if (window.watchedOnly && !v.watched)                               return false;
     if (window.bmOnly     && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly   && !v.memo)                                   return false;
-    if (f.platform?.size  && !f.platform.has(v.pt))                    return false;
-    if (f.playlist?.size  && !f.playlist.has(v.pl))                    return false;
+    if (!window.wkSetHit(f.platform, v.pt))                    return false;
+    if (!window.wkSetHit(f.playlist, v.pl))                    return false;
     if (f.prio?.size      && !f.prio.has(v.prio))                      return false;
     if (!_tagOk(v)) return false;
-    if (f.channel?.size   && !f.channel.has(v.channel || v.ch))        return false;
+    if (!window.wkSetHit(f.channel, v.channel || v.ch))        return false;
     return true;
   });
 }
@@ -2015,10 +2015,10 @@ function _cvSnapFilter(list, snap, defQ) {
     if (snap._watchedOnly && !v.watched) return false;
     if (snap._bmOnly && !(v.bookmarks && v.bookmarks.length)) return false;
     if (snap._memoOnly && !v.memo) return false;
-    if (pf.length && !pf.includes(v.pt)) return false;
-    if (pl.length && !pl.includes(v.pl)) return false;
+    if (!window.wkSetHit(pf, v.pt)) return false;
+    if (!window.wkSetHit(pl, v.pl)) return false;
     if (pr.length && !pr.includes(v.prio)) return false;
-    if (ch.length && !ch.includes(v.channel || v.ch)) return false;
+    if (!window.wkSetHit(ch, v.channel || v.ch)) return false;
     if (ids.length && !ids.includes(v.id)) return false;
     if (!tagOk(v)) return false;
     if (parsed && !window._matchQuery(v, parsed, null)) return false;
@@ -2121,8 +2121,8 @@ function _applyConditions(fc, all) {
   return all.filter(v => {
     if (!fc) return true;
     if (!_tagOk(v)) return false;
-    if (fc.ch   && fc.ch.length   && !fc.ch.includes(v.channel||v.ch||'')           ) return false;
-    if (fc.pl   && fc.pl.length   && !fc.pl.includes(v.pl||''))                      return false;
+    if (Array.isArray(fc.ch) && !window.wkSetHit(fc.ch, v.channel||v.ch)) return false;
+    if (Array.isArray(fc.pl) && !window.wkSetHit(fc.pl, v.pl)) return false;
     // boolean系（マスターのフィルタ filt() と同じ判定）
     // 以前のマークの条件（favOnly 等）は、マークのタグの条件として tag-filter.js が読む（書き換えない）
     if (fc.unwOnly     && v.watched) return false;
@@ -2147,6 +2147,7 @@ function _cvDeadValues(v) {
   if (TF) {
     TF.groups().forEach(g => {
       TF.selected(fc, g.id, 'fc').forEach(val => {
+        val = TF.baseOf(val);          // 除外にしている値も、名前で見る
         if (val === TF.NONE) return;   // 「タグなし」はタグの名前ではない（⚠ を付けない）
         if (!all.some(x => TF.valuesOf(x, g.id).includes(val))) out.push({ key: TF.fieldOf(g.id) || g.id, value: val });
       });
@@ -2179,7 +2180,7 @@ window._cvListsUsingTags = function(names, fields) {
       const vals = window.tagFilter
         ? window.tagFilter.selected(v.filterConditions, window.tagFilter.gidOfField(f), 'fc')
         : (v.filterConditions[_CV_FIELD_TO_CK[f]] || []);
-      vals.forEach(x => { if (!set || set.has(x)) hits.push(x); });
+      vals.forEach(x => { if (window.tagFilter) x = window.tagFilter.baseOf(x); if (!set || set.has(x)) hits.push(x); });
     });
     return hits.length ? { id: v.id, label: v.label, hits: [...new Set(hits)] } : null;
   }).filter(Boolean);
@@ -2191,7 +2192,7 @@ window._cvListsUsingGroupValues = function(names, gids) {
   const set = names ? new Set(names) : null;
   return _views.filter(v => v.saveMode === 'dynamic' && v.filterConditions).map(v => {
     const hits = [];
-    (gids || []).forEach(gid => TF.selected(v.filterConditions, gid, 'fc').forEach(x => { if (!set || set.has(x)) hits.push(x); }));
+    (gids || []).forEach(gid => TF.selected(v.filterConditions, gid, 'fc').forEach(x => { x = TF.baseOf(x); if (!set || set.has(x)) hits.push(x); }));
     return hits.length ? { id: v.id, label: v.label, hits: [...new Set(hits)] } : null;
   }).filter(Boolean);
 };

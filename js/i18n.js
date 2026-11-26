@@ -1486,6 +1486,7 @@
     "タグが頻繁に追加されています。": "is frequently added.",
     "タグで絞り込む": "Filter by tags",
     "タグなし": "No tags",
+    "除外": "Excluded",
     "タグは自分で自由に作成・編集できます。": "You can freely create and edit your own tags.",
     "タグを付けずに追加します。あとからいつでもタグ付けできます。": "Added without tags. You can tag them anytime later.",
     "タグを判断できませんでした": "Could not determine tags",

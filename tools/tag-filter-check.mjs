@@ -84,6 +84,18 @@ console.log('── ② 判定 ──');
   ck('「タグなし」とタグを一緒に選ぶと、どちらかに当たる動画', TF.match({ tb: [] }, { tbNew: S(TF.NONE, 'トップ') }, 'lib') && TF.match(v1, { tbNew: S(TF.NONE, 'トップ') }, 'lib') && !TF.match(v2, { tbNew: S(TF.NONE, 'トップ') }, 'lib'));
   ck('「タグなし」はグループごと（ほかのグループが空でも当たらない）', !TF.match({ tb: ['トップ'], pos: [] }, { tbNew: S(TF.NONE) }, 'lib') && TF.match({ tb: ['トップ'], pos: [] }, { posNew: S(TF.NONE) }, 'lib'));
   ck('リストの条件（配列）でも「タグなし」が効き、保存の形に乗る', TF.match({ tb: [] }, { tb: [TF.NONE] }, 'fc') && J(TF.toPlain({ tbNew: S(TF.NONE) }, 'lib', 'fc')) === J({ tb: [TF.NONE] }));
+  // v53.063: 除外（同じ入れ物に「(除外)名前」）。判定は setHit の1か所
+  const X = TF.mkEx;
+  ck('除外: 値は「(除外)名前」・画面では「− 名前」', TF.EX === '(除外)' && X('ボトム') === '(除外)ボトム' && TF.isEx(X('a')) && !TF.isEx('a') && TF.baseOf(X('a')) === 'a' && TF.labelOf(X('a')) === '− a' && TF.labelOf(X(TF.NONE)) === '− タグなし');
+  ck('除外だけ: その値を持つ動画は当たらない・持たない動画（タグなしも）は当たる', !TF.match(v2, { tbNew: S(X('ボトム')) }, 'lib') && TF.match(v1, { tbNew: S(X('ボトム')) }, 'lib') && TF.match({ tb: [] }, { tbNew: S(X('ボトム')) }, 'lib'));
+  ck('2つ付いた動画は、片方でも除外に当たれば当たらない', !TF.match({ tb: ['トップ', 'ボトム'] }, { tbNew: S('トップ', X('ボトム')) }, 'lib') && TF.match(v1, { tbNew: S('トップ', X('ボトム')) }, 'lib'));
+  ck('タグなしの除外 ＝ 何か付いている動画だけ', !TF.match({ tb: [] }, { tbNew: S(X(TF.NONE)) }, 'lib') && TF.match(v1, { tbNew: S(X(TF.NONE)) }, 'lib'));
+  ck('リストの条件（配列）でも同じ・保存の形にそのまま乗る', !TF.match(v2, { tb: [X('ボトム')] }, 'fc') && J(TF.toPlain({ tbNew: S(X('ボトム')) }, 'lib', 'fc')) === J({ tb: [X('ボトム')] }));
+  ck('setHit: チャンネル等の1つの値でも同じ決まり', TF.setHit(S(X('C1')), 'C2') && !TF.setHit(S(X('C1')), 'C1') && TF.setHit(S(X('C1')), undefined) && TF.setHit(S('C1'), 'C1') && !TF.setHit(S('C1'), 'C2') && TF.setHit(S(), 'C1') && TF.setHit(null, 'C1'));
+  { const s = S(); const a = TF.cycle(s, 'a'), b2 = TF.cycle(s, 'a'), c = TF.cycle(s, 'a');
+    ck('cycle: 選ぶ → 除外 → なし', a === 'on' && b2 === 'ex' && c === '' && s.size === 0); }
+  { const o = { tb: [X('ボトム'), 'トップ'] }; const hit = TF.renameIn(o, 'f_tb', 'fc', 'ボトム', '下');
+    ck('名前を変えると、除外にしていた分も新しい名前になる', hit && J(o.tb) === J([X('下'), 'トップ']), J(o)); }
   ck('判定は動画を書き換えない', J(v1) === J({ tb: ['トップ'], cat: ['パスガード'], pos: ['ハーフ'], tags: [] }));
   ck('hasAny: 古い呼び名だけに入っていても「絞り込み中」', TF.hasAny({ position: S('X') }, 'lib') && !TF.hasAny({ channel: S('x') }, 'lib'));
 }

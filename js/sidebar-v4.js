@@ -202,7 +202,7 @@
       const lists = {};
       _cols().forEach(c => {
         const base = c.g.store === 'tags' ? _collectTags().filter(n => !(c.g.hidden || []).includes(n)) : (c.g.options || []);   // 選択肢に出していないものは出さない
-        const src = base.concat([..._selOf(c.key)].filter(n => !base.includes(n)));   // 選んでいる値は必ず出す（見えない条件にしない）
+        const src = base.concat([..._selOf(c.key)].filter(n => !base.includes(n) && !_TF().isEx(n)));   // 選んでいる値は必ず出す（見えない条件にしない）
         lists[c.key] = src.map(n => ({ name:n, cnt:_cnt(c.key, n), sel:_selOf(c.key).has(n) }));
       });
       trackEl.innerHTML = _cols().map(c => {
@@ -237,7 +237,7 @@
     if (pillsEl) {
       const all = _cols().flatMap(c => [..._selOf(c.key)].map(n => [c.key, n]));
       if (!all.length) pillsEl.innerHTML = '<span style="color:var(--text3);font-size:11px">なし</span>';
-      else pillsEl.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(n)}</span>`).join('');
+      else pillsEl.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(_TF().labelOf(n))}</span>`).join('');
     }
 
     if (hitEl) hitEl.textContent = _totalHit() + ' 件';

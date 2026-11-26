@@ -124,7 +124,49 @@
   // 画面では「タグなし」と出す（labelOf）。タグの名前ではないので、動画・選択肢には書かない。
   const NONE = '(空白)';
   const NONE_LABEL = 'タグなし';
-  const labelOf = val => (val === NONE ? NONE_LABEL : val);
+  // 「除外」（v53.063・オーナー決定 mock-filter-exclude.html の B「押すたびに 選ぶ → 除外 → なし」）。
+  // 除外は、同じ選択の入れ物（Set・配列）に「(除外)名前」という値で入れる。別の入れ物にしないのは、
+  // 選択を写す道（カード⇔テーブル・リストの条件・前回の絞り込み・URL・ノート）が10か所以上あり、
+  // 入れ物を増やすとどれか1つで写し忘れる（この形の不具合を何度も出した）ため。値なら全部の道にそのまま乗る。
+  // 判定は setHit の1か所。タグ・チャンネル・プレイリスト・Source の全部がここを通る。
+  const EX = '(除外)';
+  const isEx = val => typeof val === 'string' && val.startsWith(EX);
+  const baseOf = val => (isEx(val) ? val.slice(EX.length) : val);
+  const mkEx = val => EX + val;
+  const labelOf = val => (isEx(val) ? '− ' + labelOf(baseOf(val)) : val === NONE ? NONE_LABEL : val);
+  // 動画の値（vals）が、選択（sel: Set でも配列でも）に当たるか。
+  //   ・除外にした値を1つでも持っていれば当たらない（「(除外)タグなし」＝何も付いていない動画を外す）
+  //   ・選んだ値があれば、どれかを持っていること（「タグなし」＝何も付いていない）
+  //   ・選んだ値が無く除外だけなら、除外に当たらないもの全部
+  function setHit(sel, vals) {
+    if (!sel) return true;
+    if (!Array.isArray(vals)) vals = (vals == null || vals === '') ? [] : [vals];
+    let hasInc = false, incHit = false;
+    for (const s of sel) {
+      if (s == null || s === '') continue;
+      if (isEx(s)) {
+        const x = s.slice(EX.length);
+        if (x === NONE ? !vals.length : vals.includes(x)) return false;
+      } else {
+        hasInc = true;
+        if (!incHit && (s === NONE ? !vals.length : vals.includes(s))) incHit = true;
+      }
+    }
+    return !hasInc || incHit;
+  }
+  // その値のいまの状態: 'on'（選んでいる）/ 'ex'（除外）/ ''（なし）
+  function stateOf(sel, val) {
+    const has = x => !!sel && (typeof sel.has === 'function' ? sel.has(x) : Array.isArray(sel) && sel.includes(x));
+    return has(mkEx(val)) ? 'ex' : has(val) ? 'on' : '';
+  }
+  // 押すたびに 選ぶ → 除外 → なし（Set を書き換える）
+  function cycle(set, val) {
+    const st = stateOf(set, val);
+    if (st === 'on') { set.delete(val); set.add(mkEx(val)); }
+    else if (st === 'ex') { set.delete(mkEx(val)); set.delete(val); }   // ほかの画面で同じ値を選んでいても、なしに戻す
+    else set.add(val);
+    return stateOf(set, val);
+  }
 
   // 動画が、そのグループの選択に当たるか（選択が無ければ true）。
   // 「タグなし」（NONE）が選ばれていれば、そのグループに何も付いていない動画も当たる。
@@ -133,8 +175,8 @@
     if (!sel.size) return true;
     const vals = R() ? R().valuesOf(v, gid) : (Array.isArray(v[fieldOf(gid)]) ? v[fieldOf(gid)] : []);
     // 以前の習得の条件「未着手」＝習得のタグが付いていない動画（v52.876 から未着手はタグにしない）
-    if (!vals.length) return sel.has(NONE) || (gid === 'status' && sel.has('未着手'));
-    return vals.some(x => sel.has(x));
+    if (!vals.length && gid === 'status' && sel.has('未着手')) return true;
+    return setHit(sel, vals);
   }
   // すべてのタグの絞り込みに当たるかを判定する関数を作る（グループ同士は AND、グループの中は OR）。
   // 選択は作るときに1回だけ読む（動画ごとに組み立て直さない。3,000本×打鍵で重くなるため）。
@@ -186,6 +228,11 @@
   // 値を消すことはしない（非空→空にしない）。
   function renameIn(obj, gid, scheme, from, to) {
     if (!obj || from == null || to == null || from === to) return false;
+    // 除外にしていた分も新しい名前にする（外していたものが、名前を変えただけで出てこないように）
+    if (!isEx(from) && selected(obj, gid, scheme).has(mkEx(from))) {
+      const a = renameIn(obj, gid, scheme, mkEx(from), mkEx(to));
+      return renameIn(obj, gid, scheme, from, to) || a;
+    }
     if (!selected(obj, gid, scheme).has(from)) return false;
     let hit = false;
     _readKeys(gid, scheme).forEach(k => {
@@ -208,8 +255,10 @@
     }));
   }
 
+  // チャンネル・プレイリスト・Source の判定（タグと同じ決まり）。値が無ければ [] として見る
+  window.wkSetHit = setHit;
   window.tagFilter = {
-    FIELD_KEYS, FIELDS, SCHEMES, NONE, NONE_LABEL, labelOf,
+    FIELD_KEYS, FIELDS, SCHEMES, NONE, NONE_LABEL, labelOf, EX, isEx, baseOf, mkEx, setHit, stateOf, cycle,
     groups, gidOfField, fieldOf, keyFor, gidForKey,
     selected, setFor, normalize, compile, match, hasAny, valuesOf, toPlain, fromPlain, clear, renameIn,
   };

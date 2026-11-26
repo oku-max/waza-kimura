@@ -219,9 +219,9 @@ function _sbContextVideos(filterKey, f) {
     : () => true;
   return (window.videos || []).filter(v => {
     if (v.archived) return false;
-    if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt || v.src || 'youtube'))                   return false;
-    if (filterKey !== 'channel'   && f?.channel?.size   && !f.channel.has(v.channel || v.ch))                             return false;
-    if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
+    if (filterKey !== 'platform'  && !window.wkSetHit(f?.platform, v.pt || v.src || 'youtube'))                   return false;
+    if (filterKey !== 'channel'   && !window.wkSetHit(f?.channel, v.channel || v.ch))                             return false;
+    if (filterKey !== 'playlist'  && !window.wkSetHit(f?.playlist, v.pl))                                         return false;
     if (!_tagOk(v)) return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     // org固有フィルター（Library側では該当Setが空なので無影響）
@@ -487,7 +487,7 @@ window.sbmRender = function () {
   const chCtx = _sbContextVideos('channel', f);
   const chMap = {};
   chCtx.forEach(v => { const k = v.channel || v.ch; if (k) chMap[k] = (chMap[k]||0)+1; });
-  [...(f.channel||[])].forEach(v => { if (!(v in chMap)) chMap[v] = 0; });
+  [...(f.channel||[])].forEach(v => { if (window.tagFilter?.isEx(v)) return; if (!(v in chMap)) chMap[v] = 0; });   // 除外（フィルターの窓で付ける）は下の「選択中」に出す
   const chSort = document.getElementById('sbm-sort-ch')?.value || 'cnt';
   let chArr = Object.entries(chMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.channel?.has(n) }))
     .filter(r => r.sel || r.cnt > 0);
@@ -507,7 +507,7 @@ window.sbmRender = function () {
   const plCtx = _sbContextVideos('playlist', f);
   const plMap = {};
   plCtx.forEach(v => { if (v.pl) plMap[v.pl] = (plMap[v.pl]||0)+1; });
-  [...(f.playlist||[])].forEach(v => { if (!(v in plMap)) plMap[v] = 0; });
+  [...(f.playlist||[])].forEach(v => { if (window.tagFilter?.isEx(v)) return; if (!(v in plMap)) plMap[v] = 0; });
   const plSort = document.getElementById('sbm-sort-pl')?.value || 'cnt';
   let plArr = Object.entries(plMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.playlist?.has(n) }))
     .filter(r => r.sel || r.cnt > 0);
@@ -535,7 +535,7 @@ window.sbmRender = function () {
   ];
   const pillsEl = document.getElementById('sbm-pills');
   if (pillsEl) pillsEl.innerHTML = all.length
-    ? all.map(([k,v]) => `<span class="sbm-pill" onclick="sbmToggle('${k}','${_sbmEsc(v).replace(/'/g,'&#39;')}')">${_sbmEsc(v)}</span>`).join('')
+    ? all.map(([k,v]) => `<span class="sbm-pill" onclick="sbmToggle('${k}','${_sbmEsc(v).replace(/'/g,'&#39;')}')">${_sbmEsc(window.tagFilter ? window.tagFilter.labelOf(v) : v)}</span>`).join('')
     : '<span style="color:var(--text3);font-size:11px">なし</span>';
 
   // ── Hit ──
