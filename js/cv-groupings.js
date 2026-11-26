@@ -102,8 +102,27 @@
     return out;
   }
   const GR0 = key => groupers().find(g => g.key === key) || null;
-  function pickGrouper(view) {
+  // そのタググループの値の全部（選択肢＋どこかの動画に付いている値。絞り込みに関係なく）
+  function groupValsAll(gkey) {
+    const G = GR0(gkey); if (!G) return [];
+    const seen = new Set(G.opts); const out = G.opts.slice();
+    (window.videos || []).forEach(v => readG(v, G).forEach(x => { if (!seen.has(x)) { seen.add(x); out.push(x); } }));
+    return out;
+  }
+  // 保存した後でタググループに増えたタグは、自動で列の最後に足す（v53.055・オーナー「なんで反映されてないんだよ」。
+  // タグ設定で「リテンション」を足しても、グルーピングは作った時点の選んだタグ（picks）だけを列にしていた）。
+  // 「外した」タグと「後から増えた」タグを分けるため、保存のときにその時点の全部の値を known に覚える。
+  // known の無い前の版のグルーピングは、選んでいたタグ以外を全部「後から増えた」とみなす（前の版は作るとき全部 ✓ で始まる）
+  function withNewPicks(view) {
     const picks = (view && view.picks || []).filter(p => p && GR0(p.g));
+    if (!view || view.gb !== 'pick' || !view.pg || !GR0(view.pg)) return picks;
+    const known = new Set(Array.isArray(view.known) ? view.known : picks.filter(p => p.g === view.pg).map(p => p.v));
+    const have = new Set(picks.filter(p => p.g === view.pg).map(p => p.v));
+    const extra = groupValsAll(view.pg).filter(x => !known.has(x) && !have.has(x)).map(v => ({ g: view.pg, v }));
+    return extra.length ? picks.concat(extra) : picks;
+  }
+  function pickGrouper(view) {
+    const picks = view && view === S.editing ? (view.picks || []).filter(p => p && GR0(p.g)) : withNewPicks(view);
     const dup = new Map(); picks.forEach(p => dup.set(p.v, (dup.get(p.v) || 0) + 1));
     const items = picks.map(p => ({ ...p, label: dup.get(p.v) > 1 ? `${p.v}（${GR0(p.g).name}）` : p.v }));
     return { key: 'pick', kind: 'pick', name: (view && GR0(view.pg) && GR0(view.pg).name) || 'タグ', items, opts: items.map(x => x.label), showNone: !view || view.showNone !== false };
@@ -255,7 +274,7 @@
     const V = VW(); const inp = document.getElementById('svt-newcol'); const name = String(inp && inp.value || '').trim(); if (!name) return;
     if (V.gb !== 'pick' || !V.pg) return;
     const v = addNewTag(V.pg, name); if (!v) return;
-    const picks = (V.picks || []).map(p => ({ ...p }));
+    const picks = withNewPicks(V).map(p => ({ ...p }));
     if (!picks.some(p => p.g === V.pg && p.v === v)) picks.push({ g: V.pg, v });
     put({ ...V, picks });
     toast(`タグ「${v}」を足しました`);
@@ -283,12 +302,12 @@
   const fmtDur = s => { s = Number(s) || 0; if (!s) return ''; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.floor(s % 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
   function card(v, g, colKey) {
     const mv = movable(g); const th = thumbOf(v); const x = vals(v, g);
-    const k = v.id + '|' + colKey; const open = S.openCard === k && colKey !== HID;
+    const k = v.id + '|' + colKey; const open = S.openCard === v.id && S._openColNow === colKey && colKey !== HID;
     return `<div class="svt-card" ${mv || colKey === HID ? `draggable="true" ondragstart="wkGroupings._ds(event,'${jsq(v.id)}','${jsq(colKey)}')"` : ''}>
       <div class="svt-th" onclick="wkGroupings._play('${jsq(v.id)}')">${th ? `<img src="${esc(th)}" loading="lazy" alt="">` : ''}${v.duration ? `<span>${esc(fmtDur(v.duration))}</span>` : ''}</div>
       <div class="svt-tt">${esc(v.title || '')}</div>
       <div class="svt-mt"><span>${esc(v.channel || '')}</span>${mv && colKey !== HID ? `<button class="svt-sm" onclick="wkGroupings._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>
-      ${mv && open ? `<div class="svt-mt">${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${esc(o)}</button>`).join('')}</div>` : ''}
+      ${mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます</span>'}${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${x.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}<button class="svt-sm" onclick="wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : ''}
       ${(g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : ''}
     </div>`;
   }
@@ -301,6 +320,9 @@
     const mv = movable(g);
     const byId = new Map(list.map(v => [v.id, v]));
     const cs = colsH(list, g);
+    // カードの ▾ は動画ごとに開く。付け外しでカードが別の列へ移っても閉じない（v53.055・オーナー「複数選択できるように」）
+    if (S.openCard) { const here = cs.find(c => c.key === S.openCol && c.ids.includes(S.openCard)) || cs.find(c => !c.hid && c.ids.includes(S.openCard));
+      S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
     const hd = c => `<div class="svt-colh"><span class="svt-tag${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span></div>`;
     el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh"><input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
@@ -386,6 +408,18 @@
       <div class="svt-grp">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。グルーピングはこのリストに保存され、ほかの端末にも出ます。</div>
       <div class="foot">${exists ? '<button class="svt-sm danger" onclick="wkGroupings._del()">このグルーピングを消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkGroupings._ec()">やめる</button><button class="svt-sm pri" onclick="wkGroupings._es()">保存</button></div>
     </div>`;
+    fitEd();
+  }
+  // 編集の画面は上に残る見出しの中に開く。高さは見出しの下から画面の下（スマホは下のタブの上）まで、中だけスクロール（v53.055）
+  function fitEd() {
+    const el = document.getElementById('svt-ed'); if (!el || !el.firstElementChild) return;
+    if (S.edOpenNew) { el.scrollTop = 0; S.edOpenNew = false; }
+    const k = (window.wkZoomK && window.wkZoomK()) || 1;
+    const nav = document.querySelector('.mobile-nav, #mobileNav, .mn-bar') || document.getElementById('mnav-admin')?.parentElement;
+    const nr = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect() : null;
+    const bottom = nr && nr.height && nr.top > 0 && nr.top < innerHeight ? nr.top : innerHeight;
+    const top = Math.max(0, el.getBoundingClientRect().top);
+    el.style.maxHeight = Math.max(220, (bottom - top - 8) / k) + 'px';
   }
   function drawTabs() {
     const el = document.getElementById('svt-tabs'); if (!el) return;
@@ -416,7 +450,9 @@
 #lib-card-host.svt-on #cardList{display:none!important}
 #svt-root{color:var(--text);font-size:13px}
 #svt-root.svt-tbl #svt-body{display:none}
-#svt-root .svt-head{padding:8px 16px 6px;border-bottom:1px solid var(--border);display:grid;gap:6px}
+#svt-root{max-width:100%;min-width:0}
+#svt-root .svt-head{padding:8px 16px 6px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+#svt-root .svt-head>*{min-width:0}
 #svt-root .svt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #svt-root .svt-tabs{flex:1;min-width:0;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 #svt-root .svt-vt{flex-shrink:0;font-size:12.5px;padding:6px 11px;border-radius:8px;border:none;background:none;color:var(--text2);white-space:nowrap;cursor:pointer;font-family:inherit}
@@ -428,7 +464,11 @@
 #svt-root .svt-sm.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #svt-root .svt-sm.danger{color:var(--red)}
 #svt-root .svt-main{padding:10px 16px 0}
-#svt-root .svt-main:has(#svt-ed:empty):has(#svt-body:empty){display:none}
+#svt-root .svt-main:has(#svt-body:empty){display:none}
+#svt-root #svt-ed:empty{display:none}
+#svt-root #svt-ed{overflow:auto;overscroll-behavior:contain}
+#svt-root #svt-ed .svt-ed{margin-bottom:4px}
+#svt-root #svt-ed .svt-ed .foot{position:sticky;bottom:-12px;background:var(--surface);margin:0 -12px -12px;padding:10px 12px 12px;z-index:1}
 #svt-root .svt-ed{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;gap:12px;margin-bottom:10px}
 #svt-root .svt-ed .r{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:start}
 #svt-root .svt-ed .k{font-size:11px;font-weight:700;color:var(--text3);padding-top:5px}
@@ -479,6 +519,8 @@
 #svt-root .svt-mt{padding:0 8px 8px;font-size:10px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 #svt-root .svt-mt .svt-sm{margin-left:auto;font-size:10px;padding:2px 7px}
 #svt-root .svt-also{padding-top:0}
+#svt-root .svt-mhint{width:100%;font-size:10px;color:var(--text3)}
+#svt-root .svt-multi .svt-sm{margin-left:auto}
 #svt-root .svt-hidebtn{margin-left:0!important}
 #svt-root .svt-mt .svt-sm+.svt-hidebtn{margin-left:4px!important}
 #svt-root .svt-mt>span+.svt-hidebtn{margin-left:auto!important}
@@ -518,8 +560,9 @@
     root.innerHTML = `<div class="svt-head">
         <div class="svt-top"><div class="svt-tabs" id="svt-tabs"></div></div>
         <div class="svt-sum" id="svt-sum"></div>
+        <div id="svt-ed"></div>
       </div>
-      <div class="svt-main"><div id="svt-ed"></div><div id="svt-body"></div></div><div id="svt-toast"></div>`;
+      <div class="svt-main"><div id="svt-body"></div></div><div id="svt-toast"></div>`;
     host.insertBefore(root, list);
     // リストが変わった（＝分ける基準が変わった）ときは、待たずにその場で描く（v53.056）。
     // 見張りの呼び出しは画面に出る前に動くので、ふだんのカード一覧が一瞬見えることが無い。
@@ -622,8 +665,8 @@
     },
     list: () => Object.values(D.items).filter(e => e && !e.del),
     _pick: id => { P.cur[listKey()] = id; savePrefs(); S.editing = null; S.more = {}; draw(); },
-    _new: () => { S.editing = { id: newId(), name: '新しいグルーピング', gb: null, picks: [], showNone: true, isNew: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
-    _edit: () => { const v = VW(); if (v.id === 'all') return; S.editing = { id: v.id, name: v.name, gb: v.gb, picks: (v.picks || []).map(p => ({ ...p })), showNone: v.showNone !== false, pg: v.pg }; draw(); },
+    _new: () => { S.edOpenNew = true; S.editing = { id: newId(), name: '新しいグルーピング', gb: null, picks: [], showNone: true, isNew: true }; draw(); setTimeout(() => document.getElementById('svt-name')?.select(), 0); },
+    _edit: () => { const v = VW(); if (v.id === 'all') return; S.edOpenNew = true; S.editing = { id: v.id, name: v.name, gb: v.gb, picks: withNewPicks(v).map(p => ({ ...p })), showNone: v.showNone !== false, pg: v.pg }; draw(); },
     _pv: x => { const d = S.editing; d.picks = d.picks || []; const i = d.picks.findIndex(p => p.g === d.pg && p.v === x); i < 0 ? d.picks.push({ g: d.pg, v: x }) : d.picks.splice(i, 1); drawEd(); },
     _pn: on => { S.editing.showNone = on; },
     _pall: on => { const d = S.editing; if (!d || !d.pg) return; const mine = (d.picks || []).filter(p => p.g === d.pg).map(p => p.v);
@@ -654,6 +697,7 @@
       const prev = D.items[d.id];
       const e = { id: d.id, list: prev && !prev.del ? prev.list : listKey(), name, gb: d.gb || null, pg: d.gb === 'pick' ? d.pg : null,
         picks: d.gb === 'pick' ? (d.picks || []).filter(p => p.g === d.pg).map(p => ({ g: p.g, v: p.v })) : [],
+        known: d.gb === 'pick' && d.pg ? groupValsAll(d.pg) : [],   // この時点のそのグループの全部の値（後から増えたタグを見分ける）
         showNone: d.showNone !== false, created: prev && prev.created || Date.now() };
       if (prev && !prev.del && Array.isArray(prev.hidden) && prev.hidden.length) e.hidden = prev.hidden.slice();   // 編集しても非表示は消さない
       put(e);
@@ -666,7 +710,7 @@
       toast(`グルーピング「${keep.name}」を消しました（動画のタグはそのままです）`, () => { const { at, ...rest } = keep; put(rest); draw(); }); },
     _cl: k => { S.closed[k] = !S.closed[k]; drawBody(); },
     _mr: k => { S.more[k] = (S.more[k] || LIMIT) + LIMIT; drawBody(); },
-    _oc: k => { S.openCard = S.openCard === k ? null : k; drawBody(); },
+    _oc: k => { const i = k.indexOf('|'); const vid = k.slice(0, i), col = k.slice(i + 1); if (S.openCard === vid && S._openColNow === col) { S.openCard = null; } else { S.openCard = vid; S.openCol = col; } drawBody(); },
     _tg: (vid, gk, val) => toggle(vid, gk, val),
     _play: vid => { try { window.openVPanel?.(vid); } catch (e) {} },
     _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from; try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },

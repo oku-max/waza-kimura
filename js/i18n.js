@@ -196,6 +196,7 @@
   const STATIC_AUTO = {
     // グルーピング（v53.048）
     '非表示':'Hidden','表示に戻す':'Show again',
+    'いくつでも選べます':'You can pick as many as you like',
     '（⠿ をドラッグで列の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the columns · press to toggle · the number is the count with the current filters)',
     '↶ 1つ戻す':'↶ Undo one',
     '＋ グルーピング':'＋ Grouping',

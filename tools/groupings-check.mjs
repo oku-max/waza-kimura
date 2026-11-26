@@ -212,6 +212,22 @@ ck('新しいタググループが本物のタグの一覧に入る（未使用�
 ck('列: 進捗なし=4・理解した=0・使える=0・最後に非表示=0', JSON.stringify(await cols(pg)) === JSON.stringify(['進捗なし=4', '理解した=0', '使える=0', '非表示=0']), await cols(pg));
 await pg.evaluate(() => wkGroupings._move('v1', 'pick', '__wk_none__', '使える'));
 ck('作ったグループへ動かすと v.tg[グループid] に入る', await pg.evaluate(id => JSON.stringify((window.videos.find(v => v.id === 'v1').tg || {})[id]), ngid) === '["使える"]');
+// ⑥b 保存した後でタグ設定にタグを足すと、グルーピングの列にも自動で出る（v53.055・オーナー「なんで反映されてないんだよ」）。外したタグは出さない
+await pg.evaluate(id => window.tagRegistry.addOption(id, 'あとで足した'), ngid); await pg.waitForTimeout(200);
+await pg.evaluate(() => window.AF()); await pg.waitForTimeout(300);
+const nb1 = await cols(pg);
+ck('タグ設定で足したタグが、グルーピングの列の最後に出る', JSON.stringify(nb1) === JSON.stringify(['進捗なし=3', '理解した=0', '使える=1', 'あとで足した=0', '非表示=0']), nb1);
+const dd2 = await pg.evaluate(() => { const b = document.querySelector('#svt-root .svt-card .svt-mt .svt-sm:not(.svt-hidebtn)'); b.click(); return [...document.querySelectorAll('#svt-root .svt-card .svt-o')].map(x => x.textContent); });
+ck('カードの ▾ にも出る', dd2.includes('あとで足した'), dd2);
+await pg.evaluate(() => { wkGroupings._edit(); wkGroupings._pv('理解した'); wkGroupings._es(); });
+await pg.evaluate(id => window.tagRegistry.addOption(id, 'さらに足した'), ngid); await pg.evaluate(() => window.AF()); await pg.waitForTimeout(300);
+const nb2 = await cols(pg);
+ck('編集で外したタグは出ないまま、そのあと足したタグは出る', !nb2.some(x => x.startsWith('理解した=')) && nb2.includes('さらに足した=0') && nb2.includes('あとで足した=0'), nb2);
+await pg.evaluate(id => wkGroupings.importMerge({ items: { glegacy1: { id: 'glegacy1', list: 'master', name: '前の版', gb: 'pick', pg: 'tag:' + id, picks: [{ g: 'tag:' + id, v: '理解した' }, { g: 'tag:' + id, v: '使える' }], showNone: true, created: 5, at: 5 } } }), ngid);
+await pg.evaluate(() => wkGroupings._pick('glegacy1')); await pg.waitForTimeout(300);
+const nb3 = await cols(pg);
+ck('前の版のグルーピング（known が無い）でも、後から増えたタグが出る（オーナーの「リテンション」の形）', ['理解した=0', '使える=1', 'あとで足した=0', 'さらに足した=0'].every(x => nb3.includes(x)), nb3);
+await pg.evaluate(id => wkGroupings._pick(id), g1.id);
 // ⑦ カスタム列（セレクト・評価）
 await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('フェーズ'); wkGroupings._eg('cf:gc_phase1'); wkGroupings._es(); });
 await pg.evaluate(() => wkGroupings._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));
@@ -300,6 +316,93 @@ const tr1 = await tRows();
 ck('テーブルでも絞り込みがその場で反映される', tr1 < tr0 && tr1 >= 2, [tr0, tr1]);
 await pg.evaluate(() => { window.filters.playlist.clear(); window.AF(); }); await pg.waitForTimeout(600);
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(400);
+// ⑨d ボタンを全部、本物のクリックで（下までスクロールした状態から）。押した結果が画面の見える所に出ることまで見る
+// （v53.055・オーナー「効かないボタンばっかりじゃねえか」。「✎ グルーピングを編集」は見出しが上に残るので下からも押せるのに、
+//   編集の画面は一覧の上に出ていたので、スクロールしていると画面の外に開いて何も起きないように見えた）
+await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+await pg.setViewportSize({ width: 1400, height: 600 });
+const scrollDown = () => pg.evaluate(async () => { const sb = document.getElementById('svt-body'); sb.style.minHeight = '2500px'; const h = document.getElementById('lib-card-host'); h.scrollTop = 1500; await new Promise(r => setTimeout(r, 150)); return h.scrollTop; });
+const onScreen = sel => pg.evaluate(sel => { const e = document.querySelector(sel); if (!e) return 'ない'; const r = e.getBoundingClientRect(); if (!r.height) return '高さ0';
+  const x = r.left + Math.min(r.width / 2, 40), y = r.top + Math.min(r.height / 2, 20); if (y < 0 || y > innerHeight) return '画面の外 top=' + Math.round(r.top);
+  const hit = document.elementFromPoint(x, y); return hit && e.contains(hit) ? 'ok' : '隠れている: ' + (hit && (hit.id || hit.className)) + ' rect=' + [r.left, r.top, r.width, r.height].map(Math.round) + ' vw=' + innerWidth; }, sel);
+const realClick = async (sel, label) => { try { await pg.click(sel, { timeout: 3000 }); return true; } catch (e) { ck(label + ' を本物のクリックで押せる', false, String(e.message).split('\n')[0]); return false; } };
+await scrollDown();
+if (await realClick('#svt-sum button:has-text("グルーピングを編集")', '「✎ グルーピングを編集」')) {
+  await pg.waitForTimeout(200);
+  ck('下までスクロールしていても「✎ グルーピングを編集」で編集の画面が見える所に開く', await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  ck('編集の画面の「保存」が見える所にあり押せる', await onScreen('#svt-ed .foot .svt-sm.pri') === 'ok', await onScreen('#svt-ed .foot .svt-sm.pri'));
+  await realClick('#svt-ed .foot .svt-sm:has-text("やめる")', '「やめる」');
+  await pg.waitForTimeout(150);
+  ck('「やめる」で閉じる', !(await pg.evaluate(() => !!document.querySelector('#svt-ed .svt-ed'))));
+}
+await scrollDown();
+if (await realClick('#svt-tabs .svt-vt.add', '「＋ グルーピング」')) {
+  await pg.waitForTimeout(200);
+  ck('下までスクロールしていても「＋ グルーピング」で作る画面が見える所に開く', await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  await realClick('#svt-ed .foot .svt-sm:has-text("やめる")', '「やめる」');
+}
+await scrollDown();
+if (await realClick('#svt-tabs .svt-vt:has-text("すべて")', 'タブ「すべて」')) { await pg.waitForTimeout(200); ck('タブ「すべて」で分けない表示になる', await pg.evaluate(() => getComputedStyle(document.getElementById('cardList')).display !== 'none')); }
+await realClick('#svt-tabs .svt-vt:has-text("タグ1別")', 'タブ「タグ1別」'); await pg.waitForTimeout(300);
+ck('タブ「タグ1別」で列が出る', await pg.evaluate(() => document.querySelectorAll('#svt-root .svt-col').length > 2));
+for (const [w, h] of [[1400, 600], [390, 760]]) {
+  await pg.setViewportSize({ width: w, height: h }); await pg.evaluate(() => { const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+  await scrollDown();
+  if (!(await realClick('#svt-sum button:has-text("グルーピングを編集")', `${w}px「✎ グルーピングを編集」`))) continue;
+  await pg.waitForTimeout(200);
+  ck(`${w}px: 編集の画面が見える所に開く`, await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  for (const b of ['全部外す', '全部選ぶ']) { if (await realClick(`#svt-ed button:has-text("${b}")`, `${w}px「${b}」`)) await pg.waitForTimeout(100); }
+  ck(`${w}px: 「全部外す」「全部選ぶ」が効く`, await pg.evaluate(() => wkGroupings._state().editing.picks.length >= 3));
+  await pg.fill('#svt-pnew', 'クリック確認' + w);
+  await realClick('#svt-ed button:has-text("足す")', `${w}px 編集の「足す」`); await pg.waitForTimeout(150);
+  ck(`${w}px: 編集の「＋ 新しいタグ」の「足す」が効く`, await pg.evaluate(n => wkGroupings._state().editing.picks.some(p => p.v === n), 'クリック確認' + w));
+  ck(`${w}px: 「保存」が見える所にある`, await onScreen('#svt-ed .foot .svt-sm.pri') === 'ok', await onScreen('#svt-ed .foot .svt-sm.pri'));
+  await realClick('#svt-ed .foot .svt-sm.pri', `${w}px「保存」`); await pg.waitForTimeout(250);
+  ck(`${w}px: 「保存」で閉じて列に入る`, !(await pg.evaluate(() => !!document.querySelector('#svt-ed .svt-ed'))) && (await cols(pg)).includes('クリック確認' + w + '=0'), await cols(pg));
+}
+// テーブルでも「✎ グルーピングを編集」が効く
+await pg.setViewportSize({ width: 1400, height: 900 });
+await pg.evaluate(() => { const sb = document.getElementById('svt-body'); sb.style.minHeight = ''; document.getElementById('lib-card-host').scrollTop = 0; });
+await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(700);
+await pg.evaluate(() => { const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+if (await realClick('#svt-sum button:has-text("グルーピングを編集")', 'テーブルの「✎ グルーピングを編集」')) { await pg.waitForTimeout(200);
+  ck('テーブルでも編集の画面が見える所に開く', await onScreen('#svt-ed .svt-ed') === 'ok', await onScreen('#svt-ed .svt-ed'));
+  await realClick('#svt-ed .foot .svt-sm:has-text("やめる")', 'テーブルの「やめる」'); }
+await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(500);
+await pg.setViewportSize({ width: 1400, height: 900 });
+await pg.evaluate(() => { const sb = document.getElementById('svt-body'); sb.style.minHeight = ''; document.getElementById('lib-card-host').scrollTop = 0; });
+const v2tb = await vtb(pg, 'v2');
+if (await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-mt .svt-sm:not(.svt-hidebtn)', 'カードの ▾')) {
+  await pg.waitForTimeout(150);
+  ck('カードの ▾ でタグが並ぶ', await onScreen('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-o') === 'ok');
+  await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-o:has-text("トップ")', '▾ の中のタグ');
+  await pg.waitForTimeout(150);
+  ck('▾ の中のタグを押すと付く', (await vtb(pg, 'v2')).includes('トップ'), await vtb(pg, 'v2'));
+}
+// カードの ▾ は複数選べる（v53.055・オーナー「ここは複数選択できるようにして」）。押すたびにカードが別の列へ移っても開いたまま
+await pg.evaluate(() => wkGroupings._undo()); await pg.waitForTimeout(150);   // 上の ▾ の確認で付けた「トップ」を戻す
+const mv0 = await pg.evaluate(() => { const c = [...document.querySelectorAll('#svt-root .svt-col')].find(x => x.dataset.name === '膝立ち'); return c.querySelector('.svt-card .svt-hidebtn').getAttribute('onclick').match(/_hide\('([^']+)'/)[1]; });
+const mtb0 = await vtb(pg, mv0);
+await realClick('#svt-root .svt-col[data-name="膝立ち"] .svt-card .svt-mt .svt-sm:not(.svt-hidebtn)', '「膝立ち」の列のカードの ▾'); await pg.waitForTimeout(150);
+await realClick('#svt-root .svt-multi .svt-o:has-text("トップ")', '▾ の「トップ」'); await pg.waitForTimeout(200);
+ck('1つ押しても ▾ は開いたまま（いくつでも選べます）', await pg.evaluate(() => !!document.querySelector('#svt-root .svt-multi') && document.querySelector('#svt-root .svt-multi').textContent.includes('いくつでも選べます')));
+await realClick('#svt-root .svt-multi .svt-o:has-text("スタンディング")', '▾ の「スタンディング」'); await pg.waitForTimeout(200);
+ck('続けて押すと両方付く（複数選択・元のタグも残る）', setEq(await vtb(pg, mv0), [...mtb0, 'トップ', 'スタンディング']), await vtb(pg, mv0));
+ck('付いているタグに ✓', await pg.evaluate(() => document.querySelectorAll('#svt-root .svt-multi .svt-o.on').length) === mtb0.length + 2);
+await realClick('#svt-root .svt-multi .svt-o:has-text("トップ")', '▾ の「トップ」をもう一度'); await pg.waitForTimeout(200);
+ck('もう一度押すと外れる', setEq(await vtb(pg, mv0), [...mtb0, 'スタンディング']), await vtb(pg, mv0));
+await realClick('#svt-root .svt-multi .svt-sm:has-text("閉じる")', '▾ の「閉じる」'); await pg.waitForTimeout(150);
+ck('「閉じる」で閉じる', await pg.evaluate(() => !document.querySelector('#svt-root .svt-multi')));
+await pg.evaluate(() => { wkGroupings._undo(); wkGroupings._undo(); wkGroupings._undo(); }); await pg.waitForTimeout(150);
+ck('（取り消して元に）', setEq(await vtb(pg, mv0), mtb0), await vtb(pg, mv0));
+await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-mt .svt-sm:not(.svt-hidebtn)', 'カードの ▾'); await pg.waitForTimeout(100);
+await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-o:has-text("トップ")', '▾ の中のタグ'); await pg.waitForTimeout(150);
+if (await realClick('#svt-sum button:has-text("1つ戻す")', '「↶ 1つ戻す」')) { await pg.waitForTimeout(150); ck('「↶ 1つ戻す」で戻る', setEq(await vtb(pg, 'v2'), v2tb), await vtb(pg, 'v2')); }
+const hidN = async () => +((await cols(pg)).find(x => x.startsWith('非表示=')) || '=0').split('=')[1];
+const hid0 = await hidN();
+if (await realClick('#svt-root .svt-col[data-name="スタンディング"] .svt-card .svt-hidebtn', 'カードの「非表示」')) { await pg.waitForTimeout(150);
+  ck('カードの「非表示」で非表示の列に入る', await hidN() === hid0 + 1, await cols(pg));
+  if (await realClick('#svt-toast .svt-tu', 'お知らせの「↶ 元に戻す」')) { await pg.waitForTimeout(150); ck('お知らせの「↶ 元に戻す」で戻る', await hidN() === hid0, await cols(pg)); } }
 // ⑩ 2台目: 開くと同じグルーピングが出る・作ると1台目に届く
 const cx2 = await newCtx(); const pg2 = await open(cx2);
 await pg2.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
