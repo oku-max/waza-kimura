@@ -170,6 +170,11 @@ ck('表示の大きさ（zoom）を変えていても、画面上の幅がライ
 await pg.evaluate(() => { document.body.style.zoom = ''; });
 await pg.evaluate(() => wkSubviewsTrial._mode('table'));
 ck('テーブル表示も出る', await pg.evaluate(() => document.querySelectorAll('#svt-root tr.gh').length >= 3));
+ck('プレイリストでまとめたテーブルに「プレイリスト」の列が2本出ない', await pg.evaluate(() => [...document.querySelectorAll('#svt-root th')].filter(th => th.textContent === 'プレイリスト').length === 1));
+const lay = await pg.evaluate(() => { const seg = document.querySelector('#svt-root .svt-row2 .wk-seg'); const sum = document.getElementById('svt-sum'); const t = document.getElementById('svt-title').textContent; const sumT = sum.textContent;
+  return { seg: !!seg, segLeft: seg && seg.getBoundingClientRect().left < sum.getBoundingClientRect().left, active: document.getElementById('svt-mt').classList.contains('lvt-active'), t, sumT }; });
+ck('カード｜テーブルはライブラリと同じ部品で、2段目の左端（絞り込みの前）にある', lay.seg && lay.segLeft && lay.active, lay);
+ck('上の本数と絞り込みの本数が同じ', (lay.t.match(/（(\d+)本）/) || [])[1] === (lay.sumT.match(/（(\d+)本）/) || [])[1], lay);
 await pg.evaluate(() => wkSubviewsTrial.close());
 await pg.waitForTimeout(3500);   // 保存の遅延（debounce）を待つ
 const after = await snap();

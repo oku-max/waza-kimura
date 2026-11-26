@@ -190,12 +190,13 @@
     const list = source();
     if (!list.length) { el.innerHTML = '<div class="svt-note">今のフィルターに当たる動画はありません。閉じてフィルターを変えてください。</div>'; return; }
     if (S.mode === 'table') {
-      const head = `<tr><th>タイトル</th><th>チャンネル</th><th>プレイリスト</th>${g ? `<th>${esc(g.name)}</th>` : ''}</tr>`;
-      const tr = v => `<tr><td class="t">${esc(v.title || '')}</td><td>${esc(v.channel || '')}</td><td>${esc(v.pl || '')}</td>${g ? `<td>${esc(vals(v, g).join('・') || '—')}</td>` : ''}</tr>`;
+      const gc = g && g.kind !== 'src';   // プレイリスト・チャンネルは既に列があるので足さない
+      const head = `<tr><th>タイトル</th><th>チャンネル</th><th>プレイリスト</th>${gc ? `<th>${esc(g.name)}</th>` : ''}</tr>`;
+      const tr = v => `<tr><td class="t">${esc(v.title || '')}</td><td>${esc(v.channel || '')}</td><td>${esc(v.pl || '')}</td>${gc ? `<td>${esc(vals(v, g).join('・') || '—')}</td>` : ''}</tr>`;
       let rows = '';
       if (!g) rows = list.slice(0, 500).map(tr).join('');
       else columns(list, g).forEach(c => { const ck = V.id + '|' + c.key; const o = !S.closed[ck];
-        rows += `<tr class="gh" onclick="wkSubviewsTrial._cl('${jsq(ck)}')"><td colspan="${g ? 4 : 3}">${o ? '▼' : '▶'} ${esc(c.name)} <span class="n">${c.ids.length}本</span></td></tr>` +
+        rows += `<tr class="gh" onclick="wkSubviewsTrial._cl('${jsq(ck)}')"><td colspan="${gc ? 4 : 3}">${o ? '▼' : '▶'} ${esc(c.name)} <span class="n">${c.ids.length}本</span></td></tr>` +
           (o ? c.ids.slice(0, 300).map(id => tr(list.find(v => v.id === id))).join('') : ''); });
       el.innerHTML = `<div class="svt-tw"><table>${head}${rows}</table></div>`;
       return;
@@ -270,8 +271,10 @@
     document.getElementById('svt-sum').innerHTML = `<span>絞り込み <b>今のフィルターのまま（${source().length}本）</b></span><span>まとめ方 <b>${esc(!g ? 'まとめない' : g.kind === 'pick' ? '選んだタグ: ' + (g.opts.join('・') || 'まだ選んでいない') : g.name + (g.sub === '未使用' ? '（未使用のタグ）' : ''))}</b></span>` +
       (V.id !== 'all' ? `<button class="svt-sm" onclick="wkSubviewsTrial._edit()">✎ 見え方を編集</button>` : '') +
       (S.sim.size ? `<button class="svt-sm" onclick="wkSubviewsTrial._reset()">試しに動かした分を戻す</button>` : '');
-    document.getElementById('svt-mc').className = S.mode === 'board' ? 'on' : '';
-    document.getElementById('svt-mt').className = S.mode === 'table' ? 'on' : '';
+    document.getElementById('svt-mc').className = 'wk-seg-btn' + (S.mode === 'board' ? ' lvt-active' : '');
+    document.getElementById('svt-mt').className = 'wk-seg-btn' + (S.mode === 'table' ? ' lvt-active' : '');
+    // 上の本数は描くたびに数え直す（開いた時点の本数のまま残すと、絞り込みの本数と食い違う）
+    const t = document.getElementById('svt-title'); if (t) t.textContent = `${listName()}（${source().length}本）`;
   }
   function draw() { _gc = null; drawTabs(); drawEd(); drawBody(); drawToast(); }
 
@@ -289,6 +292,8 @@
 #svt-root .svt-vt.on{background:var(--surface2);color:var(--text);font-weight:700}
 #svt-root .svt-sum{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--text3)}
 #svt-root .svt-sum b{color:var(--text)}
+#svt-root .svt-row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#svt-root .svt-row2 .svt-sum{flex:1;min-width:0}
 #svt-root .svt-seg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
 #svt-root .svt-seg button{border:none;background:var(--surface);font-size:11.5px;padding:5px 10px;color:var(--text2);cursor:pointer;font-family:inherit}
 #svt-root .svt-seg button.on{background:var(--accent);color:var(--on-accent)}
@@ -368,11 +373,11 @@
     if (!root) { root = document.createElement('div'); root.id = 'svt-root'; document.body.appendChild(root); }
     if (cw) root.style.setProperty('--svt-cw', cw + 'px'); else root.style.removeProperty('--svt-cw');
     root.innerHTML = `<div class="svt-head">
-        <div class="svt-top"><h2>${esc(listName())}（${source().length}本）</h2><span class="svt-trial">試験版・何も保存しません</span>
-          <div class="svt-seg"><button id="svt-mc" onclick="wkSubviewsTrial._mode('board')">カード</button><button id="svt-mt" onclick="wkSubviewsTrial._mode('table')">テーブル</button></div>
+        <div class="svt-top"><h2 id="svt-title"></h2><span class="svt-trial">試験版・何も保存しません</span>
           <button class="svt-sm" onclick="wkSubviewsTrial.close()">閉じる</button></div>
         <div class="svt-tabs" id="svt-tabs"></div>
-        <div class="svt-sum" id="svt-sum"></div>
+        <div class="svt-row2"><div class="wk-seg hdr-lvt"><button id="svt-mc" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('board')" title="カード"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="8" y="1.5" width="4.5" height="4.5" rx="1"/><rect x="1.5" y="8" width="4.5" height="4.5" rx="1"/><rect x="8" y="8" width="4.5" height="4.5" rx="1"/></svg><span class="hdr-lbl">カード</span></button><button id="svt-mt" class="wk-seg-btn" onclick="wkSubviewsTrial._mode('table')" title="テーブル"><svg class="wk-ic" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="1.5" width="11" height="11" rx="1.5"/><path d="M1.5 5.2h11M1.5 8.8h11M5.2 5.2v7.3"/></svg><span class="hdr-lbl">テーブル</span></button></div>
+          <div class="svt-sum" id="svt-sum"></div></div>
       </div>
       <div class="svt-main"><div id="svt-ed"></div><div id="svt-body"></div></div><div id="svt-toast"></div>`;
     root.style.display = 'flex';
