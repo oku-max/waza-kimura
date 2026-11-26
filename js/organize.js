@@ -87,7 +87,7 @@ window.orgTblTogDir  = function() { orgSortAsc = !orgSortAsc; _syncOrgTblSortUI(
 // 中身は枠に入っているグループ（設定で入れ替えれば列の中身も付いてくる）。
 // 列キーは変えない。保存済みの列の並び・表示・幅（この端末・クラウド・カスタムリストごと）を
 // そのまま読めるようにするため。見出しはグループの名前（ユーザーが付けた名前。ここに直接書かない）。
-// タグ5〜10 の枠（v53.052）の列キーは tag5〜tag10。
+// タグ5〜10 の枠（v53.053）の列キーは tag5〜tag10。
 const _ORG_SLOT_COL = { tb:0, action:1, position:2, technique:3, tag5:4, tag6:5, tag7:6, tag8:7, tag9:8, tag10:9 };
 const _ORG_SLOT_KEYS = Object.keys(_ORG_SLOT_COL);
 // タグ5〜10 の列キーは、その枠を使っているときだけ列の並びに足す（足すだけ・外さない・並びは変えない）。

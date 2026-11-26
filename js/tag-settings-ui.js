@@ -67,7 +67,7 @@
     h += `<div class="ts-cap">${_t('使用中のタグ')}</div><div class="ts-card">`;
     // 行の左のつかむ所（⠿）を押したまま上下に動かすと、タグ1〜4の順番を並べ替えられる（_bindDrag）
     const grip = k => ro ? '' : `<span class="ts-grip" data-grip="${k}" title="${_t('ドラッグで並べ替え')}" aria-label="${_t('ドラッグで並べ替え')}">⠿</span>`;
-    // 最後に空きの行を1つ足す（タグ5〜10 を足す入口。最大 MAX_SLOTS。v53.052）
+    // 最後に空きの行を1つ足す（タグ5〜10 を足す入口。最大 MAX_SLOTS。v53.053）
     const rows = slots.slice();
     if (!ro && rows.length < (R().MAX_SLOTS || 4) && rows[rows.length - 1] !== null) rows.push(null);
     rows.forEach((g, k) => {
