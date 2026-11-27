@@ -151,7 +151,7 @@ const dd = await pg.evaluate(() => { const col = [...document.querySelectorAll('
   const btn = col.querySelector('.svt-card .svt-cardx .svt-sm'); const label = btn.textContent; btn.click();
   const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他').querySelector('.svt-card');
   return { label, opts: [...card.querySelectorAll('.svt-o')].map(b => b.textContent) }; });
-ck('カードの ▾ はタググループの名前（「選んだタグ」ではない）で、押すと選んだタグが並ぶ（「なし」の列のカードでも）', dd.label.startsWith(tbName) && !dd.label.includes('選んだタグ') && dd.opts.length === 3, dd);
+ck('カードの ▾ は「列の編集」（タグの名前を並べない・v53.074）で、押すと選んだタグが並ぶ（「なし」の列のカードでも）', dd.label.startsWith('列の編集') && !dd.label.includes('選んだタグ') && dd.opts.length === 3, dd);
 await pg.evaluate(() => { const card = [...document.querySelectorAll('#svt-root .svt-col')].find(c => c.dataset.name === 'その他').querySelector('.svt-card'); [...card.querySelectorAll('.svt-o')].find(b => b.textContent === 'トップ').click(); });
 ck('並んだタグを押すとそのタグが付く', JSON.stringify(await vtb(pg, 'v4')) === '["トップ"]', await vtb(pg, 'v4'));
 await pg.evaluate(() => wkGroupings._undo());

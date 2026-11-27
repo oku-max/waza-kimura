@@ -161,6 +161,24 @@ ck('行の見出し: 並べ替えた順（ボトム・スタンディング・�
 ck('どのマスも同じ高さ（カード1枚ぶん）', grid.n > 0 && grid.hs.length === 1 && grid.card > 0 && Math.abs(grid.hs[0] - grid.card - 34) <= 14, JSON.stringify(grid));
 ck('マスの中だけスクロールする・本数がマスの上に出る', grid.ov === 'auto' && grid.cnt.every(t => /^\d+本$/.test(t)), JSON.stringify(grid));
 if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/rows-pc.png' });
+// ②b カードの幅はライブラリのカードと同じ（v53.074・オーナー「カードのサイズが全然違う」）。行あり・幅を変えたとき・行なしで比べる
+const libW = async () => { await pg.evaluate(() => wkGroupings._pick('all')); await pg.waitForTimeout(500);
+  return pg.evaluate(() => { const c = document.querySelector('#cardList .card-wrap'); return c ? Math.round(c.getBoundingClientRect().width * 10) / 10 : 0; }); };
+const grpW = async (id, sel) => { await pg.evaluate(id => wkGroupings._pick(id), id); await pg.waitForTimeout(700);
+  return pg.evaluate(sel => { const ws = [...document.querySelectorAll(sel)].map(c => Math.round(c.getBoundingClientRect().width * 10) / 10); return { ws: [...new Set(ws)], probes: document.querySelectorAll('#lib-card-host > .card-list:not(#cardList)').length }; }, sel); };
+const CELLW = '#svt-root .svt-cell:not(.svt-xfold) .svt-lc .card-wrap';
+for (const [w, why] of [[1400, '1400px'], [1250, '幅を変えた後（1250px）'], [1600, '1600px']]) {
+  await pg.setViewportSize({ width: w, height: 900 }); await pg.waitForTimeout(500);
+  const L = await libW(), Gw = await grpW(e1.id, CELLW);
+  ck(`${why}: 行ありのマスのカードの幅がライブラリのカードと同じ（ライブラリ ${L}px）`, L > 100 && Gw.ws.length > 0 && Gw.ws.every(x => Math.abs(x - L) <= 1) && Gw.probes === 0, JSON.stringify({ L, Gw }));
+}
+await pg.setViewportSize({ width: 1400, height: 900 }); await pg.waitForTimeout(500);
+{ const L = await libW(); await pg.evaluate(() => { const sb = document.getElementById('libSidebar'); if (sb) { sb.style.display = ''; sb.classList.add('open'); } window.dispatchEvent(new Event('resize')); }); await pg.waitForTimeout(400);
+  const L2 = await libW(); const Gw = await grpW(e1.id, CELLW);
+  ck('サイドバーを開いて一覧の幅が変わっても、グルーピングのカードの幅はライブラリと同じ', L2 > 100 && Gw.ws.every(x => Math.abs(x - L2) <= 1), JSON.stringify({ L, L2, Gw }));
+  await pg.evaluate(() => { const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; window.dispatchEvent(new Event('resize')); }); await pg.waitForTimeout(400); }
+await pg.evaluate(id => wkGroupings._pick(id), e1.id); await pg.waitForTimeout(600);
+
 if (process.env.PROBE) console.log('PROBE', JSON.stringify(await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-clist')].filter(l => l.querySelector('.svt-lc')).map(l => { const lc = l.querySelector('.svt-lc'); const cw = lc.querySelector('.card-wrap'); const cd = lc.querySelector('.card');
   return { cl: l.clientWidth, sw: l.scrollWidth, lc: lc.offsetWidth, cw: cw && cw.offsetWidth, cd: cd && cd.offsetWidth, cdmin: cd && getComputedStyle(cd).minWidth, cwmin: cw && getComputedStyle(cw).minWidth, cwW: cw && getComputedStyle(cw).width }; }))));
 const cellOf = (c, r) => pg.evaluate(([c, r]) => { const st = wkGroupings._state(); const ci = st._grid.cols.indexOf(c), ri = st._grid.rows.indexOf(r); const k = ci + '.' + ri; return (st._grid.cells[k] || null); }, [c, r]);
@@ -183,13 +201,16 @@ ck('（取り消し）', JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]'
 // ④ カードの ▾ に行のタグも出る・押すと付く
 await pg.locator(src + ' .svt-cardx .svt-sm').first().scrollIntoViewIfNeeded(); if (process.env.SHOT) await pg.waitForTimeout(10); await pg.locator(src + ' .svt-cardx .svt-sm').first().click(); await pg.waitForTimeout(200);
 if (process.env.SHOT) await pg.locator('#svt-root .svt-multi').first().screenshot({ path: process.env.SHOT + '/rows-menu.png' }).catch(() => {});
-ck('カードの ▾ のボタンは「列の名前 ／ 行の名前」（v53.069）', await pg.evaluate(([c, r]) => [...document.querySelectorAll('#svt-root .svt-cardx .svt-sm')].some(b => b.textContent === c + ' ／ ' + r + ' ▾'), [G.tags.name, G.tb.name]));
+ck('カードの ▾ のボタンは「列と行の編集」（タグの名前を並べない・v53.074）', await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-cardx .svt-sm:not(.svt-hidebtn)')].every(b => b.textContent === '列と行の編集 ▾')));
 ck('開くと「列」「行」の見出しの下に、それぞれグループ名とタグが同じ見せ方で並ぶ', await pg.evaluate(([c, r]) => { const m = document.querySelector('#svt-root .svt-multi'); if (!m) return false; const ss = [...m.querySelectorAll('.svt-msec')];
   return ss.length === 2 && ss[0].querySelector('.svt-mh').textContent === '列' && ss[1].querySelector('.svt-mh').textContent === '行' && ss[0].querySelector('.svt-mgn').textContent === c && ss[1].querySelector('.svt-mgn').textContent === r
     && ss.every(x => x.querySelectorAll('.svt-mgc .svt-o').length > 0) && getComputedStyle(ss[0].querySelector('.svt-mgc .svt-o')).borderRadius === getComputedStyle(ss[1].querySelector('.svt-mgc .svt-o')).borderRadius; }, [G.tags.name, G.tb.name]));
 ck('▾ のメニューの一番下に「決定（閉じる）」が全部見えている（カードからはみ出さない）（v53.071）', await pg.evaluate(() => { const b = document.querySelector('#svt-root .svt-multi .svt-mdone'); const c = b && b.closest('.svt-lc'); if (!b || !c) return false; const r = b.getBoundingClientRect(), cr = c.getBoundingClientRect(); const m = b.closest('.svt-multi'); return r.width > 100 && r.left >= cr.left - 1 && r.right <= cr.right + 1 && m.lastElementChild === b && [...m.querySelectorAll('.svt-msec')].every(x => x.getBoundingClientRect().right <= cr.right + 1); }));
 ck('カードの ▾ を開くと行（タグ1）のタグも並ぶ', await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-ro')].map(b => b.textContent.replace('✓ ', '')).filter(t => ['トップ', 'ボトム', 'スタンディング'].includes(t)).length === 3));
-await pg.locator('#svt-root .svt-ro', { hasText: 'トップ' }).first().click(); await pg.waitForTimeout(200);
+const sc0 = await pg.evaluate(s => { const l = document.querySelector(s + ' .svt-clist'); l.scrollTop = 99999; const bd = document.querySelector('#svt-root .svt-board'); bd.scrollLeft = 40; return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight, left: bd.scrollLeft }; }, src);
+await pg.locator('#svt-root .svt-ro', { hasText: 'トップ' }).first().click(); await pg.waitForTimeout(250);
+const sc1 = await pg.evaluate(s => ({ top: document.querySelector(s + ' .svt-clist').scrollTop, left: document.querySelector('#svt-root .svt-board').scrollLeft }), src);
+ck('▾ でタグを押してもマスの中のスクロール位置・横の位置が変わらない（上に戻らない）（v53.074）', sc0.top > 20 && Math.abs(sc1.top - sc0.top) <= 2 && Math.abs(sc1.left - sc0.left) <= 2, JSON.stringify({ sc0, sc1 }));
 ck('行のタグを押すと付く（開いている間は同じマスのまま）', setEq(await vtb(pg, 'v1'), ['ボトム', 'トップ']) && JSON.stringify(await cellOf('ラッソー', 'ボトム')).includes('v1'), JSON.stringify(await vtb(pg, 'v1')));
 await pg.evaluate(() => wkGroupings._undo()); await pg.locator('#svt-root .svt-multi .svt-sm', { hasText: '閉じる' }).first().click().catch(() => {}); await pg.waitForTimeout(150);
 // ④b 開閉（v53.070・オーナー「列も行もヘッダーにアコーディオン。列全体・行全体・1つのマスだけを畳める」）。この端末だけ・データに書かない
@@ -278,6 +299,8 @@ await pg.setViewportSize({ width: 1400, height: 900 });
 // ⑪ 行の無いグルーピングは今までどおり（マスにしない）
 await pg.evaluate(k => { wkGroupings._new(); wkGroupings._en('列だけ'); wkGroupings._eg(k); wkGroupings._es(); }, tbKey); await pg.waitForTimeout(400);
 ck('行なしのグルーピングは今までどおりの列（マスにしない）', await pg.evaluate(() => !document.querySelector('#svt-root .svt-gridb') && document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)').length >= 3));
+{ const id2 = await pg.evaluate(() => wkGroupings.list().find(e => e.name === '列だけ').id); const L = await libW(); const Gw = await grpW(id2, '#svt-root .svt-col:not(.svt-cfold) .svt-lc .card-wrap');
+  ck('行なしのグルーピングでもカードの幅はライブラリと同じ', L > 100 && Gw.ws.length > 0 && Gw.ws.every(x => Math.abs(x - L) <= 1), JSON.stringify({ L, Gw })); }
 await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; }); await pg.locator('#svt-colhs .svt-colh .svt-fold').first().click(); await pg.waitForTimeout(250);
 ck('行なしのグルーピングでも列の ▾ で列を畳める', await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-col.svt-cfold'); return !!c && c.getBoundingClientRect().width <= 50 && !c.querySelector('.svt-lc'); }));
 

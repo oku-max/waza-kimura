@@ -397,7 +397,8 @@
     // カードの ▾（v53.069・オーナー「カードのタグ選択で、行の選択肢も列と同様に」）: 列と行を同じ見せ方で並べる。
     // 見出し「列」「行」の下に、タググループごとの名前とタグ（列が複数のタググループならグループごと）
     const rOk = !!(R && movable(R));
-    const lbl = esc(g.name) + (rOk ? ' ／ ' + esc(R.name) : '');
+    // ボタンの名前はタグの名前を並べず「列の編集」「列と行の編集」（v53.074・オーナー「いちいちタグ名を出さなくても『列と行の編集』でよくない？」）
+    const lbl = rOk ? '列と行の編集' : '列の編集';
     const chip = (gk, o, on, cls) => `<button class="svt-o${cls || ''}${on ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(gk)}','${jsq(o)}')">${on ? '✓ ' : ''}${esc(o)}</button>`;
     const grp = (name, color, chips) => `<div class="svt-mg"${color ? ` style="--gc:${color}"` : ''}><span class="svt-mgn">${color ? '<i class="svt-gdot"></i>' : ''}${esc(name)}</span><div class="svt-mgc">${chips}</div></div>`;
     let colPart = '';
@@ -429,7 +430,20 @@
   }
   document.addEventListener('pointerdown', e => { const w = e.target && e.target.closest && e.target.closest('#svt-root .svt-lc'); if (w) activate(w); }, true);
   document.addEventListener('click', e => { const w = e.target && e.target.closest && e.target.closest('#svt-root .svt-lc'); if (w) activate(w); }, true);
+  // 描き直してもスクロールの位置を変えない（v53.074・オーナー「タグを選択するたびに画面が微妙に上にスクロールする」。
+  // カードの ▾ でタグを押すたびに全体を描き直していて、マスの中のスクロール位置と横の位置が先頭に戻っていた）
   function drawBody() {
+    const el = document.getElementById('svt-body'); if (!el) return;
+    const bd0 = el.querySelector('.svt-board'); const left = bd0 ? bd0.scrollLeft : 0;
+    const tops = {}; el.querySelectorAll('.svt-cell[data-ci]').forEach(c => { const l = c.querySelector('.svt-clist'); if (l && l.scrollTop) tops[c.dataset.ci + '.' + c.dataset.ri] = l.scrollTop; });
+    const host = document.getElementById('lib-card-host'); const hostTop = host ? host.scrollTop : 0;
+    drawBody0();
+    const bd = el.querySelector('.svt-board');
+    if (bd && left) { bd.scrollLeft = left; const hs = document.getElementById('svt-colhs'); if (hs) hs.scrollLeft = bd.scrollLeft; const hb = document.getElementById('svt-hbar'); if (hb) hb.scrollLeft = bd.scrollLeft; }
+    el.querySelectorAll('.svt-cell[data-ci]').forEach(c => { const t = tops[c.dataset.ci + '.' + c.dataset.ri]; if (t) { const l = c.querySelector('.svt-clist'); if (l) l.scrollTop = t; } });
+    if (host && host.scrollTop !== hostTop) host.scrollTop = hostTop;
+  }
+  function drawBody0() {
     const el = document.getElementById('svt-body'); if (!el) return;
     const V = VW(); const g = V.gb ? GR(V.gb) : null;
     if (!g) { el.innerHTML = ''; return; }
@@ -520,7 +534,7 @@
       return `<div class="svt-cell${span ? ' svt-cspan' : ''}${a.length ? '' : ' svt-cempty'}" data-ci="${ci}" data-ri="${ri}" style="height:${span ? spanH : 'var(--svt-cellh)'}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
         <div class="svt-ccnt">${span ? '' : fbtn(false, `'x',${ci},${ri}`, 'このマス')}<span>${span ? (c.hid ? '' : '行で分けない') : esc(nm(rows[ri]))}</span><b>${a.length}本</b></div>
         <div class="svt-clist"><div class="svt-cards">${a.slice(0, n).map(vid => { const cn = seenN.get(vid) || 0; seenN.set(vid, cn + 1); return card(byId.get(vid), g, c.key, cn, id); }).join('')}</div>${a.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${id}')">さらに ${a.length - n} 本</button>` : ''}</div></div>`; };
-    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in"><div class="svt-rsp"><span>行 <b>${esc(R.name)}</b></span></div>${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
+    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in svt-gridh"><div class="svt-rsp"><span>行 <b>${esc(R.name)}</b></span></div>${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
       `<div class="svt-board svt-gridb" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` +
       `<div class="svt-rlab">${rows.map((r, ri) => `<div class="svt-rh${r === NONE ? ' none' : ''}${rShrink(ri) ? ' svt-rfold' : ''}" style="height:${rH(ri)}"><span class="svt-rht">${fbtn(rFold(ri), `'r',${ri}`, 'この行')}<b>${esc(nm(r))}</b></span><span class="n">${rowN(ri)}本</span></div>`).join('')}</div>` +
@@ -533,6 +547,7 @@
   // 上に残す位置: ライブラリの上の帯（#lib-results-header・同じスクロールの中で上に残る）の下、その下にグルーピングの並び、その下に列の見出し
   function stickTops() {
     const root = document.getElementById('svt-root'); if (!root) return;
+    if (!root.classList.contains('svt-tbl')) { const cw0 = libCardW(); if (cw0 && root.style.getPropertyValue('--svt-cw') !== cw0 + 'px') root.style.setProperty('--svt-cw', cw0 + 'px'); }
     const lh = document.getElementById('lib-results-header'); const host = document.getElementById('lib-card-host');
     const top = lh && host && host.contains(lh) && getComputedStyle(lh).position === 'sticky' ? lh.offsetHeight : 0;
     const head = root.querySelector('.svt-head');
@@ -541,6 +556,10 @@
     const bd = root.querySelector('.svt-board'), hs = document.getElementById('svt-colhs'); if (bd && hs) hs.scrollLeft = bd.scrollLeft;
     const hb = document.getElementById('svt-hbar'), hi = document.getElementById('svt-hbar-in');
     if (bd && bd.classList.contains('svt-gridb')) {
+      // マスの中のスクロールバーの幅（OS で違う）。列の幅に足して、カードの幅をライブラリと同じにする
+      const cl = bd.querySelector('.svt-cell:not(.svt-xfold) .svt-clist');
+      const sb = cl ? Math.max(0, cl.offsetWidth - cl.clientWidth) : 0;
+      if (root.style.getPropertyValue('--svt-sb') !== sb + 'px') root.style.setProperty('--svt-sb', sb + 'px');
       // マスの高さ＝カード cellH 枚ぶん。カードの高さは実物を測る（列の幅で変わる）
       const hs2 = [...bd.querySelectorAll('.svt-lc')].slice(0, 12).map(x => x.offsetHeight).filter(h => h > 60).sort((a, b) => a - b);
       const ch = hs2.length ? hs2[Math.floor(hs2.length / 2)] : (S._cardH || 380); S._cardH = ch;
@@ -880,7 +899,9 @@
 #svt-root .svt-colhs .svt-colhs-in{gap:10px}
 #svt-root .svt-gridb .svt-gstart{margin-left:12px}
 #svt-root .svt-cell.svt-cspan{max-height:var(--svt-cellmax,none)}
-#svt-root .svt-clist{overflow-x:hidden}
+#svt-root .svt-clist{overflow-x:hidden;scrollbar-gutter:stable}
+#svt-root .svt-gridb .svt-gcol,#svt-root .svt-gridh .svt-colh:not(.svt-addh){flex-basis:calc(var(--svt-cw,250px) + 14px + var(--svt-sb,0px))}
+@media (max-width:560px){#svt-root .svt-gridb .svt-gcol,#svt-root .svt-gridh .svt-colh:not(.svt-addh){flex-basis:min(82%,calc(var(--svt-cw,250px) + 14px + var(--svt-sb,0px)))}}
 #svt-root .svt-cell .svt-lc,#svt-root .svt-cell .card-wrap,#svt-root .svt-cell .card{min-width:0;max-width:100%;box-sizing:border-box}
 #svt-root .svt-cardx{min-width:0}
 #svt-root .svt-cardx .svt-sm:not(.svt-hidebtn){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -940,14 +961,21 @@
     document.head.appendChild(st);
   }
 
+  // ライブラリのカード1枚の幅（v53.074・オーナー「カードのサイズが全然違う」）。
+  // ライブラリの一覧は .card-list の格子（PC 4列・タブレット 3列）で、幅はサイドバーの開閉・画面の幅で変わる。
+  // 以前は付けたときに1回だけ、しかも「#lib-card-host の中の最初の .card-wrap」を測っていたので、
+  // 一覧が隠れているとグルーピング自身のカードを測ったり、その後の幅の変化を拾えなかった。
+  // いまは描くたびに、一覧と同じクラスの見えない並び（高さ0）を一覧のすぐ前に置き、そこの1枚目の幅を測る＝ライブラリと同じ CSS で決まる幅
   function libCardW() {
-    const el = document.querySelector('#lib-card-host .card-wrap');
-    const w = el && el.offsetWidth;
-    if (w && w >= 160) return w;
-    const host = document.getElementById('lib-card-host'); const hw = (host && host.offsetWidth) || window.innerWidth;
-    if (window.innerWidth >= 1200) return Math.max(180, Math.floor((hw - 40 - 24) / 4));
-    if (window.innerWidth >= 768) return Math.max(180, Math.floor((hw - 32 - 16) / 3));
-    return 0;
+    const host = document.getElementById('lib-card-host'), list = document.getElementById('cardList');
+    if (!host || !list || !list.parentElement) return 0;
+    const pr = document.createElement('div'); pr.className = list.className || 'card-list'; pr.setAttribute('aria-hidden', 'true');
+    pr.style.cssText = 'visibility:hidden;height:0;min-height:0;padding-top:0;padding-bottom:0;margin:0;overflow:hidden;pointer-events:none';
+    pr.innerHTML = '<div class="card-wrap"></div><div class="card-wrap"></div>';
+    list.parentElement.insertBefore(pr, list);
+    const w = pr.firstElementChild.getBoundingClientRect().width / (((window.wkZoomK && window.wkZoomK()) || 1));
+    pr.remove();
+    return w >= 120 ? Math.round(w * 100) / 100 : 0;
   }
   let _obs = null, _redrawT = null;
   const isOpen = () => !!document.getElementById('svt-root');
