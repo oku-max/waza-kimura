@@ -363,8 +363,7 @@ export function clearOrgFilters() {
 
 // (空白) 対応フィルターマッチ
 function _matchFilt(filterSet, values) {
-  if (!filterSet.size) return true;
-  return values.length ? values.some(v => filterSet.has(v)) : filterSet.has('(空白)');
+  return window.wkSetHit(filterSet, values);   // 除外（v53.063）も同じ決まりで見る
 }
 
 // ── 検索演算子パーサー ──
@@ -592,7 +591,7 @@ export function orgFilt(list) {
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (orgMemoOnly    && !v.memo) return false;
     if (orgImgOnly     && !(v.snapshots && v.snapshots.length > 0)) return false;
-    if (orgFilters.platform.size && !orgFilters.platform.has(v.pt)) return false;
+    if (!window.wkSetHit(orgFilters.platform, v.pt)) return false;
     // ── 検索演算子 (-除外 / "完全一致" / field:値 / フレーズ) ──
     if (!_matchQuery(v, parsed, advFields)) return false;
     // ── アドバンスドサーチ追加条件 ──

@@ -380,8 +380,8 @@
   const videoFiltersOn = () => ['platform', 'channel', 'playlist'].some(k => F[k].size) || (TF() ? TF().hasAny(F, 'lib') : false);
   function videoPass() {   // 元の動画の絞り込み（フィルターの窓と同じ判定）
     const tagOk = TF() ? TF().compile(F, 'lib') : () => true;
-    return v => !!v && (!F.platform.size || F.platform.has(v.pt || v.src || 'youtube')) && (!F.channel.size || F.channel.has(v.channel || v.ch))
-      && (!F.playlist.size || F.playlist.has(v.pl)) && tagOk(v);
+    return v => !!v && window.wkSetHit(F.platform, v.pt || v.src || 'youtube') && window.wkSetHit(F.channel, v.channel || v.ch)
+      && window.wkSetHit(F.playlist, v.pl) && tagOk(v);
   }
   const stateOk = d => { const last = lastDone(d);
     return (!ST.never || last == null) && (!ST.week || last == null || Date.now() - last >= 7 * 86400000) && (!ST.mir || d.mir); };

@@ -1,0 +1,297 @@
+<title>フィルターの除外 4案</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap">
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  中身は固定の見本データ。触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+/* レイアウト: 上に案のタブと操作の説明、その下に本物と同じ並びのフィルターの窓（列は窓の中で横スクロール）、最後に良い点・気になる点 */
+:root{
+  --bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e4;
+  --accent:#8a5a00;--accent-soft:#fbf1d6;--on-accent:#fff;
+  --ex:#b3261e;--ex-soft:#fbe9e7;
+  --text:#16161a;--text2:#55555c;--text3:#74747c;--border:#dedfd8;
+  --font:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1b1b1f;--surface:#28282d;--surface2:#313138;--surface3:#3c3c44;
+  --accent:#e9c46a;--accent-soft:#3b3424;--on-accent:#1b1b1f;
+  --ex:#ff8a80;--ex-soft:#45282a;
+  --text:#ececf0;--text2:#b4b4bd;--text3:#9494a0;--border:#45454e;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1b1b1f;--surface:#28282d;--surface2:#313138;--surface3:#3c3c44;
+  --accent:#e9c46a;--accent-soft:#3b3424;--on-accent:#1b1b1f;
+  --ex:#ff8a80;--ex-soft:#45282a;
+  --text:#ececf0;--text2:#b4b4bd;--text3:#9494a0;--border:#45454e;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text)}
+body{margin:0;font-family:var(--font);font-size:13px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+button,select{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+h1{font-size:19px;margin:0;font-weight:700;text-wrap:balance}
+.lead{margin:0;color:var(--text2);max-width:65ch}
+.note{font-size:11.5px;color:var(--text3);margin:0}
+
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (max-width:640px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tab{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);text-align:left;font-size:11px;color:var(--text2);line-height:1.45}
+.tab b{display:block;font-size:13px;color:var(--text)}
+.tab.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+
+.how{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text2)}
+.how b{color:var(--text)}
+.how ol{margin:4px 0 0;padding-left:20px}
+
+/* フィルターの窓（本物と同じ並び） */
+.win{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.cols{display:flex;overflow-x:auto;height:400px;border-bottom:1px solid var(--border)}
+.col{flex:1 0 180px;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.col.vid{flex:1.3 0 220px;border-right:none;background:var(--surface2)}
+.col-hdr{padding:8px 12px 7px;font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.04em;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px}
+.col-body{flex:1;overflow-y:auto;padding:2px 0}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;letter-spacing:0}
+.seg button{border:none;background:var(--surface);font-size:10px;padding:3px 7px;color:var(--text2);white-space:nowrap}
+.seg button.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.seg button.on.x{background:var(--ex);color:var(--surface)}
+
+.row{display:flex;align-items:stretch;border-left:3px solid transparent}
+.row:hover{background:var(--surface2)}
+.row-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;justify-content:space-between;border:none;background:none;padding:7px 12px;font-size:12.5px;text-align:left;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.row-name{min-width:0;overflow-wrap:anywhere}
+.cnt{min-width:24px;height:20px;padding:0 8px;border-radius:10px;background:var(--surface3);color:var(--text2);font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;flex-shrink:0}
+.row.on{background:var(--accent-soft);border-left-color:var(--accent)}
+.row.on .row-main{color:var(--accent);font-weight:700}
+.row.on .cnt{background:var(--accent);color:var(--on-accent)}
+.row.ex{background:var(--ex-soft);border-left-color:var(--ex)}
+.row.ex .row-name{color:var(--ex);text-decoration:line-through;font-weight:700}
+.row.ex .cnt{background:var(--ex);color:var(--surface)}
+.tagx{font-size:9.5px;font-weight:700;color:var(--ex);border:1px solid var(--ex);border-radius:4px;padding:0 4px;margin-left:6px;text-decoration:none;display:inline-block;white-space:nowrap}
+.exbtn{border:none;background:none;padding:0 10px 0 2px;color:var(--text3);font-size:11px;display:flex;align-items:center;gap:3px;white-space:nowrap}
+.exbtn span{border:1px solid var(--border);border-radius:5px;padding:1px 6px;background:var(--surface)}
+.exbtn:hover span{border-color:var(--ex);color:var(--ex)}
+.row.ex .exbtn span{background:var(--ex);border-color:var(--ex);color:var(--surface);font-weight:700}
+.chk{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--text3);display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:var(--on-accent)}
+.chk.on{background:var(--accent);border-color:var(--accent)}
+.row-left{display:flex;align-items:center;gap:8px;min-width:0}
+
+.vhead{padding:8px 12px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);text-align:center}
+.vrow{padding:7px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column}
+.vrow b{font-size:12px;overflow-wrap:anywhere}
+.vrow small{color:var(--text3);font-size:10.5px}
+.vempty{padding:24px 12px;text-align:center;color:var(--text3)}
+
+.ftr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;background:var(--surface2)}
+.ftr-l{font-size:11px;color:var(--text3)}
+.pills{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
+.pill{border:none;border-radius:10px;padding:2px 9px;font-size:10.5px;font-weight:700;background:var(--accent);color:var(--on-accent)}
+.pill.x{background:var(--ex);color:var(--surface)}
+.pill::after{content:" ×";opacity:.7}
+.hit{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.reset{border:1px solid var(--ex);color:var(--ex);background:var(--surface);border-radius:7px;padding:4px 12px;font-size:11.5px;font-weight:700}
+
+.pc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.pc{grid-template-columns:1fr}}
+.pc > div{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:0}
+.pc h2{font-size:11px;margin:0 0 4px;color:var(--text3);letter-spacing:.04em}
+.pc ul{margin:0;padding-left:18px;color:var(--text2)}
+.rule{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text2)}
+.rule h2{font-size:12.5px;margin:0 0 4px;color:var(--text)}
+.rule ul{margin:0;padding-left:18px}
+</style>
+
+<div class="wrap">
+  <h1>フィルターの窓で「これ以外」を選ぶ 4案</h1>
+  <p class="lead">案を切り替えて、下の窓を実際に押してみてください。見本の動画は48本で、本物のデータには触りません。</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="how" id="how"></div>
+
+  <div class="win">
+    <div class="cols" id="cols"></div>
+    <div class="ftr">
+      <span class="ftr-l">選択中:</span>
+      <div class="pills" id="pills"></div>
+      <button class="reset" id="reset">リセット</button>
+      <span class="hit" id="hit"></span>
+    </div>
+  </div>
+
+  <div class="pc" id="pc"></div>
+
+  <div class="rule">
+    <h2>どの案でも同じ決まり</h2>
+    <ul>
+      <li>同じ列で「選ぶ」を複数押すと、どれかに当たる動画が出ます。列と列は今までどおり「両方を満たす」です。</li>
+      <li>「除外」にした値が付いている動画は出ません。タグが2つ付いた動画（トップとボトムの両方など）は、片方でも除外に当たれば消えます。</li>
+      <li>「選ぶ」と「除外」は同じ列で一緒に使えます（ハーフガードを選び、ロックダウンは除外、のように）。</li>
+      <li>下の「選択中」では、除外は赤で「− 名前」と出ます。押すと外れます。</li>
+    </ul>
+  </div>
+  <p class="note">行の右の数字は、ほかの列の条件を掛けた後に、その値が付いている動画の本数です。</p>
+</div>
+
+<script>
+(function () {
+  // ── 見本データ（固定）──
+  const CH = ['BIG OSS Jiu-Jitsu Channel', 'ミレーナ・カオリ', '橋本知之', 'Mikey Musumeci', '新・柔術日記Channel', '浅草BOYS'];
+  const TB = ['トップ', 'ボトム', 'パスガード'];
+  const POS = ['ラッソー', 'デラヒーバ', 'ハーフガード', 'スパイダー', 'クローズドガード', 'Xガード'];
+  const NAMES = ['基本の形', 'スイープ', 'パスの入り', 'リテンション', 'グリップの切り方', 'カウンター', 'バックテイク', 'ドリル'];
+  const videos = [];
+  for (let i = 0; i < 48; i++) {
+    const tb = [TB[i % 5 === 4 ? 2 : (i % 3 === 0 ? 0 : 1)]];
+    if (i % 11 === 0) tb.push(tb[0] === 'トップ' ? 'ボトム' : 'トップ');   // 2つ付いた動画も混ぜる
+    const pos = i % 7 === 6 ? [] : [POS[(i * 5 + (i >> 2)) % POS.length]];
+    videos.push({ id: i, title: (pos[0] || 'フリー') + ' ' + NAMES[i % NAMES.length] + ' ' + (1 + (i % 4)), ch: CH[(i * 3 + (i >> 3)) % CH.length], tb, pos });
+  }
+  const GROUPS = [
+    { id: 'tb', name: 'TOP/BOTTOM', vals: TB, of: v => v.tb },
+    { id: 'pos', name: 'Position', vals: POS, of: v => v.pos },
+    { id: 'ch', name: 'Channel', vals: CH, of: v => [v.ch] },
+  ];
+
+  // ── 案 ──
+  const VARIANTS = [
+    { id: 'A', name: 'A　行の右に「除外」', sub: '押す場所で分ける',
+      how: '<b>行を押す</b>と今までどおり「選ぶ」。<b>行の右の「除外」</b>を押すと、その値が付いた動画を外します。もう一度押すと戻ります。',
+      pros: ['今までの操作（行を押す）が1つも変わらない', '「除外」という文字が見えているので、探さなくても気づける', 'スマホでも同じ操作'],
+      cons: ['全部の行に小さなボタンが増える（列の幅を少し使う）', '行が細いので、スマホでは押し間違えないよう間隔が要る'] },
+    { id: 'B', name: 'B　押すたびに切り替え', sub: '選ぶ → 除外 → なし',
+      how: '行を押すたびに <b>選ぶ → 除外 → なし</b> と回ります。1回押すと今までと同じ「選ぶ」、もう1回押すと「除外」です。',
+      pros: ['画面に何も増えない', '指1本・クリック1つで全部できる'],
+      cons: ['今まで「2回押す＝外す」だったのが「2回押す＝除外」に変わる。外すつもりが除外になる', '除外したいだけのとき、毎回「選ぶ」を1度通る（一瞬、絞り込みが変わる）'] },
+    { id: 'C', name: 'C　列ごとに切り替え', sub: '「だけ」と「以外」',
+      how: '列の見出しで <b>「だけ」</b>と<b>「以外」</b>を切り替えます。「以外」にすると全部にチェックが付いた状態になり、<b>外したいものを押してチェックを外します</b>。',
+      pros: ['「全選択から1つ2つ外す」という言い方にそのまま合う', '行の見た目・押し方は1種類のまま'],
+      cons: ['1つの列で「選ぶ」と「除外」を一緒には使えない（列ごとにどちらか）', '見出しに切り替えが増える。切り替えたことを忘れると結果が逆に見える'] },
+    { id: 'D', name: 'D　長押し・右クリック', sub: '見た目はそのまま',
+      how: '行を押すと今までどおり「選ぶ」。<b>長押し（スマホ）</b>か<b>右クリック（PC。Alt を押しながらクリックでも）</b>で「除外」になります。',
+      pros: ['画面に何も増えない', '今までの操作が1つも変わらない'],
+      cons: ['知らないと見つけられない（どこかに一言の案内が要る）', '長押しはスクロールと取り違えやすく、反応まで少し待つ'] },
+  ];
+
+  let variant = 'A';
+  let st;   // { inc:{gid:Set}, exc:{gid:Set}, mode:{gid:'only'|'except'} }
+  const fresh = () => ({ inc: { tb: new Set(), pos: new Set(), ch: new Set() }, exc: { tb: new Set(), pos: new Set(), ch: new Set() }, mode: { tb: 'only', pos: 'only', ch: 'only' } });
+  st = fresh();
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // 列1つの判定: 選んだものがあればどれかに当たる・除外に当たれば落とす
+  function passGroup(v, g) {
+    const vals = g.of(v), inc = st.inc[g.id], exc = st.exc[g.id];
+    if (vals.some(x => exc.has(x))) return false;
+    if (inc.size && !vals.some(x => inc.has(x))) return false;
+    return true;
+  }
+  const shown = except => videos.filter(v => GROUPS.every(g => g.id === except || passGroup(v, g)));
+
+  // ── 操作 ──
+  function toggleInc(gid, val) { const i = st.inc[gid], e = st.exc[gid]; if (e.has(val)) { e.delete(val); return; } i.has(val) ? i.delete(val) : i.add(val); }
+  function toggleExc(gid, val) { const i = st.inc[gid], e = st.exc[gid]; i.delete(val); e.has(val) ? e.delete(val) : e.add(val); }
+  function cycle(gid, val) { const i = st.inc[gid], e = st.exc[gid]; if (i.has(val)) { i.delete(val); e.add(val); } else if (e.has(val)) e.delete(val); else i.add(val); }
+  function setMode(gid, m) { if (st.mode[gid] === m) return; st.mode[gid] = m; st.inc[gid].clear(); st.exc[gid].clear(); }
+
+  // ── 描画 ──
+  function rowHtml(g, val, cnt) {
+    const on = st.inc[g.id].has(val), ex = st.exc[g.id].has(val);
+    const k = `data-g="${g.id}" data-v="${esc(val)}"`;
+    const cls = 'row' + (on ? ' on' : '') + (ex ? ' ex' : '');
+    const badge = ex ? '<span class="tagx">除外</span>' : '';
+    if (variant === 'C') {
+      const except = st.mode[g.id] === 'except';
+      const checked = except ? !ex : on;
+      return `<div class="${cls}"><button class="row-main" data-act="c" ${k} aria-pressed="${checked}">` +
+        `<span class="row-left"><span class="chk${checked ? ' on' : ''}">${checked ? '✓' : ''}</span><span class="row-name">${esc(val)}</span></span><span class="cnt">${cnt}</span></button></div>`;
+    }
+    const act = variant === 'B' ? 'cycle' : variant === 'D' ? 'gesture' : 'inc';
+    return `<div class="${cls}"><button class="row-main" data-act="${act}" ${k}>` +
+      `<span class="row-name">${esc(val)}${variant === 'A' ? '' : badge}</span><span class="cnt">${cnt}</span></button>` +
+      (variant === 'A' ? `<button class="exbtn" data-act="exc" ${k} aria-pressed="${ex}" aria-label="${esc(val)} を除外"><span>${ex ? '除外中' : '除外'}</span></button>` : '') +
+      `</div>`;
+  }
+  function render() {
+    document.getElementById('tabs').innerHTML = VARIANTS.map(v =>
+      `<button class="tab${v.id === variant ? ' on' : ''}" data-variant="${v.id}"><b>${v.name}</b>${v.sub}</button>`).join('');
+    const V = VARIANTS.find(v => v.id === variant);
+    document.getElementById('how').innerHTML = V.how;
+    document.getElementById('pc').innerHTML =
+      `<div><h2>良い点</h2><ul>${V.pros.map(p => `<li>${p}</li>`).join('')}</ul></div>` +
+      `<div><h2>気になる点</h2><ul>${V.cons.map(p => `<li>${p}</li>`).join('')}</ul></div>`;
+
+    const cols = document.getElementById('cols');
+    const scrolls = [...cols.querySelectorAll('.col-body')].map(e => e.scrollTop), sx = cols.scrollLeft;
+    const list = shown(null);
+    cols.innerHTML = GROUPS.map(g => {
+      const ctx = shown(g.id);
+      const seg = variant !== 'C' ? '' :
+        `<span class="seg"><button data-mode="only" data-g="${g.id}" class="${st.mode[g.id] === 'only' ? 'on' : ''}">だけ</button>` +
+        `<button data-mode="except" data-g="${g.id}" class="${st.mode[g.id] === 'except' ? 'on x' : ''}">以外</button></span>`;
+      return `<div class="col"><div class="col-hdr"><span>${g.name}</span>${seg}</div><div class="col-body">` +
+        g.vals.map(val => rowHtml(g, val, ctx.filter(v => g.of(v).includes(val)).length)).join('') + `</div></div>`;
+    }).join('') +
+      `<div class="col vid"><div class="col-hdr"><span>該当動画</span></div><div class="col-body">` +
+      `<div class="vhead">全${list.length}件</div>` +
+      (list.length ? list.map(v => `<div class="vrow"><b>${esc(v.title)}</b><small>${esc(v.ch)}　${esc(v.tb.join('・'))}${v.pos.length ? '　' + esc(v.pos[0]) : ''}</small></div>`).join('')
+        : '<div class="vempty">当てはまる動画がありません</div>') + `</div></div>`;
+    cols.scrollLeft = sx;
+    cols.querySelectorAll('.col-body').forEach((e, i) => { if (scrolls[i]) e.scrollTop = scrolls[i]; });
+
+    const pills = [];
+    GROUPS.forEach(g => {
+      st.inc[g.id].forEach(v => pills.push(`<button class="pill" data-pill="inc" data-g="${g.id}" data-v="${esc(v)}">${esc(v)}</button>`));
+      st.exc[g.id].forEach(v => pills.push(`<button class="pill x" data-pill="exc" data-g="${g.id}" data-v="${esc(v)}">− ${esc(v)}</button>`));
+    });
+    document.getElementById('pills').innerHTML = pills.join('') || '<span class="ftr-l">なし</span>';
+    document.getElementById('hit').textContent = list.length + ' 件';
+  }
+
+  // ── 入力 ──
+  let lp = null, lpFired = false;
+  const colsEl = document.getElementById('cols');
+  colsEl.addEventListener('click', e => {
+    const m = e.target.closest('[data-mode]');
+    if (m) { setMode(m.dataset.g, m.dataset.mode); return render(); }
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const g = b.dataset.g, v = b.dataset.v, a = b.dataset.act;
+    if (a === 'inc') toggleInc(g, v);
+    else if (a === 'exc') toggleExc(g, v);
+    else if (a === 'cycle') cycle(g, v);
+    else if (a === 'c') { st.mode[g] === 'except' ? toggleExc(g, v) : toggleInc(g, v); }
+    else if (a === 'gesture') {
+      if (lpFired) { lpFired = false; return; }       // 長押しで除外した直後のクリックは捨てる
+      e.altKey ? toggleExc(g, v) : toggleInc(g, v);
+    }
+    render();
+  });
+  colsEl.addEventListener('contextmenu', e => {
+    const b = e.target.closest('[data-act="gesture"]'); if (!b) return;
+    e.preventDefault();
+    if (lpFired) return;                              // 長押しがもう除外にした
+    toggleExc(b.dataset.g, b.dataset.v); render();
+  });
+  colsEl.addEventListener('pointerdown', e => {
+    const b = e.target.closest('[data-act="gesture"]'); if (!b || e.pointerType === 'mouse') return;
+    lpFired = false;
+    const g = b.dataset.g, v = b.dataset.v, x = e.clientX, y = e.clientY;
+    clearTimeout(lp && lp.t);
+    lp = { x, y, t: setTimeout(() => { lpFired = true; toggleExc(g, v); render(); }, 480) };
+  });
+  const lpStop = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
+  colsEl.addEventListener('pointermove', e => { if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) lpStop(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => colsEl.addEventListener(n, lpStop));
+  colsEl.addEventListener('scroll', lpStop, true);
+
+  document.getElementById('pills').addEventListener('click', e => {
+    const p = e.target.closest('[data-pill]'); if (!p) return;
+    st[p.dataset.pill][p.dataset.g].delete(p.dataset.v); render();
+  });
+  document.getElementById('reset').addEventListener('click', () => { st = fresh(); render(); });
+  document.getElementById('tabs').addEventListener('click', e => {
+    const t = e.target.closest('[data-variant]'); if (!t) return;
+    variant = t.dataset.variant; st = fresh(); render();
+  });
+  render();
+})();
+</script>

@@ -272,12 +272,12 @@ function _libConds(parsed, tagOk) {
     { name: 'メモがあるものだけ',      ok: v => !(window.memoOnly && !v.memo) },
     { name: '画像があるものだけ',      ok: v => !(window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) },
     // 「進捗ランク」「練習した時期」（古い練習回数の絞り込み）は v52.890 で廃止。保存済みの状態が残っていても効かせない
-    { name: 'ソース（YouTube/Drive等）', ok: v => !(F().platform.size && !F().platform.has(v.pt)) },
+    { name: 'ソース（YouTube/Drive等）', ok: v => window.wkSetHit(F().platform, v.pt) },
     { name: 'ワード検索',              ok: v => _matchQuery(v, parsed, null) },
-    { name: 'プレイリスト',            ok: v => !(F().playlist.size && !F().playlist.has(v.pl)) },
+    { name: 'プレイリスト',            ok: v => window.wkSetHit(F().playlist, v.pl) },
     { name: '優先度',                  ok: v => !(F().prio.size && !F().prio.has(v.prio)) },
     { name: 'タグ',                    ok: v => tagOk(v) },
-    { name: 'チャンネル',              ok: v => !(F().channel.size && !F().channel.has(v.channel || v.ch)) },
+    { name: 'チャンネル',              ok: v => window.wkSetHit(F().channel, v.channel || v.ch) },
     { name: '動画の指定',              ok: v => !(F().videoIds?.size && !F().videoIds.has(v.id)) },
     { name: '絞り込み画面の検索', ok: v => {
         if (!window._uniVideoQ) return true;
@@ -356,11 +356,11 @@ export function countContextual(key, val, ctx = 'lib') {
     if (window.imgOnly     && !(v.snapshots && v.snapshots.length > 0)) return false;
     if (!_matchQuery(v, parsed, null)) return false;
     // key以外のフィルターを適用
-    if (key !== 'platform' && f.platform?.size && !f.platform.has(v.pt))                      return false;
-    if (key !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                      return false;
+    if (key !== 'platform' && !window.wkSetHit(f.platform, v.pt))                      return false;
+    if (key !== 'playlist' && !window.wkSetHit(f.playlist, v.pl))                      return false;
     if (key !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                        return false;
     if (!_tagOk(v)) return false;
-    if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
+    if (key !== 'channel'  && !window.wkSetHit(f.channel, v.channel || v.ch))           return false;
     // このvalが該当するか
     return has(v);
   }).length;

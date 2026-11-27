@@ -3057,8 +3057,8 @@ function _filterVidList(filter) {
   filter = _vlNorm(filter);
   const f = _vlGetFilterFields(filter);
   let vs = (window.videos || []).filter(v => !v.archived);
-  if (f.pl.length)       vs = vs.filter(v => f.pl.includes(v.pl));
-  if (f.channel.length)  vs = vs.filter(v => f.channel.includes(v.channel || v.ch));
+  if (f.pl.length)       vs = vs.filter(v => window.wkSetHit(f.pl, v.pl));
+  if (f.channel.length)  vs = vs.filter(v => window.wkSetHit(f.channel, v.channel || v.ch));
   const TF = window.tagFilter;
   if (_vlIsAnyTag(filter)) {
     const want = new Set(f.tags);
@@ -3075,7 +3075,7 @@ function _filterVidList(filter) {
     if (f.tags.length) vs = vs.filter(v => f.tags.some(t => (v.tags || []).includes(t)));
   }
   if (f.prio.length)     vs = vs.filter(v => f.prio.includes(v.prio));
-  if (f.platform.length) vs = vs.filter(v => f.platform.includes(v.pt || v.platform));
+  if (f.platform.length) vs = vs.filter(v => window.wkSetHit(f.platform, v.pt || v.platform));
   // 未視聴 = 視聴済みでないもの（以前は存在しない v.unw を見ていて、未視聴の条件で0本になっていた）
   if (f.unwOnly)         vs = vs.filter(v => !v.watched);
   if (f.watchedOnly)     vs = vs.filter(v => v.watched);

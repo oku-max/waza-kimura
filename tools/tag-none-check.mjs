@@ -152,12 +152,13 @@ await A.evaluate(() => window.uniClose()); await A.waitForTimeout(1000);
 const top = live0.filter(v => (v.tb || []).includes('トップ')).map(v => v.id);
 ck('「タグなし」＋「トップ」＝どちらかに当たる動画', same(await shownIds(), noTb.concat(top)), J(await shownIds()));
 await A.evaluate(() => window.uniOpen('tag', 'lib')); await A.waitForTimeout(500);
-await clickRow('tbNew', 'トップ'); await A.waitForTimeout(400);
+await clickRow('tbNew', 'トップ'); await A.waitForTimeout(400); await clickRow('tbNew', 'トップ'); await A.waitForTimeout(400);   // 選ぶ → 除外 → なし
 await clickRow('cat', NONE); await A.waitForTimeout(500);
 await A.evaluate(() => window.uniClose()); await A.waitForTimeout(1000);
 ck('タグ1のタグなし × タグ2のタグなし＝両方とも無い動画', same(await shownIds(), both), J(await shownIds()));
 await A.evaluate(() => window.uniOpen('tag', 'lib')); await A.waitForTimeout(500);
-await clickRow('tbNew', NONE); await A.waitForTimeout(400); await clickRow('cat', NONE); await A.waitForTimeout(500);
+// v53.063 から 選ぶ → 除外 → なし。外すにはもう2回押す
+for (const k of ['tbNew', 'tbNew', 'cat', 'cat']) { await clickRow(k, NONE); await A.waitForTimeout(400); }
 await A.evaluate(() => window.uniClose()); await A.waitForTimeout(1000);
 ck('外すと全部に戻る', same(await shownIds(), live0.map(v => v.id)), J(await shownIds()));
 

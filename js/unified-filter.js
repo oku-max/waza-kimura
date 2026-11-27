@@ -120,9 +120,9 @@
       if (excludeKey !== 'bm'  && bm  && !(v.bm || (v.bookmarks && v.bookmarks.length))) return false;
       if (excludeKey !== 'memo'&& memo&& !(v.memo && String(v.memo).trim())) return false;
       if (excludeKey !== 'img' && img && !(v.img || (v.images && v.images.length) || (v.snapshots && v.snapshots.length))) return false;
-      if (excludeKey !== 'platform' && f.platform?.size && !f.platform.has(v.pt || v.src || 'youtube')) return false;
-      if (excludeKey !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
-      if (excludeKey !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                       return false;
+      if (excludeKey !== 'platform' && !window.wkSetHit(f.platform, v.pt || v.src || 'youtube')) return false;
+      if (excludeKey !== 'channel'  && !window.wkSetHit(f.channel, v.channel || v.ch))           return false;
+      if (excludeKey !== 'playlist' && !window.wkSetHit(f.playlist, v.pl))                       return false;
       if (excludeKey !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                         return false;
       if (!_tagOk(v)) return false;
       if (excludeKey !== 'videoIds' && f.videoIds?.size   && !f.videoIds.has(v.id)) return false;
@@ -162,6 +162,11 @@
 #uni-popup .uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
 #uni-popup .uni-row .uni-cnt{min-width:22px;height:20px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
 #uni-popup .uni-row.on .uni-cnt{background:var(--accent);color:var(--on-accent)}
+#uni-popup .uni-row.ex{background:rgba(229,72,77,.14);border-left-color:#e5484d;color:#e5484d;font-weight:700}
+#uni-popup .uni-row.ex .uni-nm{text-decoration:line-through}
+#uni-popup .uni-row.ex .uni-cnt{background:#e5484d;color:#fff}
+#uni-popup .uni-exb{font-size:9px;font-weight:700;color:#e5484d;border:1px solid #e5484d;border-radius:4px;padding:0 4px;margin-left:6px;margin-right:auto;white-space:nowrap}
+#uni-popup .uni-pill.ex{background:#e5484d;color:#fff}
 #uni-popup .uni-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap;flex-shrink:0}
 #uni-popup .uni-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
 #uni-popup .uni-pill{background:var(--accent);color:var(--on-accent);padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
@@ -292,7 +297,8 @@
     let arr = items.slice();
     if (_q) arr = arr.filter(r => (r.label || r.name).toLowerCase().includes(_q));
     // ゼロ件は非表示。選択中は残す
-    arr = arr.filter(r => r.sel || r.cnt > 0);
+    arr = arr.filter(r => r.sel || r.ex || r.cnt > 0);
+    // r.ex … 除外にしている行（押すたびに 選ぶ → 除外 → なし。v53.063）
     // r.pin … 並べ方に関わらず先頭に出す行（タグの列の「タグなし」）。r.label … 見せる名前（値は r.name のまま）
     const _pinned = arr.filter(r => r.pin);
     arr = arr.filter(r => !r.pin);
@@ -301,8 +307,9 @@
     // r.warn … 選択中なのに「どの動画にも無い」「選択肢に無い」値の印（タグ列だけが付ける）
     // 値は data 属性で渡す（' を含む名前で onclick の文字列が壊れていた）
     const _mkRow = r =>
-      `<div class="uni-row${r.sel ? ' on' : ''}" data-k="${_esc(opts.rowKeys && r.key ? r.key : opts.filterKey)}" data-n="${_esc(r.name)}" onclick="uniToggleEl(this)">` +
-      `<span${r.pin ? ' style="color:var(--text3)"' : ''}>${_esc(r.label || r.name)}</span>` +
+      `<div class="uni-row${r.sel ? ' on' : ''}${r.ex ? ' ex' : ''}" data-k="${_esc(opts.rowKeys && r.key ? r.key : opts.filterKey)}" data-n="${_esc(r.name)}"${r.warn && r.sel ? ' data-rm="1"' : ''} onclick="uniToggleEl(this)">` +
+      `<span class="uni-nm"${r.pin && !r.sel && !r.ex ? ' style="color:var(--text3)"' : ''}>${_esc(r.label || r.name)}</span>` +
+      (r.ex ? `<span class="uni-exb">除外</span>` : '') +
       (r.warn ? `<span class="uni-warn" style="font-size:10px;color:#d97706;margin-left:6px;margin-right:auto;white-space:nowrap">⚠ ${_esc(r.warn)}</span>` : '') +
       `<span class="uni-cnt">${r.cnt}</span></div>`;
 
@@ -583,17 +590,17 @@
       const srcItems = [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']].map(([v,l]) => ({
         name: l,
         cnt: srcCtx.filter(x => (x.pt||x.src||'youtube') === v).length,
-        sel: !!f.platform?.has(v),
+        sel: !!f.platform?.has(v), ex: _TF().stateOf(f.platform, v) === 'ex',
         val: v
       }));
       // 特殊: platform は label と値が異なる
       const mkSrcCol = () => {
         let arr = srcItems.slice();
         if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
-        arr = arr.filter(r => r.sel || r.cnt > 0);
+        arr = arr.filter(r => r.sel || r.ex || r.cnt > 0);
         const rows = arr.length ? arr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('platform','${r.val}')">
-            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
+          `<div class="uni-row${r.sel?' on':''}${r.ex?' ex':''}" onclick="uniToggle('platform','${r.val}')">
+            <span class="uni-nm">${_esc(r.name)}</span>${r.ex ? '<span class="uni-exb">除外</span>' : ''}<span class="uni-cnt">${r.cnt}</span>
           </div>`
         ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
         return `<div class="uni-col narrow"><div class="uni-col-hdr"><span>Source</span></div><div class="uni-col-body">${rows}</div></div>`;
@@ -603,14 +610,14 @@
       const chCtx = _ctxVideos('channel');
       const chMap = {};
       chCtx.forEach(v => { const k = v.channel || v.ch; if (k) chMap[k] = (chMap[k]||0)+1; });
-      [...(f.channel||[])].forEach(v => { if (!(v in chMap)) chMap[v] = 0; });
-      const chItems = Object.entries(chMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.channel?.has(n) }));
+      [...(f.channel||[])].forEach(v => { v = _TF().baseOf(v); if (!(v in chMap)) chMap[v] = 0; });
+      const chItems = Object.entries(chMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.channel?.has(n), ex:_TF().stateOf(f.channel, n) === 'ex' }));
 
       const plCtx = _ctxVideos('playlist');
       const plMap = {};
       plCtx.forEach(v => { if (v.pl) plMap[v.pl] = (plMap[v.pl]||0)+1; });
-      [...(f.playlist||[])].forEach(v => { if (!(v in plMap)) plMap[v] = 0; });
-      const plItems = Object.entries(plMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.playlist?.has(n) }));
+      [...(f.playlist||[])].forEach(v => { v = _TF().baseOf(v); if (!(v in plMap)) plMap[v] = 0; });
+      const plItems = Object.entries(plMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.playlist?.has(n), ex:_TF().stateOf(f.playlist, n) === 'ex' }));
 
       content.innerHTML = `<div class="uni-cols">
         ${mkSrcCol()}
@@ -712,13 +719,15 @@
         const sel = _TF().selected(f, g.id, _sch());   // どの呼び名で入っていても選択として見せる
         const NONE = _TF().NONE;
         const names = src.filter(n => n !== NONE);
-        [...sel].forEach(n => { if (n !== NONE && !names.includes(n)) names.push(n); });
+        [...sel].forEach(n => { n = _TF().baseOf(n); if (n !== NONE && !names.includes(n)) names.push(n); });
         const inOpt = new Set(src);
+        const isEx = n => sel.has(_TF().mkEx(n));
         // 「タグなし」＝このグループに何も付いていない動画（v53.051）。いつも先頭。0本で選んでもいなければ出ない
-        const none = { name: NONE, label: _TF().NONE_LABEL, pin: true, sel: sel.has(NONE),
+        const none = { name: NONE, label: _TF().NONE_LABEL, pin: true, sel: sel.has(NONE), ex: isEx(NONE),
           cnt: ctx.filter(v => !_TF().valuesOf(v, g.id).length).length };
         return [none].concat(names.map(n => {
-          const it = { name: n, cnt: ctx.filter(v => _TF().valuesOf(v, g.id).includes(n)).length, sel: sel.has(n) };
+          const it = { name: n, cnt: ctx.filter(v => _TF().valuesOf(v, g.id).includes(n)).length, sel: sel.has(n), ex: isEx(n) };
+          if (it.ex) return it;
           if (it.sel && _allVids.length && !_allVids.some(v => _TF().valuesOf(v, g.id).includes(n))) it.warn = '該当する動画なし';
           else if (it.sel && !inOpt.has(n)) it.warn = '選択肢に無い';
           return it;
@@ -747,14 +756,17 @@
     if (_memo) pills.push(['@memo', '💬 メモ']);
     if (_img)  pills.push(['@img',  '🖼 画像あり']);
     if (D) D.statePills().forEach(p => pills.push(p));
-    [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
-    [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
-    [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
+    // 除外は「− 名前」（赤）。押すと外れる（切り替えではなく、外すだけ）
+    const _SRCL = { youtube: 'YouTube', vimeo: 'Vimeo', gdrive: 'GDrive', x: 'X' };
+    [...(f.platform||[])].forEach(v => pills.push(['platform', v, _TF().isEx(v) ? '− ' + (_SRCL[_TF().baseOf(v)] || _TF().baseOf(v)) : v]));
+    [...(f.channel ||[])].forEach(v => pills.push(['channel',  v, _TF().labelOf(v)]));
+    [...(f.playlist||[])].forEach(v => pills.push(['playlist', v, _TF().labelOf(v)]));
     // タグ: すべてのグループの選択を出す（枠に無い・しまってあるグループの選択も、見えない条件にしない）
     // 「タグなし」はどのグループのことか分かるように「グループ名: タグなし」と出す
     _TF().groups().forEach(g => [..._TF().selected(f, g.id, _sch())].forEach(v => {
       const k = _TF().keyFor(g.id, _sch());
-      if (v === _TF().NONE) pills.push([k, v, g.name + ': ' + _TF().NONE_LABEL]); else pills.push([k, v]);
+      const b = _TF().baseOf(v), x = _TF().isEx(v) ? '− ' : '';
+      if (b === _TF().NONE) pills.push([k, v, x + g.name + ': ' + _TF().NONE_LABEL]); else pills.push([k, v, x + b]);
     }));
     [...(f.videoIds||[])].forEach(id => {
       const vid = (window.videos||[]).find(v => v.id === id);
@@ -764,7 +776,7 @@
 
     const pillsEl = document.getElementById('uni-pills');
     pillsEl.innerHTML = pills.length
-      ? pills.map(([k, val, lbl]) => `<span class="uni-pill" data-k="${_esc(k)}" data-n="${_esc(String(val))}" onclick="uniToggleEl(this)">${_esc(String(lbl !== undefined ? lbl : val))}</span>`).join('')
+      ? pills.map(([k, val, lbl]) => `<span class="uni-pill${_TF().isEx(val) ? ' ex' : ''}" data-k="${_esc(k)}" data-n="${_esc(String(val))}" onclick="${String(k).startsWith('@') || k === 'videoIds' ? 'uniToggleEl(this)' : 'uniRemoveEl(this)'}">${_esc(String(lbl !== undefined ? lbl : val))}</span>`).join('')
       : '<span style="color:var(--text3);font-size:11px">なし</span>';
 
     // Hit
@@ -995,12 +1007,22 @@
     }
     _render();
   };
-  window.uniToggleEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n); };
-  window.uniToggle = function (key, val) {
+  // ⚠ の付いた値（どの動画にも無い・選択肢に無い）は、押すと外すだけ（無い値を除外にしても意味が無い）
+  window.uniToggleEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n, el.dataset.rm === '1'); };
+  // 「選択中」の × … その値を外すだけ（切り替えない）。値は入れ物に入っているそのまま（除外は「(除外)名前」）
+  window.uniRemoveEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n, true); };
+  // 行を押すたびに 選ぶ → 除外 → なし（v53.063・オーナー決定 mock-filter-exclude.html の B）。
+  // 動画そのものを選ぶ videoIds は今までどおり 付ける／外す の2つだけ
+  function _uniStep(key, set, val, rm) {
+    if (rm) { set.delete(val); return; }
+    if (key === 'videoIds') { set.has(val) ? set.delete(val) : set.add(val); return; }
+    _TF().cycle(set, val);
+  }
+  window.uniToggle = function (key, val, rm) {
     const D = _D();
     if (D) {
       if (String(key).startsWith('@')) D.toggleState(key);
-      else { const _g = _TF().gidForKey(key, 'lib'); const set = _g ? _TF().setFor(D.f, _g, 'lib') : (D.f[key] || (D.f[key] = new Set())); set.has(val) ? set.delete(val) : set.add(val); }
+      else { const _g = _TF().gidForKey(key, 'lib'); const set = _g ? _TF().setFor(D.f, _g, 'lib') : (D.f[key] || (D.f[key] = new Set())); _uniStep(key, set, val, rm); }
       D.refresh(); _render(); return;
     }
     const isOrg = _ctx === 'org';
@@ -1015,7 +1037,7 @@
     // Set系（タグの呼び名なら、古い呼び名に入っていた分も寄せてから切り替える）
     const _g = _TF().gidForKey(key, _sch());
     const set = _g ? _TF().setFor(f, _g, _sch()) : (f[key] || (f[key] = new Set()));
-    set.has(val) ? set.delete(val) : set.add(val);
+    _uniStep(key, set, val, rm);
     refresh();
     _render();
   };
