@@ -410,7 +410,7 @@
     const rowPart = mv && open && rOk ? grp(R.name, '', (R.kind === 'tag' ? groupValsAll(R.key) : R.opts).concat(rx).filter((y, i, a) => a.indexOf(y) === i).map(o => chip(R.key, o, rx.includes(o), ' svt-ro')).join('')) : '';
     const ctl = `<div class="svt-cardx">${mv && colKey !== HID ? `<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">${lbl} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="event.stopPropagation();wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>` +
       (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（下の「決定」を押すと、付けたタグのマスへ移ります）</span>'}<div class="svt-msec"><span class="svt-mh svt-mhc">列</span>${colPart}</div>${rowPart ? `<div class="svt-msec"><span class="svt-mh svt-mhr">行</span>${rowPart}</div>` : ''}<button class="svt-sm pri svt-mdone" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">決定（閉じる）</button></div>` : '') +
-      ((g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : '');
+      '';  // 「ほかの列にも: …」の1行は出さない（v53.081・オーナー「いらん」。付いているタグはすぐ上の札の並びに出ている）
     const at = inner.lastIndexOf('<div class="card-actions">');
     if (NEWUI) {
       // 試作（?grpui=new）: 「列と行の編集」「非表示」の段を無くし、メモ・アーカイブの並びの「⋯」から出す
