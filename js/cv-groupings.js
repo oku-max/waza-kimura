@@ -389,8 +389,21 @@
     const R = cellId ? S._R : null; const rx = R ? readG(v, R) : [];
     let inner = typeof window.cardHTML === 'function' ? window.cardHTML(v) : `<div class="card-wrap"><div class="card"><div class="card-body"><div class="card-title">${esc(v.title || '')}</div></div><div class="card-actions"></div></div></div>`;
     if (copyN) inner = inner.replace(new RegExp('id="([A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*?)-' + reEsc(v.id) + '"', 'g'), (m, p) => `id="${p}-${v.id}__g${copyN}"`);
-    const ctl = `<div class="svt-cardx">${mv && colKey !== HID ? `<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="event.stopPropagation();wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>` +
-      (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（「閉じる」を押すと、付けたタグの列へ移ります）</span>'}${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${x.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}${R && movable(R) ? `<span class="svt-mhint svt-rhint">${esc(R.name)}（行）</span>${(R.kind === 'tag' ? groupValsAll(R.key) : R.opts).concat(rx).filter((y, i, a) => a.indexOf(y) === i).map(o => `<button class="svt-o svt-ro${rx.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(R.key)}','${jsq(o)}')">${rx.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}` : ''}<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : '') +
+    // カードの ▾（v53.069・オーナー「カードのタグ選択で、行の選択肢も列と同様に」）: 列と行を同じ見せ方で並べる。
+    // 見出し「列」「行」の下に、タググループごとの名前とタグ（列が複数のタググループならグループごと）
+    const rOk = !!(R && movable(R));
+    const lbl = esc(g.name) + (rOk ? ' ／ ' + esc(R.name) : '');
+    const chip = (gk, o, on, cls) => `<button class="svt-o${cls || ''}${on ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(gk)}','${jsq(o)}')">${on ? '✓ ' : ''}${esc(o)}</button>`;
+    const grp = (name, color, chips) => `<div class="svt-mg"${color ? ` style="--gc:${color}"` : ''}><span class="svt-mgn">${color ? '<i class="svt-gdot"></i>' : ''}${esc(name)}</span><div class="svt-mgc">${chips}</div></div>`;
+    let colPart = '';
+    if (mv && open) {
+      if (g.kind === 'pick') { const gksV = [...new Set(g.items.map(p => p.g))];
+        colPart = gksV.map(gk => grp(GR0(gk).name, g.items.find(p => p.g === gk).color, g.items.filter(p => p.g === gk).map(p => chip(g.key, p.label, x.includes(p.label))).join(''))).join(''); }
+      else colPart = grp(g.name, '', g.opts.map(o => chip(g.key, o, x.includes(o))).join(''));
+    }
+    const rowPart = mv && open && rOk ? grp(R.name, '', (R.kind === 'tag' ? groupValsAll(R.key) : R.opts).concat(rx).filter((y, i, a) => a.indexOf(y) === i).map(o => chip(R.key, o, rx.includes(o), ' svt-ro')).join('')) : '';
+    const ctl = `<div class="svt-cardx">${mv && colKey !== HID ? `<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">${lbl} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="event.stopPropagation();wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>` +
+      (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（「閉じる」を押すと、付けたタグのマスへ移ります）</span>'}<div class="svt-msec"><span class="svt-mh svt-mhc">列</span>${colPart}</div>${rowPart ? `<div class="svt-msec"><span class="svt-mh svt-mhr">行</span>${rowPart}</div>` : ''}<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : '') +
       ((g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : '');
     const at = inner.lastIndexOf('<div class="card-actions">');
     inner = at >= 0 ? inner.slice(0, at) + ctl + inner.slice(at) : inner + ctl;
@@ -811,6 +824,12 @@
 #svt-root .svt-colhs .svt-gstart::before,#svt-root .svt-board .svt-gstart::before{content:'';position:absolute;left:-14px;top:0;bottom:0;border-left:2px dashed var(--border)}
 #svt-root .svt-gn{opacity:.6}
 #svt-root .svt-addh select{font-size:11px;max-width:40%;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+#svt-root .svt-msec{width:100%;display:grid;gap:6px;border:1px solid var(--border);border-left:3px solid var(--sc,#d08a1c);border-radius:8px;padding:6px 8px;background:var(--surface)}
+#svt-root .svt-msec:has(.svt-mhr){--sc:var(--blue)}
+#svt-root .svt-mh{font-size:10.5px;font-weight:700;color:var(--sc,#d08a1c)}
+#svt-root .svt-mg{display:grid;gap:4px}
+#svt-root .svt-mgn{font-size:11px;font-weight:700;color:var(--text2);display:inline-flex;gap:5px;align-items:center}
+#svt-root .svt-mgc{display:flex;flex-wrap:wrap;gap:5px}
 #svt-root .svt-mhint{width:100%;font-size:10px;color:var(--text3)}
 #svt-root .svt-multi .svt-sm{margin-left:auto}
 #svt-root .svt-hidebtn{margin-left:0!important}
@@ -840,7 +859,6 @@
 #svt-root .svt-roff{font-size:10px;padding:1px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
 #svt-root .svt-roff.on{background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
 #svt-root .svt-rv.on{background:var(--blue);border-color:var(--blue);color:#fff}
-#svt-root .svt-ro.on{background:var(--blue);border-color:var(--blue);color:#fff}
 #svt-root .svt-rhint{color:var(--blue)}
 #svt-root .svt-kc{color:var(--gold)}
 #svt-root .svt-kr{color:var(--blue)}

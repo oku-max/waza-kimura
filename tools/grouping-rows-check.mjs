@@ -174,7 +174,12 @@ ck('同じ列で別の行へ: タグ1だけ変わる（タグ4は残る）', JSO
 await pg.keyboard.press('Control+z'); await pg.waitForTimeout(200);
 ck('（取り消し）', JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]');
 // ④ カードの ▾ に行のタグも出る・押すと付く
-await pg.locator(src + ' .svt-cardx .svt-sm').first().scrollIntoViewIfNeeded(); await pg.locator(src + ' .svt-cardx .svt-sm').first().click(); await pg.waitForTimeout(200);
+await pg.locator(src + ' .svt-cardx .svt-sm').first().scrollIntoViewIfNeeded(); if (process.env.SHOT) await pg.waitForTimeout(10); await pg.locator(src + ' .svt-cardx .svt-sm').first().click(); await pg.waitForTimeout(200);
+if (process.env.SHOT) await pg.locator('#svt-root .svt-multi').first().screenshot({ path: process.env.SHOT + '/rows-menu.png' }).catch(() => {});
+ck('カードの ▾ のボタンは「列の名前 ／ 行の名前」（v53.069）', await pg.evaluate(([c, r]) => [...document.querySelectorAll('#svt-root .svt-cardx .svt-sm')].some(b => b.textContent === c + ' ／ ' + r + ' ▾'), [G.tags.name, G.tb.name]));
+ck('開くと「列」「行」の見出しの下に、それぞれグループ名とタグが同じ見せ方で並ぶ', await pg.evaluate(([c, r]) => { const m = document.querySelector('#svt-root .svt-multi'); if (!m) return false; const ss = [...m.querySelectorAll('.svt-msec')];
+  return ss.length === 2 && ss[0].querySelector('.svt-mh').textContent === '列' && ss[1].querySelector('.svt-mh').textContent === '行' && ss[0].querySelector('.svt-mgn').textContent === c && ss[1].querySelector('.svt-mgn').textContent === r
+    && ss.every(x => x.querySelectorAll('.svt-mgc .svt-o').length > 0) && getComputedStyle(ss[0].querySelector('.svt-mgc .svt-o')).borderRadius === getComputedStyle(ss[1].querySelector('.svt-mgc .svt-o')).borderRadius; }, [G.tags.name, G.tb.name]));
 ck('カードの ▾ を開くと行（タグ1）のタグも並ぶ', await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-ro')].map(b => b.textContent.replace('✓ ', '')).filter(t => ['トップ', 'ボトム', 'スタンディング'].includes(t)).length === 3));
 await pg.locator('#svt-root .svt-ro', { hasText: 'トップ' }).first().click(); await pg.waitForTimeout(200);
 ck('行のタグを押すと付く（開いている間は同じマスのまま）', setEq(await vtb(pg, 'v1'), ['ボトム', 'トップ']) && JSON.stringify(await cellOf('ラッソー', 'ボトム')).includes('v1'), JSON.stringify(await vtb(pg, 'v1')));
