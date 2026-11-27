@@ -592,7 +592,7 @@
       { const bs = [...root.querySelectorAll('.svt-rlab .svt-rh b')];
         if (bs.length) { const cv = stickTops._cv || (stickTops._cv = document.createElement('canvas').getContext('2d'));
           cv.font = getComputedStyle(bs[0]).font; const w = Math.max(...bs.map(b => cv.measureText(b.textContent || '').width));
-          const rw = Math.max(60, Math.min(120, Math.ceil(w) + 18)) + 'px';
+          const rw = Math.round(Math.max(60, Math.min(120, Math.ceil(w) + 18)) * 0.75) + 'px';  // v53.083 さらに25%狭く（オーナー「25％狭く」。長い名前は折り返す）
           if (root.style.getPropertyValue('--svt-rlw') !== rw) root.style.setProperty('--svt-rlw', rw); } }
       // マスの中のスクロールバーの幅（OS で違う）。列の幅に足して、カードの幅をライブラリと同じにする
       const cl = bd.querySelector('.svt-cell:not(.svt-xfold) .svt-clist');
@@ -1094,7 +1094,7 @@
     pr.remove();
     return w >= 120 ? Math.round(w * 100) / 100 : 0;
   }
-  const NEWUI = (() => { try { const q = new URLSearchParams(location.search).get('grpui'); if (q) sessionStorage.setItem('wk_grpui', q); return (q || sessionStorage.getItem('wk_grpui')) === 'new'; } catch (e) { return false; } })();
+  const NEWUI = (() => { try { const q = new URLSearchParams(location.search).get('grpui'); if (q) sessionStorage.setItem('wk_grpui', q); return (q || sessionStorage.getItem('wk_grpui')) !== 'old'; } catch (e) { return true; } })();  // v53.083 から既定（オーナー「プルダウンになってねーじゃん」「色ださい」）。?grpui=old で前の見た目
   let _obs = null, _redrawT = null;
   const isOpen = () => !!document.getElementById('svt-root');
   const isTable = () => { const oh = document.getElementById('lib-org-host'); return !!oh && getComputedStyle(oh).display !== 'none'; };

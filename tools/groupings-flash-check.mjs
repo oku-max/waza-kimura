@@ -82,7 +82,7 @@ const INIT = seed => {
     getMetadata: async () => ({ size: 1, customMetadata: {} }),
     put: async blob => { await put(p, JSON.parse(await blob.text())); return {}; } });
   window.firebase = { initializeApp: () => {}, auth: authFn, firestore: fsFn, storage: () => ({ ref: p => sref(p || '') }), apps: [] };
-  localStorage.setItem('wk_lang','ja');
+  localStorage.setItem('wk_lang','ja'); try { sessionStorage.setItem('wk_grpui','old'); } catch (e) {}  // 前の見た目の操作で検査する（新しい見た目は grouping-newui-check）
 };
 
 
