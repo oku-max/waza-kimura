@@ -1,10 +1,10 @@
-// ═══ グルーピングの段（横軸・v53.067・js/cv-groupings.js）。オーナー決定 C（全部の列に貫く段＋列ごとに段で分けない）・設定は案1・マスの高さ 1/1.5/2/3（既定2） ═══
+// ═══ グルーピングの行（横軸・v53.067・js/cv-groupings.js）。オーナー決定 C（全部の列に貫く行＋列ごとに行で分けない）・設定は案1・マスの高さ 1/1.5/2/3（既定2） ═══
 // 使い方: node tools/grouping-rows-check.mjs
 // 本物の index.html と firebase.js を偽のクラウドにつなぎ、編集画面を本物のクリックで操作する。見るもの:
-//   ・段の設定がグルーピングの1件（data/groupings items.{id}）に入る（rg・rpicks・rShowNone・rOff・cellH）
+//   ・行の設定がグルーピングの1件（data/groupings items.{id}）に入る（rg・rpicks・rShowNone・rOff・cellH）
 //   ・どのマスも同じ高さ（カード N 枚ぶん）で中だけスクロール・本数がマスの上に出る
-//   ・別のマスへドラッグすると列と段のタグが一度に変わり、1回の取り消しで両方戻る
-//   ・列の「段 ⇕」でその列だけ段をまたいだ1つのマス・テーブルは「列 › 段」の見出し・タグの名前を変えると段も新しい名前
+//   ・別のマスへドラッグすると列と行のタグが一度に変わり、1回の取り消しで両方戻る
+//   ・列の「行 ⇕」でその列だけ行をまたいだ1つのマス・テーブルは「列 › 行」の見出し・タグの名前を変えると行も新しい名前
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
 const { execSync } = await import('child_process');
@@ -119,23 +119,32 @@ const G = await pg.evaluate(() => { const gs = wkGroupings._groupers(); const f 
 const tbKey = G.tb.key, tagsKey = G.tags.key;
 // 選んだ文字のボタンを本物のクリックで押す（画面の中に出ていること）
 const clickBtn = async (sel, text) => { const loc = pg.locator(sel, { hasText: text }).first(); await loc.scrollIntoViewIfNeeded(); await loc.click(); await pg.waitForTimeout(120); };
-// ① 編集画面（案1）: 列 → 段 → マスの高さ を本物のクリックで
+// ① 編集画面（案1）: 列 → 行 → マスの高さ を本物のクリックで
 await clickBtn('#svt-root .svt-vt', '＋ グルーピング');
 await pg.fill('#svt-name', '技×上下');
-await clickBtn('#svt-ed .r:has(.svt-kc) .svt-o', G.tags.name);
+await clickBtn('#svt-ed .svt-sec-c .svt-o', G.tags.name);
 const edText = await pg.evaluate(() => document.getElementById('svt-ed').textContent);
-ck('編集画面は「列（縦に並ぶ）」「段（横に並ぶ）」「マスの高さ」の順（案1）', edText.indexOf('列（縦に並ぶ）') >= 0 && edText.indexOf('列（縦に並ぶ）') < edText.indexOf('段（横に並ぶ）') && edText.indexOf('段（横に並ぶ）') < edText.indexOf('マスの高さ'), edText.slice(0, 200));
-ck('段の候補に、列で使っているタググループは出ない', await pg.evaluate(n => ![...document.querySelectorAll('#svt-ed .r:has(.svt-kr) .svt-o')].some(b => b.textContent.startsWith(n)), G.tags.name));
+const secs = await pg.evaluate(() => [...document.querySelectorAll('#svt-ed .svt-sec')].map(x => ({ t: x.querySelector('.svt-sech b').textContent, bl: getComputedStyle(x).borderLeftColor, bw: getComputedStyle(x).borderLeftWidth })));
+ck('編集画面は項目ごとに枠で区切られ、見出し・色の線が付く（名前・列・行・見た目）（v53.068）', JSON.stringify(secs.map(x => x.t)) === JSON.stringify(['名前', '列（縦に並ぶ）', '行（横に並ぶ）', '見た目']) && new Set(secs.map(x => x.bl)).size === 4 && secs.every(x => x.bw === '4px'), JSON.stringify(secs));
+ck('編集画面は「列（縦に並ぶ）」「行（横に並ぶ）」「マスの高さ」の順（案1）', edText.indexOf('列（縦に並ぶ）') >= 0 && edText.indexOf('列（縦に並ぶ）') < edText.indexOf('行（横に並ぶ）') && edText.indexOf('行（横に並ぶ）') < edText.indexOf('マスの高さ'), edText.slice(0, 200));
+ck('行の候補で、列で使っているタググループは押せない（「列で使用中」）', await pg.evaluate(n => { const b = [...document.querySelectorAll('#svt-ed .svt-sec-r .svt-o')].find(b => b.textContent.startsWith(n)); return !!b && b.disabled && b.textContent.includes('列で使用中'); }, G.tags.name));
+const same = await pg.evaluate(() => { const hs = sel => [...document.querySelectorAll(sel + ' .svt-secb > .svt-opts > .svt-grp')].map(x => x.textContent.split('（')[0]);
+  return { c: hs('#svt-ed .svt-sec-c'), r: hs('#svt-ed .svt-sec-r'), ng: !!document.querySelector('#svt-ed .svt-sec-r #svt-rngroup') }; });
+ck('行の選び方は列と同じ見せ方（タグ／チャンネル・プレイリスト／カスタム列の見出し・新しいタググループ）', JSON.stringify(same.c) === JSON.stringify(same.r) && same.r.length === 3 && same.ng, JSON.stringify(same));
 ck('マスの高さの既定はカード2枚', await pg.evaluate(() => document.querySelector('#svt-cellh .svt-o.on')?.textContent === 'カード2枚'));
-await clickBtn('#svt-ed .r:has(.svt-kr) .svt-o', G.tb.name);
+await clickBtn('#svt-ed .svt-sec-r .svt-o', G.tb.name);
+ck('行のタグは列と同じ枠（グループ名・全部選ぶ／全部外す・＋ 新しいタグ）', await pg.evaluate(() => { const b = document.querySelector('#svt-ed .svt-sec-r .svt-pgrow'); return !!b && !!b.querySelector('.svt-gname') && !!b.querySelector('#svt-rnew') && b.textContent.includes('全部選ぶ'); }));
 const rchips = await pg.evaluate(() => [...document.querySelectorAll('#svt-rchips .svt-rv.on')].map(b => b.textContent.replace(/^✓ /, '').replace(/\s\d+$/, '')));
-ck('段のタググループを押すと、中のタグが全部 ✓ で並ぶ', setEq(rchips, ['ボトム', 'トップ', 'スタンディング']), rchips);
-ck('できあがりの形の図と一文が出る', await pg.evaluate(() => !!document.querySelector('#svt-ed .svt-mini .mr') && document.querySelector('#svt-ed .svt-rsum').textContent.includes('段は')));
+ck('行のタググループを押すと、中のタグが全部 ✓ で並ぶ', setEq(rchips, ['ボトム', 'トップ', 'スタンディング']), rchips);
+await pg.fill('#svt-rnew', '寝'); await clickBtn('#svt-ed .svt-sec-r .svt-pgrow .svt-sm', '足す');
+ck('行の「＋ 新しいタグ」で足すと ✓ で入る（選択肢に足すだけ）', await pg.evaluate(() => [...document.querySelectorAll('#svt-rchips .svt-rv.on')].some(b => b.textContent.includes('寝'))));
+await clickBtn('#svt-rchips .svt-rv', '寝');
+ck('できあがりの形の図と一文が出る', await pg.evaluate(() => !!document.querySelector('#svt-ed .svt-mini .mr') && document.querySelector('#svt-ed .svt-rsum').textContent.includes('行は')));
 if (process.env.SHOT) { await pg.locator('#svt-ed').screenshot({ path: process.env.SHOT + '/rows-ed.png' }); }
 await clickBtn('#svt-cellh .svt-o', 'カード1枚');
 await clickBtn('#svt-ed .foot .svt-sm', '保存');
 const e1 = await pg.evaluate(() => wkGroupings.list().find(e => e.name === '技×上下'));
-ck('保存: 段の設定がグルーピングの1件に入る（rg・rpicks・rShowNone・cellH）', !!e1 && e1.rg === tbKey && setEq(e1.rpicks, ['ボトム', 'トップ', 'スタンディング']) && e1.rShowNone === true && e1.cellH === 1 && Array.isArray(e1.rKnown), JSON.stringify(e1));
+ck('保存: 行の設定がグルーピングの1件に入る（rg・rpicks・rShowNone・cellH）', !!e1 && e1.rg === tbKey && setEq(e1.rpicks, ['ボトム', 'トップ', 'スタンディング']) && e1.rShowNone === true && e1.cellH === 1 && Array.isArray(e1.rKnown), JSON.stringify(e1));
 ck('クラウドの data/groupings にも入る', await until(() => !!(CLOUD[GDOC]?.items?.[e1.id]?.rg === tbKey)), JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]));
 // ② マス: どれも同じ高さ・中だけスクロール・本数
 await pg.waitForTimeout(400);
@@ -143,13 +152,13 @@ const grid = await pg.evaluate(() => { const cs = [...document.querySelectorAll(
   const lc = document.querySelector('#svt-root .svt-cell .svt-lc'); const st = wkGroupings._state();
   return { n: cs.length, hs, card: lc ? Math.round(lc.getBoundingClientRect().height) : 0, ov: cs.length ? getComputedStyle(cs[0].querySelector('.svt-clist')).overflowY : '', rows: [...document.querySelectorAll('#svt-root .svt-rh b')].map(b => b.textContent), cols: st._grid && st._grid.cols.length,
     cnt: cs.map(c => c.querySelector('.svt-ccnt b').textContent) }; });
-ck('段の見出し: ボトム・トップ・スタンディング・その他', JSON.stringify(grid.rows) === JSON.stringify(['トップ', 'ボトム', 'スタンディング', 'その他']), grid.rows);
+ck('行の見出し: ボトム・トップ・スタンディング・その他', JSON.stringify(grid.rows) === JSON.stringify(['トップ', 'ボトム', 'スタンディング', 'その他']), grid.rows);
 ck('どのマスも同じ高さ（カード1枚ぶん）', grid.n > 0 && grid.hs.length === 1 && grid.card > 0 && Math.abs(grid.hs[0] - grid.card - 34) <= 14, JSON.stringify(grid));
 ck('マスの中だけスクロールする・本数がマスの上に出る', grid.ov === 'auto' && grid.cnt.every(t => /^\d+本$/.test(t)), JSON.stringify(grid));
 if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/rows-pc.png' });
 const cellOf = (c, r) => pg.evaluate(([c, r]) => { const st = wkGroupings._state(); const ci = st._grid.cols.indexOf(c), ri = st._grid.rows.indexOf(r); const k = ci + '.' + ri; return (st._grid.cells[k] || null); }, [c, r]);
 ck('v1（ラッソー・ボトム）は「ラッソー × ボトム」のマス', JSON.stringify(await cellOf('ラッソー', 'ボトム')) === '["v1"]', await cellOf('ラッソー', 'ボトム'));
-// ③ 別のマスへドラッグ → 列と段のタグが一度に変わる・1回で両方戻る
+// ③ 別のマスへドラッグ → 列と行のタグが一度に変わる・1回で両方戻る
 const sel = (c, r) => pg.evaluate(([c, r]) => { const st = wkGroupings._state(); return `#svt-root .svt-cell[data-ci="${st._grid.cols.indexOf(c)}"][data-ri="${st._grid.rows.indexOf(r)}"]`; }, [c, r]);
 const src = await sel('ラッソー', 'ボトム'), dst = await sel('スパイダー', 'トップ');
 await pg.locator(src + ' .svt-lc').first().scrollIntoViewIfNeeded();
@@ -158,54 +167,55 @@ ck('ドラッグで「スパイダー × トップ」へ: タグ4 と タグ1 �
 ck('お知らせ「「スパイダー」×「トップ」へ移動しました」', await pg.evaluate(() => document.getElementById('svt-toast').textContent.includes('「スパイダー」×「トップ」へ移動しました')));
 ck('動画の保存に乗る', await until(() => { const v = cloudVideos().find(v => v.id === 'v1') || {}; return JSON.stringify(v.tb) === '["トップ"]' && JSON.stringify(v.tags) === '["スパイダー"]'; }, 8000));
 await pg.keyboard.press('Control+z'); await pg.waitForTimeout(200);
-ck('1回の取り消しで列と段の両方が戻る', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["ラッソー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
-// 同じ列の中で段だけ動かす
+ck('1回の取り消しで列と行の両方が戻る', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["ラッソー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
+// 同じ列の中で行だけ動かす
 { const d2 = await sel('ラッソー', 'スタンディング'); await pg.locator(d2).scrollIntoViewIfNeeded(); await pg.dragAndDrop(src + ' .svt-lc', d2); await pg.waitForTimeout(300); }
-ck('同じ列で別の段へ: タグ1だけ変わる（タグ4は残る）', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["ラッソー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["スタンディング"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
+ck('同じ列で別の行へ: タグ1だけ変わる（タグ4は残る）', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["ラッソー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["スタンディング"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
 await pg.keyboard.press('Control+z'); await pg.waitForTimeout(200);
 ck('（取り消し）', JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]');
-// ④ カードの ▾ に段のタグも出る・押すと付く
+// ④ カードの ▾ に行のタグも出る・押すと付く
 await pg.locator(src + ' .svt-cardx .svt-sm').first().scrollIntoViewIfNeeded(); await pg.locator(src + ' .svt-cardx .svt-sm').first().click(); await pg.waitForTimeout(200);
-ck('カードの ▾ を開くと段（タグ1）のタグも並ぶ', await pg.evaluate(() => document.querySelectorAll('#svt-root .svt-ro').length === 3));
+ck('カードの ▾ を開くと行（タグ1）のタグも並ぶ', await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-ro')].map(b => b.textContent.replace('✓ ', '')).filter(t => ['トップ', 'ボトム', 'スタンディング'].includes(t)).length === 3));
 await pg.locator('#svt-root .svt-ro', { hasText: 'トップ' }).first().click(); await pg.waitForTimeout(200);
-ck('段のタグを押すと付く（開いている間は同じマスのまま）', setEq(await vtb(pg, 'v1'), ['ボトム', 'トップ']) && JSON.stringify(await cellOf('ラッソー', 'ボトム')).includes('v1'), JSON.stringify(await vtb(pg, 'v1')));
+ck('行のタグを押すと付く（開いている間は同じマスのまま）', setEq(await vtb(pg, 'v1'), ['ボトム', 'トップ']) && JSON.stringify(await cellOf('ラッソー', 'ボトム')).includes('v1'), JSON.stringify(await vtb(pg, 'v1')));
 await pg.evaluate(() => wkGroupings._undo()); await pg.locator('#svt-root .svt-multi .svt-sm', { hasText: '閉じる' }).first().click().catch(() => {}); await pg.waitForTimeout(150);
-// ⑤ 列の「段 ⇕」でその列だけ段で分けない（本物のクリック）
+// ⑤ 列の「行 ⇕」でその列だけ行で分けない（本物のクリック）
 const lassoHd = pg.locator('#svt-colhs .svt-colh', { has: pg.locator('.svt-tag', { hasText: 'ラッソー' }) }).locator('.svt-roff');
 await lassoHd.click(); await pg.waitForTimeout(300);
 const span = await pg.evaluate(() => { const st = wkGroupings._state(); const ci = st._grid.cols.indexOf('ラッソー'); const el = document.querySelector(`#svt-root .svt-cell[data-ci="${ci}"][data-ri="*"]`); const one = document.querySelector('#svt-root .svt-cell:not(.svt-cspan)');
   return { has: !!el, h: el && el.getBoundingClientRect().height, one: one && one.getBoundingClientRect().height, n: document.querySelectorAll(`#svt-root .svt-cell[data-ci="${ci}"]`).length }; });
-ck('「段 ⇕」を押すとその列は段をまたいだ1つのマス（段4つ分の高さ）', span.has && span.n === 1 && Math.abs(span.h - (span.one * 4 + 8 * 3)) <= 4, JSON.stringify(span));
-ck('段で分けない列はグルーピングに保存される（rOff）・クラウドにも', await until(() => JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]?.rOff) === '["ラッソー"]'), JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]?.rOff));
+ck('「行 ⇕」を押すとその列は行をまたいだ1つのマス（行4つ分の高さ）', span.has && span.n === 1 && Math.abs(span.h - (span.one * 4 + 8 * 3)) <= 4, JSON.stringify(span));
+ck('行で分けない列はグルーピングに保存される（rOff）・クラウドにも', await until(() => JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]?.rOff) === '["ラッソー"]'), JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]?.rOff));
 await lassoHd.click(); await pg.waitForTimeout(300);
 // ⑥ マスの高さを編集で変える
 await clickBtn('#svt-sum .svt-sm', 'グルーピングを編集');
-ck('編集を開くと段の設定がそのまま出る', await pg.evaluate(() => document.querySelectorAll('#svt-rchips .svt-rv.on').length === 3 && document.querySelector('#svt-cellh .svt-o.on').textContent === 'カード1枚'));
+ck('保存済みを編集で開くと「コピー」も別の枠', await pg.evaluate(() => { const c = document.querySelector('#svt-ed .svt-sec-p'); return !!c && c.querySelector('.svt-sech b').textContent === 'コピー' && !!c.querySelector('#svt-copy-to'); }));
+ck('編集を開くと行の設定がそのまま出る', await pg.evaluate(() => document.querySelectorAll('#svt-rchips .svt-rv.on').length === 3 && document.querySelector('#svt-cellh .svt-o.on').textContent === 'カード1枚'));
 await clickBtn('#svt-cellh .svt-o', 'カード3枚'); await clickBtn('#svt-ed .foot .svt-sm', '保存'); await pg.waitForTimeout(400);
 const h3 = await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-cell:not(.svt-cspan)'); const lc = document.querySelector('#svt-root .svt-cell .svt-lc'); return { c: c.getBoundingClientRect().height, card: lc.getBoundingClientRect().height }; });
 ck('カード3枚にするとマスがカード3枚ぶんの高さ', Math.abs(h3.c - (h3.card * 3 + 16 + 34)) <= 16, JSON.stringify(h3));
-// ⑦ テーブルは「列 › 段」の見出し
+// ⑦ テーブルは「列 › 行」の見出し
 await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(800);
 const th = await pg.evaluate(() => [...document.querySelectorAll('#orgList .org-group-hd')].map(t => t.textContent.trim()));
-ck('テーブルは「列 › 段」の見出し（動画のある組み合わせだけ）', th.some(t => t.includes('ラッソー › ボトム')) && th.some(t => t.includes('スパイダー › トップ')), JSON.stringify(th));
+ck('テーブルは「列 › 行」の見出し（動画のある組み合わせだけ）', th.some(t => t.includes('ラッソー › ボトム')) && th.some(t => t.includes('スパイダー › トップ')), JSON.stringify(th));
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(600);
-// ⑧ タグの名前を変えると段の名前も変わる
+// ⑧ タグの名前を変えると行の名前も変わる
 await pg.evaluate(gid => window._grpRenameTag(gid, 'スタンディング', '立ち'), tbKey.slice(4));
 const e2 = await pg.evaluate(id => wkGroupings.list().find(e => e.id === id), e1.id);
-ck('タグの名前を変えると段（rpicks・rKnown）も新しい名前', e2.rpicks.includes('立ち') && !e2.rpicks.includes('スタンディング') && e2.rKnown.includes('立ち'), JSON.stringify(e2));
+ck('タグの名前を変えると行（rpicks・rKnown）も新しい名前', e2.rpicks.includes('立ち') && !e2.rpicks.includes('スタンディング') && e2.rKnown.includes('立ち'), JSON.stringify(e2));
 // ⑨ 開き直しても同じ
 await reload(pg); await pg.waitForTimeout(1500);
-ck('再読み込みしても段のまま開く', await until(() => pg.evaluate(() => !!document.querySelector('#svt-root .svt-gridb') && document.querySelectorAll('#svt-root .svt-rh').length >= 4)));
-// ⑩ 390px: ページが横にはみ出さない・段の見出しは左に残る
+ck('再読み込みしても行のまま開く', await until(() => pg.evaluate(() => !!document.querySelector('#svt-root .svt-gridb') && document.querySelectorAll('#svt-root .svt-rh').length >= 4)));
+// ⑩ 390px: ページが横にはみ出さない・行の見出しは左に残る
 await pg.setViewportSize({ width: 390, height: 800 }); await pg.waitForTimeout(600);
 const sp = await pg.evaluate(async () => { const bd = document.querySelector('#svt-root .svt-board'); bd.scrollLeft = 300; await new Promise(r => setTimeout(r, 150));
   const rh = document.querySelector('#svt-root .svt-rh').getBoundingClientRect(), b = bd.getBoundingClientRect(); return { sw: document.documentElement.scrollWidth, rhL: rh.left, bL: b.left, sl: bd.scrollLeft }; });
 if (process.env.SHOT) { await pg.evaluate(() => { document.querySelectorAll('#ob-overlay,#ob-start,.ob-overlay,[id^=ob-]').forEach(e => e.remove()); document.querySelector('#svt-root .svt-board').scrollLeft = 0; document.getElementById('svt-root').scrollIntoView(); }); await pg.waitForTimeout(200); await pg.screenshot({ path: process.env.SHOT + '/rows-sp.png' }); }
-ck('スマホ幅: ページは横にはみ出さず、横に動かしても段の見出しは左に残る', sp.sw <= 392 && sp.sl > 0 && Math.abs(sp.rhL - sp.bL) <= 2, JSON.stringify(sp));
+ck('スマホ幅: ページは横にはみ出さず、横に動かしても行の見出しは左に残る', sp.sw <= 392 && sp.sl > 0 && Math.abs(sp.rhL - sp.bL) <= 2, JSON.stringify(sp));
 await pg.setViewportSize({ width: 1400, height: 900 });
-// ⑪ 段の無いグルーピングは今までどおり（マスにしない）
+// ⑪ 行の無いグルーピングは今までどおり（マスにしない）
 await pg.evaluate(k => { wkGroupings._new(); wkGroupings._en('列だけ'); wkGroupings._eg(k); wkGroupings._es(); }, tbKey); await pg.waitForTimeout(400);
-ck('段なしのグルーピングは今までどおりの列（マスにしない）', await pg.evaluate(() => !document.querySelector('#svt-root .svt-gridb') && document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)').length >= 3));
+ck('行なしのグルーピングは今までどおりの列（マスにしない）', await pg.evaluate(() => !document.querySelector('#svt-root .svt-gridb') && document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)').length >= 3));
 
 console.log(fail ? `✗ ${fail}件` : '✓ 全部通過');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);

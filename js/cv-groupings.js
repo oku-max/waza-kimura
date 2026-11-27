@@ -164,14 +164,14 @@
     catch (e) { return all.filter(v => !v.archived); }
   }
   const hiddenOf = V => new Set(Array.isArray(V && V.hidden) ? V.hidden : []);
-  // ───────── 段（横軸・v53.067・オーナー決定 C「全部の列に貫く段＋列ごとに段で分けない」mock-grouping-grid.html） ─────────
-  // entry.rg = 段に使うもの（'tag:ID' | 'pl' | 'ch' | 'cf:列id'）、rpicks = 段にする値、rKnown = 保存した時点の全部の値（後から増えたタグは段の最後に足す）、
-  // rShowNone = どれも付いていない動画を「その他」の段に出すか、rOff = 段で分けない列（列の名前）、cellH = マスの高さ（カード何枚ぶん）
+  // ───────── 行（横軸・v53.067・オーナー決定 C「全部の列に貫く行＋列ごとに行で分けない」mock-grouping-grid.html） ─────────
+  // entry.rg = 行に使うもの（'tag:ID' | 'pl' | 'ch' | 'cf:列id'）、rpicks = 行にする値、rKnown = 保存した時点の全部の値（後から増えたタグは行の最後に足す）、
+  // rShowNone = どれも付いていない動画を「その他」の行に出すか、rOff = 行で分けない列（列の名前）、cellH = マスの高さ（カード何枚ぶん）
   const CELLH = [1, 1.5, 2, 3];
   const cellHOf = V => CELLH.includes(Number(V && V.cellH)) ? Number(V.cellH) : 2;
   function rowG(V) {
     if (!V || !V.rg) return null; const G = GR0(V.rg); if (!G) return null;
-    if (V.gb === V.rg || (V.gb === 'pick' && pgsOf(V).includes(V.rg))) return null;   // 列と同じものは段にしない
+    if (V.gb === V.rg || (V.gb === 'pick' && pgsOf(V).includes(V.rg))) return null;   // 列と同じものは行にしない
     return G;
   }
   function rowVals(V) {
@@ -291,7 +291,7 @@
     const undo = change(vid, [[g, after]]); if (!undo) return;
     toast(to === NONE ? `「${from}」から外しました` : copy ? `「${to}」にも追加しました` : `「${to}」へ移動しました`, undo);
   }
-  // 縦×横: 列と段を一度に付け替える（取り消しは1回で両方）。copy＝元のタグも残す
+  // 縦×横: 列と行を一度に付け替える（取り消しは1回で両方）。copy＝元のタグも残す
   function opsFor(v, g, from, to, copy, cur) {
     const get = G => cur.has(G.key) ? cur.get(G.key) : readG(v, G);
     if (from === to) return;
@@ -390,7 +390,7 @@
     let inner = typeof window.cardHTML === 'function' ? window.cardHTML(v) : `<div class="card-wrap"><div class="card"><div class="card-body"><div class="card-title">${esc(v.title || '')}</div></div><div class="card-actions"></div></div></div>`;
     if (copyN) inner = inner.replace(new RegExp('id="([A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*?)-' + reEsc(v.id) + '"', 'g'), (m, p) => `id="${p}-${v.id}__g${copyN}"`);
     const ctl = `<div class="svt-cardx">${mv && colKey !== HID ? `<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">${esc(g.name)} ▾</button>` : ''}<button class="svt-sm svt-hidebtn" onclick="event.stopPropagation();wkGroupings._hide('${jsq(v.id)}',${colKey === HID ? 'false' : 'true'})">${colKey === HID ? '表示に戻す' : '非表示'}</button></div>` +
-      (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（「閉じる」を押すと、付けたタグの列へ移ります）</span>'}${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${x.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}${R && movable(R) ? `<span class="svt-mhint svt-rhint">${esc(R.name)}（段）</span>${(R.kind === 'tag' ? groupValsAll(R.key) : R.opts).concat(rx).filter((y, i, a) => a.indexOf(y) === i).map(o => `<button class="svt-o svt-ro${rx.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(R.key)}','${jsq(o)}')">${rx.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}` : ''}<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : '') +
+      (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（「閉じる」を押すと、付けたタグの列へ移ります）</span>'}${g.opts.map(o => `<button class="svt-o${x.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(g.key)}','${jsq(o)}')">${x.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}${R && movable(R) ? `<span class="svt-mhint svt-rhint">${esc(R.name)}（行）</span>${(R.kind === 'tag' ? groupValsAll(R.key) : R.opts).concat(rx).filter((y, i, a) => a.indexOf(y) === i).map(o => `<button class="svt-o svt-ro${rx.includes(o) ? ' on' : ''}" onclick="event.stopPropagation();wkGroupings._tg('${jsq(v.id)}','${jsq(R.key)}','${jsq(o)}')">${rx.includes(o) ? '✓ ' : ''}${esc(o)}</button>`).join('')}` : ''}<button class="svt-sm" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">閉じる</button></div>` : '') +
       ((g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : '');
     const at = inner.lastIndexOf('<div class="card-actions">');
     inner = at >= 0 ? inner.slice(0, at) + ctl + inner.slice(at) : inner + ctl;
@@ -454,7 +454,7 @@
     stickTops();
   }
 
-  // 縦×横（段あり）。どのマスも同じ高さ（カード cellH 枚ぶん）で、中だけスクロール。本数はマスの上
+  // 縦×横（行あり）。どのマスも同じ高さ（カード cellH 枚ぶん）で、中だけスクロール。本数はマスの上
   function drawGrid(el, V, g, R, cs, byId) {
     const mv = movable(g);
     const rv = rowVals(V); const rows = rv.slice(); if (V.rShowNone !== false) rows.push(NONE);
@@ -479,20 +479,20 @@
     const nm = x => x === NONE ? 'その他' : x;
     const uniq = a => new Set(a).size;
     const rowN = ri => uniq(Object.keys(cells).filter(k => k.endsWith('.' + ri)).flatMap(k => cells[k]));
-    const hd = (c, ci) => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.hid ? '' : `<button class="svt-roff${isOff(c) ? ' on' : ''}" title="この列だけ段で分けない／分ける" onclick="wkGroupings._roff(${ci})">${isOff(c) ? '段なし' : '段 ⇕'}</button>`}<select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
+    const hd = (c, ci) => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.hid ? '' : `<button class="svt-roff${isOff(c) ? ' on' : ''}" title="この列だけ行で分けない／分ける" onclick="wkGroupings._roff(${ci})">${isOff(c) ? '行なし' : '行 ⇕'}</button>`}<select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
     const GAP = 8;
     const cell = (c, ci, ri) => { const id = ci + '.' + ri; const a = cells[id] || []; const n = S.more[id] || LIMIT;
       const span = ri === '*';
       return `<div class="svt-cell${span ? ' svt-cspan' : ''}${a.length ? '' : ' svt-cempty'}" data-ci="${ci}" data-ri="${ri}" style="height:${span ? `calc(${rows.length} * var(--svt-cellh) + ${(rows.length - 1) * GAP}px)` : 'var(--svt-cellh)'}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
-        <div class="svt-ccnt"><span>${span ? (c.hid ? '' : '段で分けない') : esc(nm(rows[ri]))}</span><b>${a.length}本</b></div>
+        <div class="svt-ccnt"><span>${span ? (c.hid ? '' : '行で分けない') : esc(nm(rows[ri]))}</span><b>${a.length}本</b></div>
         <div class="svt-clist"><div class="svt-cards">${a.slice(0, n).map(vid => { const cn = seenN.get(vid) || 0; seenN.set(vid, cn + 1); return card(byId.get(vid), g, c.key, cn, id); }).join('')}</div>${a.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${id}')">さらに ${a.length - n} 本</button>` : ''}</div></div>`; };
-    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in"><div class="svt-rsp"><span>段 <b>${esc(R.name)}</b></span></div>${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
+    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in"><div class="svt-rsp"><span>行 <b>${esc(R.name)}</b></span></div>${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
       `<div class="svt-board svt-gridb" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` +
       `<div class="svt-rlab">${rows.map((r, ri) => `<div class="svt-rh${r === NONE ? ' none' : ''}" style="height:var(--svt-cellh)"><b>${esc(nm(r))}</b><span class="n">${rowN(ri)}本</span></div>`).join('')}</div>` +
       cs.map((c, ci) => `<div class="svt-col svt-gcol${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}">${isOff(c) ? cell(c, ci, '*') : rows.map((r, ri) => cell(c, ci, ri)).join('')}</div>`).join('') +
       (g.kind === 'pick' ? '<div class="svt-col svt-addcol svt-spacer" aria-hidden="true"></div>' : '') + `</div>` +
-      `<div class="svt-note">どのマスも同じ高さ（カード${cellHOf(V)}枚ぶん。「グルーピングを編集」で変えられます）で、中はマスごとにスクロールします。${mv ? 'カードを別のマスへドラッグすると、列と段の両方のタグが付け替わります。<b>Option（Windows は Alt）を押しながら</b>ドラッグすると、元のタグも残します。スマホはカードの「' + esc(g.name) + ' ▾」で付け外し。直後のお知らせの「元に戻す」・上の「1つ戻す」・⌘Z / Ctrl+Z で戻せます。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません（段は動かせます）。'}</div>`;
+      `<div class="svt-note">どのマスも同じ高さ（カード${cellHOf(V)}枚ぶん。「グルーピングを編集」で変えられます）で、中はマスごとにスクロールします。${mv ? 'カードを別のマスへドラッグすると、列と行の両方のタグが付け替わります。<b>Option（Windows は Alt）を押しながら</b>ドラッグすると、元のタグも残します。スマホはカードの「' + esc(g.name) + ' ▾」で付け外し。直後のお知らせの「元に戻す」・上の「1つ戻す」・⌘Z / Ctrl+Z で戻せます。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません（行は動かせます）。'}</div>`;
     stickTops();
   }
   // 上に残す位置: ライブラリの上の帯（#lib-results-header・同じスクロールの中で上に残る）の下、その下にグルーピングの並び、その下に列の見出し
@@ -570,7 +570,7 @@
   }
 
 
-  // 段（横に並ぶ）の設定（v53.067・オーナー決定 案1「順番に選ぶ」）: ① 列 → ② 段 → ③ 段で分けない列 → マスの高さ。下に、できあがりの形の小さな図と一文
+  // 行（横に並ぶ）の設定（v53.067・オーナー決定 案1「順番に選ぶ」）: ① 列 → ② 行 → ③ 行で分けない列 → マスの高さ。下に、できあがりの形の小さな図と一文
   function rowEd(d) {
     const gs = groupers(); const gks = d.gb === 'pick' ? pgsOf(d) : [];
     const cand = gs.filter(g => g.key !== d.gb && !gks.includes(g.key));
@@ -587,22 +587,39 @@
     const nm = x => x === NONE ? 'その他' : x;
     const rows = G ? sel.concat(d.rShowNone !== false ? [NONE] : []) : [];
     const ch = CELLH.includes(Number(d.cellH)) ? Number(d.cellH) : 2;
-    // できあがりの形（列は5つ・段は4つまで）
+    // できあがりの形（列は5つ・行は4つまで）
     const mc = colNames.slice(0, 5), mr = rows.slice(0, 4);
-    const mini = mc.length ? `<div class="svt-mini" style="grid-template-columns:${mr.length ? 'auto ' : ''}repeat(${mc.length},auto)">${mr.length ? '<i></i>' : ''}${mc.map(c => `<i class="mc">${esc(nm(c))}</i>`).join('')}${mr.length ? mr.map((r, ri) => `<i class="mr">${esc(nm(r))}</i>` + mc.map(c => off.has(c) ? (ri === 0 ? `<i class="moff" style="grid-row:span ${mr.length}">段なし</i>` : '') : '<i class="mx">…</i>').join('')).join('') : mc.map(() => '<i class="mx">…</i>').join('')}</div>` : '';
+    const mini = mc.length ? `<div class="svt-mini" style="grid-template-columns:${mr.length ? 'auto ' : ''}repeat(${mc.length},auto)">${mr.length ? '<i></i>' : ''}${mc.map(c => `<i class="mc">${esc(nm(c))}</i>`).join('')}${mr.length ? mr.map((r, ri) => `<i class="mr">${esc(nm(r))}</i>` + mc.map(c => off.has(c) ? (ri === 0 ? `<i class="moff" style="grid-row:span ${mr.length}">行なし</i>` : '') : '<i class="mx">…</i>').join('')).join('') : mc.map(() => '<i class="mx">…</i>').join('')}</div>` : '';
     const offL = colNames.filter(c => off.has(c)).map(nm);
-    const sum = cg ? `列は <b class="c">${esc(cg.name)}</b>（${cg.kind === 'pick' ? cg.items.length + '列' : '値ごと'}${colNames.includes(NONE) ? '＋その他' : ''}）${G ? `、段は <b class="r">${esc(G.name)}</b>（${sel.length}段${d.rShowNone !== false ? '＋その他' : ''}）` : '、段なし'}。${G && offL.length ? `「${esc(offL.join('・'))}」は段で分けません。` : ''}マスの高さはカード${ch}枚ぶん。` : '';
-    return `<div class="r"><div class="k svt-kr">段（横に並ぶ）</div><div style="display:grid;gap:8px;min-width:0">
-        <div class="svt-grp" style="margin:0">列の中を、さらに上下に分けます。段はどの列にも通ります</div>
-        <div class="svt-opts"><button class="svt-o${!d.rg ? ' on' : ''}" onclick="wkGroupings._erg('')">段なし</button>${cand.filter(g => g.kind === 'tag').map(gb).join('')}${cand.filter(g => g.kind !== 'tag').map(gb).join('')}</div>
-        ${G ? `<div class="setbox svt-rbox"><div class="svt-grp" style="margin:0"><b>✓ が段になります</b>（押すと付け外し・数はいまのフィルターでの本数）</div>
-          <div class="svt-opts" id="svt-rchips">${vals.map(x => `<button class="svt-o svt-rv${sel.includes(x) ? ' on' : ''}" onclick="wkGroupings._rv('${jsq(x)}')">${sel.includes(x) ? '✓ ' : ''}${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || '<span class="svt-grp" style="margin:0">まだ値がありません</span>'}<button class="svt-sm" onclick="wkGroupings._rall(true)">全部選ぶ</button><button class="svt-sm" onclick="wkGroupings._rall(false)">全部外す</button></div>
-          <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer;margin:0"><input type="checkbox" ${d.rShowNone !== false ? 'checked' : ''} onchange="wkGroupings._rsn(this.checked)"> どれも付いていない動画も「その他」の段に出す</label></div>
-        <div class="svt-grp" style="margin:0"><b>段で分けない列</b>（その列だけ、段をまたいだ1つのマスにする。列の見出しの「段 ⇕」でも変えられます）</div>
-        <div class="svt-opts" id="svt-roffs">${colNames.map(c => `<button class="svt-o${off.has(c) ? ' on' : ''}" onclick="wkGroupings._rofe('${jsq(c)}')">${off.has(c) ? '✓ ' : ''}${esc(nm(c))}</button>`).join('')}</div>` : ''}
-      </div></div>
-      <div class="r"><div class="k">マスの高さ</div><div class="svt-opts" id="svt-cellh">${CELLH.map(h => `<button class="svt-o${ch === h ? ' on' : ''}" onclick="wkGroupings._ch(${h})">カード${h}枚</button>`).join('')}<span class="svt-grp" style="margin:0;width:auto">${G ? 'どの段も同じ高さ。中はマスごとにスクロールします' : '段を使うときのマスの高さです'}</span></div></div>
-      ${cg ? `<div class="r"><div class="k">できあがり</div><div style="display:grid;gap:6px;min-width:0">${mini}<div class="svt-rsum">${sum}</div></div></div>` : ''}`;
+    const sum = cg ? `列は <b class="sc">${esc(cg.name)}</b>（${cg.kind === 'pick' ? cg.items.length + '列' : '値ごと'}${colNames.includes(NONE) ? '＋その他' : ''}）${G ? `、行は <b class="sr">${esc(G.name)}</b>（${sel.length}行${d.rShowNone !== false ? '＋その他' : ''}）` : '、行なし'}。${G && offL.length ? `「${esc(offL.join('・'))}」は行で分けません。` : ''}マスの高さはカード${ch}枚ぶん。` : '';
+    // 行の選び方は列とまったく同じ見せ方（v53.068・オーナー「行にも、列と同様にタグ・チャンネル・プレイリスト・カスタム列など同じ見せ方・同じビジュアルに」）。
+    // 違うのは、行は1つのグループから選ぶことと、列で使っているタググループは選べない（灰色）ことだけ
+    const used = g => g.key === d.gb || gks.includes(g.key);
+    const rb = g => used(g) ? `<button class="svt-o svt-used" disabled title="列で使っています">${esc(g.name)}<small> 列で使用中</small></button>` : gb(g);
+    const isTag = G && G.kind === 'tag';
+    const rcol = 'var(--blue)';
+    return { row: `<div class="svt-opts">
+        <button class="svt-o${!d.rg ? ' on' : ''}" onclick="wkGroupings._erg('')">行なし</button>
+        <div class="svt-grp">タグ（グループを押すと、その下に中のタグが開きます。行は1つのグループから選びます）</div>${gs.filter(g => g.kind === 'tag').map(rb).join('')}
+        <input id="svt-rngroup" class="svt-ngin" type="text" placeholder="＋ 新しいタググループ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._rng()"><button class="svt-sm" onclick="wkGroupings._rng()">作る</button>
+        <div class="svt-grp">チャンネル・プレイリスト</div>${gs.filter(g => g.kind === 'src').map(rb).join('')}
+        ${gs.some(g => g.kind === 'one') ? `<div class="svt-grp">カスタム列（セレクト・評価）</div>${gs.filter(g => g.kind === 'one').map(rb).join('')}` : ''}
+      </div>
+      ${G ? `<div class="setbox svt-pick">
+        <div class="svt-grp" style="margin:0"><b>✓ が行になります</b>（押すと付け外し・数はいまのフィルターでの本数）</div>
+        <div class="svt-pgrow svt-rbox" style="--gc:${rcol}">
+          <div class="svt-ph"><span class="svt-gname"><i class="svt-gdot"></i>${esc(G.name)}</span>
+            <span class="svt-phb"><button class="svt-sm" onclick="wkGroupings._rall(true)">全部選ぶ</button><button class="svt-sm" onclick="wkGroupings._rall(false)">全部外す</button></span></div>
+          <div class="svt-opts" id="svt-rchips">${sel.map(x => `<button class="svt-o on svt-rv" onclick="wkGroupings._rv('${jsq(x)}')">✓ ${esc(x)}<small> ${cnt(x)}</small></button>`).join('')}${vals.filter(x => !sel.includes(x)).map(x => `<button class="svt-o svt-off svt-rv" onclick="wkGroupings._rv('${jsq(x)}')">${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || (sel.length ? '' : '<span class="svt-grp" style="margin:0">まだ値がありません</span>')}</div>
+          ${isTag ? `<div class="svt-opts"><input id="svt-rnew" class="svt-pnew-in" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._rnew()"><button class="svt-sm" onclick="wkGroupings._rnew()">足す</button></div>` : ''}
+        </div>
+        <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer;margin:0"><input type="checkbox" ${d.rShowNone !== false ? 'checked' : ''} onchange="wkGroupings._rsn(this.checked)"> どれも付いていない動画も「その他」の行に出す</label>
+      </div>
+      <div class="setbox"><div class="svt-grp" style="margin:0"><b>行で分けない列</b>（その列だけ、行をまたいだ1つのマスにする。列の見出しの「行 ⇕」でも変えられます）</div>
+        <div class="svt-opts" id="svt-roffs">${colNames.map(c => `<button class="svt-o${off.has(c) ? ' on' : ''}" onclick="wkGroupings._rofe('${jsq(c)}')">${off.has(c) ? '✓ ' : ''}${esc(nm(c))}</button>`).join('')}</div></div>` : ''}
+`, look: `
+      <div class="r"><div class="k">マスの高さ</div><div class="svt-opts" id="svt-cellh">${CELLH.map(h => `<button class="svt-o${ch === h ? ' on' : ''}" onclick="wkGroupings._ch(${h})">カード${h}枚</button>`).join('')}<span class="svt-grp" style="margin:0;width:auto">${G ? 'どの行も同じ高さ。中はマスごとにスクロールします' : '行を使うときのマスの高さです'}</span></div></div>
+      ${cg ? `<div class="r"><div class="k">できあがり</div><div style="display:grid;gap:6px;min-width:0">${mini}<div class="svt-rsum">${sum}</div></div></div>` : ''}` };
   }
   function drawEd() {
     const el = document.getElementById('svt-ed'); if (!el) return;
@@ -610,19 +627,22 @@
     const gs = groupers();
     const gb = g => `<button class="svt-o${d.gb === g.key ? ' on' : ''}" onclick="wkGroupings._eg('${jsq(g.key)}')">${esc(g.name)}${g.sub ? `<small> ${esc(g.sub)}</small>` : ''}</button>`;
     const exists = !!D.items[d.id] && !D.items[d.id].del;
+    // 項目ごとに枠で区切る（v53.068・オーナー「名前・列・行・コピーが仕切りなく入っているから何のことか分からない。はっきり区切って」）
+    const sec = (cls, n, t, sub, body) => `<section class="svt-sec ${cls}"><div class="svt-sech">${n ? `<span class="svt-secn">${n}</span>` : ''}<b>${t}</b>${sub ? `<span class="svt-secd">${sub}</span>` : ''}</div><div class="svt-secb">${body}</div></section>`;
+    const re = d.gb ? rowEd(d) : null;
     el.innerHTML = `<div class="svt-ed">
-      <div class="r"><div class="k">名前</div><input id="svt-name" type="text" value="${esc(d.name)}" oninput="wkGroupings._en(this.value)"></div>
-      <div class="r"><div class="k svt-kc">列（縦に並ぶ）</div><div class="svt-opts">
+      ${sec('svt-sec-n', '', '名前', '', `<input id="svt-name" type="text" value="${esc(d.name)}" oninput="wkGroupings._en(this.value)">`)}
+      ${sec('svt-sec-c', '1', '列（縦に並ぶ）', '何で左右に分けるか', `<div class="svt-opts">
         <button class="svt-o${!d.gb ? ' on' : ''}" onclick="wkGroupings._eg('')">分けない</button>
         <div class="svt-grp">タグ（グループを押すと、その下に中のタグが開きます。いくつでも選べます）</div>${gs.filter(g => g.kind === 'tag').map(g => `<button class="svt-o${d.gb === 'pick' && pgsOf(d).includes(g.key) ? ' on' : ''}" onclick="wkGroupings._eg('${jsq(g.key)}')">${esc(g.name)}<small> ${esc(g.sub)}</small></button>`).join('')}
         <input id="svt-ngroup" type="text" placeholder="＋ 新しいタググループ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._ng()"><button class="svt-sm" onclick="wkGroupings._ng()">作る</button>
         <div class="svt-grp">チャンネル・プレイリスト</div>${gs.filter(g => g.kind === 'src').map(gb).join('')}
         ${gs.some(g => g.kind === 'one') ? `<div class="svt-grp">カスタム列（セレクト・評価）</div>${gs.filter(g => g.kind === 'one').map(gb).join('')}` : ''}
-      </div></div>
-      ${d.gb === 'pick' && pgsOf(d).length ? pickEd(d) : ''}
-      ${d.gb ? rowEd(d) : ''}
-      <div class="svt-grp">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。グルーピングはこのリストに保存され、ほかの端末にも出ます。</div>
-      ${exists ? copyBox(d) : ''}
+      </div>${d.gb === 'pick' && pgsOf(d).length ? pickEd(d) : ''}`)}
+      ${sec('svt-sec-r', '2', '行（横に並ぶ）', '列の中を、さらに上下に分ける。行はどの列にも通ります', re ? re.row : '<div class="svt-grp" style="margin:0">先に「1 列」を選ぶと、行を選べます</div>')}
+      ${re ? sec('svt-sec-l', '3', '見た目', 'マスの高さと、できあがりの形', re.look) : ''}
+      <div class="svt-grp" style="margin:0">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。グルーピングはこのリストに保存され、ほかの端末にも出ます。</div>
+      ${exists ? sec('svt-sec-p', '', 'コピー', '保存してある内容を、このリスト・ほかのリストに写して新しいグルーピングを作ります（編集中の変更は入りません）', copyBox(d)) : ''}
       <div class="foot">${exists ? '<button class="svt-sm danger" onclick="wkGroupings._del()">このグルーピングを消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkGroupings._ec()">やめる</button><button class="svt-sm pri" onclick="wkGroupings._es()">保存</button></div>
     </div>`;
     fitEd();
@@ -646,7 +666,7 @@
     return [[cur, 'このリスト'], ...(cur !== 'master' ? [['master', 'マスター']] : []), ...vs.filter(([id]) => id !== cur)];
   }
   function copyBox(d) {
-    return `<div class="svt-copy"><span class="k">コピー</span><select id="svt-copy-to" title="コピー先のリスト">${listOpts().map(([id, l]) => `<option value="${esc(id)}">${esc(l)}</option>`).join('')}</select><button class="svt-sm" onclick="wkGroupings._copy()">にコピーを作る</button><span class="svt-grp" style="margin:0;width:auto">保存してある内容を写します（編集中の変更は入りません）</span></div>`;
+    return `<div class="svt-copy"><span class="svt-grp" style="margin:0;width:auto">コピー先</span><select id="svt-copy-to" title="コピー先のリスト">${listOpts().map(([id, l]) => `<option value="${esc(id)}">${esc(l)}</option>`).join('')}</select><button class="svt-sm" onclick="wkGroupings._copy()">にコピーを作る</button></div>`;
   }
   function copyGrouping(id, toList) {
     const src = D.items[id]; if (!src || src.del) return null;
@@ -706,7 +726,18 @@
 #svt-root #svt-ed{overflow:auto;overscroll-behavior:contain}
 #svt-root #svt-ed .svt-ed{margin-bottom:4px}
 #svt-root #svt-ed .svt-ed .foot{position:sticky;bottom:-12px;background:var(--surface);margin:0 -12px -12px;padding:10px 12px 12px;z-index:1}
-#svt-root .svt-ed{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;gap:12px;margin-bottom:10px}
+#svt-root .svt-ed{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;gap:12px;margin-bottom:10px}
+#svt-root .svt-sec{--sc:var(--text3);border:1px solid var(--border);border-left:4px solid var(--sc);border-radius:10px;background:var(--surface);overflow:hidden}
+#svt-root .svt-sech{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:color-mix(in srgb,var(--sc) 10%,var(--surface));border-bottom:1px solid var(--border)}
+#svt-root .svt-sech b{font-size:13px;color:var(--text)}
+#svt-root .svt-secn{width:20px;height:20px;border-radius:50%;background:var(--sc);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;flex:0 0 auto}
+#svt-root .svt-secd{font-size:11px;color:var(--text3)}
+#svt-root .svt-secb{padding:10px 12px;display:grid;gap:10px;min-width:0}
+#svt-root .svt-sec-c{--sc:#d08a1c}
+#svt-root .svt-sec-r{--sc:var(--blue)}
+#svt-root .svt-sec-l{--sc:#2d9d6a}
+#svt-root .svt-sec-p{--sc:#8a7ab0}
+#svt-root .svt-sec-n{--sc:var(--text2)}
 #svt-root .svt-ed .r{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:start}
 #svt-root .svt-ed .k{font-size:11px;font-weight:700;color:var(--text3);padding-top:5px}
 #svt-root .svt-ed input[type=text]{font-size:13px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);max-width:320px;font-family:inherit}
@@ -722,7 +753,8 @@
 #svt-root .svt-addbox{display:grid;gap:6px;padding:0 2px 4px}
 #svt-root .svt-addh{gap:4px}
 #svt-root .svt-addh input{flex:1;min-width:0;font-size:12px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border);background:var(--surface);color:var(--text);font-family:inherit}
-#svt-root .svt-addbox input,#svt-root #svt-pnew,#svt-root #svt-ngroup{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
+#svt-root .svt-used{opacity:.45;cursor:not-allowed}
+#svt-root .svt-addbox input,#svt-root #svt-pnew,#svt-root #svt-ngroup,#svt-root .svt-ngin,#svt-root .svt-pnew-in{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;min-width:0}
 #svt-root .svt-ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
 #svt-root .svt-phb{display:flex;gap:6px}
 #svt-root .svt-chip{display:inline-flex;align-items:center;gap:2px;padding:0 4px 0 0}
@@ -819,7 +851,7 @@
 #svt-root .svt-mini .mx,#svt-root .svt-mini .moff{background:var(--surface3);color:var(--text3);text-align:center}
 #svt-root .svt-mini .moff{display:grid;place-items:center}
 #svt-root .svt-rsum{font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:6px 10px}
-#svt-root .svt-rsum .c{color:var(--gold)}#svt-root .svt-rsum .r{color:var(--blue)}
+#svt-root .svt-rsum .sc{color:#d08a1c}#svt-root .svt-rsum .sr{color:var(--blue)}
 @media (max-width:560px){#svt-root .svt-rlab,#svt-root .svt-rsp{flex-basis:72px}}
 #svt-root .svt-note{font-size:11.5px;color:var(--text3);padding:8px 2px 16px;line-height:1.6}
 #svt-toast .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
@@ -911,7 +943,7 @@
     const op = (k, hid) => hid ? !!S.closed[V.id + '|' + k] : !S.closed[V.id + '|' + k];
     const R = rowG(V);
     if (!R) return colsH(list, g).map(c => ({ key: c.key, name: c.name, ids: c.ids, open: op(c.key, c.hid) }));
-    // 段があるときは「列 › 段」の見出し（段で分けない列・非表示はその列だけ）。動画の入っていない組み合わせは出さない
+    // 行があるときは「列 › 行」の見出し（行で分けない列・非表示はその列だけ）。動画の入っていない組み合わせは出さない
     const rv = rowVals(V); const rows = rv.concat(V.rShowNone !== false ? [NONE] : []); const off = new Set(Array.isArray(V.rOff) ? V.rOff : []);
     const byId = new Map(list.map(v => [v.id, v])); const nm = x => x === NONE ? 'その他' : x; const out = [];
     colsH(list, g).forEach(c => {
@@ -1068,7 +1100,7 @@
         known: gks[0] ? groupValsAll(gks[0]) : [],   // 前の版の形（1つ目のグループ）
         knownBy: Object.fromEntries(gks.map(k => [k, groupValsAll(k)])),   // この時点の各グループの全部の値（後から増えたタグを見分ける）
         showNone: d.showNone !== false, created: prev && prev.created || Date.now() };
-      // 段（v53.067）。列と同じもの・無くなったものは保存しない
+      // 行（v53.067）。列と同じもの・無くなったものは保存しない
       { const rg = d.rg && GR0(d.rg) && rowG({ ...e, rg: d.rg }) ? d.rg : null;
         if (rg) { e.rg = rg; e.rpicks = (d.rpicks || []).map(String); e.rShowNone = d.rShowNone !== false; e.rOff = (d.rOff || []).slice();
           if (GR0(rg).kind === 'tag') e.rKnown = groupValsAll(rg); }
@@ -1106,13 +1138,24 @@
       const tc = S._grid.cols[ci]; const tr = ri === '*' ? null : S._grid.rows[+ri]; if (tc == null) return;
       if (f === tc && (tr == null || fr == null || tr === fr)) return;
       moveCell(v, f, fr, tc, tr, !!e.altKey); },
-    // 列の見出しの「段 ⇕」: この列だけ段で分けない／分ける（グルーピングの rOff に列の名前を足す・外す。動画には触らない）
+    // 列の見出しの「行 ⇕」: この列だけ行で分けない／分ける（グルーピングの rOff に列の名前を足す・外す。動画には触らない）
     _roff: ci => { const V = VW(); const cur = D.items[V.id]; if (!cur || cur.del || !S._grid) return; const ck = S._grid.cols[ci]; if (ck == null || ck === HID) return;
       const nmk = ck === NONE ? NONE : ck; const a = Array.isArray(cur.rOff) ? cur.rOff.slice() : []; const i = a.indexOf(nmk); i < 0 ? a.push(nmk) : a.splice(i, 1);
       put({ ...cur, rOff: a }); draw(); },
     _erg: k => { const d = S.editing; if (!d) return; d.rg = k || null; d.rOff = []; d.rShowNone = true;
       const G = k ? GR0(k) : null; d.rpicks = !G ? [] : G.kind === 'src' ? allVals(k).map(x => [x, source().filter(v => readG(v, G).includes(x)).length]).sort((a, b) => b[1] - a[1]).slice(0, 5).map(x => x[0]) : allVals(k);
       drawEd(); },
+    // 行のタググループを新しく作る（列の「＋ 新しいタググループ」と同じ。tagRegistry.createGroup＝未使用のタググループに入る）
+    _rng: () => { const d = S.editing; const inp = document.getElementById('svt-rngroup'); const name = String(inp && inp.value || '').trim(); if (!name || !d) return;
+      const ex = groupers().find(g => g.kind === 'tag' && g.name === name);
+      if (ex) { if (ex.key === d.gb || pgsOf(d).includes(ex.key)) { toast('そのタググループは列で使っています'); return; } window.wkGroupings._erg(ex.key); return; }
+      const id = window.tagRegistry?.createGroup?.(name); if (!id) { toast('タググループを作れませんでした'); return; }
+      _gc = null; d.rg = 'tag:' + id; d.rpicks = []; d.rOff = []; d.rShowNone = true;
+      toast(`タググループ「${name}」を作りました（タグの設定の「未使用のタググループ」に入っています）`); drawEd(); setTimeout(() => document.getElementById('svt-rnew')?.focus(), 0); },
+    // 行のタググループに新しいタグを足す（選択肢に足すだけ・動画には触らない）
+    _rnew: () => { const d = S.editing; if (!d || !d.rg) return; const inp = document.getElementById('svt-rnew'); const v = addNewTag(d.rg, inp && inp.value); if (!v) return;
+      d.rpicks = d.rpicks || []; if (!d.rpicks.includes(v)) d.rpicks.push(v);
+      toast(`タグ「${v}」を足しました`); drawEd(); setTimeout(() => document.getElementById('svt-rnew')?.focus(), 0); },
     _rv: x => { const d = S.editing; if (!d) return; d.rpicks = d.rpicks || []; const i = d.rpicks.indexOf(x); i < 0 ? d.rpicks.push(x) : d.rpicks.splice(i, 1); drawEd(); },
     _rall: on => { const d = S.editing; if (!d || !d.rg) return; d.rpicks = on ? allVals(d.rg) : []; drawEd(); },
     _rsn: on => { if (S.editing) { S.editing.rShowNone = on; drawEd(); } },
