@@ -825,12 +825,12 @@
 #svt-root.svt-new .svt-sum{display:none}
 #svt-root.svt-new .svt-tabs{display:block;width:100%}
 #svt-root .svt-pickw{display:flex;gap:8px;align-items:center;min-width:0}
-#svt-root .svt-gpick{flex:0 1 380px;min-width:0;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+#svt-root .svt-gpick{flex:0 1 380px;min-width:0;display:flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:11px;cursor:pointer}  /* 文字はサイドパネルのリスト名と同じ 11px・600（v53.084・オーナー「フォントがでかい」） */
 #svt-root .svt-gpick b{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 #svt-root .svt-pcar{color:var(--text3);font-size:11px}
 .svt-pic{color:var(--text3);margin-right:6px}
 #svt-root .svt-gpick .svt-pic{margin:0}
-#svt-root .svt-pen{width:32px;height:32px;flex:0 0 32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:13px;padding:0}
+#svt-root .svt-pen{width:30px;height:30px;flex:0 0 30px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;padding:0}
 #svt-pop{position:fixed;z-index:10050;min-width:220px;max-width:min(360px,calc(100vw - 16px));max-height:min(70vh,520px);overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:6px;font-size:14px}
 #svt-pop .svt-pi{display:flex;align-items:center;width:100%;text-align:left;padding:9px 12px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;cursor:pointer}
 #svt-pop .svt-pi:hover{background:var(--surface2)}

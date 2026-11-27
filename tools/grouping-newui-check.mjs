@@ -112,7 +112,8 @@ const st = await pg.evaluate(() => { const f = s => { const e = document.querySe
     fp: f('#svt-root .svt-gpick b'), fc: f('#svt-colhs .svt-tag'), border: [...document.querySelectorAll('#svt-colhs .svt-colh')].map(h => getComputedStyle(h).borderTopWidth), also: document.querySelectorAll('#svt-root .svt-also').length,
     rlw: parseFloat(getComputedStyle(document.querySelector('#svt-root .svt-rlab')).width), cardx: document.querySelectorAll('#svt-root .svt-cardx').length, more: document.querySelectorAll('#svt-root .svt-camore').length }; });
 ck('選び方はプルダウン1つ＋✏️（タブの並び・「グルーピングを編集」の行は無い）', st.pick && st.pen && st.tabs === 0 && !st.editRow, JSON.stringify(st));
-ck('プルダウンの文字は列の名前と同じ大きさ（13px）', st.fp === 13 && st.fc === 13, JSON.stringify(st));
+const sbf = await pg.evaluate(() => { const e = document.getElementById('cv-list-name'); return e ? parseFloat(getComputedStyle(e).fontSize) : 0; });
+ck('プルダウンの文字はサイドパネルのリスト名と同じ大きさ（v53.084・オーナー「フォントがでかい」）', sbf > 0 && st.fp === sbf, JSON.stringify({ fp: st.fp, sidebar: sbf }));
 ck('列の見出しに色の線が無い', st.border.every(w => w === '0px'), JSON.stringify(st.border));
 ck('カードは「列と行の編集」「非表示」の段が無く、メモ・アーカイブの並びに ⋯・「ほかの列にも」の行も無い', st.cardx === 0 && st.more > 0 && st.also === 0, JSON.stringify(st));
 ck('行の見出しは 90px 以下（名前に合わせた幅の 75%）', st.rlw > 30 && st.rlw <= 90, st.rlw);
