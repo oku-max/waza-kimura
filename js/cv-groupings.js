@@ -808,16 +808,17 @@
     st.textContent = `
 #lib-card-host.svt-on #cardList{display:none!important}
 /* ── 試作の見た目（?grpui=new のときだけ・v53.079） ── */
-#svt-root.svt-new .svt-head{padding:8px 16px;gap:0}
+#svt-root.svt-new .svt-head{padding:6px 16px;gap:0}
+#svt-root.svt-new .svt-main{padding-top:0}
 #svt-root.svt-new .svt-sum{display:none}
 #svt-root.svt-new .svt-tabs{display:block;width:100%}
 #svt-root .svt-pickw{display:flex;gap:8px;align-items:center;min-width:0}
-#svt-root .svt-gpick{flex:0 1 380px;min-width:0;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+#svt-root .svt-gpick{flex:0 1 380px;min-width:0;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:13px;cursor:pointer}
 #svt-root .svt-gpick b{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 #svt-root .svt-pcar{color:var(--text3);font-size:11px}
 .svt-pic{color:var(--text3);margin-right:6px}
 #svt-root .svt-gpick .svt-pic{margin:0}
-#svt-root .svt-pen{width:36px;height:36px;flex:0 0 36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:14px;padding:0}
+#svt-root .svt-pen{width:32px;height:32px;flex:0 0 32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:13px;padding:0}
 #svt-pop{position:fixed;z-index:10050;min-width:220px;max-width:min(360px,calc(100vw - 16px));max-height:min(70vh,520px);overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:6px;font-size:14px}
 #svt-pop .svt-pi{display:flex;align-items:center;width:100%;text-align:left;padding:9px 12px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;cursor:pointer}
 #svt-pop .svt-pi:hover{background:var(--surface2)}
@@ -826,10 +827,12 @@
 #svt-pop .svt-pi.sub{color:var(--text2)}
 #svt-pop .svt-psep{border-top:1px solid var(--border);margin:4px 2px}
 #svt-pop .svt-ph2{font-size:11px;color:var(--text3);padding:6px 12px 2px}
-#svt-root.svt-new .svt-colhs .svt-colh,#svt-root.svt-new .svt-colh[style*='--gc']{border-top:0;border-radius:0;padding:16px 4px 6px;gap:6px;flex-wrap:nowrap;align-items:center;position:relative}
-#svt-root.svt-new .svt-colhs .svt-colh.svt-cfold{padding-top:16px}
-#svt-root.svt-new .svt-colh.svt-gcap::after{content:attr(data-g);position:absolute;left:4px;top:0;font-size:10.5px;color:var(--text3);letter-spacing:.04em;white-space:nowrap}
-#svt-root.svt-new .svt-colh .svt-tag{background:none;box-shadow:none;padding:0;border-radius:0;font-size:13.5px;font-weight:700;color:var(--text);flex:0 1 auto;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+#svt-root.svt-new .svt-colhs{padding-top:2px}
+#svt-root.svt-new .svt-colhs:has(.svt-gcap){padding-top:14px}
+#svt-root.svt-new .svt-colhs .svt-colh,#svt-root.svt-new .svt-colh[style*='--gc']{border-top:0;border-radius:0;padding:4px 4px 6px;gap:6px;flex-wrap:nowrap;align-items:center;position:relative}
+#svt-root.svt-new .svt-colhs .svt-colh.svt-cfold{padding-top:4px}
+#svt-root.svt-new .svt-colh.svt-gcap::after{content:attr(data-g);position:absolute;left:4px;top:-12px;font-size:10.5px;color:var(--text3);letter-spacing:.04em;white-space:nowrap}
+#svt-root.svt-new .svt-colh .svt-tag{background:none;box-shadow:none;padding:0;border-radius:0;font-size:13px;font-weight:700;color:var(--text);flex:0 1 auto;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
 #svt-root.svt-new .svt-colh .svt-tag.none{color:var(--text3);font-weight:600}
 #svt-root.svt-new .svt-colh .n{color:var(--text3);font-size:12px;flex:0 0 auto}
 #svt-root.svt-new .svt-son{color:var(--accent);font-size:11px;flex:0 0 auto}
@@ -838,18 +841,24 @@
 #svt-root.svt-new .svt-fold{border:0;background:none;color:var(--text3);width:16px;height:16px;font-size:10px}
 #svt-root.svt-new .svt-gstart::before{border-left:1px solid var(--border)}
 #svt-root.svt-new .svt-gtag{box-shadow:none}
-#svt-root.svt-new .svt-rlab,#svt-root.svt-new .svt-rsp{flex-basis:30px}
+/* 行の見出し（v53.080・オーナー「ブラウザではあってもいい、スマホではなくていい。各マスの上に行の名前が出ているから分かる」「縦書きは英語だと良くない」）:
+   マウスの PC は横書きの細い見出し（▾ の下に名前）、指で触る端末（スマホ・タブレット）は出さない＝マスの上の帯の名前で読む */
+#svt-root.svt-new .svt-rlab,#svt-root.svt-new .svt-rsp{flex-basis:120px}
 #svt-root.svt-new .svt-rsp{font-size:0}
-#svt-root.svt-new .svt-gridb{scroll-padding-left:40px}
-#svt-root.svt-new .svt-rh{border-left:0;border-radius:8px;background:var(--surface2);padding:8px 0;align-items:center;gap:6px}
+#svt-root.svt-new .svt-gridb{scroll-padding-left:130px}
+#svt-root.svt-new .svt-rh{border-left:0;border-radius:8px;background:var(--surface2);padding:8px 6px;gap:4px}
 #svt-root.svt-new .svt-rh.none{background:var(--surface2)}
-#svt-root.svt-new .svt-rht{flex-direction:column;align-items:center;gap:6px}
-#svt-root.svt-new .svt-rh b{writing-mode:vertical-rl;letter-spacing:.18em;font-size:13px;white-space:nowrap;color:var(--text)}
-#svt-root.svt-new .svt-rh .n{font-size:10px;color:var(--text3)}
-#svt-root.svt-new .svt-rh.svt-rfold b{writing-mode:horizontal-tb}
+#svt-root.svt-new .svt-rht{flex-direction:column;align-items:flex-start;gap:4px}
+#svt-root.svt-new .svt-rh b{font-size:12.5px;line-height:1.35;color:var(--text);word-break:normal;overflow-wrap:anywhere}
+#svt-root.svt-new .svt-rh .n{font-size:10.5px;color:var(--text3)}
+@media (pointer:coarse){
+ #svt-root.svt-new .svt-rlab,#svt-root.svt-new .svt-rsp{display:none}
+ #svt-root.svt-new .svt-gridb{scroll-padding-left:0}
+ #svt-root.svt-new .svt-ccnt span{color:var(--text2);font-weight:600;font-size:11.5px}
+}
 #svt-root.svt-new .svt-ccnt{background:none}
 #svt-root.svt-new .svt-camore{flex:0 0 44px!important;order:9;font-size:16px;color:var(--text2);border-left:1px solid var(--border)!important;border-right:0!important}
-@media (max-width:560px){#svt-root.svt-new .svt-rlab,#svt-root.svt-new .svt-rsp{flex-basis:30px}#svt-root.svt-new .svt-gridb{scroll-padding-left:40px}
+@media (max-width:560px){
  #svt-root.svt-new .svt-colhs .svt-colh:not(.svt-cfold):not(.svt-addh){flex-wrap:nowrap}
  #svt-root.svt-new .svt-colhs .svt-colh:not(.svt-cfold) .svt-tag{flex:0 1 auto;white-space:nowrap}}
 #svt-root{color:var(--text);font-size:13px}
