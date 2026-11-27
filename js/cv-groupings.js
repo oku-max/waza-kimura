@@ -513,8 +513,9 @@
     const cell = (c, ci, ri) => { const id = ci + '.' + ri; const a = cells[id] || []; const n = S.more[id] || LIMIT;
       const span = ri === '*';
       const xf = !span && (rFold(ri) || fX.has(cellKey(c.key, rows[ri])));
-      // 畳んだマスは上に細い帯だけ（行のほかのマスが開いていれば、その下は何も描かない空き）
-      if (xf) return `<div class="svt-cell svt-xfold" data-ci="${ci}" data-ri="${ri}" style="height:${rH(ri)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
+      // 畳んだマスは細い帯だけ。その列の下のマスは詰めて上がる（v53.072・オーナー「だからこれじゃダメ」。
+      // v53.071 は行の高さをそろえるために帯の下を空けていたので、畳んでも場所が空かなかった）。どの行かは帯の名前で分かる
+      if (xf) return `<div class="svt-cell svt-xfold" data-ci="${ci}" data-ri="${ri}" style="height:${FOLD_H}px" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
         <div class="svt-xbar">${rFold(ri) ? '' : fbtn(true, `'x',${ci},${ri}`, 'このマス')}<span>${esc(nm(rows[ri]))}</span><b>${a.length}本</b></div></div>`;
       return `<div class="svt-cell${span ? ' svt-cspan' : ''}${a.length ? '' : ' svt-cempty'}" data-ci="${ci}" data-ri="${ri}" style="height:${span ? spanH : 'var(--svt-cellh)'}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
         <div class="svt-ccnt">${span ? '' : fbtn(false, `'x',${ci},${ri}`, 'このマス')}<span>${span ? (c.hid ? '' : '行で分けない') : esc(nm(rows[ri]))}</span><b>${a.length}本</b></div>

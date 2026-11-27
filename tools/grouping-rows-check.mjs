@@ -210,9 +210,11 @@ await pg.evaluate(() => wkGroupings._undo()); await pg.locator('#svt-root .svt-m
   await pg.locator('#svt-root .svt-rh', { hasText: 'スタンディング' }).locator('.svt-fold').click(); await pg.waitForTimeout(250);
   const xsel = await sel('ラッソー', 'ボトム');
   await pg.locator(xsel + ' .svt-ccnt .svt-fold').click(); await pg.waitForTimeout(250);
-  const xf = await pg.evaluate(s => { const c = document.querySelector(s); const bar = c.querySelector('.svt-xbar'); const row = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${c.dataset.ri}"]`)].filter(x => x !== c && !x.classList.contains('svt-xfold'));
-    return { fold: c.classList.contains('svt-xfold'), cards: c.querySelectorAll('.svt-lc').length, cnt: bar && bar.querySelector('b').textContent, barH: bar ? Math.round(bar.getBoundingClientRect().height) : 0, border: getComputedStyle(c).borderTopStyle, oh: row.length ? Math.round(row[0].getBoundingClientRect().height) : 0 }; }, xsel);
-  ck('マスの ▾ でそのマスだけ畳む（細い帯だけになり、大きな空の枠は残らない・本数は出たまま）（v53.071）', xf.fold && xf.cards === 0 && xf.cnt === '1本' && xf.barH > 0 && xf.barH <= 40 && xf.border === 'none' && xf.oh > 100, JSON.stringify(xf));
+  const xf = await pg.evaluate(s => { const c = document.querySelector(s); const bar = c.querySelector('.svt-xbar'); const below = document.querySelector(`#svt-root .svt-cell[data-ci="${c.dataset.ci}"][data-ri="${+c.dataset.ri + 1}"]`);
+    const other = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${c.dataset.ri}"]`)].find(x => x !== c && !x.classList.contains('svt-xfold'));
+    return { fold: c.classList.contains('svt-xfold'), cards: c.querySelectorAll('.svt-lc').length, cnt: bar && bar.querySelector('b').textContent, h: Math.round(c.getBoundingClientRect().height),
+      gap: below ? Math.round(below.getBoundingClientRect().top - c.getBoundingClientRect().bottom) : -1, oh: other ? Math.round(other.getBoundingClientRect().height) : 0 }; }, xsel);
+  ck('マスの ▾ でそのマスだけ畳む（細い帯だけ・本数は出たまま）・その列の下のマスが詰めて上がる（空きを残さない）（v53.072）', xf.fold && xf.cards === 0 && xf.cnt === '1本' && xf.h <= 40 && xf.gap >= 0 && xf.gap <= 12 && xf.oh > 100, JSON.stringify(xf));
   // 行の中のマスを全部畳むと、その行も細くなる
   const ri0 = await pg.evaluate(s => document.querySelector(s).dataset.ri, xsel);
   for (const ci of await pg.evaluate(ri => [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${ri}"]:not(.svt-xfold)`)].map(c => c.dataset.ci), ri0)) { await pg.locator(`#svt-root .svt-cell[data-ri="${ri0}"][data-ci="${ci}"] .svt-ccnt .svt-fold`).click(); await pg.waitForTimeout(150); }
