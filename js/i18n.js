@@ -197,6 +197,7 @@
     // グルーピング（v53.048）
     '非表示':'Hidden','表示に戻す':'Show again',
     'いくつでも選べます':'You can pick as many as you like',
+    'コピー':'Copy',    'にコピーを作る':'Make a copy in','コピー先のリスト':'List to copy to','保存してある内容を写します（編集中の変更は入りません）':'Copies the saved settings (unsaved edits are not included)','このリスト':'This list',
     '（今は無いタグ）':' (tag no longer exists)','このタグは今はありません（名前を変えた・消した）。押すと列から外れます':'This tag no longer exists (renamed or removed). Press to remove it from the columns',
     'いくつでも選べます（「閉じる」を押すと、付けたタグの列へ移ります）':'Pick as many as you like (the card moves to those columns when you press “Close”)',
     '並べ替え: ライブラリと同じ':'Sort: same as library',
@@ -2417,6 +2418,8 @@
     [/^「(.+)」を非表示にしました$/, (m, a) => `Hid “${a}”`],
     [/^「(.+)」を表示に戻しました$/, (m, a) => `Showing “${a}” again`],
     [/^（⠿ をドラッグでグループの中の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）(.*)$/, (m, r) => '(drag ⠿ to reorder within the group · press to toggle · the number is the count with the current filters)' + (r ? '. Columns are grouped by tag group, in this order' : '')],
+    [/^「(.+)」に「(.+)」を作りました$/, (m, a, b) => `Created “${b}” in “${a}”`],
+    [/^「(.+)」を作りました$/, (m, a) => `Created “${a}”`],
     [/^「(.+)」と「(.+)」の両方に入れました$/, (m, a, b) => `Put it in both “${a}” and “${b}”`],
     [/^「(.+)」にも残す$/, (m, a) => `Also keep “${a}”`],
     [/^「(.+)」にも追加しました$/, (m, a) => `Also added to “${a}”`],

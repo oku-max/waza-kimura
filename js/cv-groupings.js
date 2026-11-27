@@ -477,6 +477,7 @@
       </div></div>
       ${d.gb === 'pick' && pgsOf(d).length ? pickEd(d) : ''}
       <div class="svt-grp">絞り込みは、ふだんのフィルター（サイドパネル・フィルターの窓・検索語）をそのまま使います。グルーピングはこのリストに保存され、ほかの端末にも出ます。</div>
+      ${exists ? copyBox(d) : ''}
       <div class="foot">${exists ? '<button class="svt-sm danger" onclick="wkGroupings._del()">このグルーピングを消す</button>' : ''}<span style="flex:1"></span><button class="svt-sm" onclick="wkGroupings._ec()">やめる</button><button class="svt-sm pri" onclick="wkGroupings._es()">保存</button></div>
     </div>`;
     fitEd();
@@ -491,6 +492,26 @@
     const bottom = nr && nr.height && nr.top > 0 && nr.top < innerHeight ? nr.top : innerHeight;
     const top = Math.max(0, el.getBoundingClientRect().top);
     el.style.maxHeight = Math.max(220, (bottom - top - 8) / k) + 'px';
+  }
+  // コピー（v53.065・オーナー「既存のグルーピング条件をコピーする機能」）。保存してあるグルーピングをそのまま写して、
+  // このリスト／ほかのリスト（マスター含む）に新しいグルーピングとして足す。元のグルーピング・動画・タグには触らない
+  function listOpts() {
+    const cur = listKey();
+    const vs = (window._cvViews || []).filter(v => v && v.id).map(v => [v.id, v.label || v.name || v.id]);
+    return [[cur, 'このリスト'], ...(cur !== 'master' ? [['master', 'マスター']] : []), ...vs.filter(([id]) => id !== cur)];
+  }
+  function copyBox(d) {
+    return `<div class="svt-copy"><span class="k">コピー</span><select id="svt-copy-to" title="コピー先のリスト">${listOpts().map(([id, l]) => `<option value="${esc(id)}">${esc(l)}</option>`).join('')}</select><button class="svt-sm" onclick="wkGroupings._copy()">にコピーを作る</button><span class="svt-grp" style="margin:0;width:auto">保存してある内容を写します（編集中の変更は入りません）</span></div>`;
+  }
+  function copyGrouping(id, toList) {
+    const src = D.items[id]; if (!src || src.del) return null;
+    const { at, ...rest } = JSON.parse(JSON.stringify(src));
+    const names = new Set(viewsOf(toList).map(v => v.name));
+    let name = rest.name + '（コピー）', n = 2; while (names.has(name)) name = rest.name + '（コピー' + (n++) + '）';
+    const e = { ...rest, id: newId(), list: toList, name, created: Date.now() };
+    if (toList !== src.list) delete e.hidden;   // 非表示はリストの中の動画に付けた印なので、ほかのリストには写さない
+    put(e);
+    return e;
   }
   function drawTabs() {
     const el = document.getElementById('svt-tabs'); if (!el) return;
@@ -597,6 +618,9 @@
 #svt-root .svt-csort{margin-left:auto;max-width:120px;font-size:10.5px;padding:2px 4px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;cursor:pointer}
 #svt-root .svt-csort.on{border-color:var(--accent);color:var(--text)}
 #svt-root .svt-chip.svt-stale{opacity:.55;text-decoration:line-through}
+#svt-root .svt-copy{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px}
+#svt-root .svt-copy .k{font-size:11px;font-weight:700;color:var(--text3);width:80px}
+#svt-root .svt-copy select{font-size:12px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);max-width:220px}
 #svt-root .svt-pgrow{display:grid;gap:6px;border:1px solid var(--border);border-left:4px solid var(--gc);border-radius:8px;padding:8px 10px}
 #svt-root .svt-gname{font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px}
 #svt-root .svt-gdot{width:10px;height:10px;border-radius:50%;background:var(--gc);display:inline-block}
@@ -831,6 +855,10 @@
       else { d.gb = k || null; d.pg = null; d.pgs = []; d.picks = []; }
       drawEd(); },
     _ec: () => { S.editing = null; draw(); },
+    _copy: () => { const d = S.editing; if (!d) return; const sel = document.getElementById('svt-copy-to'); const to = sel && sel.value || listKey();
+      const e = copyGrouping(d.id, to); if (!e) return;
+      if (to === listKey()) { P.cur[to] = e.id; savePrefs(); S.editing = null; draw(); toast(`「${e.name}」を作りました`); }
+      else { const l = (listOpts().find(([id]) => id === to) || [, to])[1]; toast(`「${l}」に「${e.name}」を作りました`); } },
     _es: () => { const d = S.editing; if (!d) return;
       const name = (d.name || '').trim() || 'グルーピング';
       const prev = D.items[d.id];

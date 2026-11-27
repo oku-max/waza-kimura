@@ -487,6 +487,20 @@ const mc2 = await cols(pg);
 ck('編集でもう一度押すとそのグループは外れる', !mc2.some(c => c.startsWith('使える=')) && mc2.some(c => c.startsWith('ボトム=')), mc2);
 await pg.evaluate(id => wkGroupings._pick(id), g1.id);
 await wait(800); ids1 = Object.keys(CLOUD[GDOC].items).sort();
+// ⑨g コピー（v53.065・オーナー「既存のグルーピング条件をコピーする機能」）
+const cpBefore = await pg.evaluate(id => JSON.stringify(wkGroupings.list().find(e => e.id === id)), g1.id);
+await pg.evaluate(id => { wkGroupings._pick(id); wkGroupings._edit(); }, g1.id);
+await pg.selectOption('#svt-copy-to', 'master'); await pg.click('#svt-ed button:has-text("にコピーを作る")'); await pg.waitForTimeout(300);
+const cp = await pg.evaluate(id => { const src = wkGroupings.list().find(e => e.id === id); const c = wkGroupings.list().find(e => e.name === src.name + '（コピー）');
+  return c && { same: JSON.stringify(c.picks) === JSON.stringify(src.picks) && JSON.stringify(c.pgs) === JSON.stringify(src.pgs) && c.gb === src.gb, list: c.list, cur: !!document.querySelector('#svt-tabs .svt-vt.on') && document.querySelector('#svt-tabs .svt-vt.on').textContent.includes('（コピー）'), id: c.id }; }, g1.id);
+ck('「にコピーを作る」で同じ内容のグルーピングが「（コピー）」の名前で増え、それが開く', !!cp && cp.same && cp.list === 'master' && cp.cur, cp);
+ck('元のグルーピングは1文字も変わらない', cpBefore === await pg.evaluate(id => JSON.stringify(wkGroupings.list().find(e => e.id === id)), g1.id));
+ck('コピーもクラウドに1件として入る', await until(() => !!CLOUD[GDOC].items[cp && cp.id]));
+await pg.evaluate(id => { wkGroupings._pick(id); wkGroupings._edit(); }, g1.id);
+await pg.click('#svt-ed button:has-text("にコピーを作る")'); await pg.waitForTimeout(300);
+ck('2回目は「（コピー2）」', await pg.evaluate(() => wkGroupings.list().some(e => /（コピー2）$/.test(e.name))));
+await pg.evaluate(id => wkGroupings._pick(id), g1.id);
+await wait(800); ids1 = Object.keys(CLOUD[GDOC].items).sort();
 // ⑩ 2台目: 開くと同じグルーピングが出る・作ると1台目に届く
 const cx2 = await newCtx(); const pg2 = await open(cx2);
 await pg2.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
