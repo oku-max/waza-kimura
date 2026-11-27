@@ -903,9 +903,13 @@ export function renderOrg() {
   if (Array.isArray(_grp)) {
     if (window._orgScrollObs) { window._orgScrollObs.disconnect(); window._orgScrollObs = null; }
     const _byId = new Map(displayList.map(v => [v.id, v]));
-    tbody.innerHTML = _grp.map(g => `<tr class="org-group-hd" data-gk="${_orgEsc(g.key)}" onclick="window._orgGroupToggle && window._orgGroupToggle(this.dataset.gk)">
-        <td colspan="99" class="org-td" style="background:var(--surface2);cursor:pointer;padding:0"><div style="position:sticky;left:0;display:inline-flex;gap:8px;align-items:center;padding:8px 12px;font-weight:700;font-size:12px">${g.open ? '▼' : '▶'} ${_orgEsc(g.name)}<span style="font-weight:400;color:var(--text3)">${(g.ids || []).length}本</span></div></td></tr>`
-      + (g.open ? (g.ids || []).map(id => _byId.get(id)).filter(Boolean).map(v => _buildRowHTML(v)).join('') : '')).join('');
+    // 見出しは2段まで（v53.075・オーナー「テーブルは縦列で大きいアコーディオン、その下に横行ごとのアコーディオン」）。
+    // g.sub があれば、g の見出しの下に sub の見出し（一段下げ）を並べ、行は sub の下に出す。g.sub が無ければ今までどおり
+    const _hd = (g, d) => `<tr class="org-group-hd${d ? ' org-group-sub' : ''}" data-gk="${_orgEsc(g.key)}" onclick="window._orgGroupToggle && window._orgGroupToggle(this.dataset.gk)">
+        <td colspan="99" class="org-td" style="background:${d ? 'var(--surface)' : 'var(--surface2)'};cursor:pointer;padding:0${d ? ';border-left:3px solid var(--blue)' : ''}"><div style="position:sticky;left:0;display:inline-flex;gap:8px;align-items:center;padding:${d ? '6px 12px 6px 32px' : '8px 12px'};font-weight:700;font-size:${d ? '11.5px' : '12.5px'}">${g.open ? '▼' : '▶'} ${_orgEsc(g.name)}<span style="font-weight:400;color:var(--text3)">${(g.ids || []).length}本</span></div></td></tr>`;
+    const _rows = g => (g.ids || []).map(id => _byId.get(id)).filter(Boolean).map(v => _buildRowHTML(v)).join('');
+    tbody.innerHTML = _grp.map(g => _hd(g, 0)
+      + (!g.open ? '' : Array.isArray(g.sub) ? g.sub.map(sg => _hd(sg, 1) + (sg.open ? _rows(sg) : '')).join('') : _rows(g))).join('');
   } else {
   // ── バッチレンダリング: 最初の60行を即時描画、残りはスクロールで追加 ──
   const BATCH = 60;

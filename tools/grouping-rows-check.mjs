@@ -277,10 +277,22 @@ await lassoHd.click(); await pg.waitForTimeout(300);
 const wide = await pg.evaluate(() => { const b = document.querySelector('#svt-root .svt-cell .svt-cardx .svt-sm:not(.svt-hidebtn)'); b.textContent = '相手のポスチャー・リアクション・Position ／ 自分のポスチャー・グリップ・とても長い名前のタググループ ▾'; const l = b.closest('.svt-clist'); return { sw: l.scrollWidth, cw: l.clientWidth, ox: getComputedStyle(l).overflowX }; });
 ck('カードの ▾ の名前が長くても、マスの中に横スクロールが出ない（はみ出す分は … で切る）（v53.073）', wide.sw <= wide.cw + 1 && wide.ox === 'hidden', JSON.stringify(wide));
 await pg.evaluate(() => wkGroupings._state() && document.getElementById('svt-sum'));
-// ⑦ テーブルは「列 › 行」の見出し
+// ⑦ テーブルは2段の見出し（v53.075・オーナー「まず縦列で大きいアコーディオン、その下に横行ごとのアコーディオン」）
 await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(800);
-const th = await pg.evaluate(() => [...document.querySelectorAll('#orgList .org-group-hd')].map(t => t.textContent.trim()));
-ck('テーブルは「列 › 行」の見出し（動画のある組み合わせだけ）', th.some(t => t.includes('ラッソー › ボトム')) && th.some(t => t.includes('スパイダー › トップ')), JSON.stringify(th));
+const tbl = () => pg.evaluate(() => [...document.querySelectorAll('#orgList > tr')].map(t => t.classList.contains('org-group-sub') ? 'S:' + t.querySelector('div').textContent.replace(/[▼▶]\s*/, '').replace(/\d+本$/, '').trim()
+  : t.classList.contains('org-group-hd') ? 'C:' + t.querySelector('div').textContent.replace(/[▼▶]\s*/, '').replace(/\d+本$/, '').trim() : 'R:' + t.id.replace('org-row-', '')));
+const t0 = await tbl();
+const iL = t0.indexOf('C:ラッソー');
+ck('テーブル: 列の見出し（大）の下に行の見出し（小）、その下に動画の行が並ぶ', iL >= 0 && t0[iL + 1] === 'S:ボトム' && t0[iL + 2] === 'R:v1' && !t0.some(x => x.includes('›')), JSON.stringify(t0));
+await pg.locator('#orgList > tr').nth(iL + 1).click(); await pg.waitForTimeout(400);
+const t1 = await tbl(); const i1 = t1.indexOf('C:ラッソー');
+ck('テーブル: 行の見出しを押すとその行の動画だけ畳む（列の見出し・行の見出しは残る）', t1[i1 + 1] === 'S:ボトム' && t1[i1 + 2] !== 'R:v1', JSON.stringify(t1));
+await pg.locator('#orgList > tr').nth(iL + 1).click(); await pg.waitForTimeout(300);
+await pg.locator('#orgList > tr.org-group-hd:not(.org-group-sub)', { hasText: 'ラッソー' }).first().click(); await pg.waitForTimeout(400);
+const t2 = await tbl(); const i2 = t2.indexOf('C:ラッソー');
+ck('テーブル: 列の見出しを押すとその列ぜんぶ（行の見出しと動画）を畳む', i2 >= 0 && !(t2[i2 + 1] || '').startsWith('S:') && !t2.includes('R:v1'), JSON.stringify(t2));
+await pg.locator('#orgList > tr.org-group-hd:not(.org-group-sub)', { hasText: 'ラッソー' }).first().click(); await pg.waitForTimeout(300);
+if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/rows-table.png' });
 await pg.evaluate(() => window._cvSetView('card')); await pg.waitForTimeout(600);
 // ⑧ タグの名前を変えると行の名前も変わる
 await pg.evaluate(gid => window._grpRenameTag(gid, 'スタンディング', '立ち'), tbKey.slice(4));

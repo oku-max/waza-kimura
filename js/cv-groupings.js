@@ -1050,10 +1050,13 @@
     // 行があるときは「列 › 行」の見出し（行で分けない列・非表示はその列だけ）。動画の入っていない組み合わせは出さない
     const rv = rowVals(V); const rows = rv.concat(V.rShowNone !== false ? [NONE] : []); const off = new Set(Array.isArray(V.rOff) ? V.rOff : []);
     const byId = new Map(list.map(v => [v.id, v])); const nm = x => x === NONE ? 'その他' : x; const out = [];
+    // 2段（v53.075・オーナー「まず縦列で大きいアコーディオン、その下に横行ごとのアコーディオン」）: 列の見出し → その下に行の見出し
     colsH(list, g).forEach(c => {
       if (c.hid || off.has(c.key === NONE ? NONE : c.name)) { out.push({ key: c.key, name: c.name, ids: c.ids, open: op(c.key, c.hid) }); return; }
+      const sub = [];
       rows.forEach(r => { const ids = c.ids.filter(id => { const x = readG(byId.get(id), R).filter(y => rv.includes(y)); return r === NONE ? !x.length : x.includes(r); });
-        if (!ids.length) return; const k = c.key + ' › ' + r; out.push({ key: k, name: `${nm(c.name)} › ${nm(r)}`, ids, open: op(k) }); });
+        if (!ids.length) return; const k = c.key + ' › ' + r; sub.push({ key: k, name: nm(r), ids, open: op(k) }); });
+      out.push({ key: c.key, name: nm(c.name), ids: c.ids, open: op(c.key), sub });
     });
     return out;
   }
