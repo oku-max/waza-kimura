@@ -432,6 +432,9 @@
   document.addEventListener('click', e => { const w = e.target && e.target.closest && e.target.closest('#svt-root .svt-lc'); if (w) activate(w); }, true);
   // 描き直してもスクロールの位置を変えない（v53.074・オーナー「タグを選択するたびに画面が微妙に上にスクロールする」。
   // カードの ▾ でタグを押すたびに全体を描き直していて、マスの中のスクロール位置と横の位置が先頭に戻っていた）
+  // プログラムで位置を写したときは、その結果の値を覚えておき、それで起きた scroll を「人の操作」と取り違えない
+  function setSL(el, x) { el.scrollLeft = x; el._wkSet = el.scrollLeft; }
+  function echo(el) { const w = el._wkSet; el._wkSet = null; return w != null && Math.abs(el.scrollLeft - w) < 1.5; }
   function drawBody() {
     const el = document.getElementById('svt-body'); if (!el) return;
     const bd0 = el.querySelector('.svt-board'); const left = bd0 ? bd0.scrollLeft : 0;
@@ -439,7 +442,7 @@
     const host = document.getElementById('lib-card-host'); const hostTop = host ? host.scrollTop : 0;
     drawBody0();
     const bd = el.querySelector('.svt-board');
-    if (bd && left) { bd.scrollLeft = left; const hs = document.getElementById('svt-colhs'); if (hs) hs.scrollLeft = bd.scrollLeft; const hb = document.getElementById('svt-hbar'); if (hb) hb.scrollLeft = bd.scrollLeft; }
+    if (bd && left) { setSL(bd, left); const hs = document.getElementById('svt-colhs'); if (hs) hs.scrollLeft = bd.scrollLeft; const hb = document.getElementById('svt-hbar'); if (hb) setSL(hb, bd.scrollLeft); }
     el.querySelectorAll('.svt-cell[data-ci]').forEach(c => { const t = tops[c.dataset.ci + '.' + c.dataset.ri]; if (t) { const l = c.querySelector('.svt-clist'); if (l) l.scrollTop = t; } });
     if (host && host.scrollTop !== hostTop) host.scrollTop = hostTop;
   }
@@ -477,7 +480,7 @@
     el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       // 上の横スクロールバー（v53.066・オーナー「下の横移動のバーを、一番上の見出しの真下にも」）。見出しと一緒に上に残る。動かすと列も見出しも動く
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
-      `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` + cs.map((c, ci) => {
+      `<div class="svt-board" onscroll="wkGroupings._bs(this)">` + cs.map((c, ci) => {
       if (fC.has(c.key)) return `<div class="svt-col svt-cfold${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}><button class="svt-fstrip" title="この列を開く" onclick="wkGroupings._fold('c',${ci})"><b>${esc(c.name)}</b><span>${c.ids.length}本</span></button></div>`;
       const n = S.more[c.key] || LIMIT;
       return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
@@ -536,7 +539,7 @@
         <div class="svt-clist"><div class="svt-cards">${a.slice(0, n).map(vid => { const cn = seenN.get(vid) || 0; seenN.set(vid, cn + 1); return card(byId.get(vid), g, c.key, cn, id); }).join('')}</div>${a.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${id}')">さらに ${a.length - n} 本</button>` : ''}</div></div>`; };
     el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in svt-gridh"><div class="svt-rsp"><span>行 <b>${esc(R.name)}</b></span></div>${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
-      `<div class="svt-board svt-gridb" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` +
+      `<div class="svt-board svt-gridb" onscroll="wkGroupings._bs(this)">` +
       `<div class="svt-rlab">${rows.map((r, ri) => `<div class="svt-rh${r === NONE ? ' none' : ''}${rShrink(ri) ? ' svt-rfold' : ''}" style="height:${rH(ri)}"><span class="svt-rht">${fbtn(rFold(ri), `'r',${ri}`, 'この行')}<b>${esc(nm(r))}</b></span><span class="n">${rowN(ri)}本</span></div>`).join('')}</div>` +
       cs.map((c, ci) => fC.has(c.key) ? `<div class="svt-col svt-gcol svt-cfold${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}"><button class="svt-fstrip" style="height:${spanH}" title="この列を開く" onclick="wkGroupings._fold('c',${ci})"><b>${esc(c.name)}</b><span>${c.ids.length}本</span></button></div>`
         : `<div class="svt-col svt-gcol${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}">${isOff(c) ? cell(c, ci, '*') : rows.map((r, ri) => cell(c, ci, ri)).join('')}</div>`).join('') +
@@ -573,7 +576,7 @@
       if (root.style.getPropertyValue('--svt-cellh') !== want) root.style.setProperty('--svt-cellh', want);
       if (root.style.getPropertyValue('--svt-cellmax') !== cap + 'px') root.style.setProperty('--svt-cellmax', cap + 'px');
     }
-    if (bd && hb && hi) { hi.style.width = bd.scrollWidth + 'px'; hb.style.width = bd.clientWidth + 'px'; hb.classList.toggle('none', bd.scrollWidth <= bd.clientWidth + 1); hb.scrollLeft = bd.scrollLeft; }
+    if (bd && hb && hi) { hi.style.width = bd.scrollWidth + 'px'; hb.style.width = bd.clientWidth + 'px'; hb.classList.toggle('none', bd.scrollWidth <= bd.clientWidth + 1); if (Math.abs(hb.scrollLeft - bd.scrollLeft) >= 1) setSL(hb, bd.scrollLeft); }
   }
   // 「＋ 新しいタグ」は見出しの帯（上に残る）に入力欄として置く（v53.053・前は見出しがただの文字で、押しても何も起きなかった。入力欄は列の下にあった）
 
@@ -1239,7 +1242,11 @@
       const F = foldOf(V.id); const key = kind === 'c' ? keys[ci] : kind === 'r' ? rows[ci] : cellKey(keys[ci], rows[ri]); if (key == null) return;
       const a = F[kind]; const i = a.indexOf(key); i < 0 ? a.push(key) : a.splice(i, 1);
       P.fold = P.fold || {}; P.fold[V.id] = F; savePrefs(); drawBody(); },
-    _hb: el => { const bd = document.querySelector('#svt-root .svt-board'); if (bd && bd.scrollLeft !== el.scrollLeft) bd.scrollLeft = el.scrollLeft; },
+    // 列の板と上の横バーは互いに位置を写す。写したことで起きた scroll は無視する（v53.077・オーナー「スマホで横スクロールできない」。
+    // スマホは位置が小数（70.5px 等）で、写した先の値が少しずれる→「動いた」と見て指で動かしている板へ書き戻し→指のスクロールが止められて元に戻っていた）
+    _hb: el => { if (echo(el)) return; const bd = document.querySelector('#svt-root .svt-board'); if (bd && Math.abs(bd.scrollLeft - el.scrollLeft) >= 1) setSL(bd, el.scrollLeft); },
+    // 板→バーはいつも写す（スナップで止まった位置にもついていく）。危ないのはバー→板だけなので、バーの側でだけ写された分を無視する
+    _bs: el => { const h = document.getElementById('svt-colhs'); if (h) h.scrollLeft = el.scrollLeft; const t = document.getElementById('svt-hbar'); if (t && Math.abs(t.scrollLeft - el.scrollLeft) >= 1) setSL(t, el.scrollLeft); },
     _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from;
       { const c = e.target && e.target.closest && e.target.closest('.svt-cell'); const ri = c && c.dataset.ri; _dragRow = S._grid && ri != null && ri !== '*' ? S._grid.rows[+ri] : null; } try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },
     _dov: (e, el) => { e.preventDefault(); const cp = !!e.altKey; el.classList.add('over'); el.classList.toggle('copy', cp); try { e.dataTransfer.dropEffect = cp ? 'copy' : 'move'; } catch (x) {} },

@@ -323,7 +323,9 @@ if (process.env.SHOT) { await pg.evaluate(() => { document.querySelectorAll('#ob
 ck('スマホ幅: ページは横にはみ出さず、横に動かしても行の見出しは左に残る', sp.sw <= 392 && sp.sl > 0 && Math.abs(sp.rhL - sp.bL) <= 2, JSON.stringify(sp));
 await pg.setViewportSize({ width: 1400, height: 900 });
 // ⑩b スマホの指の横スワイプでボードが横に動く（v53.076・オーナーの録画「スマホで横スクロールできない」。動いてもすぐ最初の列へ戻っていた）
-{ const ctxM = await b.newContext({ viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true, locale: 'ja-JP' });
+// v53.077: 画面の密度を Android の実機と同じ 2.625 にする（位置が小数になる。板と上の横バーが位置を写し合うとき、小数のずれを「動いた」と見て
+// 指で動かしている板へ書き戻し、スワイプが止められていた。密度 1 では小数にならず、v53.076 の検査は通ってしまった）
+{ const ctxM = await b.newContext({ viewport: { width: 390, height: 800 }, deviceScaleFactor: 2.625, hasTouch: true, isMobile: true, locale: 'ja-JP' });
   await ctxM.route(new RegExp(`^https?://(?!localhost:${PORT})`), r => r.abort());
   for (const [n, f] of [['__fsAll', () => JSON.stringify(CLOUD)], ['__fsPut', (p, d) => { if (d === null) delete CLOUD[p]; else CLOUD[p] = JSON.parse(d); }],
     ['__fsSet', (p, dj, merge) => { const d = JSON.parse(dj); const cur = (merge && CLOUD[p]) || {}; CLOUD[p] = { ...cur, ...d }; }],
@@ -338,17 +340,23 @@ await pg.setViewportSize({ width: 1400, height: 900 });
     const bx = await pm.locator(sel).first().boundingBox(); if (!bx) return -1;
     // 本物の指と同じく、置いて・横に動かして・離す（synthesizeScrollGesture はこの環境では何も動かさなかった）
     { const x0 = Math.round(bx.x + bx.width / 2), y0 = Math.round(bx.y + Math.min(bx.height / 2, 60)); const pt = x => [{ x, y: y0 }];
+      await pm.evaluate(() => { const bd = document.querySelector('#svt-root .svt-board'); window.__bdW = []; const d = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollLeft');
+        Object.defineProperty(bd, 'scrollLeft', { configurable: true, get() { return d.get.call(this); }, set(x) { window.__bdW.push([d.get.call(this), x]); d.set.call(this, x); } }); });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(x0) });
-      for (let k = 1; k <= 16; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(x0 - k * 10) }); await pm.waitForTimeout(16); }
+      for (let k = 1; k <= 16; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - k * 10.3, y: y0 }] }); await pm.waitForTimeout(16); }
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
     await pm.waitForTimeout(900);
+    __writes.push(await pm.evaluate(() => { const w = window.__bdW; delete document.querySelector('#svt-root .svt-board').scrollLeft; return w; }));
     if (process.env.PROBE) console.log('PROBE', sel, JSON.stringify(await pm.evaluate(([x, y]) => { const bd = document.querySelector('#svt-root .svt-board'); let e = document.elementFromPoint(x, y); const chain = []; while (e && chain.length < 14) { const c = getComputedStyle(e); chain.push((e.id || e.className || e.tagName).toString().slice(0, 30) + ' ta=' + c.touchAction + ' ox=' + c.overflowX + ' ob=' + c.overscrollBehaviorX + ' dr=' + e.getAttribute('draggable')); e = e.parentElement; }
       return { sw: bd.scrollWidth, cw: bd.clientWidth, sl: bd.scrollLeft, host: (() => { const h = document.getElementById('lib-card-host'); return h.scrollLeft + '/' + h.scrollWidth + '/' + h.clientWidth; })(), win: scrollX, chain }; }, [Math.round(bx.x + bx.width / 2), Math.round(bx.y + Math.min(bx.height / 2, 60))])));
     return pm.evaluate(() => document.querySelector('#svt-root .svt-board').scrollLeft); };
+  const __writes = [];
   const onCard = await swipe('#svt-root .svt-cell .svt-lc .card-title');
   const onHead = await swipe('#svt-root .svt-rh');
   ck('スマホ: マスのカードの上で指を横に滑らせるとボードが横に動き、そのまま止まる（最初の列へ戻らない）', onCard > 60, JSON.stringify({ onCard }));
   ck('スマホ: 行の見出しの上で指を横に滑らせてもボードが横に動く', onHead > 60, JSON.stringify({ onHead }));
+  // 指で動かしている間、プログラムが板の位置を書き換えない（書き換えると実機ではスワイプが止められて戻る・v53.077）
+  ck('スマホ: 指で動かしている間、プログラムが板の位置を書き換えない', __writes.every(w => w.length === 0), JSON.stringify(__writes).slice(0, 300));
   await ctxM.close(); }
 // ⑪ 行の無いグルーピングは今までどおり（マスにしない）
 await pg.evaluate(k => { wkGroupings._new(); wkGroupings._en('列だけ'); wkGroupings._eg(k); wkGroupings._es(); }, tbKey); await pg.waitForTimeout(400);
