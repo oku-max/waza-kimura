@@ -4272,6 +4272,22 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
   return d;
 }
 
+// 測り直し用（オーナーだけ・コンソールから）: Worker から YouTube の字幕を直接取れるか試す。
+// 業者のAPIは呼ばない・字幕も動画のデータも書かない。結果を出すだけ。
+window.wkYtProbe = async function (ytId, lang) {
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { console.warn('ログインが必要です'); return null; }
+  const idToken = await user.getIdToken();
+  const res = await fetch('/api/yt-transcript', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, ytId, lang: lang || '', probe: true }),
+  });
+  const d = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
+  console.log('[ytprobe]', res.status, d.ok ? '取れた' : '取れない', d);
+  if (Array.isArray(d.diag)) console.table(d.diag.map(x => ({ 経路: x })));
+  return d;
+};
+
 // ── YouTube自身の字幕を、このパネルで扱える字幕として取り込む ────────
 // なぜ要るか: プレイヤーの字幕モジュール（公式ドキュメントに無いAPI）は返事が
 // 無いことがある。それだけに頼ると「YouTubeには字幕が出ているのに、こちらの

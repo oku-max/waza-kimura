@@ -1825,6 +1825,20 @@ async function handleYtTranscript(request, env) {
   // したがってキーがあるなら試すだけ無駄（毎回7回のリクエストと十数秒を捨てる）。
   // キーが無い場合だけ、望みは薄いが試す（他の環境なら通る可能性は残る）。
   const diag = [];
+  // 測り直し用（オーナーだけ・2026-11-27）: キーがあっても無料の直接取得だけを試し、
+  // 結果をそのまま返す。業者のAPIは呼ばない（料金なし）。字幕もデータも書かない。
+  // 使い方: ブラウザのコンソールで wkYtProbe('動画ID')
+  if (body.probe) {
+    const t0 = Date.now();
+    const got = await _ytCapsFree(ytId, lang, diag);
+    return jsonRes({
+      probe: true, ok: !!got, ms: Date.now() - t0, diag,
+      src: got ? got.how : null, lang: got ? got.lang : null,
+      cues: got ? got.cues.length : 0,
+      lastSec: got ? Math.round(got.cues[got.cues.length - 1].end) : 0,
+      colo: request.cf?.colo || null,
+    });
+  }
   const free = env.SUPADATA_API_KEY ? null : await _ytCapsFree(ytId, lang, diag);
   if (free) {
     return jsonRes({
