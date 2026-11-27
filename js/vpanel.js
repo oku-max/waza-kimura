@@ -7792,6 +7792,20 @@ function _vpOpenDd(dd) {
     list.style.maxHeight = 'none';
     list.style.overflowY = 'auto';
   }
+
+  // ── 画面の左右にはみ出していたら、中に収める（v53.076・オーナーのスマホで「動画を追加」のタグのメニューが左に見切れた）──
+  // 右の位置は「＋」の入っている枠の右端に合わせているが、動画を追加する画面ではその枠が「＋」のチップ1個ぶんの幅しかなく、
+  // 左寄りにあるので、メニュー（幅 360px まで）が画面の左へはみ出していた。出した後で実際の位置を測って直す
+  // （測った値は表示の大きさ zoom を掛けた後の値なので、倍率で割り戻す）。
+  const k = (window.wkZoomK && window.wkZoomK()) || 1;
+  const r = dd.getBoundingClientRect();
+  const M = 8;
+  let shift = 0;                                   // 右へ動かす量（画面上の px）
+  if (r.width > window.innerWidth - M * 2) dd.style.width = Math.floor((window.innerWidth - M * 2) / k) + 'px';
+  const r2 = dd.getBoundingClientRect();
+  if (r2.left < M) shift = M - r2.left;
+  else if (r2.right > window.innerWidth - M) shift = (window.innerWidth - M) - r2.right;
+  if (shift) dd.style.right = (parseFloat(dd.style.right) - shift / k) + 'px';
 }
 // vpanel-v4.js 等の非モジュールスクリプトから参照できるよう公開
 window._vpOpenDd = _vpOpenDd;

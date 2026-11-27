@@ -129,6 +129,32 @@ const NEW3 = 'タグなしでは足さない';
 const o3 = await pg.evaluate(() => window.itagGetTagsFor('vid_new_3', 't', '', ''));
 ck('⑥ 「タグなし」では何も付けない', JSON.stringify(o3) === JSON.stringify({ tb: [], cat: [], pos: [], tags: [] }), o3);
 ck('⑦ 動画のデータには触らない（追加の画面は値を渡すだけ）', await pg.evaluate(() => window.videos.every(v => !String(JSON.stringify(v)).includes('新しいタグ'))));
+// ⑨ スマホで「＋ グループ名」のメニューが画面の中に収まる（v53.076・オーナーのスマホで左に見切れた）。
+//    本物の画面の中で、隠れている器を見える状態にして測る。表示の大きさ（zoom）を変えても同じ
+for (const [w, z] of [[390, 1], [360, 1], [390, 1.2], [1300, 1]]) {
+  await pg.setViewportSize({ width: w, height: 800 });
+  const r = await pg.evaluate(async z => {
+    document.body.style.zoom = z === 1 ? '' : String(z);
+    window.itagMount('urlTagMount', { perVideo: false }); itagSetMode('manual');
+    for (let e = document.getElementById('urlTagMount'); e && e !== document.body; e = e.parentElement) {
+      if (getComputedStyle(e).display === 'none') e.style.display = e.classList.contains('overlay') || e.classList.contains('ov') ? 'flex' : 'block';
+      if (getComputedStyle(e).visibility === 'hidden') e.style.visibility = 'visible';
+      e.classList.add('open', 'show');
+    }
+    await new Promise(r => setTimeout(r, 300));
+    const out = [];
+    for (const chip of [...document.querySelectorAll('#utagFields .vp-chip')].filter(c => c.textContent.trim().startsWith('＋'))) {
+      chip.scrollIntoView({ block: 'center' }); chip.click();
+      await new Promise(r => setTimeout(r, 120));
+      const dd = chip.parentNode.querySelector('.vp-dd'), q = dd.getBoundingClientRect(), c = chip.getBoundingClientRect();
+      out.push({ shown: dd.style.display !== 'none' && q.width > 100, l: Math.round(q.left), r: Math.round(q.right), chipL: Math.round(c.left), iw: window.innerWidth });
+      chip.click();
+    }
+    document.body.style.zoom = '';
+    return out;
+  }, z);
+  ck(`⑨ 幅${w}px${z !== 1 ? '・表示の大きさ ' + z : ''}: メニューが画面の左右にはみ出さない（${r.length}個）`, r.length > 0 && r.every(x => x.shown && x.l >= 0 && x.r <= x.iw + 1), r);
+}
 ck('⑧ ページのエラーなし', errs.length === 0, errs);
 await b.close(); srv.close();
 console.log(fail ? `\n✗ ${fail}件の問題` : '\n✓ 動画を追加する画面: どのタグにも新しい値を打ち込める');
