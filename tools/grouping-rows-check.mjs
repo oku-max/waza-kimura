@@ -321,6 +321,11 @@ const sp = await pg.evaluate(async () => { const bd = document.querySelector('#s
   const rh = document.querySelector('#svt-root .svt-rh').getBoundingClientRect(), b = bd.getBoundingClientRect(); return { sw: document.documentElement.scrollWidth, rhL: rh.left, bL: b.left, sl: bd.scrollLeft }; });
 if (process.env.SHOT) { await pg.evaluate(() => { document.querySelectorAll('#ob-overlay,#ob-start,.ob-overlay,[id^=ob-]').forEach(e => e.remove()); document.querySelector('#svt-root .svt-board').scrollLeft = 0; document.getElementById('svt-root').scrollIntoView(); }); await pg.waitForTimeout(200); await pg.screenshot({ path: process.env.SHOT + '/rows-sp.png' }); }
 ck('スマホ幅: ページは横にはみ出さず、横に動かしても行の見出しは左に残る', sp.sw <= 392 && sp.sl > 0 && Math.abs(sp.rhL - sp.bL) <= 2, JSON.stringify(sp));
+// v53.078 スマホで列・行の見出しの名前が読める（オーナー「タグ読めない」。列の名前が「そ…」の1文字、行の名前が1文字ずつ折れていた）
+{ const rd = await pg.evaluate(() => { const hs = [...document.querySelectorAll('#svt-colhs .svt-colh:not(.svt-cfold):not(.svt-addh)')].map(h => { const t = h.querySelector('.svt-tag'); return { name: t.textContent, w: Math.round(t.getBoundingClientRect().width), hw: Math.round(h.getBoundingClientRect().width), cut: t.scrollWidth > t.clientWidth + 1 }; });
+    const rs = [...document.querySelectorAll('#svt-root .svt-rh:not(.svt-rfold) b')].map(b => { const r = b.closest('.svt-rh').getBoundingClientRect(); return { name: b.textContent, w: Math.round(r.right - 6 - b.getBoundingClientRect().left) }; }); return { hs, rs }; });
+  ck('スマホ幅: 列の見出しの名前は1行目を広く使い、… で切れない', rd.hs.length > 0 && rd.hs.every(h => h.w >= h.hw * 0.55 && !h.cut), JSON.stringify(rd.hs));
+  ck('スマホ幅: 行の見出しの名前は ▾ の横で押しつぶされない（使える幅 44px 以上）', rd.rs.length > 0 && rd.rs.every(r => r.w >= 44), JSON.stringify(rd.rs)); }
 await pg.setViewportSize({ width: 1400, height: 900 });
 // ⑩b スマホの指の横スワイプでボードが横に動く（v53.076・オーナーの録画「スマホで横スクロールできない」。動いてもすぐ最初の列へ戻っていた）
 // v53.077: 画面の密度を Android の実機と同じ 2.625 にする（位置が小数になる。板と上の横バーが位置を写し合うとき、小数のずれを「動いた」と見て
@@ -335,6 +340,7 @@ await pg.setViewportSize({ width: 1400, height: 900 });
   await pm.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4 && document.getElementById('svt-root'), null, { timeout: 30000 });
   await pm.evaluate(id => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; wkGroupings._pick(id); }, e1.id);
   await pm.waitForTimeout(800);
+  if (process.env.SHOT) { await pm.evaluate(() => document.getElementById('svt-root').scrollIntoView()); await pm.waitForTimeout(300); await pm.screenshot({ path: process.env.SHOT + '/rows-mobile.png' }); }
   const cdp = await ctxM.newCDPSession(pm);
   const swipe = async (sel) => { await pm.evaluate(() => { document.querySelector('#svt-root .svt-board').scrollLeft = 0; }); await pm.waitForTimeout(200);
     const bx = await pm.locator(sel).first().boundingBox(); if (!bx) return -1;

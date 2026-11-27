@@ -963,6 +963,15 @@
 #svt-toast .svt-tu{opacity:.85}
 #svt-toast .svt-tx{border:1px solid currentColor!important;border-radius:6px;padding:3px 9px;font-weight:700}
 @media (max-width:560px){#svt-root .svt-col,#svt-root .svt-colhs .svt-colh{flex-basis:min(82%,calc(var(--svt-cw,250px) + 12px))}#svt-root .svt-ed .r{grid-template-columns:minmax(0,1fr)}}
+/* スマホでは見出しの名前を1行目に1人で置く（v53.078・オーナーのスマホ「タグ読めない」。▾・名前・本数・行なし・並べ替えを1行に並べていたので、
+   名前が「そ…」の1文字まで押しつぶされていた。行の見出しも ▾ が横に並んで名前が1文字ずつ折れていた） */
+@media (max-width:560px){
+#svt-root .svt-colhs .svt-colh:not(.svt-cfold):not(.svt-addh){flex-wrap:wrap;row-gap:5px}
+#svt-root .svt-colhs .svt-colh:not(.svt-cfold) .svt-tag{flex:1 1 calc(100% - 76px);max-width:none;white-space:normal;word-break:break-word;line-height:1.35}
+#svt-root .svt-colhs .svt-colh .svt-csort{margin-left:auto;max-width:150px}
+#svt-root .svt-rht{flex-direction:column;align-items:flex-start;gap:4px}
+#svt-root .svt-rh{padding:6px 6px}
+}
 `;
     document.head.appendChild(st);
   }
