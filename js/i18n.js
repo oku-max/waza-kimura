@@ -225,6 +225,8 @@
     'マスの高さと、できあがりの形':'Cell height and the resulting layout','先に「1 列」を選ぶと、行を選べます':'Pick “1 Columns” first, then you can pick rows',
     '保存してある内容を、このリスト・ほかのリストに写して新しいグルーピングを作ります（編集中の変更は入りません）':'Copies the saved grouping to this or another list as a new grouping (unsaved edits are not included)',
     'いくつでも選べます（「閉じる」を押すと、付けたタグのマスへ移ります）':'Pick as many as you like (press “Close” to move the card to the cell of the tags you added)',
+    'この列を畳む':'Collapse this column','この列を開く':'Expand this column','この行を畳む':'Collapse this row','この行を開く':'Expand this row','このマスを畳む':'Collapse this cell','このマスを開く':'Expand this cell',
+    '（⠿ をドラッグで行の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the rows · press to toggle · the number is the count with the current filters)',
     'カード1枚':'1 card','カード1.5枚':'1.5 cards','カード2枚':'2 cards','カード3枚':'3 cards',
     '✓ が列になります':'✓ ones become columns',
     'グルーピング':'Grouping',

@@ -169,6 +169,11 @@
   // rShowNone = どれも付いていない動画を「その他」の行に出すか、rOff = 行で分けない列（列の名前）、cellH = マスの高さ（カード何枚ぶん）
   const CELLH = [1, 1.5, 2, 3];
   const cellHOf = V => CELLH.includes(Number(V && V.cellH)) ? Number(V.cellH) : 2;
+  // 開閉（v53.070・オーナー「列も行もヘッダーにアコーディオン。列全体・行全体・1つのマスだけを畳めるように」）。
+  // この端末だけ（P.fold[グルーピングid] = {c:[列], r:[行], x:[[列,行]を JSON]}）。動画・グルーピングの保存データには書かない
+  const FOLD_H = 38;
+  const foldOf = id => { P.fold = P.fold && typeof P.fold === 'object' ? P.fold : {}; const f = P.fold[id]; return f && Array.isArray(f.c) && Array.isArray(f.r) && Array.isArray(f.x) ? f : { c: [], r: [], x: [] }; };
+  const cellKey = (c, r) => JSON.stringify([c, r]);
   function rowG(V) {
     if (!V || !V.rg) return null; const G = GR0(V.rg); if (!G) return null;
     if (V.gb === V.rg || (V.gb === 'pick' && pgsOf(V).includes(V.rg))) return null;   // 列と同じものは行にしない
@@ -452,11 +457,14 @@
     if (S.openCard) { const here = cs.find(c => c.key === S.openCol && c.ids.includes(S.openCard)) || cs.find(c => !c.hid && c.ids.includes(S.openCard));
       S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
-    const hd = c => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span><select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
-    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
+    const fC = new Set(foldOf(V.id).c); S._colKeys = cs.map(c => c.key);
+    const fb = (on, ci) => `<button class="svt-fold" title="${on ? 'この列を開く' : 'この列を畳む'}" aria-expanded="${!on}" onclick="event.stopPropagation();wkGroupings._fold('c',${ci})">${on ? '▸' : '▾'}</button>`;
+    const hd = (c, ci) => fC.has(c.key) ? `<div class="svt-colh svt-cfold${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fb(true, ci)}</div>` : `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fb(false, ci)}<span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span><select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
+    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       // 上の横スクロールバー（v53.066・オーナー「下の横移動のバーを、一番上の見出しの真下にも」）。見出しと一緒に上に残る。動かすと列も見出しも動く
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
-      `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` + cs.map(c => {
+      `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` + cs.map((c, ci) => {
+      if (fC.has(c.key)) return `<div class="svt-col svt-cfold${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}><button class="svt-fstrip" title="この列を開く" onclick="wkGroupings._fold('c',${ci})"><b>${esc(c.name)}</b><span>${c.ids.length}本</span></button></div>`;
       const n = S.more[c.key] || LIMIT;
       return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => { const cn = seenN.get(id) || 0; seenN.set(id, cn + 1); return card(byId.get(id), g, c.key, cn); }).join('')}</div>
@@ -492,18 +500,28 @@
     const nm = x => x === NONE ? 'その他' : x;
     const uniq = a => new Set(a).size;
     const rowN = ri => uniq(Object.keys(cells).filter(k => k.endsWith('.' + ri)).flatMap(k => cells[k]));
-    const hd = (c, ci) => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.hid ? '' : `<button class="svt-roff${isOff(c) ? ' on' : ''}" title="この列だけ行で分けない／分ける" onclick="wkGroupings._roff(${ci})">${isOff(c) ? '行なし' : '行 ⇕'}</button>`}<select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
+    const hd = (c, ci) => fC.has(c.key) ? `<div class="svt-colh svt-cfold${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fbtn(true, `'c',${ci}`, 'この列')}</div>` : `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fbtn(false, `'c',${ci}`, 'この列')}<span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.hid ? '' : `<button class="svt-roff${isOff(c) ? ' on' : ''}" title="この列だけ行で分けない／分ける" onclick="wkGroupings._roff(${ci})">${isOff(c) ? '行なし' : '行 ⇕'}</button>`}<select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
     const GAP = 8;
+    const F = foldOf(V.id); const fC = new Set(F.c), fR = new Set(F.r), fX = new Set(F.x);
+    const rFold = ri => fR.has(rows[ri]);
+    const rH = ri => rFold(ri) ? FOLD_H + 'px' : 'var(--svt-cellh)';
+    const nOpen = rows.filter((r, ri) => !rFold(ri)).length, nF = rows.length - nOpen;
+    const spanH = `calc(${nOpen} * var(--svt-cellh) + ${nF * FOLD_H + (rows.length - 1) * GAP}px)`;
+    const fbtn = (on, call, what) => `<button class="svt-fold" title="${on ? what + 'を開く' : what + 'を畳む'}" aria-expanded="${!on}" onclick="event.stopPropagation();wkGroupings._fold(${call})">${on ? '▸' : '▾'}</button>`;
     const cell = (c, ci, ri) => { const id = ci + '.' + ri; const a = cells[id] || []; const n = S.more[id] || LIMIT;
       const span = ri === '*';
-      return `<div class="svt-cell${span ? ' svt-cspan' : ''}${a.length ? '' : ' svt-cempty'}" data-ci="${ci}" data-ri="${ri}" style="height:${span ? `calc(${rows.length} * var(--svt-cellh) + ${(rows.length - 1) * GAP}px)` : 'var(--svt-cellh)'}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
-        <div class="svt-ccnt"><span>${span ? (c.hid ? '' : '行で分けない') : esc(nm(rows[ri]))}</span><b>${a.length}本</b></div>
+      const xf = !span && (rFold(ri) || fX.has(cellKey(c.key, rows[ri])));
+      if (xf) return `<div class="svt-cell svt-xfold${a.length ? '' : ' svt-cempty'}" data-ci="${ci}" data-ri="${ri}" style="height:${rH(ri)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
+        <div class="svt-ccnt">${rFold(ri) ? '' : fbtn(true, `'x',${ci},${ri}`, 'このマス')}<span>${esc(nm(rows[ri]))}</span><b>${a.length}本</b></div></div>`;
+      return `<div class="svt-cell${span ? ' svt-cspan' : ''}${a.length ? '' : ' svt-cempty'}" data-ci="${ci}" data-ri="${ri}" style="height:${span ? spanH : 'var(--svt-cellh)'}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp2(event,${ci},'${ri}')"` : ''}>
+        <div class="svt-ccnt">${span ? '' : fbtn(false, `'x',${ci},${ri}`, 'このマス')}<span>${span ? (c.hid ? '' : '行で分けない') : esc(nm(rows[ri]))}</span><b>${a.length}本</b></div>
         <div class="svt-clist"><div class="svt-cards">${a.slice(0, n).map(vid => { const cn = seenN.get(vid) || 0; seenN.set(vid, cn + 1); return card(byId.get(vid), g, c.key, cn, id); }).join('')}</div>${a.length > n ? `<button class="svt-sm" style="width:100%;margin-top:6px" onclick="wkGroupings._mr('${id}')">さらに ${a.length - n} 本</button>` : ''}</div></div>`; };
-    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in"><div class="svt-rsp"><span>行 <b>${esc(R.name)}</b></span></div>${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
+    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in"><div class="svt-rsp"><span>行 <b>${esc(R.name)}</b></span></div>${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
       `<div class="svt-board svt-gridb" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` +
-      `<div class="svt-rlab">${rows.map((r, ri) => `<div class="svt-rh${r === NONE ? ' none' : ''}" style="height:var(--svt-cellh)"><b>${esc(nm(r))}</b><span class="n">${rowN(ri)}本</span></div>`).join('')}</div>` +
-      cs.map((c, ci) => `<div class="svt-col svt-gcol${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}">${isOff(c) ? cell(c, ci, '*') : rows.map((r, ri) => cell(c, ci, ri)).join('')}</div>`).join('') +
+      `<div class="svt-rlab">${rows.map((r, ri) => `<div class="svt-rh${r === NONE ? ' none' : ''}${rFold(ri) ? ' svt-rfold' : ''}" style="height:${rH(ri)}"><span class="svt-rht">${fbtn(rFold(ri), `'r',${ri}`, 'この行')}<b>${esc(nm(r))}</b></span><span class="n">${rowN(ri)}本</span></div>`).join('')}</div>` +
+      cs.map((c, ci) => fC.has(c.key) ? `<div class="svt-col svt-gcol svt-cfold${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}"><button class="svt-fstrip" style="height:${spanH}" title="この列を開く" onclick="wkGroupings._fold('c',${ci})"><b>${esc(c.name)}</b><span>${c.ids.length}本</span></button></div>`
+        : `<div class="svt-col svt-gcol${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}">${isOff(c) ? cell(c, ci, '*') : rows.map((r, ri) => cell(c, ci, ri)).join('')}</div>`).join('') +
       (g.kind === 'pick' ? '<div class="svt-col svt-addcol svt-spacer" aria-hidden="true"></div>' : '') + `</div>` +
       `<div class="svt-note">どのマスも同じ高さ（カード${cellHOf(V)}枚ぶん。「グルーピングを編集」で変えられます）で、中はマスごとにスクロールします。${mv ? 'カードを別のマスへドラッグすると、列と行の両方のタグが付け替わります。<b>Option（Windows は Alt）を押しながら</b>ドラッグすると、元のタグも残します。スマホはカードの「' + esc(g.name) + ' ▾」で付け外し。直後のお知らせの「元に戻す」・上の「1つ戻す」・⌘Z / Ctrl+Z で戻せます。' : 'チャンネル・プレイリストは動画を取り込んだ元なので、列のあいだを動かせません（行は動かせます）。'}</div>`;
     stickTops();
@@ -574,6 +592,8 @@
   // グループの中で i 番目を to の前へ（ほかのグループの並びは変えない）
   function reorderPick(i, to, gk) {
     const d = S.editing; if (!d) return;
+    // 行のタグ（v53.070・オーナー「行のタグもドラッグで並べ替えられるように」）
+    if (gk === '__rows__') { const a = (d.rpicks || []).slice(); if (i < 0 || i >= a.length) return; const [x] = a.splice(i, 1); if (to > i) to--; a.splice(Math.max(0, Math.min(to, a.length)), 0, x); d.rpicks = a; drawEd(); return; }
     const gks = pgsOf(d); gk = gk || gks[0];
     const all = byGroup(d, (d.picks || []).filter(p => gks.includes(p.g)));
     const mine = all.filter(p => p.g === gk);
@@ -619,11 +639,11 @@
         ${gs.some(g => g.kind === 'one') ? `<div class="svt-grp">カスタム列（セレクト・評価）</div>${gs.filter(g => g.kind === 'one').map(rb).join('')}` : ''}
       </div>
       ${G ? `<div class="setbox svt-pick">
-        <div class="svt-grp" style="margin:0"><b>✓ が行になります</b>（押すと付け外し・数はいまのフィルターでの本数）</div>
+        <div class="svt-grp" style="margin:0"><b>✓ が行になります</b>（⠿ をドラッグで行の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）</div>
         <div class="svt-pgrow svt-rbox" style="--gc:${rcol}">
           <div class="svt-ph"><span class="svt-gname"><i class="svt-gdot"></i>${esc(G.name)}</span>
             <span class="svt-phb"><button class="svt-sm" onclick="wkGroupings._rall(true)">全部選ぶ</button><button class="svt-sm" onclick="wkGroupings._rall(false)">全部外す</button></span></div>
-          <div class="svt-opts" id="svt-rchips">${sel.map(x => `<button class="svt-o on svt-rv" onclick="wkGroupings._rv('${jsq(x)}')">✓ ${esc(x)}<small> ${cnt(x)}</small></button>`).join('')}${vals.filter(x => !sel.includes(x)).map(x => `<button class="svt-o svt-off svt-rv" onclick="wkGroupings._rv('${jsq(x)}')">${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || (sel.length ? '' : '<span class="svt-grp" style="margin:0">まだ値がありません</span>')}</div>
+          <div class="svt-opts" id="svt-rchips">${sel.map((x, i) => `<span class="svt-o on svt-chip svt-rv" data-i="${i}"><span class="svt-grip" title="ドラッグで順番を入れ替え" onpointerdown="wkGroupings._gd(event,${i},'__rows__','svt-rchips')">⠿</span><button class="svt-cb" onclick="wkGroupings._rv('${jsq(x)}')">✓ ${esc(x)}<small> ${cnt(x)}</small></button></span>`).join('')}${vals.filter(x => !sel.includes(x)).map(x => `<button class="svt-o svt-off svt-rv" onclick="wkGroupings._rv('${jsq(x)}')">${esc(x)}<small> ${cnt(x)}</small></button>`).join('') || (sel.length ? '' : '<span class="svt-grp" style="margin:0">まだ値がありません</span>')}</div>
           ${isTag ? `<div class="svt-opts"><input id="svt-rnew" class="svt-pnew-in" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._rnew()"><button class="svt-sm" onclick="wkGroupings._rnew()">足す</button></div>` : ''}
         </div>
         <label class="svt-grp" style="display:flex;gap:6px;align-items:center;cursor:pointer;margin:0"><input type="checkbox" ${d.rShowNone !== false ? 'checked' : ''} onchange="wkGroupings._rsn(this.checked)"> どれも付いていない動画も「その他」の行に出す</label>
@@ -838,7 +858,7 @@
 #svt-root .svt-hidcol{background:var(--surface2);opacity:.85}
 .svt-tblhide{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
 #svt-root{--svt-cellh:760px}
-#svt-root .svt-gridb{gap:10px}
+#svt-root .svt-gridb{gap:10px;scroll-padding-left:106px}   /* 列の頭に吸い付くとき、左に残る行の見出しの右に止める（無いと最初の列が見出しの下に潜った） */
 #svt-root .svt-gcol{padding:0;display:grid;gap:8px;align-content:start}
 #svt-root .svt-rlab{flex:0 0 96px;position:sticky;left:0;z-index:3;background:var(--bg);display:grid;gap:8px;align-content:start}
 #svt-root .svt-rh{border-left:3px solid var(--blue);background:var(--blue-soft);border-radius:0 8px 8px 0;padding:8px 8px;display:flex;flex-direction:column;gap:2px;font-size:12px;box-sizing:border-box;overflow:hidden;word-break:break-word}
@@ -870,7 +890,24 @@
 #svt-root .svt-mini .moff{display:grid;place-items:center}
 #svt-root .svt-rsum{font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:6px 10px}
 #svt-root .svt-rsum .sc{color:#d08a1c}#svt-root .svt-rsum .sr{color:var(--blue)}
-@media (max-width:560px){#svt-root .svt-rlab,#svt-root .svt-rsp{flex-basis:72px}}
+@media (max-width:560px){#svt-root .svt-rlab,#svt-root .svt-rsp{flex-basis:72px}#svt-root .svt-gridb{scroll-padding-left:82px}}
+#svt-root .svt-fold{flex:0 0 auto;width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;line-height:1;cursor:pointer;display:inline-grid;place-items:center;padding:0;font-family:inherit}
+#svt-root .svt-fold:hover{color:var(--text);border-color:var(--text3)}
+#svt-root .svt-col.svt-cfold,#svt-root .svt-colhs .svt-colh.svt-cfold{flex:0 0 44px!important;padding-left:0;padding-right:0;justify-content:center}
+#svt-root .svt-col.svt-cfold{padding:0}
+#svt-root .svt-fstrip{width:44px;min-height:160px;border:1px dashed var(--border);border-radius:10px;background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;font-family:inherit}
+#svt-root .svt-fstrip b{writing-mode:vertical-rl;font-size:12px;color:var(--text);max-height:calc(100% - 40px);overflow:hidden;text-overflow:ellipsis}
+#svt-root .svt-fstrip span{font-size:10px;writing-mode:vertical-rl}
+#svt-root .svt-xfold{background:var(--surface)}
+#svt-root .svt-xfold .svt-ccnt{border-bottom:none;flex:1 1 auto}
+#svt-root .svt-ccnt .svt-fold{width:18px;height:18px;font-size:10px}
+#svt-root .svt-ccnt span{flex:1 1 auto;min-width:0}
+#svt-root .svt-rht{display:flex;gap:6px;align-items:center;min-width:0}
+#svt-root .svt-rfold{flex-direction:row;align-items:center;justify-content:space-between;padding-top:4px;padding-bottom:4px}
+#svt-root .svt-rh b{min-width:0}
+#svt-root .svt-rfold b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#svt-root .svt-rfold .svt-rht{flex:1 1 auto}
+#svt-root .svt-rfold .n{white-space:nowrap;flex:0 0 auto}
 #svt-root .svt-note{font-size:11.5px;color:var(--text3);padding:8px 2px 16px;line-height:1.6}
 #svt-toast .svt-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);font-size:12px;padding:8px 14px;border-radius:8px;display:flex;gap:10px;align-items:center;width:max-content;max-width:calc(100% - 32px);z-index:9001}
 #svt-toast .svt-tsep{width:1px;align-self:stretch;background:currentColor;opacity:.3;margin:0 2px}
@@ -1142,6 +1179,11 @@
       drawBody(); },
     _tg: (vid, gk, val) => toggle(vid, gk, val),
     _play: vid => { try { window.openVPanel?.(vid); } catch (e) {} },
+    _fold: (kind, ci, ri) => { const V = VW(); if (!V || V.id === 'all') return;
+      const keys = S._grid ? S._grid.cols : (S._colKeys || []); const rows = S._grid ? S._grid.rows : [];
+      const F = foldOf(V.id); const key = kind === 'c' ? keys[ci] : kind === 'r' ? rows[ci] : cellKey(keys[ci], rows[ri]); if (key == null) return;
+      const a = F[kind]; const i = a.indexOf(key); i < 0 ? a.push(key) : a.splice(i, 1);
+      P.fold = P.fold || {}; P.fold[V.id] = F; savePrefs(); drawBody(); },
     _hb: el => { const bd = document.querySelector('#svt-root .svt-board'); if (bd && bd.scrollLeft !== el.scrollLeft) bd.scrollLeft = el.scrollLeft; },
     _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from;
       { const c = e.target && e.target.closest && e.target.closest('.svt-cell'); const ri = c && c.dataset.ri; _dragRow = S._grid && ri != null && ri !== '*' ? S._grid.rows[+ri] : null; } try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },

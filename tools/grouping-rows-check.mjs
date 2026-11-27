@@ -134,8 +134,13 @@ ck('行の選び方は列と同じ見せ方（タグ／チャンネル・プレ�
 ck('マスの高さの既定はカード2枚', await pg.evaluate(() => document.querySelector('#svt-cellh .svt-o.on')?.textContent === 'カード2枚'));
 await clickBtn('#svt-ed .svt-sec-r .svt-o', G.tb.name);
 ck('行のタグは列と同じ枠（グループ名・全部選ぶ／全部外す・＋ 新しいタグ）', await pg.evaluate(() => { const b = document.querySelector('#svt-ed .svt-sec-r .svt-pgrow'); return !!b && !!b.querySelector('.svt-gname') && !!b.querySelector('#svt-rnew') && b.textContent.includes('全部選ぶ'); }));
-const rchips = await pg.evaluate(() => [...document.querySelectorAll('#svt-rchips .svt-rv.on')].map(b => b.textContent.replace(/^✓ /, '').replace(/\s\d+$/, '')));
+const rchips = await pg.evaluate(() => [...document.querySelectorAll('#svt-rchips .svt-rv.on')].map(b => b.textContent.replace(/^⠿?✓ /, '').replace(/\s\d+$/, '')));
 ck('行のタググループを押すと、中のタグが全部 ✓ で並ぶ', setEq(rchips, ['ボトム', 'トップ', 'スタンディング']), rchips);
+// 行のタグをドラッグで並べ替え（v53.070・本物のポインター）
+{ await pg.locator('#svt-rchips').scrollIntoViewIfNeeded(); const g0 = await pg.locator('#svt-rchips .svt-chip[data-i="0"] .svt-grip').boundingBox(), c2 = await pg.locator('#svt-rchips .svt-chip[data-i="2"]').boundingBox();
+  await pg.mouse.move(g0.x + g0.width / 2, g0.y + g0.height / 2); await pg.mouse.down(); await pg.mouse.move(g0.x + 30, g0.y + 4, { steps: 4 }); await pg.mouse.move(c2.x + c2.width - 4, c2.y + c2.height / 2, { steps: 8 }); await pg.mouse.up(); await pg.waitForTimeout(200); }
+const rord = await pg.evaluate(() => wkGroupings._state().editing.rpicks.slice());
+ck('行のタグは ⠿ のドラッグで並べ替えられる（1つ目を最後へ）', rord.length === 3 && rord[2] === rchips[0] && rord[0] === rchips[1], JSON.stringify([rchips, rord]));
 await pg.fill('#svt-rnew', '寝'); await clickBtn('#svt-ed .svt-sec-r .svt-pgrow .svt-sm', '足す');
 ck('行の「＋ 新しいタグ」で足すと ✓ で入る（選択肢に足すだけ）', await pg.evaluate(() => [...document.querySelectorAll('#svt-rchips .svt-rv.on')].some(b => b.textContent.includes('寝'))));
 await clickBtn('#svt-rchips .svt-rv', '寝');
@@ -152,7 +157,7 @@ const grid = await pg.evaluate(() => { const cs = [...document.querySelectorAll(
   const lc = document.querySelector('#svt-root .svt-cell .svt-lc'); const st = wkGroupings._state();
   return { n: cs.length, hs, card: lc ? Math.round(lc.getBoundingClientRect().height) : 0, ov: cs.length ? getComputedStyle(cs[0].querySelector('.svt-clist')).overflowY : '', rows: [...document.querySelectorAll('#svt-root .svt-rh b')].map(b => b.textContent), cols: st._grid && st._grid.cols.length,
     cnt: cs.map(c => c.querySelector('.svt-ccnt b').textContent) }; });
-ck('行の見出し: ボトム・トップ・スタンディング・その他', JSON.stringify(grid.rows) === JSON.stringify(['トップ', 'ボトム', 'スタンディング', 'その他']), grid.rows);
+ck('行の見出し: 並べ替えた順（ボトム・スタンディング・トップ）＋その他', JSON.stringify(grid.rows) === JSON.stringify(['ボトム', 'スタンディング', 'トップ', 'その他']), grid.rows);
 ck('どのマスも同じ高さ（カード1枚ぶん）', grid.n > 0 && grid.hs.length === 1 && grid.card > 0 && Math.abs(grid.hs[0] - grid.card - 34) <= 14, JSON.stringify(grid));
 ck('マスの中だけスクロールする・本数がマスの上に出る', grid.ov === 'auto' && grid.cnt.every(t => /^\d+本$/.test(t)), JSON.stringify(grid));
 if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/rows-pc.png' });
@@ -160,16 +165,16 @@ const cellOf = (c, r) => pg.evaluate(([c, r]) => { const st = wkGroupings._state
 ck('v1（ラッソー・ボトム）は「ラッソー × ボトム」のマス', JSON.stringify(await cellOf('ラッソー', 'ボトム')) === '["v1"]', await cellOf('ラッソー', 'ボトム'));
 // ③ 別のマスへドラッグ → 列と行のタグが一度に変わる・1回で両方戻る
 const sel = (c, r) => pg.evaluate(([c, r]) => { const st = wkGroupings._state(); return `#svt-root .svt-cell[data-ci="${st._grid.cols.indexOf(c)}"][data-ri="${st._grid.rows.indexOf(r)}"]`; }, [c, r]);
-const src = await sel('ラッソー', 'ボトム'), dst = await sel('スパイダー', 'トップ');
+const src = await sel('ラッソー', 'ボトム'), dst = await sel('スパイダー', 'スタンディング');
 await pg.locator(src + ' .svt-lc').first().scrollIntoViewIfNeeded();
-await pg.dragAndDrop(src + ' .svt-lc', dst); await pg.waitForTimeout(400);
-ck('ドラッグで「スパイダー × トップ」へ: タグ4 と タグ1 が一度に変わる', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["スパイダー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["トップ"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
-ck('お知らせ「「スパイダー」×「トップ」へ移動しました」', await pg.evaluate(() => document.getElementById('svt-toast').textContent.includes('「スパイダー」×「トップ」へ移動しました')));
-ck('動画の保存に乗る', await until(() => { const v = cloudVideos().find(v => v.id === 'v1') || {}; return JSON.stringify(v.tb) === '["トップ"]' && JSON.stringify(v.tags) === '["スパイダー"]'; }, 8000));
+await pg.locator(dst).scrollIntoViewIfNeeded(); await pg.dragAndDrop(src + ' .svt-lc', dst); await pg.waitForTimeout(400);
+ck('ドラッグで「スパイダー × スタンディング」へ: タグ4 と タグ1 が一度に変わる', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["スパイダー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["スタンディング"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
+ck('お知らせ「「スパイダー」×「スタンディング」へ移動しました」', await pg.evaluate(() => document.getElementById('svt-toast').textContent.includes('「スパイダー」×「スタンディング」へ移動しました')));
+ck('動画の保存に乗る', await until(() => { const v = cloudVideos().find(v => v.id === 'v1') || {}; return JSON.stringify(v.tb) === '["スタンディング"]' && JSON.stringify(v.tags) === '["スパイダー"]'; }, 8000));
 await pg.keyboard.press('Control+z'); await pg.waitForTimeout(200);
 ck('1回の取り消しで列と行の両方が戻る', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["ラッソー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
 // 同じ列の中で行だけ動かす
-{ const d2 = await sel('ラッソー', 'スタンディング'); await pg.locator(d2).scrollIntoViewIfNeeded(); await pg.dragAndDrop(src + ' .svt-lc', d2); await pg.waitForTimeout(300); }
+{ const d2 = await sel('ラッソー', 'スタンディング'); await pg.locator(src).scrollIntoViewIfNeeded(); await pg.locator(d2).scrollIntoViewIfNeeded(); await pg.dragAndDrop(src + ' .svt-lc', d2); await pg.waitForTimeout(300); }
 ck('同じ列で別の行へ: タグ1だけ変わる（タグ4は残る）', JSON.stringify(await vtb(pg, 'v1', 'tags')) === '["ラッソー"]' && JSON.stringify(await vtb(pg, 'v1')) === '["スタンディング"]', JSON.stringify([await vtb(pg, 'v1', 'tags'), await vtb(pg, 'v1')]));
 await pg.keyboard.press('Control+z'); await pg.waitForTimeout(200);
 ck('（取り消し）', JSON.stringify(await vtb(pg, 'v1')) === '["ボトム"]');
@@ -184,6 +189,34 @@ ck('カードの ▾ を開くと行（タグ1）のタグも並ぶ', await pg.e
 await pg.locator('#svt-root .svt-ro', { hasText: 'トップ' }).first().click(); await pg.waitForTimeout(200);
 ck('行のタグを押すと付く（開いている間は同じマスのまま）', setEq(await vtb(pg, 'v1'), ['ボトム', 'トップ']) && JSON.stringify(await cellOf('ラッソー', 'ボトム')).includes('v1'), JSON.stringify(await vtb(pg, 'v1')));
 await pg.evaluate(() => wkGroupings._undo()); await pg.locator('#svt-root .svt-multi .svt-sm', { hasText: '閉じる' }).first().click().catch(() => {}); await pg.waitForTimeout(150);
+// ④b 開閉（v53.070・オーナー「列も行もヘッダーにアコーディオン。列全体・行全体・1つのマスだけを畳める」）。この端末だけ・データに書かない
+{ await pg.waitForTimeout(3500); const atBefore = JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]); const vtags = () => JSON.stringify(cloudVideos().map(v => [v.id, v.tb, v.tags, v.tg, v.cf])); const vBefore = vtags();
+  await pg.evaluate(() => { document.querySelector('#svt-root .svt-board').scrollLeft = 0; });
+  const ov = await pg.evaluate(() => { const rl = document.querySelector('#svt-root .svt-rlab').getBoundingClientRect(); const c0 = document.querySelector('#svt-root .svt-gcol').getBoundingClientRect(); const h0 = document.querySelector('#svt-colhs .svt-colh').getBoundingClientRect(); const sp = document.querySelector('#svt-colhs .svt-rsp').getBoundingClientRect(); return { rl: rl.right, c0: c0.left, h0: h0.left, sp: sp.right }; });
+  ck('左端で、最初の列は行の見出しの右から始まる（重ならない）・見出しの帯も同じ', ov.c0 >= ov.rl - 1 && ov.h0 >= ov.sp - 1 && Math.abs(ov.c0 - ov.h0) <= 3, JSON.stringify(ov));
+  const colIdx = await pg.evaluate(() => wkGroupings._state()._grid.cols.indexOf('スパイダー'));
+  await pg.locator('#svt-colhs .svt-colh', { has: pg.locator('.svt-tag', { hasText: 'スパイダー' }) }).locator('.svt-fold').click(); await pg.waitForTimeout(250);
+  const cf = await pg.evaluate(ci => { const col = document.querySelectorAll('#svt-root .svt-gcol')[ci]; const hd = [...document.querySelectorAll('#svt-colhs .svt-colh')].filter(h => !h.classList.contains('svt-addh'))[ci];
+    return { w: Math.round(col.getBoundingClientRect().width), cells: col.querySelectorAll('.svt-cell').length, strip: !!col.querySelector('.svt-fstrip'), hw: Math.round(hd.getBoundingClientRect().width) }; }, colIdx);
+  ck('列の ▾ でその列全体を畳む（細い帯になり、見出しも同じ幅）', cf.w <= 50 && cf.cells === 0 && cf.strip && Math.abs(cf.hw - cf.w) <= 2, JSON.stringify(cf));
+  await pg.locator('#svt-root .svt-gcol .svt-fstrip').first().click(); await pg.waitForTimeout(250);
+  ck('畳んだ列の帯を押すと開く', await pg.evaluate(ci => document.querySelectorAll('#svt-root .svt-gcol')[ci].querySelectorAll('.svt-cell').length > 1, colIdx));
+  await pg.locator('#svt-root .svt-rh', { hasText: 'スタンディング' }).locator('.svt-fold').click(); await pg.waitForTimeout(250);
+  const rf = await pg.evaluate(() => { const st = wkGroupings._state(); const ri = st._grid.rows.indexOf('スタンディング'); const cs = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${ri}"]`)]; const rh = [...document.querySelectorAll('#svt-root .svt-rh')][ri];
+    const other = document.querySelector('#svt-root .svt-cell[data-ri="0"]:not(.svt-xfold)'); return { hs: [...new Set(cs.map(c => Math.round(c.getBoundingClientRect().height)))], rh: Math.round(rh.getBoundingClientRect().height), cards: cs.reduce((n, c) => n + c.querySelectorAll('.svt-lc').length, 0), other: other && Math.round(other.getBoundingClientRect().height) }; });
+  if (process.env.SHOT) { await pg.evaluate(() => { document.querySelector('#svt-root .svt-board').scrollLeft = 0; }); await pg.waitForTimeout(150); await pg.screenshot({ path: process.env.SHOT + '/rows-fold.png' }); }
+  ck('行の ▾ でその行全体を畳む（行のマスも見出しも細く・カードは出さない・ほかの行はそのまま）', rf.hs.length === 1 && rf.hs[0] <= 40 && Math.abs(rf.rh - rf.hs[0]) <= 2 && rf.cards === 0 && rf.other > 100, JSON.stringify(rf));
+  await pg.locator('#svt-root .svt-rh', { hasText: 'スタンディング' }).locator('.svt-fold').click(); await pg.waitForTimeout(250);
+  const xsel = await sel('ラッソー', 'ボトム');
+  await pg.locator(xsel + ' .svt-ccnt .svt-fold').click(); await pg.waitForTimeout(250);
+  const xf = await pg.evaluate(s => { const c = document.querySelector(s); const row = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${c.dataset.ri}"]`)].filter(x => x !== c && !x.classList.contains('svt-xfold'));
+    return { fold: c.classList.contains('svt-xfold'), cards: c.querySelectorAll('.svt-lc').length, cnt: c.querySelector('.svt-ccnt b').textContent, h: Math.round(c.getBoundingClientRect().height), oh: row.length ? Math.round(row[0].getBoundingClientRect().height) : 0 }; }, xsel);
+  ck('マスの ▾ でそのマスだけ畳む（本数は出たまま・行の高さはそろったまま）', xf.fold && xf.cards === 0 && xf.cnt === '1本' && xf.oh > 0 && Math.abs(xf.h - xf.oh) <= 2, JSON.stringify(xf));
+  await reload(pg); await pg.waitForTimeout(1200); await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
+  ck('開閉はこの端末に残る（再読み込みしても畳んだまま）', await until(() => pg.evaluate(s => !!document.querySelector(s + '.svt-xfold'), xsel)));
+  await pg.locator(xsel + ' .svt-ccnt .svt-fold').click(); await pg.waitForTimeout(250);
+  ck('開閉はグルーピングの保存データにも動画にも書かない', JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]) === atBefore && vtags() === vBefore, (() => { const a = JSON.parse(atBefore), b = CLOUD[GDOC]?.items?.[e1.id] || {}; return JSON.stringify(Object.keys({ ...a, ...b }).filter(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])).map(k => [k, a[k], b[k]])) + ' V:' + (vtags() === vBefore); })());
+}
 // ⑤ 列の「行 ⇕」でその列だけ行で分けない（本物のクリック）
 const lassoHd = pg.locator('#svt-colhs .svt-colh', { has: pg.locator('.svt-tag', { hasText: 'ラッソー' }) }).locator('.svt-roff');
 await lassoHd.click(); await pg.waitForTimeout(300);
@@ -221,6 +254,8 @@ await pg.setViewportSize({ width: 1400, height: 900 });
 // ⑪ 行の無いグルーピングは今までどおり（マスにしない）
 await pg.evaluate(k => { wkGroupings._new(); wkGroupings._en('列だけ'); wkGroupings._eg(k); wkGroupings._es(); }, tbKey); await pg.waitForTimeout(400);
 ck('行なしのグルーピングは今までどおりの列（マスにしない）', await pg.evaluate(() => !document.querySelector('#svt-root .svt-gridb') && document.querySelectorAll('#svt-root .svt-col:not(.svt-addcol)').length >= 3));
+await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; }); await pg.locator('#svt-colhs .svt-colh .svt-fold').first().click(); await pg.waitForTimeout(250);
+ck('行なしのグルーピングでも列の ▾ で列を畳める', await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-col.svt-cfold'); return !!c && c.getBoundingClientRect().width <= 50 && !c.querySelector('.svt-lc'); }));
 
 console.log(fail ? `✗ ${fail}件` : '✓ 全部通過');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);
