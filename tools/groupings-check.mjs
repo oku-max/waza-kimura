@@ -270,7 +270,7 @@ await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt
 ck('1つ目を付けてもカードは「その他」の列に残り、▾ も開いたまま', await inOther(ovid) && await pg.evaluate(() => !!document.querySelector('#svt-root .svt-col[data-name="その他"] .svt-multi')));
 await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-o')].find(b => b.textContent.includes('使える')).click()); await pg.waitForTimeout(200);
 ck('続けて2つ目も付けられる（まだ「その他」の列にある）', await inOther(ovid) && await pg.evaluate(([v, id]) => { const t = (window.videos.find(x => x.id === v).tg || {})[id] || []; return t.includes('あとで足した') && t.includes('使える'); }, [ovid, ngid]));
-await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-sm')].find(b => b.textContent === '閉じる').click()); await pg.waitForTimeout(200);
+await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-sm')].find(b => b.textContent.includes('閉じる')).click()); await pg.waitForTimeout(200);
 ck('「閉じる」を押すと、付けた2つの列へ移る（「その他」からは消える）', !(await inOther(ovid)) && await pg.evaluate(v => ['あとで足した', '使える'].every(n => !!document.querySelector(`#svt-root .svt-col[data-name="${n}"] .svt-lc[data-vid="${v}"]`)), ovid));
 await pg.evaluate(() => { wkGroupings._undo(); wkGroupings._undo(); }); await pg.waitForTimeout(150);
 // ⑥d タグの名前を変える（設定の画面 → tag-ops.js）と、グルーピングの選んだタグも新しい名前になる（v53.063・オーナー「設定画面で変更したタグ名がグルーピングに反映されてない」）

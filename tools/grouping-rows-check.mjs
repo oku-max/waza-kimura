@@ -185,6 +185,7 @@ ck('カードの ▾ のボタンは「列の名前 ／ 行の名前」（v53.06
 ck('開くと「列」「行」の見出しの下に、それぞれグループ名とタグが同じ見せ方で並ぶ', await pg.evaluate(([c, r]) => { const m = document.querySelector('#svt-root .svt-multi'); if (!m) return false; const ss = [...m.querySelectorAll('.svt-msec')];
   return ss.length === 2 && ss[0].querySelector('.svt-mh').textContent === '列' && ss[1].querySelector('.svt-mh').textContent === '行' && ss[0].querySelector('.svt-mgn').textContent === c && ss[1].querySelector('.svt-mgn').textContent === r
     && ss.every(x => x.querySelectorAll('.svt-mgc .svt-o').length > 0) && getComputedStyle(ss[0].querySelector('.svt-mgc .svt-o')).borderRadius === getComputedStyle(ss[1].querySelector('.svt-mgc .svt-o')).borderRadius; }, [G.tags.name, G.tb.name]));
+ck('▾ のメニューの一番下に「決定（閉じる）」が全部見えている（カードからはみ出さない）（v53.071）', await pg.evaluate(() => { const b = document.querySelector('#svt-root .svt-multi .svt-mdone'); const c = b && b.closest('.svt-lc'); if (!b || !c) return false; const r = b.getBoundingClientRect(), cr = c.getBoundingClientRect(); const m = b.closest('.svt-multi'); return r.width > 100 && r.left >= cr.left - 1 && r.right <= cr.right + 1 && m.lastElementChild === b && [...m.querySelectorAll('.svt-msec')].every(x => x.getBoundingClientRect().right <= cr.right + 1); }));
 ck('カードの ▾ を開くと行（タグ1）のタグも並ぶ', await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-ro')].map(b => b.textContent.replace('✓ ', '')).filter(t => ['トップ', 'ボトム', 'スタンディング'].includes(t)).length === 3));
 await pg.locator('#svt-root .svt-ro', { hasText: 'トップ' }).first().click(); await pg.waitForTimeout(200);
 ck('行のタグを押すと付く（開いている間は同じマスのまま）', setEq(await vtb(pg, 'v1'), ['ボトム', 'トップ']) && JSON.stringify(await cellOf('ラッソー', 'ボトム')).includes('v1'), JSON.stringify(await vtb(pg, 'v1')));
@@ -209,12 +210,19 @@ await pg.evaluate(() => wkGroupings._undo()); await pg.locator('#svt-root .svt-m
   await pg.locator('#svt-root .svt-rh', { hasText: 'スタンディング' }).locator('.svt-fold').click(); await pg.waitForTimeout(250);
   const xsel = await sel('ラッソー', 'ボトム');
   await pg.locator(xsel + ' .svt-ccnt .svt-fold').click(); await pg.waitForTimeout(250);
-  const xf = await pg.evaluate(s => { const c = document.querySelector(s); const row = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${c.dataset.ri}"]`)].filter(x => x !== c && !x.classList.contains('svt-xfold'));
-    return { fold: c.classList.contains('svt-xfold'), cards: c.querySelectorAll('.svt-lc').length, cnt: c.querySelector('.svt-ccnt b').textContent, h: Math.round(c.getBoundingClientRect().height), oh: row.length ? Math.round(row[0].getBoundingClientRect().height) : 0 }; }, xsel);
-  ck('マスの ▾ でそのマスだけ畳む（本数は出たまま・行の高さはそろったまま）', xf.fold && xf.cards === 0 && xf.cnt === '1本' && xf.oh > 0 && Math.abs(xf.h - xf.oh) <= 2, JSON.stringify(xf));
+  const xf = await pg.evaluate(s => { const c = document.querySelector(s); const bar = c.querySelector('.svt-xbar'); const row = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${c.dataset.ri}"]`)].filter(x => x !== c && !x.classList.contains('svt-xfold'));
+    return { fold: c.classList.contains('svt-xfold'), cards: c.querySelectorAll('.svt-lc').length, cnt: bar && bar.querySelector('b').textContent, barH: bar ? Math.round(bar.getBoundingClientRect().height) : 0, border: getComputedStyle(c).borderTopStyle, oh: row.length ? Math.round(row[0].getBoundingClientRect().height) : 0 }; }, xsel);
+  ck('マスの ▾ でそのマスだけ畳む（細い帯だけになり、大きな空の枠は残らない・本数は出たまま）（v53.071）', xf.fold && xf.cards === 0 && xf.cnt === '1本' && xf.barH > 0 && xf.barH <= 40 && xf.border === 'none' && xf.oh > 100, JSON.stringify(xf));
+  // 行の中のマスを全部畳むと、その行も細くなる
+  const ri0 = await pg.evaluate(s => document.querySelector(s).dataset.ri, xsel);
+  for (const ci of await pg.evaluate(ri => [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${ri}"]:not(.svt-xfold)`)].map(c => c.dataset.ci), ri0)) { await pg.locator(`#svt-root .svt-cell[data-ri="${ri0}"][data-ci="${ci}"] .svt-ccnt .svt-fold`).click(); await pg.waitForTimeout(150); }
+  const allf = await pg.evaluate(ri => { const cs = [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${ri}"]`)]; const rh = [...document.querySelectorAll('#svt-root .svt-rh')][+ri]; return { hs: [...new Set(cs.map(c => Math.round(c.getBoundingClientRect().height)))], rh: Math.round(rh.getBoundingClientRect().height) }; }, ri0);
+  ck('行の中のマスを全部畳むと、その行も細くなる（見出しも同じ高さ）', allf.hs.length === 1 && allf.hs[0] <= 40 && Math.abs(allf.rh - allf.hs[0]) <= 2, JSON.stringify(allf));
+  for (const ci of await pg.evaluate(ri => [...document.querySelectorAll(`#svt-root .svt-cell[data-ri="${ri}"]`)].map(c => c.dataset.ci), ri0)) { if (await pg.evaluate(s => !!document.querySelector(s), xsel.replace(/data-ci="\d+"/, `data-ci="${ci}"`)) && xsel.includes(`data-ci="${ci}"`)) continue; await pg.locator(`#svt-root .svt-cell[data-ri="${ri0}"][data-ci="${ci}"] .svt-xbar .svt-fold`).click(); await pg.waitForTimeout(150); }
+  if (process.env.SHOT) { await pg.evaluate(() => { document.querySelector('#svt-root .svt-board').scrollLeft = 0; }); await pg.screenshot({ path: process.env.SHOT + '/rows-xfold.png' }); }
   await reload(pg); await pg.waitForTimeout(1200); await pg.evaluate(() => { document.getElementById('ob-start')?.remove(); const sb = document.getElementById('libSidebar'); if (sb) sb.style.display = 'none'; const ov = document.getElementById('libSbOverlay'); if (ov) ov.style.display = 'none'; });
   ck('開閉はこの端末に残る（再読み込みしても畳んだまま）', await until(() => pg.evaluate(s => !!document.querySelector(s + '.svt-xfold'), xsel)));
-  await pg.locator(xsel + ' .svt-ccnt .svt-fold').click(); await pg.waitForTimeout(250);
+  await pg.locator(xsel + ' .svt-xbar .svt-fold').click(); await pg.waitForTimeout(250);
   ck('開閉はグルーピングの保存データにも動画にも書かない', JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]) === atBefore && vtags() === vBefore, (() => { const a = JSON.parse(atBefore), b = CLOUD[GDOC]?.items?.[e1.id] || {}; return JSON.stringify(Object.keys({ ...a, ...b }).filter(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])).map(k => [k, a[k], b[k]])) + ' V:' + (vtags() === vBefore); })());
 }
 // ⑤ 列の「行 ⇕」でその列だけ行で分けない（本物のクリック）
