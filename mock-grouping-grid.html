@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>グルーピング 縦×横</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=IBM+Plex+Mono&display=swap">
+<style>
+/* モック: グルーピングの縦×横（C: 全部に貫く＋列ごとに外す）。
+   アプリと同じ場所（waza-kimura.okujournal.workers.dev/mock-grouping-grid.html）で開くと、
+   この端末の動画の控え（IndexedDB wk-video-cache）とタグ（wk_tagRegistry・wk_tagSettings）・グルーピング（wk_groupings）・リスト（wk_cv_views）を読むだけ。
+   どこにも書かない（localStorage・IndexedDB・クラウドとも）。動かしても動画のタグは変わらない。 */
+:root{
+  --bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e6e6e2;--text:#141414;--text2:#55554f;--text3:#7a7a73;
+  --border:#e0e0dc;--accent:#141414;--on-accent:#fff;--gold:#b0700f;--gold-soft:#fbf1dc;--row:#3a6fb5;--row-soft:#e8eff8;
+  --good:#2d7a52;--warn:#b4442f;
+  --f-ui:"Noto Sans JP","Hiragino Sans",system-ui,sans-serif;--f-num:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1c1c1e;--surface:#2a2a2c;--surface2:#343436;--surface3:#444446;--text:#ececee;--text2:#b2b2b6;--text3:#8e8e94;
+  --border:#45454a;--accent:#e5c47a;--on-accent:#1a1a1a;--gold:#e5c47a;--gold-soft:#3a3222;--row:#8cb8ea;--row-soft:#24303f;
+  --good:#6bc490;--warn:#f08a76;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1c1c1e;--surface:#2a2a2c;--surface2:#343436;--surface3:#444446;--text:#ececee;--text2:#b2b2b6;--text3:#8e8e94;
+  --border:#45454a;--accent:#e5c47a;--on-accent:#1a1a1a;--gold:#e5c47a;--gold-soft:#3a3222;--row:#8cb8ea;--row-soft:#24303f;
+  --good:#6bc490;--warn:#f08a76;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--f-ui);font-size:13px;line-height:1.55}
+.wrap{max-width:1280px;margin:0 auto;padding-block:18px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1{font-size:19px;margin:0}
+.lead{color:var(--text2);margin:0;max-width:78ch}
+.src{font-size:12px;padding:8px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface)}
+.src.real{border-color:var(--good)}
+.src b{font-weight:700}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:inherit;font-size:12.5px;padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;text-align:left}
+.tab b{display:block;color:var(--text)}
+.tab[aria-selected=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.tab[aria-selected=true] b{color:var(--on-accent)}
+.tab:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:grid;gap:10px;min-width:0}
+.panel h2{font-size:14px;margin:0}
+.k{font-size:11.5px;color:var(--text3)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.o{max-width:100%;font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}
+.o.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.o.col.on{background:var(--gold);border-color:var(--gold);color:#fff}
+.o.rowc.on{background:var(--row);border-color:var(--row);color:#fff}
+.o small{opacity:.7;font-family:var(--f-num);font-size:10.5px;margin-left:3px}
+.o.dash{border-style:dashed}
+select,input[type=text]{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.step{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start}
+.step > div:last-child{grid-template-columns:minmax(0,1fr)}
+.panel{overflow:hidden;grid-template-columns:minmax(0,1fr)}
+.num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff}
+.num.c{background:var(--gold)}.num.r{background:var(--row)}.num.s{background:var(--text3)}
+.step .t{font-weight:700;font-size:13px}
+.step .t span{font-weight:400;color:var(--text3);font-size:11.5px;margin-left:6px}
+.sum{font-size:12.5px;padding:8px 10px;border-radius:8px;background:var(--surface2)}
+.sum .c{color:var(--gold);font-weight:700}.sum .r{color:var(--row);font-weight:700}
+/* ミニ図（設定の結果の形） */
+.mini{display:grid;gap:2px;font-size:10px;width:max-content;max-width:100%;overflow:hidden}
+.mini div{padding:2px 5px;border-radius:3px;background:var(--surface2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+.mini .mc{background:var(--gold-soft);color:var(--gold);font-weight:700}
+.mini .mr{background:var(--row-soft);color:var(--row);font-weight:700}
+.mini .mx{background:var(--surface3);color:var(--text3);text-align:center}
+.mini .moff{background:var(--surface3);color:var(--text3);text-align:center;display:grid;place-items:center}
+.lay{display:grid;grid-template-columns:330px minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:980px){.lay{grid-template-columns:minmax(0,1fr)}}
+/* ボード: 1つのスクロール枠の中で、列の見出しは上に、段の見出しは左に残る */
+.bwrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden}
+.btop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3)}
+.btop .sp{margin-left:auto;display:flex;gap:6px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.seg button{font:inherit;font-size:11.5px;border:none;background:var(--surface);color:var(--text2);padding:4px 9px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent)}
+.scr{overflow:auto;max-height:78vh;overscroll-behavior:contain}
+.grid{display:grid;gap:8px;padding:0 10px 10px 0;width:max-content}
+.corner,.ch,.rh{position:sticky;z-index:2;background:var(--surface)}
+.corner{top:0;left:0;z-index:4;padding:8px 6px 6px 10px;font-size:10.5px;color:var(--text3);display:grid;align-content:end;gap:2px}
+.corner .c{color:var(--gold);font-weight:700}.corner .r{color:var(--row);font-weight:700}
+.ch{top:0;padding-top:8px}
+.ch .in{border-top:3px solid var(--gold);background:var(--surface2);border-radius:4px 4px 0 0;padding:5px 8px;display:flex;gap:6px;align-items:center;font-weight:700;font-size:12px}
+.ch .in .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch .n{font-family:var(--f-num);font-weight:400;font-size:11px;color:var(--text3)}
+.ch .tg{margin-left:auto;font:inherit;font-size:10.5px;border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:6px;padding:1px 6px;cursor:pointer;white-space:nowrap}
+.ch .tg.on{background:var(--row-soft);color:var(--row);border-color:var(--row)}
+.ch.none .in,.ch.hid .in{border-top-color:var(--text3);color:var(--text2)}
+.ch.add .in{border-top-style:dashed;background:transparent;border:1px dashed var(--border);border-top:3px dashed var(--border);gap:4px}
+.ch.add input{width:100%;min-width:0;font-size:11.5px;padding:3px 6px}
+.rh{left:0;padding-left:10px}
+.rh .in{height:100%;border-left:3px solid var(--row);background:var(--row-soft);border-radius:0 6px 6px 0;padding:7px 6px;display:grid;align-content:start;gap:3px;font-weight:700;font-size:12px;color:var(--text)}
+.rh .in .n{font-family:var(--f-num);font-weight:400;font-size:11px;color:var(--text3)}
+.rh.none .in{border-left-color:var(--text3);background:var(--surface2)}
+/* マス: どの段も同じ高さ。中だけスクロール。本数はマスの右上 */
+.cell{position:relative;height:var(--ch);border:1px solid var(--border);border-radius:8px;background:var(--bg);overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr)}
+.cell.span{height:auto}
+.cell .cnt{display:flex;justify-content:space-between;align-items:center;padding:3px 7px;font-size:10.5px;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface)}
+.cell .cnt b{font-family:var(--f-num);font-size:11.5px;color:var(--text)}
+.cell .cnt .ax{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%}
+.cell .lst{overflow-y:auto;padding:6px;overscroll-behavior:contain;min-height:0}
+.cell .lst > .card{margin-bottom:6px}
+.cell.empty .lst::after{content:"0本（ここへドラッグで入れられます）";font-size:10.5px;color:var(--text3);text-align:center;padding:14px 4px}
+.cell.over{outline:2px solid var(--gold);outline-offset:-2px;background:var(--gold-soft)}
+.cell.offspan{border-style:dashed}
+.cell.offspan .cnt{background:var(--surface2)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:7px;overflow:hidden;cursor:grab;display:block}
+.card:active{cursor:grabbing}
+.card .th{aspect-ratio:16/9;height:auto;background:linear-gradient(135deg,var(--surface3),var(--surface2));display:block;width:100%;object-fit:cover}
+.card .tt{padding:5px 7px 6px;font-size:11.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .meta{padding:0 7px 6px;font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card.moved{box-shadow:0 0 0 2px var(--gold)}
+.note{font-size:11.5px;color:var(--text3);padding:8px 12px 12px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--accent);color:var(--on-accent);padding:8px 14px;border-radius:9px;font-size:12.5px;z-index:20;max-width:calc(100vw - 32px)}
+.q{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;display:grid;gap:6px}
+.q ol{margin:0;padding-left:20px;display:grid;gap:5px}
+.colsoff{display:flex;flex-wrap:wrap;gap:5px}
+@media (max-width:600px){
+  .rh .in{font-size:11px;padding:6px 4px}
+  .corner{padding-left:6px}
+}
+@media (prefers-reduced-motion:no-preference){.o,.tab,.seg button{transition:background .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>グルーピング 縦×横（C: 全部に貫く＋列ごとに外す）</h1>
+  <p class="lead">マスの高さはどの段もそろえて、カード1〜2枚ぶんにとどめます。中はマスごとにスクロールし、本数はマスの上に出ます。カードはドラッグで別のマスへ動かせます（このモックでは動画のタグは変わりません）。</p>
+  <div id="src" class="src">読み込み中…</div>
+
+  <div class="tabs" role="tablist" aria-label="設定画面の案">
+    <button class="tab" role="tab" id="tab-a" aria-selected="true" onclick="M.tab('a')"><b>設定 案1: 順番に選ぶ</b>① 列 → ② 段 → ③ 見た目</button>
+    <button class="tab" role="tab" id="tab-b" aria-selected="false" onclick="M.tab('b')"><b>設定 案2: 表の上で直接</b>左上の角と見出しから変える</button>
+  </div>
+
+  <div class="lay" id="lay">
+    <div class="panel" id="setA"></div>
+    <div class="bwrap">
+      <div class="btop">
+        <span>範囲</span><select id="scope" onchange="M.scope(this.value)"></select>
+        <span class="sp"><span>マスの高さ</span>
+          <span class="seg" id="hseg">
+            <button data-h="1" onclick="M.h(1)">1枚</button><button data-h="1.5" onclick="M.h(1.5)">1.5枚</button><button data-h="2" onclick="M.h(2)">2枚</button>
+          </span></span>
+      </div>
+      <div class="scr" id="scr"><div class="grid" id="grid"></div></div>
+      <div class="note" id="note"></div>
+    </div>
+  </div>
+
+  <div class="q">
+    <b>決めたいこと</b>
+    <ol>
+      <li>マスの高さの初期値（カード1枚／1.5枚／2枚）と、それを利用者が変えられるようにするか</li>
+      <li>設定画面は 案1（順番に選ぶ）と 案2（表の上で直接）のどちらか（両方でもよい）</li>
+      <li>「段で分けない」列は、段をまたいだ1つの長いマスにする（今のモック）でよいか</li>
+    </ol>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const NONE = '__none__';
+  const S = { tab: 'a', h: 1.5, scope: 'all', col: null, cols: [], row: null, rows: [], off: new Set(), showNoneC: true, showNoneR: true, moves: new Map(), dragId: null, cornerOpen: '' };
+  let V = [], G = [], LISTS = [], REAL = false;
+
+  // ───────── 読む（書かない） ─────────
+  const lsJ = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  async function readVideoCache() {
+    try {
+      // ない DB を開くと空の DB ができ、アプリが控えを書けなくなるので、あるときだけ開く
+      if (!indexedDB.databases) return null;
+      const dbs = await indexedDB.databases();
+      if (!dbs.some(d => d.name === 'wk-video-cache')) return null;
+      const db = await new Promise((res, rej) => { const rq = indexedDB.open('wk-video-cache', 1);
+        rq.onupgradeneeded = () => { try { rq.result.createObjectStore('c'); } catch (e) {} };
+        rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+      if (!db.objectStoreNames.contains('c')) { db.close(); return null; }
+      const all = await new Promise(res => { const rq = db.transaction('c', 'readonly').objectStore('c').getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]); });
+      db.close();
+      const rec = all.filter(r => r && r.text).sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+      if (!rec) return null;
+      const d = JSON.parse(rec.text); return Array.isArray(d && d.videos) ? d.videos : null;
+    } catch (e) { return null; }
+  }
+  const FIELD = { tb: ['tb', 'tbNew'], cat: ['cat'], pos: ['pos', 'posNew'], tags: ['tags'] };
+  function buildGroups(reg, ts) {
+    const tsOf = k => (Array.isArray(ts) ? ts : []).find(t => t && t.key === k) || null;
+    const gs = (reg && Array.isArray(reg.groups) ? reg.groups : [
+      { id: 'f_tb', store: 'tb' }, { id: 'f_cat', store: 'cat' }, { id: 'f_pos', store: 'pos' }, { id: 'f_tags', store: 'tags' }]);
+    const slots = reg && Array.isArray(reg.slots) ? reg.slots : ['f_tb', 'f_cat', 'f_pos', 'f_tags'];
+    return gs.map(g => {
+      const t = FIELD[g.store] ? tsOf(g.store) : null;
+      const name = FIELD[g.store] ? ((t && t.label) || g.store) : (g.name || g.id);
+      const opts = FIELD[g.store] ? ((t && t.presets) || []).slice() : (Array.isArray(g.opts) ? g.opts.slice() : []);
+      const read = FIELD[g.store] ? (v => { const o = []; FIELD[g.store].forEach(k => (Array.isArray(v[k]) ? v[k] : []).forEach(x => { if (x && !o.includes(x)) o.push(String(x)); })); return o; })
+        : (v => { const a = v.tg && v.tg[g.id]; return Array.isArray(a) ? a.map(String) : a ? [String(a)] : []; });
+      const slot = slots.indexOf(g.id);
+      return { key: 'tag:' + g.id, name, opts, read, sub: slot >= 0 ? 'タグ' + (slot + 1) : '未使用', slot };
+    }).sort((a, b) => (a.slot < 0) - (b.slot < 0) || a.slot - b.slot)
+      .concat([{ key: 'pl', name: 'プレイリスト', opts: [], read: v => v.pl ? [v.pl] : [], sub: '取り込み元' },
+               { key: 'ch', name: 'チャンネル', opts: [], read: v => (v.channel || v.ch) ? [v.channel || v.ch] : [], sub: '取り込み元' }]);
+  }
+  function sample() {
+    const pos = ['デラヒーバ', 'ラッソー', 'ハーフガード', 'クローズドガード', 'バタフライ', 'スパイダー'];
+    const tb = ['トップ', 'ボトム', 'スタンディング'];
+    const cat = ['パスガード', 'スイープ', 'エスケープ', 'フィニッシュ'];
+    const acts = { パスガード: ['ニースライス', 'レッグドラッグ', 'トレアンドーパス'], スイープ: ['ベリンボロ', 'ヒップバンプ', 'シザースイープ'], エスケープ: ['ブリッジ', 'エビ'], フィニッシュ: ['三角絞め', '腕十字', 'オモプラッタ'] };
+    const out = [];
+    for (let i = 0; i < 90; i++) {
+      const p = pos[i % pos.length], c = cat[(i * 7) % cat.length], t = i % 5 === 0 ? [] : [tb[(i * 3) % 3]];
+      const a = acts[c][i % acts[c].length];
+      out.push({ id: 's' + i, title: `${p}から${a} ${i % 3 ? '基本' : '応用'} ${1 + (i % 4)}`, channel: ['道場A', '道場B', 'Instructional X'][i % 3], pl: ['入門シリーズ', '試合で使う', ''][i % 3],
+        pt: 'sample', tb: t, pos: i % 9 === 0 ? [] : [p], cat: [c], tags: [], duration: 120 + i * 13 });
+    }
+    return out;
+  }
+  async function load() {
+    const vs = await readVideoCache();
+    const reg = lsJ('wk_tagRegistry'), ts = lsJ('wk_tagSettings');
+    if (vs && vs.length) { REAL = true; V = vs.filter(v => v && !v.archived); G = buildGroups(reg, ts); }
+    else { V = sample(); G = buildGroups(null, [{ key: 'tb', label: 'トップ/ボトム', presets: ['トップ', 'ボトム', 'スタンディング'] }, { key: 'cat', label: 'カテゴリ', presets: ['パスガード', 'スイープ', 'エスケープ', 'フィニッシュ'] }, { key: 'pos', label: 'ポジション', presets: ['デラヒーバ', 'ラッソー', 'ハーフガード', 'クローズドガード', 'バタフライ', 'スパイダー'] }, { key: 'tags', label: 'テクニック', presets: [] }]); }
+    // 範囲: 全部・手で選んだリスト・プレイリスト
+    const views = lsJ('wk_cv_views');
+    LISTS = [{ id: 'all', name: '全部の動画', ids: null }];
+    (Array.isArray(views) ? views : []).forEach(w => { if (w && Array.isArray(w.videoIds) && w.videoIds.length && w.saveMode !== 'dynamic') LISTS.push({ id: 'v:' + w.id, name: 'リスト: ' + (w.label || w.name || w.id), ids: new Set(w.videoIds) }); });
+    const pls = new Map(); V.forEach(v => { if (v.pl) pls.set(v.pl, (pls.get(v.pl) || 0) + 1); });
+    [...pls.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40).forEach(([p, n]) => LISTS.push({ id: 'p:' + p, name: `プレイリスト: ${p}（${n}）`, pl: p }));
+    // 列の初期値: 前に作ったグルーピング（タグを選ぶ形）があればそれ。なければ値の多いタググループ
+    const gp = lsJ('wk_groupings'); let picked = null;
+    if (gp && gp.items) Object.values(gp.items).filter(e => e && !e.del && e.gb === 'pick' && Array.isArray(e.picks) && e.picks.length).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 1).forEach(e => { picked = e; });
+    if (picked) { const gk = (picked.pgs && picked.pgs[0]) || picked.pg; if (G.some(g => g.key === gk)) { S.col = gk; S.cols = picked.picks.filter(p => p.g === gk).map(p => p.v); } }
+    const tagGs = G.filter(g => g.key.startsWith('tag:'));
+    const used = g => valsOf(g).length;
+    if (!S.col) { const g = tagGs.filter(g => used(g) >= 3).sort((a, b) => used(b) - used(a))[0] || tagGs[0]; if (g) { S.col = g.key; S.cols = valsOf(g).slice(0, 6); } }
+    // 段の初期値: 列と別で、値が2〜5個のタググループ（トップ/ボトムのようなもの）
+    const rg = tagGs.filter(g => g.key !== S.col && used(g) >= 2).sort((a, b) => Math.abs(used(a) - 3) - Math.abs(used(b) - 3))[0];
+    if (rg) { S.row = rg.key; S.rows = valsOf(rg).slice(0, 4); }
+    const box = document.getElementById('src');
+    box.className = 'src' + (REAL ? ' real' : '');
+    box.innerHTML = REAL ? `<b>この端末の実データ</b>を読んでいます（動画 ${V.length}本・アーカイブを除く）。読むだけで、どこにも書きません。ドラッグしても動画のタグは変わりません。`
+      : `<b>サンプルのデータ</b>です。実データで見るには、アプリと同じ場所で開いてください: <b>waza-kimura.okujournal.workers.dev/mock-grouping-grid.html</b>（ログインしてアプリを一度開いた端末・ブラウザで）。`;
+    fillScope(); draw();
+  }
+
+  // ───────── 値 ─────────
+  const GR = k => G.find(g => g.key === k) || null;
+  function inScope() {
+    const L = LISTS.find(l => l.id === S.scope) || LISTS[0];
+    return V.filter(v => (!L.ids || L.ids.has(v.id)) && (!L.pl || v.pl === L.pl));
+  }
+  function valsOf(g) {
+    const seen = new Set(g.opts), out = g.opts.slice();
+    V.forEach(v => g.read(v).forEach(x => { if (!seen.has(x)) { seen.add(x); out.push(x); } }));
+    return out.filter(x => V.some(v => g.read(v).includes(x)) || g.opts.includes(x));
+  }
+  // ドラッグで動かした分（モックの中だけ）
+  function readM(v, gk) { const m = S.moves.get(v.id + '|' + gk); return m ? m : GR(gk).read(v); }
+  const keysFor = (v, gk, picks) => { const x = readM(v, gk).filter(y => picks.includes(y)); return x.length ? x : [NONE]; };
+  const cnt = (gk, x) => { const g = GR(gk); return inScope().filter(v => g.read(v).includes(x)).length; };
+
+  // ───────── 設定 案1 ─────────
+  function groupBtns(which) {
+    const cur = which === 'c' ? S.col : S.row;
+    const gs = G.filter(g => which === 'c' || g.key !== S.col);
+    return (which === 'r' ? `<button class="o${!S.row ? ' on' : ''}" onclick="M.setG('r','')">段なし</button>` : '') +
+      gs.map(g => `<button class="o${cur === g.key ? ' on' : ''}" onclick="M.setG('${which}','${g.key.replace(/'/g, "\\'")}')">${esc(g.name)}<small>${esc(g.sub)}</small></button>`).join('');
+  }
+  function valChips(which) {
+    const gk = which === 'c' ? S.col : S.row; const g = GR(gk); if (!g) return '';
+    const sel = which === 'c' ? S.cols : S.rows; const cls = which === 'c' ? 'col' : 'rowc';
+    const vs = valsOf(g);
+    const list = g.key === 'pl' || g.key === 'ch' ? vs.sort((a, b) => cnt(gk, b) - cnt(gk, a)).slice(0, 30) : vs;
+    return `<div class="chips">${list.map(x => `<button class="o ${cls}${sel.includes(x) ? ' on' : ''}" onclick="M.pv('${which}',${JSON.stringify(x).replace(/"/g, '&quot;')})">${sel.includes(x) ? '✓ ' : ''}${esc(x)}<small>${cnt(gk, x)}</small></button>`).join('')}
+      <button class="o dash" onclick="M.all('${which}',true)">全部</button><button class="o dash" onclick="M.all('${which}',false)">外す</button></div>`;
+  }
+  function mini() {
+    const cs = (S.showNoneC ? ['その他'] : []).concat(S.cols).slice(0, 5); const rs = S.row ? (S.rows.concat(S.showNoneR ? ['その他'] : [])).slice(0, 4) : [];
+    if (!cs.length) return '';
+    const n = cs.length; let h = `<div class="mini" style="grid-template-columns:repeat(${n + (rs.length ? 1 : 0)},auto)">`;
+    if (rs.length) h += '<div style="background:transparent"></div>';
+    h += cs.map(c => `<div class="mc">${esc(c)}</div>`).join('');
+    if (!rs.length) h += cs.map(() => '<div class="mx">…</div>').join('');
+    rs.forEach((r, ri) => { h += `<div class="mr">${esc(r)}</div>`; cs.forEach(c => {
+      if (S.off.has(c === 'その他' ? NONE : c)) { if (ri === 0) h += `<div class="moff" style="grid-row:span ${rs.length}">段なし</div>`; }
+      else h += '<div class="mx">…</div>'; }); });
+    return h + '</div>';
+  }
+  function summary() {
+    const g = GR(S.col), r = GR(S.row);
+    if (!g) return '';
+    const off = [...S.off].map(x => x === NONE ? 'その他' : x).filter(x => x === 'その他' || S.cols.includes(x));
+    return `<div class="sum">列は <span class="c">${esc(g.name)}</span>（${S.cols.length}列${S.showNoneC ? '＋その他' : ''}）${r ? `、段は <span class="r">${esc(r.name)}</span>（${S.rows.length}段${S.showNoneR ? '＋その他' : ''}）` : '、段なし'}。${off.length ? `「${esc(off.join('・'))}」は段で分けません。` : ''}</div>`;
+  }
+  function drawA() {
+    const el = document.getElementById('setA');
+    if (S.tab !== 'a') { el.style.display = 'none'; return; } el.style.display = '';
+    const offable = (S.showNoneC ? [NONE] : []).concat(S.cols);
+    el.innerHTML = `<h2>グルーピングを編集</h2>
+      <div class="step"><div class="num c">1</div><div style="display:grid;gap:6px;min-width:0"><div class="t">列（縦に並ぶ）<span>何で左右に分けるか</span></div><div class="chips">${groupBtns('c')}</div>${valChips('c')}
+        <label class="k"><input type="checkbox" ${S.showNoneC ? 'checked' : ''} onchange="M.sn('c',this.checked)"> どれも付いていない動画も「その他」の列に出す</label></div></div>
+      <div class="step"><div class="num r">2</div><div style="display:grid;gap:6px;min-width:0"><div class="t">段（横に並ぶ）<span>列の中をさらに上下に分ける</span></div><div class="chips">${groupBtns('r')}</div>${S.row ? valChips('r') + `<label class="k"><input type="checkbox" ${S.showNoneR ? 'checked' : ''} onchange="M.sn('r',this.checked)"> どれも付いていない動画も「その他」の段に出す</label>` : ''}</div></div>
+      ${S.row ? `<div class="step"><div class="num s">3</div><div style="display:grid;gap:6px;min-width:0"><div class="t">段で分けない列<span>その列だけ、段をまたいだ1つのマスにする</span></div>
+        <div class="colsoff">${offable.map(c => `<button class="o${S.off.has(c) ? ' on' : ''}" onclick="M.off(${JSON.stringify(c).replace(/"/g, '&quot;')})">${S.off.has(c) ? '✓ ' : ''}${esc(c === NONE ? 'その他' : c)}</button>`).join('')}</div>
+        <div class="k">列の見出しの「段 ⇕」でも切り替えられます</div></div></div>` : ''}
+      <div style="display:grid;gap:6px"><div class="k">できあがりの形</div>${mini()}${summary()}</div>
+      <div class="chips"><button class="o on">保存</button><button class="o">やめる</button><span class="k">（モックなので保存しません）</span></div>`;
+  }
+
+  // ───────── ボード ─────────
+  function thumb(v) {
+    const pt = v.pt || v.src || 'youtube';
+    if (pt === 'youtube') return v.thumb || `https://img.youtube.com/vi/${esc(v.ytId || v.id)}/mqdefault.jpg`;
+    if (pt === 'gdrive') return `https://drive.google.com/thumbnail?id=${esc(String(v.id || '').replace('gd-', ''))}&sz=w320`;
+    return v.thumb || '';
+  }
+  const fmt = s => { s = Number(s) || 0; if (!s) return ''; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.floor(s % 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+  const card = v => `<div class="card${[...S.moves.keys()].some(k => k.startsWith(v.id + '|')) ? ' moved' : ''}" draggable="true" ondragstart="M.ds(event,'${esc(v.id).replace(/'/g, "\\'")}')">${thumb(v) ? `<img class="th" loading="lazy" alt="" src="${thumb(v)}" onerror="this.removeAttribute('src')">` : '<span class="th"></span>'}<div class="tt">${esc(v.title || '')}</div><div class="meta">${esc([v.channel || v.ch || '', fmt(v.duration)].filter(Boolean).join(' · '))}</div></div>`;
+  const CARD_H = 186;   // カード1枚の高さの目安（幅 210px のとき）
+  function draw() {
+    drawA();
+    const grid = document.getElementById('grid');
+    document.querySelectorAll('#hseg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.h === S.h)));
+    const g = GR(S.col); if (!g) { grid.innerHTML = '<div class="note">タググループがありません</div>'; return; }
+    const r = S.row ? GR(S.row) : null;
+    const list = inScope();
+    const cols = (S.showNoneC ? [NONE] : []).concat(S.cols);
+    const rows = r ? S.rows.concat(S.showNoneR ? [NONE] : []) : [null];
+    const cellH = Math.round(CARD_H * S.h + 30);
+    grid.style.setProperty('--ch', cellH + 'px');
+    const R = !!r || S.tab === 'b';   // 段の見出しの列（案2は段なしでも角に選ぶ所を出す）
+    const colW = innerWidth < 600 ? 168 : 210, rhW = R ? (innerWidth < 600 ? 80 : 104) : 0;
+    grid.style.gridTemplateColumns = (R ? rhW + 'px ' : '') + cols.map(() => colW + 'px').join(' ') + ' 150px';
+    // 振り分け（1本が複数のマスに入ることもある＝タグが2つ付いていれば両方）
+    const at = new Map();
+    list.forEach(v => { const ck = keysFor(v, S.col, S.cols); const rk = r ? keysFor(v, S.row, S.rows) : [null];
+      ck.forEach(c => { if (!cols.includes(c)) return; const rr = S.off.has(c) ? ['*'] : rk;
+        rr.forEach(x => { if (x !== '*' && !rows.includes(x)) return; const k = c + '\u0001' + x; if (!at.has(k)) at.set(k, []); at.get(k).push(v); }); }); });
+    const colTotal = c => new Set([...at.entries()].filter(([k]) => k.split('\u0001')[0] === c).flatMap(([, a]) => a.map(v => v.id))).size;
+    const rowTotal = x => new Set([...at.entries()].filter(([k]) => k.split('\u0001')[1] === String(x)).flatMap(([, a]) => a.map(v => v.id))).size;
+    const nm = (x, grp) => x === NONE ? 'その他' : x;
+    let h = '';
+    // 角
+    if (R) h += `<div class="corner" style="grid-row:1;grid-column:1">${S.tab === 'b' ? cornerB() : `<span>列 <span class="c">${esc(g.name)}</span></span><span>段 <span class="r">${esc(r.name)}</span></span>`}</div>`;
+    cols.forEach((c, i) => {
+      const ci = i + (R ? 2 : 1);
+      h += `<div class="ch${c === NONE ? ' none' : ''}" style="grid-row:1;grid-column:${ci}"><div class="in"><span class="nm">${esc(nm(c))}</span><span class="n">${colTotal(c)}</span>${r ? `<button class="tg${S.off.has(c) ? ' on' : ''}" title="この列だけ段で分けない／分ける" onclick="M.off(${JSON.stringify(c).replace(/"/g, '&quot;')})">${S.off.has(c) ? '段なし' : '段 ⇕'}</button>` : ''}${S.tab === 'b' && c !== NONE ? `<button class="tg" title="この列を外す" onclick="M.pv('c',${JSON.stringify(c).replace(/"/g, '&quot;')})">×</button>` : ''}</div></div>`;
+    });
+    h += `<div class="ch add" style="grid-row:1;grid-column:${cols.length + (R ? 2 : 1)}"><div class="in">${S.tab === 'b' ? addSel('c') : '<span class="k" style="font-weight:400">＋ 新しいタグ</span>'}</div></div>`;
+    rows.forEach((x, ri) => {
+      const rr = ri + 2;
+      if (R && !r) h += `<div class="rh none" style="grid-row:${rr};grid-column:1"><div class="in" style="background:transparent;border-left-color:transparent"></div></div>`;
+      if (r) h += `<div class="rh${x === NONE ? ' none' : ''}" style="grid-row:${rr};grid-column:1"><div class="in"><span>${esc(nm(x))}</span><span class="n">${rowTotal(x)}本</span>${S.tab === 'b' && x !== NONE ? `<button class="tg" style="justify-self:start;font:inherit;font-size:10.5px;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:0 6px;cursor:pointer" onclick="M.pv('r',${JSON.stringify(x).replace(/"/g, '&quot;')})">×</button>` : ''}</div></div>`;
+      cols.forEach((c, i) => {
+        const ci = i + (R ? 2 : 1);
+        if (r && S.off.has(c)) {
+          if (ri === 0) { const a = at.get(c + '\u0001*') || [];
+            h += `<div class="cell span offspan${a.length ? '' : ' empty'}" style="grid-row:2 / span ${rows.length};grid-column:${ci};height:calc(${rows.length} * var(--ch) + ${(rows.length - 1) * 8}px)" ondragover="M.dov(event,this)" ondragleave="this.classList.remove('over')" ondrop="M.dp(event,${JSON.stringify(c).replace(/"/g, '&quot;')},null)"><div class="cnt"><span class="ax">段で分けない</span><b>${a.length}本</b></div><div class="lst">${a.map(card).join('')}</div></div>`; }
+          return;
+        }
+        const a = at.get(c + '\u0001' + x) || [];
+        h += `<div class="cell${a.length ? '' : ' empty'}" style="grid-row:${rr};grid-column:${ci}" ondragover="M.dov(event,this)" ondragleave="this.classList.remove('over')" ondrop="M.dp(event,${JSON.stringify(c).replace(/"/g, '&quot;')},${JSON.stringify(x).replace(/"/g, '&quot;')})"><div class="cnt"><span class="ax">${r ? esc(nm(c)) + ' × ' + esc(nm(x)) : esc(nm(c))}</span><b>${a.length}本</b></div><div class="lst">${a.map(card).join('')}</div></div>`;
+      });
+    });
+    if (S.tab === 'b' && r) h += `<div class="rh" style="grid-row:${rows.length + 2};grid-column:1"><div class="in" style="background:transparent;border-left-style:dashed">${addSel('r')}</div></div>`;
+    grid.innerHTML = h;
+    document.getElementById('note').innerHTML = `マスの高さはどの段も同じ（カード${S.h}枚ぶん）。中はマスごとにスクロールします。カードをほかのマスへドラッグすると、列と段の両方のタグが付け替わります（本番。このモックでは変わりません）。${S.moves.size ? `<b>このモックで動かした ${new Set([...S.moves.keys()].map(k => k.split('|')[0])).size}本</b>は金色の枠。<button class="o" onclick="M.reset()">動かした分を戻す</button>` : ''}`;
+  }
+  // 案2: 左上の角で列・段のグループを選ぶ
+  function cornerB() {
+    const opt = (cur, ex) => G.filter(g => g.key !== ex).map(g => `<option value="${esc(g.key)}"${g.key === cur ? ' selected' : ''}>${esc(g.name)}</option>`).join('');
+    return `<label>列 <select style="width:100%;max-width:100%;font-size:11px;padding:2px 4px" onchange="M.setG('c',this.value)">${opt(S.col, '')}</select></label>
+      <label>段 <select style="width:100%;max-width:100%;font-size:11px;padding:2px 4px" onchange="M.setG('r',this.value)"><option value="">段なし</option>${opt(S.row, S.col)}</select></label>`;
+  }
+  function addSel(which) {
+    const gk = which === 'c' ? S.col : S.row; const g = GR(gk); if (!g) return '';
+    const sel = which === 'c' ? S.cols : S.rows;
+    const rest = valsOf(g).filter(x => !sel.includes(x));
+    return `<select style="width:100%;font-size:11.5px" onchange="if(this.value)M.pv('${which}',this.value)"><option value="">＋ ${which === 'c' ? '列' : '段'}を足す</option>${rest.map(x => `<option>${esc(x)}</option>`).join('')}</select>`;
+  }
+  function fillScope() {
+    document.getElementById('scope').innerHTML = LISTS.map(l => `<option value="${esc(l.id)}"${l.id === S.scope ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+  }
+  let tt = null;
+  function toast(m) { const el = document.getElementById('toast'); el.innerHTML = `<div class="toast">${esc(m)}</div>`; clearTimeout(tt); tt = setTimeout(() => { el.innerHTML = ''; }, 3500); }
+
+  window.M = {
+    tab(t) { S.tab = t; ['a', 'b'].forEach(x => document.getElementById('tab-' + x).setAttribute('aria-selected', String(x === t)));
+      document.getElementById('lay').style.gridTemplateColumns = t === 'a' ? '' : 'minmax(0,1fr)';
+      if (t === 'b' && !S.row) {} draw(); },
+    h(x) { S.h = x; draw(); },
+    scope(id) { S.scope = id; draw(); },
+    setG(w, k) {
+      if (w === 'c') { if (!k || k === S.col) return; S.col = k; S.cols = valsOf(GR(k)).slice(0, 6); S.off.clear(); if (S.row === k) { S.row = null; S.rows = []; } }
+      else { S.row = k || null; S.rows = k ? valsOf(GR(k)).slice(0, 4) : []; }
+      draw(); },
+    pv(w, x) { const a = w === 'c' ? S.cols : S.rows; const i = a.indexOf(x); if (i >= 0) a.splice(i, 1); else a.push(x); if (w === 'c' && i >= 0) S.off.delete(x); draw(); },
+    all(w, on) { const g = GR(w === 'c' ? S.col : S.row); const vs = on ? valsOf(g) : []; if (w === 'c') S.cols = vs.slice(); else S.rows = vs.slice(); draw(); },
+    sn(w, on) { if (w === 'c') S.showNoneC = on; else S.showNoneR = on; draw(); },
+    off(c) { S.off.has(c) ? S.off.delete(c) : S.off.add(c); draw(); },
+    ds(e, id) { S.dragId = id; try { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'move'; } catch (x) {} },
+    dov(e, el) { e.preventDefault(); el.classList.add('over'); },
+    dp(e, c, x) { e.preventDefault(); e.currentTarget.classList.remove('over'); const id = S.dragId; S.dragId = null; const v = V.find(y => y.id === id); if (!v) return;
+      const put = (gk, picks, to) => { const cur = readM(v, gk).filter(y => !picks.includes(y)); if (to !== NONE) cur.push(to); S.moves.set(v.id + '|' + gk, cur); };
+      put(S.col, S.cols, c); if (S.row && x != null) put(S.row, S.rows, x);
+      toast(`「${c === NONE ? 'その他' : c}${S.row && x != null ? ' × ' + (x === NONE ? 'その他' : x) : ''}」へ（モックなので動画のタグは変わりません）`); draw(); },
+    reset() { S.moves.clear(); draw(); },
+  };
+  addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(draw, 150); });
+  load();
+})();
+</script>
+</body>
+</html>
