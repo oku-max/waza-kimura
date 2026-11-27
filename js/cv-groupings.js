@@ -63,6 +63,7 @@
     }
     if (uid) D.uid = uid;
     persist();
+    if (first && (window.videos || []).length && window.tagRegistry) { try { repairFromHistory(); } catch (e) {} }
     if (isOpen()) draw();
     return toPush;
   };
@@ -412,12 +413,12 @@
     const sel = byGroup(d, (d.picks || []).filter(p => gks.includes(p.g)));
     const src = source(); const cnt = (gk, x) => { const G = GR0(gk); return src.filter(v => readG(v, G).includes(x)).length; };
     // タググループごとに1つの枠（色の線・名前・選んだタグ・選んでいないタグ・新しいタグ）。列もこの順に、グループごとにまとまって並ぶ
-    const block = (gk, gi) => { const G = GR0(gk); const mine = sel.filter(p => p.g === gk).map(p => p.v); const rest = allVals(gk).filter(x => !mine.includes(x));
+    const block = (gk, gi) => { const G = GR0(gk); const mine = sel.filter(p => p.g === gk).map(p => p.v); const rest = allVals(gk).filter(x => !mine.includes(x)); const allV = new Set(groupValsAll(gk));
       const iid = gk === d.pg ? 'svt-pnew' : 'svt-pnew-' + gi; const cid = gi === 0 ? 'svt-chips' : 'svt-chips-' + gi;
       return `<div class="svt-pgrow" style="--gc:${multi ? gColor(d, gk) : 'var(--border)'}">
         <div class="svt-ph"><span class="svt-gname">${multi ? '<i class="svt-gdot"></i>' : ''}${esc(G.name)}</span>
           <span class="svt-phb">${multi && gi > 0 ? `<button class="svt-sm" title="このグループの列を前へ" onclick="wkGroupings._gup('${jsq(gk)}')">↑ 前へ</button>` : ''}<button class="svt-sm" onclick="wkGroupings._pall(true,'${jsq(gk)}')">全部選ぶ</button><button class="svt-sm" onclick="wkGroupings._pall(false,'${jsq(gk)}')">全部外す</button></span></div>
-        <div class="svt-opts" id="${cid}">${mine.map((x, i) => `<span class="svt-o on svt-chip" data-i="${i}"><span class="svt-grip" title="ドラッグで順番を入れ替え" onpointerdown="wkGroupings._gd(event,${i},'${jsq(gk)}','${cid}')">⠿</span><button class="svt-cb" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">✓ ${esc(x)}<small> ${cnt(gk, x)}</small></button></span>`).join('')}${rest.map(x => `<button class="svt-o svt-off" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">${esc(x)}<small> ${cnt(gk, x)}</small></button>`).join('') || (mine.length ? '' : '<span class="svt-grp" style="margin:0">このタググループにはまだタグがありません。下で足してください。</span>')}</div>
+        <div class="svt-opts" id="${cid}">${mine.map((x, i) => `<span class="svt-o on svt-chip${allV.has(x) ? '' : ' svt-stale'}" data-i="${i}"${allV.has(x) ? '' : ' title="このタグは今はありません（名前を変えた・消した）。押すと列から外れます"'}><span class="svt-grip" title="ドラッグで順番を入れ替え" onpointerdown="wkGroupings._gd(event,${i},'${jsq(gk)}','${cid}')">⠿</span><button class="svt-cb" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">✓ ${esc(x)}${allV.has(x) ? `<small> ${cnt(gk, x)}</small>` : '<small>（今は無いタグ）</small>'}</button></span>`).join('')}${rest.map(x => `<button class="svt-o svt-off" onclick="wkGroupings._pv('${jsq(x)}','${jsq(gk)}')">${esc(x)}<small> ${cnt(gk, x)}</small></button>`).join('') || (mine.length ? '' : '<span class="svt-grp" style="margin:0">このタググループにはまだタグがありません。下で足してください。</span>')}</div>
         <div class="svt-opts"><input id="${iid}" class="svt-pnew-in" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._pnew('${jsq(gk)}','${iid}')"><button class="svt-sm" onclick="wkGroupings._pnew('${jsq(gk)}','${iid}')">足す</button></div>
       </div>`; };
     return `<div class="setbox svt-pick">
@@ -595,6 +596,7 @@
 #svt-root .svt-cardx{display:flex;gap:6px;justify-content:flex-end;align-items:center;padding:4px 8px}
 #svt-root .svt-csort{margin-left:auto;max-width:120px;font-size:10.5px;padding:2px 4px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;cursor:pointer}
 #svt-root .svt-csort.on{border-color:var(--accent);color:var(--text)}
+#svt-root .svt-chip.svt-stale{opacity:.55;text-decoration:line-through}
 #svt-root .svt-pgrow{display:grid;gap:6px;border:1px solid var(--border);border-left:4px solid var(--gc);border-radius:8px;padding:8px 10px}
 #svt-root .svt-gname{font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px}
 #svt-root .svt-gdot{width:10px;height:10px;border-radius:50%;background:var(--gc);display:inline-block}
@@ -660,6 +662,7 @@
     const oh = document.getElementById('lib-org-host'); if (oh) _obs.observe(oh, { attributes: true, attributeFilter: ['style', 'class'] });
     window._orgRowGrouper = orgGrouper; window._orgGroupToggle = orgGroupToggle;
     watchTable();
+    if (!_repaired && (window.videos || []).length && window.tagRegistry) { _repaired = true; try { repairFromHistory(); } catch (e) { console.warn('[groupings] 読み替えに失敗', e); } }
     draw();
   }
   function close(keepPref) {
@@ -734,6 +737,49 @@
   let _rot = null;
   function rerenderTable() { if (!isTable()) return; clearTimeout(_rot); _rot = setTimeout(() => window.renderOrg?.(), 0); }
 
+  // ── タグの名前を変えた・まとめたとき（設定の画面 → js/tag-ops.js）、グルーピングの選んだタグも新しい名前にする（v53.063・
+  //    オーナー「設定画面で変更したタグ名がグルーピングのほうに反映されてない」）。動画のタグは tag-ops.js が変える。ここは各グルーピングの
+  //    picks（列にするタグ）と knownBy/known（保存時に知っていた値）の名前を置き換えるだけ。消さない・空にしない。
+  function renamePickIn(e, gk, from, to) {
+    let ch = false;
+    const picks = (e.picks || []).map(p => ({ ...p }));
+    const hadTo = picks.some(p => p.g === gk && p.v === to);
+    const out = [];
+    picks.forEach(p => { if (p.g === gk && p.v === from) { ch = true; if (!hadTo && !out.some(q => q.g === gk && q.v === to)) out.push({ g: gk, v: to }); } else out.push(p); });
+    const ren = arr => Array.isArray(arr) ? [...new Set(arr.map(x => x === from ? (ch = true, to) : x))] : arr;
+    const kb = e.knownBy ? Object.fromEntries(Object.entries(e.knownBy).map(([k, a]) => [k, k === gk ? ren(a) : a])) : e.knownBy;
+    const known = e.pg === gk ? ren(e.known) : e.known;
+    return ch ? { ...e, picks: out, knownBy: kb, known } : null;
+  }
+  window._grpRenameTag = (gid, from, to) => {
+    const gk = 'tag:' + gid; const out = [];
+    Object.values(D.items).forEach(e => { if (!e || e.del || !pgsOf(e).includes(gk) && e.pg !== gk) return;
+      const n = renamePickIn(e, gk, from, to); if (!n) return;
+      const before = JSON.stringify(e); put(n); out.push({ id: e.id, before, after: JSON.stringify(D.items[e.id]) }); });
+    if (out.length && isOpen()) draw();
+    return out;
+  };
+  // 取り消し: その後にまたグルーピングを変えていたら戻さない
+  window._grpRestoreTag = list => {
+    (list || []).forEach(r => { const cur = D.items[r.id]; if (!cur || JSON.stringify(cur) !== r.after) return;
+      const { at, ...b } = JSON.parse(r.before); put(b); });
+    if (isOpen()) draw();
+  };
+  // この版より前に名前を変えた分の読み替え: この端末の「元に戻す」の控え（wk_tagOpsUndo・直近5件）にある名前の変更を、
+  // 今はもう無いタグを選んでいるグルーピングにだけ当てる（無いタグ → 新しい名前。新しい名前が今あるときだけ）
+  function repairFromHistory() {
+    let recs = []; try { recs = JSON.parse(localStorage.getItem('wk_tagOpsUndo') || '[]'); } catch (e) {}
+    if (!Array.isArray(recs) || !recs.length) return;
+    const rens = recs.map(r => { if (r && r.ren) return r.ren; const m = r && typeof r.title === 'string' && r.title.match(/^「(.+)」を「(.+)」に(?:変更|まとめる)$/);
+      return m && Array.isArray(r.gids) && r.gids[0] ? { gid: r.gids[0], from: m[1], to: m[2] } : null; }).filter(Boolean);
+    if (!rens.length) return;
+    Object.values(D.items).forEach(e => { if (!e || e.del || e.gb !== 'pick') return;
+      rens.forEach(r => { const gk = 'tag:' + r.gid; if (!pgsOf(e).includes(gk)) return;
+        const cur = D.items[e.id]; const vals = new Set(groupValsAll(gk));
+        if (!(cur.picks || []).some(p => p.g === gk && p.v === r.from) || vals.has(r.from) || !vals.has(r.to)) return;
+        const n = renamePickIn(cur, gk, r.from, r.to); if (n) put(n); }); });
+  }
+  let _repaired = false;
   let _dragV = null, _dragFrom = null;
   window.wkGroupings = {
     open, close: () => close(false),

@@ -89,7 +89,7 @@
     });
     (rec.opts || []).forEach(o => _setOptions(o.gid, o.before));
     // 名前を変えたときに書き換えたリストの条件も戻す（その後にまた変えたリストは戻さない）
-    if (rec.cond) { window._cvRestoreCond?.(rec.cond.cv); window._notesRestoreCond?.(rec.cond.notes); }
+    if (rec.cond) { window._cvRestoreCond?.(rec.cond.cv); window._notesRestoreCond?.(rec.cond.notes); window._grpRestoreTag?.(rec.cond.grp); }
     if (i >= 0) { list.splice(i, 1); _store(list); }
     if (_mem && _mem.id === rec.id) _mem = null;
     _refresh();
@@ -166,7 +166,9 @@
     // 今の絞り込み）も新しい名前にする。続けて同じ動画が出るように（オーナー v52.883）。消す操作では書き換えない
     if (op.condRename) {
       const c = op.condRename;
-      rec.cond = { cv: window._cvRenameCond ? window._cvRenameCond(c.gid, c.from, c.to) : [], notes: window._notesRenameCond ? window._notesRenameCond(c.gid, c.from, c.to) : [] };
+      rec.cond = { cv: window._cvRenameCond ? window._cvRenameCond(c.gid, c.from, c.to) : [], notes: window._notesRenameCond ? window._notesRenameCond(c.gid, c.from, c.to) : [],
+        grp: window._grpRenameTag ? window._grpRenameTag(c.gid, c.from, c.to) : [] };   // グルーピングの選んだタグも新しい名前に（v53.063）
+      rec.ren = { gid: c.gid, from: c.from, to: c.to };   // 何を何に変えたか（グルーピングが後から読み替えに使う）
       const TF = window.tagFilter;
       if (TF) { TF.renameIn(window.filters, c.gid, 'lib', c.from, c.to); TF.renameIn(window.orgFilters, c.gid, 'org', c.from, c.to); }
     }

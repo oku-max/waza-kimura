@@ -197,6 +197,7 @@
     // グルーピング（v53.048）
     '非表示':'Hidden','表示に戻す':'Show again',
     'いくつでも選べます':'You can pick as many as you like',
+    '（今は無いタグ）':' (tag no longer exists)','このタグは今はありません（名前を変えた・消した）。押すと列から外れます':'This tag no longer exists (renamed or removed). Press to remove it from the columns',
     'いくつでも選べます（「閉じる」を押すと、付けたタグの列へ移ります）':'Pick as many as you like (the card moves to those columns when you press “Close”)',
     '並べ替え: ライブラリと同じ':'Sort: same as library',
     'この列の並べ替え':'Sort this column','⇅ ライブラリと同じ':'⇅ Same as library','追加日 新しい順':'Added (newest)','追加日 古い順':'Added (oldest)','タイトル A→Z':'Title A→Z','タイトル Z→A':'Title Z→A','最近再生した順':'Recently played','再生時間 短い順':'Duration (shortest)','再生時間 長い順':'Duration (longest)',

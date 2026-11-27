@@ -259,6 +259,17 @@ ck('続けて2つ目も付けられる（まだ「その他」の列にある）
 await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-multi .svt-sm')].find(b => b.textContent === '閉じる').click()); await pg.waitForTimeout(200);
 ck('「閉じる」を押すと、付けた2つの列へ移る（「その他」からは消える）', !(await inOther(ovid)) && await pg.evaluate(v => ['あとで足した', '使える'].every(n => !!document.querySelector(`#svt-root .svt-col[data-name="${n}"] .svt-lc[data-vid="${v}"]`)), ovid));
 await pg.evaluate(() => { wkGroupings._undo(); wkGroupings._undo(); }); await pg.waitForTimeout(150);
+// ⑥d タグの名前を変える（設定の画面 → tag-ops.js）と、グルーピングの選んだタグも新しい名前になる（v53.063・オーナー「設定画面で変更したタグ名がグルーピングに反映されてない」）
+const rn0 = await pg.evaluate(id => wkGroupings.list().find(e => e.name === '進捗').picks.map(p => p.v), ngid);
+const rnP = pg.evaluate(id => window.wkTagOps.renameValue(id, '使える', 'vs 使える'), ngid);
+await pg.waitForSelector('#tagops-dlg #tagops-ok'); await pg.click('#tagops-dlg #tagops-ok'); await rnP; await pg.waitForTimeout(300);
+const rn1 = await pg.evaluate(() => wkGroupings.list().find(e => e.name === '進捗').picks.map(p => p.v));
+ck('名前を変えると、グルーピングの列のタグも新しい名前になる（同じ位置・ほかはそのまま）', JSON.stringify(rn1) === JSON.stringify(rn0.map(x => x === '使える' ? 'vs 使える' : x)), [rn0, rn1]);
+ck('クラウドのグルーピングにも新しい名前', await until(() => (CLOUD[GDOC].items[Object.keys(CLOUD[GDOC].items).find(k => CLOUD[GDOC].items[k].name === '進捗')].picks || []).some(p => p.v === 'vs 使える')));
+await pg.evaluate(() => wkGroupings._pick(wkGroupings.list().find(e => e.name === '進捗').id)); await pg.waitForTimeout(200);
+ck('列の見出しも新しい名前で、動画もそこに入っている', (await cols(pg)).some(c => /^vs 使える=[1-9]/.test(c)), await cols(pg));
+await pg.evaluate(() => document.querySelector('#toast .toast-undo-btn')?.click()); await pg.waitForTimeout(300);
+ck('名前の変更を取り消すと、グルーピングの選んだタグも元の名前に戻る', JSON.stringify(await pg.evaluate(() => wkGroupings.list().find(e => e.name === '進捗').picks.map(p => p.v))) === JSON.stringify(rn0), await pg.evaluate(() => wkGroupings.list().find(e => e.name === '進捗').picks.map(p => p.v)));
 // ⑦ カスタム列（セレクト・評価）
 await pg.evaluate(() => { wkGroupings._new(); wkGroupings._en('フェーズ'); wkGroupings._eg('cf:gc_phase1'); wkGroupings._es(); });
 await pg.evaluate(() => wkGroupings._move('v1', 'cf:gc_phase1', '学習中', '使えてる'));
@@ -489,6 +500,16 @@ await reload(pg);
 await pg.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 });
 ck('再読み込みしても同じグルーピングを選んだまま', await until(() => pg.evaluate(id => !!document.getElementById('svt-root') && document.querySelector('#svt-tabs .svt-vt.on')?.textContent.includes('タグ1別'), g1.id), 8000));
 ck('再読み込みしても動かした結果は残る（v4 膝立ち）', JSON.stringify(await vtb(pg, 'v4')) === '["膝立ち"]');
+// ⑪b この版より前に名前を変えた分: 「元に戻す」の控え（wk_tagOpsUndo）にある名前の変更から、今は無いタグを新しい名前に読み替える
+await pg.evaluate(id => { const e = wkGroupings.list().find(x => x.name === '進捗');
+  window.tagRegistry.addOption(id, '後で変えた名'); const v = window.videos.find(x => x.id === 'v3'); window.wkSetTagValue(v, id, '後で変えた名', true);
+  const { at, ...rest } = e; wkGroupings.importMerge({ items: { [e.id]: { ...rest, picks: rest.picks.concat([{ g: 'tag:' + id, v: '昔の名' }]), knownBy: { ...(rest.knownBy || {}), ['tag:' + id]: (rest.knownBy && rest.knownBy['tag:' + id] || []).concat(['昔の名', '後で変えた名']) }, at: Date.now() + 1e6 } } });
+  localStorage.setItem('wk_tagOpsUndo', JSON.stringify([{ id: 'uold', at: 1, title: '「昔の名」を「後で変えた名」に変更', gids: [id], before: [], after: [] }])); }, ngid);
+await pg.waitForTimeout(500);
+ck('（用意: 今は無い「昔の名」を選んでいる）', await pg.evaluate(() => wkGroupings.list().find(e => e.name === '進捗').picks.some(p => p.v === '昔の名')));
+await reload(pg); await pg.waitForFunction(() => window.wkGroupings && (window.videos || []).length >= 4, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+const rp = await pg.evaluate(() => wkGroupings.list().find(e => e.name === '進捗').picks.map(p => p.v));
+ck('再読み込みすると、控えにある名前の変更で「昔の名」→「後で変えた名」に読み替わる（ほかの選んだタグは変わらない）', rp.includes('後で変えた名') && !rp.includes('昔の名') && rp.length >= 2, rp);
 // ⑫ クラウドを読めない端末は書かない／ほかのアカウントの控えは送らない
 const cx3 = await newCtx();
 await cx3.addInitScript(() => { window.__grpFail = true; });
