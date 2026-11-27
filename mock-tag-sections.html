@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>タグの見出しと並べ替え</title>
+<title>タググループと並べ替え</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <!--
   見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
@@ -15,7 +15,7 @@
 :root[data-theme="dark"]{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--accent:#e5c47a;--on-accent:#1c1c1e;--gold:#e5a34a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;--border:#48484a;--sel:#6ea0ef;--sel-soft:#1f2e45;--red:#ef7a6c;color-scheme:dark}
 *{box-sizing:border-box}
 html,body{background:var(--bg);color:var(--text)}
-body{margin:0 auto;max-width:760px;font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;font-size:13px;padding-bottom:110px}
+body{margin:0 auto;max-width:760px;font-family:'Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;font-size:13px;padding-bottom:120px}
 button,select,input{font-family:inherit;color:inherit;font-size:inherit}
 button{cursor:pointer}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
@@ -30,52 +30,60 @@ h2{font-size:15px;margin:4px 0 6px}
 .note{background:var(--gold-soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;line-height:1.7;color:var(--text2);margin:12px 0}
 .note b{color:var(--text)}
 
-/* ─ タグ設定の見本（本物の画面の作りに寄せる） ─ */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px 14px 14px}
 .grow{display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--border)}
 .grow .grip{color:var(--text3)}
-.slot{background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px}
+.slot{background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .gname{font-weight:700;font-size:15px}
 .gcnt{color:var(--text3);font-size:12px}
-.gcar{margin-left:auto;color:var(--text2);background:none;border:0;font-size:13px}
-.lbl{font-size:12px;color:var(--text2);margin:14px 0 6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.lbl .r{margin-left:auto;color:var(--text3)}
+.gcar{margin-left:auto;color:var(--text2);background:none;border:0;font-size:13px;padding:4px 8px}
+.lbl{font-size:12px;color:var(--text2);margin:14px 0 6px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .inp,.selbox{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2)}
-.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0 8px}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0 6px}
 .btn{padding:7px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:12px}
 .btn.gold{border-color:var(--gold);color:var(--gold);font-weight:700}
+.btn.solid{background:var(--gold);border-color:var(--gold);color:#fff;font-weight:700}
 .btn.on{background:var(--sel);border-color:var(--sel);color:#fff;font-weight:700}
 .btn:disabled{opacity:.45;cursor:default}
 .hint{font-size:11.5px;color:var(--text3);line-height:1.6}
+/* 手動／名前順 の切り替え */
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;flex:none}
+.seg button{border:0;background:var(--surface);padding:3px 8px;font-size:11.5px;color:var(--text2);white-space:nowrap}
+.seg button.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.ordrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin:10px 0 2px}
 
-/* 見出し（セクション） */
+/* タググループ（グループの中の分け） */
 .sec{border:1px solid var(--border);border-radius:10px;margin-top:8px;background:var(--surface)}
 .sec.unc{border-style:dashed}
 .sec.dragging{opacity:.4}
-.sech{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 4px;border-bottom:1px solid transparent}
+.sech{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 4px;border-bottom:1px solid transparent;flex-wrap:wrap}
 .sec.open .sech{border-bottom-color:var(--border)}
 .sgrip{touch-action:none;cursor:grab;color:var(--text3);padding:4px 6px;border:0;background:none;font-size:14px;line-height:1}
-.sfold{background:none;border:0;padding:2px 4px;display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;text-align:left;min-width:0}
-.sfold .car{color:var(--text3);font-size:11px;width:10px}
+.sgrip.off{cursor:default;opacity:.3}
+.sfold{background:none;border:0;padding:2px 4px;display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;text-align:left;min-width:0;flex:1}
+.sfold .car{color:var(--text3);font-size:11px;width:10px;flex:none}
 .sfold .nm{overflow-wrap:anywhere}
 .scnt{color:var(--text3);font-weight:400;font-size:12px}
-.sbar{width:4px;align-self:stretch;border-radius:3px;margin-left:2px}
-.smenu{margin-left:auto;background:none;border:0;color:var(--text2);padding:4px 8px;font-size:15px}
+.sbar{width:4px;align-self:stretch;border-radius:3px;margin-left:2px;flex:none}
+.smenu{background:none;border:0;color:var(--text2);padding:4px 8px;font-size:15px}
+.sright{display:flex;align-items:center;gap:6px;margin-left:auto}
 .sbody{padding:8px;display:flex;flex-wrap:wrap;gap:6px;min-height:42px}
 .sbody.empty::after{content:'ここへドラッグ（または選んで「移す」）';color:var(--text3);font-size:12px;border:1px dashed var(--border);border-radius:8px;padding:8px 10px;width:100%;text-align:center}
+.sbody.auto{background:repeating-linear-gradient(135deg,transparent 0 10px,var(--surface2) 10px 11px)}
 .sec.drop{outline:2px solid var(--gold);outline-offset:-1px}
 .secmenu{display:flex;gap:6px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .secmenu input{flex:1;min-width:120px;padding:7px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface)}
 
-/* タグのチップ */
 .chip{touch-action:manipulation;user-select:none;-webkit-user-select:none;padding:6px 12px;border-radius:999px;border:1px solid transparent;background:var(--surface2);font-size:13px;display:inline-flex;align-items:center;gap:4px;cursor:grab;-webkit-touch-callout:none}
 .chip.cur{border-color:var(--gold);color:var(--gold);font-weight:700}
 .chip.picked{background:var(--sel-soft);border-color:var(--sel);color:var(--sel);font-weight:700}
 .chip.picked::before{content:'✓'}
 .chip.ph{opacity:.25}
+.chip.flash{animation:flash 1.2s}
+@keyframes flash{0%,40%{background:var(--gold);color:#fff}100%{}}
 .chip.press{transform:scale(.96);transition:transform .25s}
-.ghost{position:fixed;z-index:100;pointer-events:none;padding:6px 12px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.25);transform:translate(-50%,-130%)}
+.ghost{position:fixed;z-index:100;pointer-events:none;padding:6px 12px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.25);transform:translate(-50%,-130%);white-space:nowrap}
 .ghost small{opacity:.8;font-weight:400}
 .tagbox{width:100%;border:1px solid var(--gold);border-radius:10px;padding:10px;background:var(--gold-soft);margin:2px 0 4px}
 .tagbox .row{margin-top:8px}
@@ -84,12 +92,21 @@ h2{font-size:15px;margin:4px 0 6px}
 .tagbox .flex > *:first-child{flex:1}
 .stub{font-size:12px;color:var(--text3);border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;line-height:1.6}
 
-/* まとめて選ぶ のバー */
+/* 以前の見出しの取り込み */
+.imp{border:1px solid var(--gold);background:var(--gold-soft);border-radius:10px;padding:10px 12px;margin:12px 0 4px;line-height:1.7}
+.imp table{border-collapse:collapse;width:100%;font-size:12px;margin:8px 0}
+.imp td,.imp td:first-child{width:6.5em}.imp th{border-top:1px solid var(--border);padding:5px 4px;text-align:left;vertical-align:top}
+.imp td:first-child{width:6.5em}.imp th{font-weight:400;color:var(--text3);font-size:11px}
+.imp .muted{color:var(--text3)}
+
 .pickbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:2px solid var(--sel);box-shadow:0 -4px 16px rgba(0,0,0,.12);display:none}
 .pickbar.on{display:block}
 .pickbar .in{max-width:760px;margin:0 auto;padding:10px max(16px,env(safe-area-inset-left,0px)) calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pickbar b{color:var(--sel)}
 .pickbar select{padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);max-width:100%}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--accent);color:var(--on-accent);padding:9px 14px;border-radius:10px;font-size:12.5px;z-index:200;max-width:92vw;line-height:1.5;box-shadow:0 6px 18px rgba(0,0,0,.25);display:none}
+.toast.on{display:block}
+.toast button{background:none;border:0;color:var(--gold);font-weight:700;margin-left:6px;text-decoration:underline}
 
 /* 見本: 動画パネル */
 .vp{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
@@ -108,7 +125,8 @@ h2{font-size:15px;margin:4px 0 6px}
 .pbody{display:flex;flex-wrap:wrap;gap:6px;padding:2px 10px 10px 28px}
 .ptag{padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:12.5px}
 .ptag.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.ptag mark{background:var(--gold-soft);color:var(--text);border-radius:3px}.ptag.on mark{background:rgba(255,255,255,.35);color:inherit}
+.ptag mark{background:var(--gold-soft);color:var(--text);border-radius:3px}
+.ptag.on mark{background:rgba(255,255,255,.35);color:inherit}
 .smallsec{font-size:11px;color:var(--text3);margin:8px 0 4px;display:flex;align-items:center;gap:6px}
 .smallsec::after{content:'';flex:1;border-top:1px solid var(--border)}
 
@@ -120,7 +138,7 @@ h2{font-size:15px;margin:4px 0 6px}
 .frow{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 26px;border:0;background:none;width:100%;text-align:left;font-size:13px}
 .frow .c{margin-left:auto;color:var(--text3);font-size:12px}
 .frow.on{background:var(--sel-soft);color:var(--sel);font-weight:700}
-.fsec{display:flex;align-items:center;gap:8px;padding:8px 12px;width:100%;border:0;border-top:1px solid var(--border);background:var(--surface2);text-align:left;font-size:12px;font-weight:700;position:sticky;top:0;z-index:1}
+.fsec{display:flex;align-items:center;gap:8px;padding:8px 12px;width:100%;border-top:1px solid var(--border);background:var(--surface2);text-align:left;font-size:12px;font-weight:700;position:sticky;top:0;z-index:1;cursor:pointer}
 .fsec .car{color:var(--text3);width:10px;font-size:11px}
 .fsec .all{margin-left:auto;font-weight:400;color:var(--sel);font-size:11.5px;border:1px solid var(--border);border-radius:6px;padding:2px 7px;background:var(--surface)}
 .fsec .all.on{background:var(--sel);color:#fff;border-color:var(--sel)}
@@ -131,102 +149,113 @@ table.data{border-collapse:collapse;width:100%;font-size:12px;margin:8px 0}
 table.data th,table.data td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top;line-height:1.6}
 table.data th{background:var(--surface2);white-space:nowrap}
 code{background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:12px}
-ul.tight{margin:6px 0;padding-left:20px;line-height:1.8}
 .q{border-left:3px solid var(--gold);padding:4px 10px;margin:10px 0;line-height:1.7}
 @media (max-width:420px){.two{grid-template-columns:1fr}.tab{font-size:11px}}
 </style>
 </head>
 <body>
 <div class="banner wrap">見本の画面です。本物のデータには何も書きません。触った結果はこのページの中だけで、閉じれば元に戻ります。<br>
-<b>①で見出しを作ったり並べ替えたりすると、②③の見え方にそのまま反映されます。</b></div>
+<b>①でタググループを作ったり並べ替えたりすると、②③の見え方にそのまま反映されます。</b></div>
 
 <div class="tabs wrap" role="tablist">
   <button class="tab on" data-tab="set">① タグ設定</button>
   <button class="tab" data-tab="vp">② 動画パネル・まとめて編集</button>
   <button class="tab" data-tab="fw">③ フィルターの窓</button>
-  <button class="tab" data-tab="data">④ データと決めること</button>
+  <button class="tab" data-tab="data">④ データと決めたこと</button>
 </div>
 
-<!-- ① タグ設定 -->
 <section class="pane on wrap" id="p-set">
-  <h2>タグ設定：見出しで分ける・ドラッグで並べ替える</h2>
-  <p class="lead">タググループの中に<b>見出し</b>（例: ボトム／トップ／スタンディング）を作り、タグを入れて分けます。
-  並べ替えは<b>ドラッグ</b>（PCはそのまま、スマホは<b>長押ししてから</b>動かす）。見出しの ⠿ をドラッグすると見出しごと動きます。
-  たくさん一度に移すときは「<b>まとめて選ぶ</b>」でタグをタップして選び、下のバーから見出しへ移します。</p>
+  <h2>タグ設定：タググループで分ける・並べ替える</h2>
+  <p class="lead">タグ（例: タグ4「テクニック」）の中に<b>タググループ</b>（ボトム／トップ／スタンディング…）を作り、タグを入れて分けます。1つのタグは1つのタググループにだけ入ります。<br>
+  <b>並べ替え</b>: タグをドラッグ（PCはそのまま・スマホは長押ししてから）。タググループの ⠿ をドラッグすると、グループごと動きます。<br>
+  <b>並び順</b>: タググループごと（どのタググループにも入っていないタグ＝「グループなし」も）に「<b>手動</b>／<b>名前順</b>」。名前順にすると、タグを足しても自動で並びます。
+  タググループそのものの並びも同じく選べます。</p>
   <div class="card" id="set-card"></div>
   <div class="note">
-    <b>今の「表示順」ボタン（先頭へ・← 前へ・後ろへ →・最後へ）は無くします。</b>タグを押したときの箱には「見出し」の選択だけを置き、並べ替えはドラッグで。<br>
-    名前を変える・まとめる・選択肢に出さない・消す、は今までどおり（見本では省略）。
+    今の「表示順」ボタン（先頭へ・← 前へ・後ろへ →・最後へ）は無くします。タグを押すと出る欄には「タググループ」を選ぶ欄を置きます。<br>
+    名前を変える・まとめる・選択肢に出さない・消す、は今までどおりです（見本では省略しています）。
   </div>
 </section>
 
-<!-- ② 動画パネル -->
 <section class="pane wrap" id="p-vp">
   <h2>動画パネル・まとめて編集で、タグを付けるとき</h2>
-  <p class="lead">今はタグが8個より多いと1本のプルダウンになり、73個が縦に並ぶだけです。見出しがあるグループは<b>見出しごとに畳んで</b>出します。
-  付いているタグがある見出しは開いた状態、ほかは閉じた状態から始まります。上の欄で探すと、当たったタグがある見出しだけ開きます。<br>
-  タグの数が少ないグループ（下の「相手のリアクション」）は、畳まずに見出しの細い線で区切って並べます。</p>
+  <p class="lead">今はタグが8個より多いと1本のプルダウンになり、73個が縦に並ぶだけです。タググループがあれば<b>グループごとに畳んで</b>出します。
+  付いているタグがあるグループは開いた状態、ほかは閉じた状態から始まります。上の欄で探すと、当たったタグがあるグループだけ開きます。<br>
+  タグが少ないもの（下の「相手のリアクション」）は畳まずに、細い線で区切って並べます。</p>
   <div class="vp" id="vp-box"></div>
-  <div class="note">同じ見せ方を、<b>動画パネル・まとめて編集・タグ付けウィザード・動画を追加する画面・グルーピングの編集</b>で使います（1か所の部品にして全部がそれを呼ぶ）。</div>
+  <div class="note">同じ部品を<b>動画パネル・まとめて編集・タグ付けウィザード・動画を追加する画面・グルーピングの編集</b>で使います（1か所の部品を、全部の画面が呼ぶ）。</div>
 </section>
 
-<!-- ③ フィルターの窓 -->
 <section class="pane wrap" id="p-fw">
   <h2>フィルターの窓（ライブラリ・リスト・ドリル）</h2>
-  <p class="lead">タグの列も見出しで区切ります。見出しは押すと畳めます。右の「<b>全部</b>」で、その見出しのタグを全部選べます
-  （どれか1つが付いていれば出る＝今の複数選択と同じ）。例: 「スタンディングのテクニック」を全部選ぶ。</p>
+  <p class="lead">タグの列もタググループで区切ります。グループの見出しを押すと畳めます。右の「<b>全部</b>」で、そのグループのタグを全部選べます
+  （どれか1つが付いていれば出る＝今の複数選択と同じ）。</p>
   <div class="fw" id="fw-box"></div>
-  <div class="note">並べ方を「件数順」「名前順」にしたときは、<b>見出しの中で</b>並べ替えます（見出しの順は変えない）。「タグなし」は今までどおり先頭。</div>
+  <div class="note">フィルターの窓の並べ方を「件数順」にしたときは、<b>グループの中で</b>件数順に並べます（グループの順は変えません）。「名前順」「最近」も同じです。「タグなし」は今までどおり先頭です。</div>
 </section>
 
-<!-- ④ データ -->
 <section class="pane wrap" id="p-data">
-  <h2>データの持ち方（安全の面）</h2>
+  <h2>決めたこと</h2>
   <table class="data">
-    <tr><th>置く場所</th><td>タググループの一覧（<code>js/tag-registry.js</code>・<code>data/tagRegistry</code>）に、グループごとに<br>
-      <code>sec: [{id, name}]</code>（見出しの順）と <code>secOf: {タグ名: 見出しid}</code>（どの見出しに入るか）を足す。</td></tr>
-    <tr><th>タグの順番</th><td>今までの選択肢の並び（タグ1〜4は tagSettings、それ以外は一覧の opts）をそのまま使う。
-      ドラッグで動かしたら、<b>見出しの順 → 見出しの中の順</b>につないだ並びを書く（今の「表示順」と同じ書き方・同じ守り: 中身が同じでなければ書かない）。<br>
-      ＝前の版のアプリでも、見出しは出ないが<b>同じ順番</b>で並ぶ。</td></tr>
-    <tr><th>動画</th><td><b>1文字も書かない。</b>見出しは表示だけ。見出しを消しても、中のタグは「未分類」に戻るだけ（タグも動画のタグも消えない）。</td></tr>
-    <tr><th>名前の変更・まとめる</th><td>tag-ops.js の名前を変える・まとめるで、<code>secOf</code> の名前も一緒に変える（グルーピングの選んだタグと同じ扱い）。</td></tr>
-    <tr><th>空で上書きしない</th><td>読めないとき・形が合わないときは書かない（一覧の今の決まりのまま）。前の版のアプリが一覧を書き戻しても <code>sec/secOf</code> を落とさないかを実装前に確かめる（落とすなら、一覧とは別の文書に置く）。</td></tr>
+    <tr><th>呼び名</th><td>中の分けは「<b>タググループ</b>」。<br>そのため、今の設定の画面で「タググループ名」と出ている所（テクニック等の名前）は「<b>タグの名前</b>」に変えます。→ 下の「確かめたいこと」</td></tr>
+    <tr><th>1つのタグ</th><td>1つのタググループにだけ入ります。</td></tr>
+    <tr><th>ドラッグ</th><td>いつでもできます（スマホは長押ししてから）。</td></tr>
+    <tr><th>全部入れる</th><td>動画パネル・まとめて編集・ウィザード・追加の画面・グルーピングの編集・フィルターの窓（「全部」も）</td></tr>
+    <tr><th>以前の見出し</th><td>クラウドに残っていれば、タグ4を開いたときに「取り込みますか」と出します（①で試せます）。取り込むかはその場で選び、取り込まなくても残っている中身は消しません。</td></tr>
+    <tr><th>並び順</th><td>タググループごと・グループなし・タググループそのものの並び、それぞれ「手動／名前順」。<br>
+      手動のときも ⋯ の「いま名前順に並べる」で1回だけ名前順にできます（その後は手で直せる）。<br>
+      名前順をやめると、前に手で並べた順に戻ります。</td></tr>
   </table>
-  <h2 style="margin-top:18px">決めてほしいこと</h2>
-  <div class="q"><b>1. 呼び名</b> … 見本では「<b>見出し</b>」にしました。「グルーピング」はリストの列分け（v53.048）ですでに使っているので避けています。</div>
-  <div class="q"><b>2. 1つのタグを2つの見出しに入れられるか</b> … 見本は<b>1つだけ</b>（並び順がはっきりする）。
-    たとえば「ニーカット」をトップにもパスにも入れたい、ということがあれば変えます。</div>
-  <div class="q"><b>3. 並べ替えの操作</b> … 見本は「いつでもドラッグ（スマホは長押し）＋まとめて選ぶ」。
-    スマホでスクロールしようとして誤って動くのが嫌なら、「並べ替え」ボタンを押している間だけ動かせる形にもできます。</div>
-  <div class="q"><b>4. フィルターの見出しの「全部」</b> … 要るかどうか。</div>
-  <div class="q"><b>5. 以前の見出し</b> … v52.833 でやめた「テクニックの見出し」（tagGroups）のデータがクラウドに残っています。
-    残っていれば、最初の見出しとして取り込むこともできます（取り込むかどうかはその場で聞く）。</div>
+  <h2 style="margin-top:18px">名前順について（できないこと）</h2>
+  <p class="lead">英語は ABC 順、かな・カタカナは あいうえお順 にできます。<b>漢字は読み方が分からないので、あいうえお順には並びません</b>
+  （「内股」「大外刈り」は、かなの後ろに漢字の文字の順で並びます。見本でも確かめられます）。読み方を入れる欄を作れば並べられますが、今回は作りません。</p>
+  <h2 style="margin-top:18px">データの持ち方（安全の面）</h2>
+  <table class="data">
+    <tr><th>置く場所</th><td>タググループの一覧（<code>js/tag-registry.js</code>・<code>data/tagRegistry</code>）に、タグごとに<br>
+      <code>sec: [{id, name, sort}]</code>（手で並べた順・並び方）、<code>secOf: {タグ名: id}</code>、<code>uncSort</code>・<code>secSort</code>（並び方）を足します。</td></tr>
+    <tr><th>タグの順番</th><td>手で並べた順は今までの選択肢の並び（タグ1〜4は tagSettings、それ以外は一覧の opts）にそのまま入れます。名前順は<b>表示するときに並べるだけ</b>で、手で並べた順を上書きしません。<br>
+      前の版のアプリではタググループは出ず、手で並べた順で並びます。</td></tr>
+    <tr><th>動画</th><td><b>1文字も書きません。</b>タググループは表示のためだけのものです。タググループを消しても、中のタグは「グループなし」に戻るだけです。</td></tr>
+    <tr><th>名前の変更・まとめる</th><td>tag-ops.js で名前を変える・まとめるときに、<code>secOf</code> の名前も一緒に変えます（グルーピングの選んだタグと同じ扱い）。</td></tr>
+    <tr><th>以前の見出し</th><td>取り込みは<b>足すだけ</b>です。もう別のタググループに入っているタグは動かさず、選択肢に無いタグは入れません。以前の <code>tagGroups</code> は消さず、設定の保存とバックアップにも今までどおり載せます。</td></tr>
+    <tr><th>空で上書きしない</th><td>読めないとき・形が合わないときは書きません（一覧の今の決まりのまま）。前の版のアプリが一覧を書き戻すと <code>sec</code> などが落ちるかを実装の前に確かめ、落ちるなら一覧とは別の文書に置きます。</td></tr>
+  </table>
+  <h2 style="margin-top:18px">確かめたいこと</h2>
+  <div class="q"><b>今の「タググループ名」（テクニック等）の呼び方</b> … 中の分けを「タググループ」にすると、名前が同じになって紛らわしくなります。
+  見本では、外側を「<b>タグの名前</b>」（タグ4「テクニック」）、中の分けを「<b>タググループ</b>」にしました。これでよいですか。</div>
 </section>
 
 <div class="pickbar" id="pickbar"><div class="in" id="pickbar-in"></div></div>
+<div class="toast" id="toast"></div>
 
 <script>
 (function(){
 'use strict';
+const COLL = new Intl.Collator('ja', { numeric:true, sensitivity:'base' });
+const byName = (a, b) => COLL.compare(a, b);
+
 // ── 見本データ ──
-const TECH_ALL = ['Shin to Shin','アームトライアングル','アームドラッグ','アームバー','アームロック','アメリカーナ','アンストッパブルスイープ','インバーテッド','ウェイタースイープ','エルボーエスケープ','オーバーアンダー','オモプラッタ','キスオブザドラゴン','キムラ','キムラトラップ','キャンピング','ギロチン','グランビーロール','グリップカット','クルスフィクス','クロスガード','クロスグリップパス','クロスフック','コムロック','サンパウロパス','シットアップエスケープ','スタッキングパス','スピニングエスケープ','スマッシュパス','スローバイ','ダイビングパス','タックル','ダブルアンクルスイープ','ダブルレッグ','チョーク','トライポッドスイープ','ニーカット','ヒールフック','ベリンボロ','ボディロック','レッグドラッグ','トレアンドパス','シングルレッグ','内股','大外刈り','スナップダウン','ヒップバンプスイープ','シザースイープ','フラワースイープ','ペンデュラムスイープ','ロングステップ'];
+const TECH_ALL = ['Shin to Shin','アームトライアングル','アームドラッグ','アームバー','アームロック','アメリカーナ','アンストッパブルスイープ','インバーテッド','ウェイタースイープ','エルボーエスケープ','オーバーアンダー','オモプラッタ','キスオブザドラゴン','キムラ','キムラトラップ','キャンピング','ギロチン','グランビーロール','グリップカット','クルスフィクス','クロスガード','クロスグリップパス','クロスフック','コムロック','サンパウロパス','シットアップエスケープ','スタッキングパス','スピニングエスケープ','スマッシュパス','スローバイ','ダイビングパス','タックル','ダブルアンクルスイープ','ダブルレッグ','チョーク','トライポッドスイープ','ニーカット','ヒールフック','ベリンボロ','ボディロック','レッグドラッグ','トレアンドパス','シングルレッグ','内股','大外刈り','スナップダウン','ヒップバンプスイープ','シザースイープ','フラワースイープ','ペンデュラムスイープ','ロングステップ','Berimbolo','X-Guard Sweep'];
 const G = [
-  { id:'tech', name:'テクニック', slot:4, opts: TECH_ALL.slice(),
-    sec:[{id:'s1',name:'ボトムのテクニック'},{id:'s2',name:'トップのテクニック'},{id:'s3',name:'スタンディングのテクニック'},{id:'s4',name:'サブミッション'}],
-    secOf:{ 'アンストッパブルスイープ':'s1','ウェイタースイープ':'s1','クロスガード':'s1','インバーテッド':'s1','ダブルアンクルスイープ':'s1','トライポッドスイープ':'s1','ベリンボロ':'s1','エルボーエスケープ':'s1',
+  { id:'tech', name:'テクニック', slot:4, opts: TECH_ALL.slice(), uncSort:'manual', secSort:'manual',
+    sec:[{id:'s1',name:'ボトムのテクニック',sort:'manual'},{id:'s2',name:'トップのテクニック',sort:'manual'},{id:'s3',name:'スタンディングのテクニック',sort:'name'},{id:'s4',name:'サブミッション',sort:'manual'}],
+    secOf:{ 'アンストッパブルスイープ':'s1','ウェイタースイープ':'s1','ダブルアンクルスイープ':'s1','トライポッドスイープ':'s1','エルボーエスケープ':'s1',
       'スマッシュパス':'s2','ニーカット':'s2','レッグドラッグ':'s2','トレアンドパス':'s2','ボディロック':'s2','ロングステップ':'s2',
       'タックル':'s3','ダブルレッグ':'s3','シングルレッグ':'s3','スナップダウン':'s3','内股':'s3','大外刈り':'s3',
-      'アームバー':'s4','キムラ':'s4','ギロチン':'s4' } },
-  { id:'react', name:'相手のリアクション', slot:5,
+      'アームバー':'s4','キムラ':'s4','ギロチン':'s4' },
+    // クラウドに残っている、以前の「テクニックの見出し」（tagGroups: [{id, name, techNames}]）の見本
+    old:[ {id:'g1',name:'ガード系',techNames:['クロスガード','インバーテッド','ベリンボロ','デラヒーバ','シザースイープ','フラワースイープ','ペンデュラムスイープ','ヒップバンプスイープ','ウェイタースイープ']},
+          {id:'g2',name:'パス系',techNames:['スマッシュパス','ニーカット','クロスグリップパス','サンパウロパス','スタッキングパス','ダイビングパス','トレアンドパス']},
+          {id:'g3',name:'サブミッション',techNames:['オモプラッタ','アームロック','アメリカーナ','チョーク','ヒールフック','キムラ','三角絞め']} ],
+    oldState:'ask' },
+  { id:'react', name:'相手のリアクション', slot:5, uncSort:'manual', secSort:'manual',
     opts:['立ち上がる','ポスチャーを立てる','両手で胸を押す','片膝を立てる','腕を引き抜く','距離を取る','足を押さえる','膝を内に入れる','低く構える','ブリッジ','エビで逃げる','フレームを作る','背中を向ける','足を絡める'],
-    sec:[{id:'r1',name:'クローズドガードでのリアクション'},{id:'r2',name:'オープンガードでのリアクション'},{id:'r3',name:'自分がトップのときの相手（ボトム）のリアクション'}],
+    sec:[{id:'r1',name:'クローズドガードでのリアクション',sort:'manual'},{id:'r2',name:'オープンガードでのリアクション',sort:'manual'},{id:'r3',name:'自分がトップのときの相手（ボトム）のリアクション',sort:'manual'}],
     secOf:{'立ち上がる':'r1','ポスチャーを立てる':'r1','両手で胸を押す':'r1','片膝を立てる':'r1','腕を引き抜く':'r1','距離を取る':'r2','足を押さえる':'r2','膝を内に入れる':'r2','低く構える':'r2','ブリッジ':'r3','エビで逃げる':'r3','フレームを作る':'r3','背中を向ける':'r3','足を絡める':'r3'} },
 ];
 const SLOTS = [['タグ1','Tag1',2],['タグ2','カテゴリ',10],['タグ3','Position',25]];
-const COLORS = ['#c8831a','#2b8a6e','#2b6fd6','#8e44ad','#c0392b','#16a085','#d35400'];
-// 動画パネルの見本: その動画に付いているタグ
+const COLORS = ['#c8831a','#2b8a6e','#2b6fd6','#8e44ad','#c0392b','#16a085','#d35400','#7f8c8d'];
 const ON = { tech:new Set(['スマッシュパス','ニーカット']), react:new Set(['フレームを作る']) };
-// フィルターの見本: 件数（固定の見本）
 const CNT = {}; TECH_ALL.concat(G[1].opts).forEach((t,i)=>{ CNT[t] = 3 + ((i*37) % 41); });
 const FSEL = new Set();
 
@@ -234,12 +263,22 @@ const S = { open:'tech', cur:null, pick:false, picked:new Set(), menu:null, fold
 const UNC = '__unc';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const gOf = id => G.find(g => g.id === id);
-const secIds = g => g.sec.map(s => s.id).concat([UNC]);
-const secName = (g, id) => id === UNC ? '未分類' : (g.sec.find(s => s.id === id) || {}).name;
+const secObj = (g, id) => g.sec.find(s => s.id === id);
+const memberOf = (g, t) => (g.secOf[t] && secObj(g, g.secOf[t])) ? g.secOf[t] : UNC;
+const sortOf = (g, id) => id === UNC ? g.uncSort : secObj(g, id).sort;
+// 画面に出すタググループの順（名前順なら並べて出すだけ。手で並べた順 g.sec は書き換えない）
+function secIds(g){ const s = g.sec.slice(); if (g.secSort === 'name') s.sort((a,b) => byName(a.name, b.name)); return s.map(x => x.id).concat([UNC]); }
+const manualSecIds = g => g.sec.map(s => s.id).concat([UNC]);
+const secName = (g, id) => id === UNC ? 'グループなし' : secObj(g, id).name;
 const colorOf = (g, id) => id === UNC ? 'transparent' : COLORS[g.sec.findIndex(s => s.id === id) % COLORS.length];
-function tagsIn(g, id){ return g.opts.filter(t => (g.secOf[t] && g.sec.some(s=>s.id===g.secOf[t]) ? g.secOf[t] : UNC) === id); }
-// 見出しの順 → 見出しの中の順 につないで、選択肢の並びを書き直す（本物でも書くのはこの並びと secOf だけ）
-function normalize(g){ g.opts = secIds(g).flatMap(id => tagsIn(g, id)); }
+// そのグループのタグ（手で並べた順 g.opts から取り、名前順なら表示のときに並べる）
+function manualIn(g, id){ return g.opts.filter(t => memberOf(g, t) === id); }
+function tagsIn(g, id){ const a = manualIn(g, id); return sortOf(g, id) === 'name' ? a.slice().sort(byName) : a; }
+// 手で並べた順を「グループの順 → グループの中の順」につなぎ直す（名前順のグループは手で並べた順のまま）
+function normalize(g){ g.opts = manualSecIds(g).flatMap(id => manualIn(g, id)); }
+
+let tTimer;
+function toast(html){ const el = document.getElementById('toast'); el.innerHTML = html; el.classList.add('on'); clearTimeout(tTimer); tTimer = setTimeout(() => el.classList.remove('on'), 4500); }
 
 // ───────── ① タグ設定 ─────────
 function renderSet(){
@@ -248,46 +287,84 @@ function renderSet(){
   SLOTS.forEach(([s,n,c]) => { h += `<div class="grow"><span class="grip">⠿</span><span class="slot">${s}</span><span class="gname">${esc(n)}</span><span class="gcnt">${c}個</span><span class="gcar">▼</span></div>`; });
   G.forEach(g => {
     const open = S.open === g.id;
-    h += `<div class="grow"><span class="grip">⠿</span><span class="slot">タグ${g.slot}</span><span class="gname">${esc(g.name)}</span><span class="gcnt">${g.opts.length}個 · 見出し${g.sec.length}</span><button class="gcar" data-act="gopen" data-g="${g.id}">${open?'▲':'▼'}</button></div>`;
+    h += `<div class="grow"><span class="grip">⠿</span><span class="slot">タグ${g.slot}</span><span class="gname">${esc(g.name)}</span><span class="gcnt">${g.opts.length}個 · タググループ${g.sec.length}</span><button class="gcar" data-act="gopen" data-g="${g.id}" aria-label="開く">${open?'▲':'▼'}</button></div>`;
     if (open) h += panel(g);
   });
   el.innerHTML = h;
   renderPickbar();
 }
+const seg = (act, g, id, v) => `<span class="seg"><button class="${v==='manual'?'on':''}" data-act="${act}" data-g="${g.id}" data-sec="${id||''}" data-v="manual">手動</button><button class="${v==='name'?'on':''}" data-act="${act}" data-g="${g.id}" data-sec="${id||''}" data-v="name">名前順</button></span>`;
 function panel(g){
-  let h = `<div class="two" style="margin-top:12px"><div><div class="lbl" style="margin-top:0">タググループ名</div><input class="inp" value="${esc(g.name)}" disabled></div>`
+  let h = `<div class="two" style="margin-top:12px"><div><div class="lbl" style="margin-top:0">タグの名前</div><input class="inp" value="${esc(g.name)}" disabled></div>`
     + `<div><div class="lbl" style="margin-top:0">使う場所</div><select class="selbox" disabled><option>タグ${g.slot}</option></select></div></div>`;
+  if (g.old && g.oldState === 'ask') h += importBox(g);
+  if (g.old && g.oldState === 'done') h += `<div class="hint" style="margin-top:8px">以前の見出しを取り込みました。</div>`;
   h += `<div class="toolbar"><span style="font-size:12px;color:var(--text2)">選択肢 ${g.opts.length}個</span>`
     + `<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">`
     + `<button class="btn${S.pick?' on':''}" data-act="pick" data-g="${g.id}">${S.pick?'✓ まとめて選ぶ（終える）':'まとめて選ぶ'}</button>`
     + `<button class="btn" data-act="foldall" data-g="${g.id}">${secIds(g).every(id => S.fold[g.id+id]) ? 'すべて開く' : 'すべて畳む'}</button>`
-    + `<button class="btn gold" data-act="addsec" data-g="${g.id}">＋ 見出しを追加</button></span></div>`;
-  h += `<div class="hint">${S.pick ? 'タグをタップして選び、下のバーから見出しへ移します。ドラッグでも動かせます。' : 'タグをタップ＝そのタグの操作。ドラッグ（スマホは長押し）＝並べ替え・ほかの見出しへ移す。見出しの ⠿ で見出しごと並べ替え。'}</div>`;
+    + `<button class="btn gold" data-act="addsec" data-g="${g.id}">＋ タググループ</button></span></div>`;
+  h += `<div class="ordrow">タググループの並び ${seg('secsort', g, '', g.secSort)}${g.secSort==='name'?'<span class="hint">名前順のあいだは ⠿ で動かせません</span>':''}</div>`;
+  h += `<div class="hint" style="margin-top:6px">${S.pick ? 'タグをタップして選び、下のバーからタググループへ移します。ドラッグでも動かせます。' : 'タグをタップ＝そのタグの操作。ドラッグ（スマホは長押し）＝並べ替え・ほかのタググループへ移す。'}</div>`;
   h += `<div id="secs-${g.id}">`;
   secIds(g).forEach(id => h += secHTML(g, id));
   h += `</div>`;
   return h;
 }
+function importPlan(g){
+  // 以前の見出しを、タググループとして足す計画（足すだけ。もう入っているタグは動かさない・選択肢に無いタグは入れない）
+  const taken = new Set();
+  return g.old.map(o => {
+    const same = g.sec.find(s => s.name === o.name);
+    const add = [], already = [], missing = [];
+    o.techNames.forEach(t => {
+      if (!g.opts.includes(t)) missing.push(t);
+      else if (memberOf(g, t) !== UNC || taken.has(t)) already.push(t);
+      else { add.push(t); taken.add(t); }
+    });
+    return { o, same, add, already, missing };
+  });
+}
+function importBox(g){
+  const plan = importPlan(g);
+  let h = `<div class="imp"><b>以前の「テクニックの見出し」が ${g.old.length}つ残っています。</b>タググループとして取り込みますか？`
+    + `<table><tr><th>以前の見出し</th><th>取り込むと</th></tr>`;
+  plan.forEach(p => {
+    h += `<tr><td><b>${esc(p.o.name)}</b></td><td>${p.same ? `同じ名前のタググループ「${esc(p.same.name)}」に足す` : '新しいタググループを作る'}: <b>${p.add.length}個</b> 入る`
+      + (p.already.length ? `<br><span class="muted">もうほかのタググループに入っている ${p.already.length}個（${esc(p.already.join('・'))}）は動かしません</span>` : '')
+      + (p.missing.length ? `<br><span class="muted">選択肢に無い ${p.missing.length}個（${esc(p.missing.join('・'))}）は入れません</span>` : '')
+      + `</td></tr>`;
+  });
+  h += `</table><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn solid" data-act="impok" data-g="${g.id}">取り込む</button><button class="btn" data-act="impno" data-g="${g.id}">取り込まない</button></div>`
+    + `<div class="hint">取り込まなくても、以前の見出しのデータは消しません。</div></div>`;
+  return h;
+}
 function secHTML(g, id){
   const tags = tagsIn(g, id), unc = id === UNC;
   if (unc && !tags.length && !S.dragging) return '';
-  const fold = !!S.fold[g.id+id];
+  const fold = !!S.fold[g.id+id], srt = sortOf(g, id);
+  const gripOff = g.secSort === 'name';
   let h = `<div class="sec${unc?' unc':''}${fold?'':' open'}" data-sec="${id}" data-g="${g.id}">`
-    + `<div class="sech">` + (unc ? `<span class="sgrip" style="visibility:hidden">⠿</span>` : `<button class="sgrip" data-sgrip="1" aria-label="見出しを並べ替え">⠿</button>`)
+    + `<div class="sech">` + (unc ? `<span class="sgrip" style="visibility:hidden">⠿</span>` : `<button class="sgrip${gripOff?' off':''}" data-sgrip="1" aria-label="タググループを並べ替え">⠿</button>`)
     + `<span class="sbar" style="background:${colorOf(g,id)}"></span>`
     + `<button class="sfold" data-act="fold" data-g="${g.id}" data-sec="${id}"><span class="car">${fold?'▶':'▼'}</span><span class="nm">${esc(secName(g,id))}</span> <span class="scnt">${tags.length}</span></button>`
-    + (S.pick && tags.length ? `<button class="btn" style="padding:3px 8px;margin-left:auto" data-act="pickall" data-g="${g.id}" data-sec="${id}">全部選ぶ</button>` : '')
-    + (unc ? '' : `<button class="smenu" ${S.pick&&tags.length?'style="margin-left:0"':''} data-act="smenu" data-g="${g.id}" data-sec="${id}" aria-label="見出しの操作">⋯</button>`)
+    + `<span class="sright">`
+    + (S.pick && tags.length ? `<button class="btn" style="padding:3px 8px" data-act="pickall" data-g="${g.id}" data-sec="${id}">全部選ぶ</button>` : '')
+    + seg('sort', g, id, srt)
+    + `<button class="smenu" data-act="smenu" data-g="${g.id}" data-sec="${id}" aria-label="タググループの操作">⋯</button></span>`
     + `</div>`;
   if (S.menu === g.id+id) {
-    h += `<div class="secmenu"><input id="secname" value="${esc(secName(g,id))}" aria-label="見出しの名前"><button class="btn gold" data-act="secrename" data-g="${g.id}" data-sec="${id}">名前を変える</button>`
-      + `<button class="btn" style="color:var(--red)" data-act="secdel" data-g="${g.id}" data-sec="${id}">見出しを消す</button>`
-      + `<div class="hint" style="width:100%">見出しを消しても、中のタグは「未分類」に戻るだけです（タグも動画も変わりません）。</div></div>`;
+    h += `<div class="secmenu">`;
+    if (!unc) h += `<input id="secname" value="${esc(secName(g,id))}" aria-label="タググループの名前"><button class="btn gold" data-act="secrename" data-g="${g.id}" data-sec="${id}">名前を変える</button>`;
+    h += `<button class="btn" data-act="sortonce" data-g="${g.id}" data-sec="${id}"${srt==='name'?' disabled':''}>いま名前順に並べる（1回だけ）</button>`;
+    if (!unc) h += `<button class="btn" style="color:var(--red)" data-act="secdel" data-g="${g.id}" data-sec="${id}">タググループを消す</button>`
+      + `<div class="hint" style="width:100%">タググループを消しても、中のタグは「グループなし」に戻るだけです（タグも動画も変わりません）。</div>`;
+    h += `</div>`;
   }
   if (!fold) {
-    h += `<div class="sbody${tags.length?'':' empty'}" data-body="${id}">`;
+    h += `<div class="sbody${tags.length?'':' empty'}${srt==='name'?' auto':''}" data-body="${id}">`;
     tags.forEach(t => {
-      h += `<span class="chip${S.cur===t?' cur':''}${S.pick&&S.picked.has(t)?' picked':''}" data-tag="${esc(t)}" data-g="${g.id}">${esc(t)}</span>`;
+      h += `<span class="chip${S.cur===t?' cur':''}${S.pick&&S.picked.has(t)?' picked':''}${S.flash&&S.flash.has(t)?' flash':''}" data-tag="${esc(t)}" data-g="${g.id}">${esc(t)}</span>`;
       if (!S.pick && S.cur === t) h += tagBox(g, t);
     });
     h += `</div>`;
@@ -295,9 +372,9 @@ function secHTML(g, id){
   return h + `</div>`;
 }
 function tagBox(g, t){
-  const cur = g.secOf[t] && g.sec.some(s=>s.id===g.secOf[t]) ? g.secOf[t] : UNC;
-  return `<div class="tagbox"><b>${esc(t)}</b> <span style="color:var(--text2)">（${CNT[t]}本に付いています）</span>`
-    + `<div class="row"><div class="lb">見出し</div><div class="flex"><select class="selbox" data-chg="tsec" data-g="${g.id}" data-tag="${esc(t)}">`
+  const cur = memberOf(g, t);
+  return `<div class="tagbox"><b>${esc(t)}</b> <span style="color:var(--text2)">（${CNT[t]||0}本に付いています）</span>`
+    + `<div class="row"><div class="lb">タググループ</div><div class="flex"><select class="selbox" data-chg="tsec" data-g="${g.id}" data-tag="${esc(t)}">`
     + secIds(g).map(id => `<option value="${id}"${id===cur?' selected':''}>${esc(secName(g,id))}</option>`).join('') + `</select></div></div>`
     + `<div class="row"><div class="lb">名前を変える</div><div class="flex"><input class="inp" value="${esc(t)}" disabled><button class="btn gold" disabled>変える</button></div></div>`
     + `<div class="stub">並べ替えはドラッグで（「表示順」のボタンは無くします）。<br>ほかのタグにまとめる・選択肢に出さない・選択肢から消す・動画からも外す … 今までどおり（見本では省略）</div>`
@@ -310,75 +387,89 @@ function renderPickbar(){
   if (!on) return;
   const n = S.picked.size;
   document.getElementById('pickbar-in').innerHTML = `<span><b>${n}個</b> 選択中</span>`
-    + `<select id="pb-to" aria-label="移す先">${secIds(g).map(id => `<option value="${id}">${esc(secName(g,id))}</option>`).join('')}<option value="__new">＋ 新しい見出しを作って移す</option></select>`
-    + `<button class="btn gold" data-act="pbmove"${n?'':' disabled'}>へ移す</button>`
-    + `<button class="btn" data-act="pbtop"${n?'':' disabled'}>見出しの先頭へ</button>`
+    + `<select id="pb-to" aria-label="移す先">${secIds(g).map(id => `<option value="${id}">${esc(secName(g,id))}</option>`).join('')}<option value="__new">＋ 新しいタググループを作って移す</option></select>`
+    + `<button class="btn solid" data-act="pbmove"${n?'':' disabled'}>へ移す</button>`
     + `<button class="btn" data-act="pbclear"${n?'':' disabled'}>選択を外す</button>`;
 }
-function moveTags(g, tags, to, where){
+function moveTags(g, tags, to){
   tags.forEach(t => { if (to === UNC) delete g.secOf[t]; else g.secOf[t] = to; });
-  // 移した順を保ったまま、移す先の最後（または先頭）へ
-  const rest = g.opts.filter(t => !tags.includes(t));
   const ord = tags.slice().sort((a,b) => g.opts.indexOf(a) - g.opts.indexOf(b));
-  g.opts = where === 'top' ? ord.concat(rest) : rest.concat(ord);
+  g.opts = g.opts.filter(t => !tags.includes(t)).concat(ord);   // 移した先の手で並べた順の最後へ
   normalize(g);
+  flash(tags);
+  if (sortOf(g, to) === 'name') toast(`「${esc(secName(g,to))}」は名前順なので、名前の順の位置に入りました。`);
 }
+function flash(tags){ S.flash = new Set(tags); setTimeout(() => { S.flash = null; }, 1300); }
+function newSec(g){ const id = 'n' + Date.now(); g.sec.push({ id, name:'新しいタググループ', sort:'manual' }); return id; }
 
-// ── クリック ──
 document.addEventListener('click', e => {
   if (S.justDragged) { S.justDragged = false; return; }
   const b = e.target.closest('[data-act]'), chip = e.target.closest('.chip[data-tag]');
   if (chip && !b) {
-    const g = gOf(chip.dataset.g), t = chip.dataset.tag;
+    const t = chip.dataset.tag;
     if (S.pick) { S.picked.has(t) ? S.picked.delete(t) : S.picked.add(t); }
     else S.cur = S.cur === t ? null : t;
     renderSet(); return;
   }
   if (!b) return;
   const a = b.dataset.act, g = gOf(b.dataset.g || S.open), sec = b.dataset.sec;
-  if (a === 'tab') return;
   if (a === 'gopen') { S.open = S.open === g.id ? null : g.id; S.cur = null; S.picked.clear(); S.menu = null; }
   else if (a === 'pick') { S.pick = !S.pick; S.picked.clear(); S.cur = null; }
   else if (a === 'pickall') { tagsIn(g, sec).forEach(t => S.picked.add(t)); }
   else if (a === 'fold') { S.fold[g.id+sec] = !S.fold[g.id+sec]; }
   else if (a === 'foldall') { const all = secIds(g).every(id => S.fold[g.id+id]); secIds(g).forEach(id => S.fold[g.id+id] = !all); }
-  else if (a === 'addsec') {
-    const id = 'n' + Date.now(); g.sec.push({ id, name:'新しい見出し' }); S.menu = g.id + id;
-    renderSet(); const i = document.getElementById('secname'); if (i) { i.focus(); i.select(); } return;
-  }
+  else if (a === 'addsec') { const id = newSec(g); S.menu = g.id + id; renderSet(); const i = document.getElementById('secname'); if (i) { i.focus(); i.select(); } return; }
   else if (a === 'smenu') { S.menu = S.menu === g.id+sec ? null : g.id+sec; }
-  else if (a === 'secrename') { const v = document.getElementById('secname').value.trim(); if (v) g.sec.find(s=>s.id===sec).name = v; S.menu = null; }
+  else if (a === 'secrename') { const v = document.getElementById('secname').value.trim(); if (v) secObj(g, sec).name = v; S.menu = null; }
   else if (a === 'secdel') { g.sec = g.sec.filter(s => s.id !== sec); Object.keys(g.secOf).forEach(t => { if (g.secOf[t] === sec) delete g.secOf[t]; }); normalize(g); S.menu = null; }
+  else if (a === 'sort') { if (sec === UNC) g.uncSort = b.dataset.v; else secObj(g, sec).sort = b.dataset.v;
+    if (b.dataset.v === 'manual') toast('手動にしました。前に手で並べた順に戻っています。ドラッグで直せます。'); }
+  else if (a === 'secsort') { g.secSort = b.dataset.v; }
+  else if (a === 'sortonce') {
+    const mine = manualIn(g, sec).sort(byName); let i = 0;
+    g.opts = g.opts.map(t => memberOf(g, t) === sec ? mine[i++] : t); flash(mine); S.menu = null;
+    toast('名前順に並べました（手動のままなので、ここから手で直せます）。');
+  }
   else if (a === 'tclose') { S.cur = null; }
   else if (a === 'pbclear') { S.picked.clear(); }
-  else if (a === 'pbmove' || a === 'pbtop') {
+  else if (a === 'pbmove') {
     let to = document.getElementById('pb-to').value;
-    if (to === '__new') { to = 'n' + Date.now(); g.sec.push({ id:to, name:'新しい見出し' }); S.menu = g.id + to; }
-    if (a === 'pbtop') { const cur = [...S.picked]; moveTags(g, cur, to, 'top'); }
-    else moveTags(g, [...S.picked], to, 'end');
-    S.picked.clear();
+    if (to === '__new') { to = newSec(g); S.menu = g.id + to; }
+    moveTags(g, [...S.picked], to); S.picked.clear();
   }
+  else if (a === 'impok') {
+    importPlan(g).forEach(p => {
+      if (!p.add.length && !p.same) return;
+      const id = p.same ? p.same.id : (() => { const nid = 'o' + p.o.id; g.sec.push({ id:nid, name:p.o.name, sort:'manual' }); return nid; })();
+      p.add.forEach(t => g.secOf[t] = id);
+    });
+    normalize(g); g.oldState = 'done'; toast('以前の見出しをタググループとして取り込みました。');
+  }
+  else if (a === 'impno') { g.oldState = 'no'; toast('取り込みませんでした。以前の見出しのデータは消していません。'); }
   else if (a === 'vpfold') { S.vpOpen[b.dataset.k] = !vpIsOpen(b.dataset.k); renderVP(); return; }
   else if (a === 'vptag') { const s = ON[b.dataset.g]; s.has(b.dataset.tag) ? s.delete(b.dataset.tag) : s.add(b.dataset.tag); renderVP(); return; }
   else if (a === 'fwfold') { S.fwFold[b.dataset.k] = !S.fwFold[b.dataset.k]; renderFW(); return; }
   else if (a === 'fwtag') { FSEL.has(b.dataset.tag) ? FSEL.delete(b.dataset.tag) : FSEL.add(b.dataset.tag); renderFW(); return; }
   else if (a === 'fwall') { e.stopPropagation(); const ts = tagsIn(gOf(b.dataset.g), b.dataset.sec); const all = ts.every(t => FSEL.has(t)); ts.forEach(t => all ? FSEL.delete(t) : FSEL.add(t)); renderFW(); return; }
   else if (a === 'fwclear') { FSEL.delete(b.dataset.tag); renderFW(); return; }
+  else return;
   renderSet();
 });
 document.addEventListener('change', e => {
   const s = e.target.closest('[data-chg="tsec"]'); if (!s) return;
-  moveTags(gOf(s.dataset.g), [s.dataset.tag], s.value, 'end'); renderSet();
+  moveTags(gOf(s.dataset.g), [s.dataset.tag], s.value); renderSet();
 });
 
-// ── ドラッグ（タグ・見出し）。マウスは少し動かしたら、指は長押し（0.35秒）してから ──
+// ── ドラッグ（タグ・タググループ）。マウスは少し動かしたら、指は長押し（0.35秒）してから ──
 let D = null;
 document.addEventListener('pointerdown', e => {
   const chip = e.target.closest('#p-set .chip[data-tag]'), grip = e.target.closest('#p-set [data-sgrip]');
   if (!chip && !grip) return;
   const el = chip || grip.closest('.sec');
-  D = { el, kind: chip ? 'tag' : 'sec', g: gOf(el.dataset.g), x:e.clientX, y:e.clientY, on:false, touch: e.pointerType !== 'mouse', id:e.pointerId };
-  if (D.kind === 'sec') { startDrag(e); return; }   // つまみは押した瞬間から
+  const g = gOf(el.dataset.g);
+  if (grip && g.secSort === 'name') { toast('タググループの並びが名前順なので動かせません。「手動」にすると動かせます。'); return; }
+  D = { el, kind: chip ? 'tag' : 'sec', g, x:e.clientX, y:e.clientY, on:false, touch: e.pointerType !== 'mouse' };
+  if (D.kind === 'sec') { startDrag(e); return; }
   if (D.touch) { el.classList.add('press'); D.timer = setTimeout(() => { if (D && !D.on) { startDrag(e); navigator.vibrate?.(15); } }, 350); }
 });
 document.addEventListener('pointermove', e => {
@@ -391,7 +482,6 @@ document.addEventListener('pointermove', e => {
   e.preventDefault();
   D.ghost.style.left = e.clientX + 'px'; D.ghost.style.top = e.clientY + 'px';
   overAt(e.clientX, e.clientY);
-  // 画面の端で自動スクロール
   if (e.clientY < 85) window.scrollBy(0, -10); else if (e.clientY > innerHeight - 50) window.scrollBy(0, 10);
 }, { passive:false });
 document.addEventListener('touchmove', e => { if (D && D.on) e.preventDefault(); }, { passive:false });
@@ -401,22 +491,23 @@ document.addEventListener('pointercancel', () => { if (D && !D.on) cancelDrag();
 function cancelDrag(){ if (!D) return; clearTimeout(D.timer); D.el.classList.remove('press'); D = null; }
 function startDrag(e){
   D.on = true; D.el.classList.remove('press');
-  // 未分類を落とし先として出すため、描き直してから掴み直す
   if (D.kind === 'tag') {
     const t = D.el.dataset.tag;
     D.items = S.pick && S.picked.has(t) ? [...S.picked] : [t];
-    S.dragging = true; S.cur = null; renderSet();
+    D.from = memberOf(D.g, t);
+    S.dragging = true; S.cur = null; renderSet();   // 「グループなし」を落とし先として出す
     D.el = document.querySelector(`#p-set .chip[data-tag="${CSS.escape(t)}"]`);
     D.items.forEach(x => document.querySelector(`#p-set .chip[data-tag="${CSS.escape(x)}"]`)?.classList.add('ph'));
   } else D.el.classList.add('dragging');
   const gh = document.createElement('div'); gh.className = 'ghost';
-  gh.innerHTML = D.kind === 'tag' ? esc(D.el.dataset.tag) + (D.items.length > 1 ? ` <small>ほか${D.items.length-1}個</small>` : '') : '見出し: ' + esc(secName(D.g, D.el.dataset.sec));
+  gh.innerHTML = D.kind === 'tag' ? esc(D.el.dataset.tag) + (D.items.length > 1 ? ` <small>ほか${D.items.length-1}個</small>` : '') : esc(secName(D.g, D.el.dataset.sec));
   document.body.appendChild(gh); D.ghost = gh;
   gh.style.left = (e.clientX||D.x) + 'px'; gh.style.top = (e.clientY||D.y) + 'px';
 }
 function overAt(x, y){
   D.ghost.style.display = 'none'; const t = document.elementFromPoint(x, y); D.ghost.style.display = '';
   document.querySelectorAll('#p-set .sec.drop').forEach(s => s.classList.remove('drop'));
+  D.target = null;
   if (!t) return;
   const sec = t.closest('#p-set .sec'); if (!sec || sec.dataset.g !== D.g.id) return;
   if (D.kind === 'sec') {
@@ -426,14 +517,13 @@ function overAt(x, y){
     return;
   }
   sec.classList.add('drop');
-  const body = sec.querySelector('.sbody'); if (!body) { D.target = { sec: sec.dataset.sec, before: null, fold:true }; return; }
+  D.target = sec.dataset.sec;
+  const body = sec.querySelector('.sbody'); if (!body) return;   // 畳んだグループ: 落とすと最後に入る
   const chip = t.closest('.chip[data-tag]');
-  if (chip && chip !== D.el) {
+  if (chip && chip !== D.el && chip.parentNode === body) {
     const r = chip.getBoundingClientRect();
     body.insertBefore(D.el, x < r.left + r.width/2 ? chip : chip.nextSibling);
-  } else if (!chip && t.closest('.sbody') === body || !chip && t.closest('.sech')) {
-    if (D.el.parentNode !== body) body.appendChild(D.el);
-  }
+  } else if (!chip && D.el.parentNode !== body) body.appendChild(D.el);
   body.classList.remove('empty');
 }
 function endDrag(){
@@ -441,27 +531,28 @@ function endDrag(){
   const g = D.g;
   if (D.kind === 'sec') {
     const order = [...document.querySelectorAll(`#secs-${g.id} > .sec`)].map(s => s.dataset.sec).filter(id => id !== UNC);
-    g.sec = order.map(id => g.sec.find(s => s.id === id)); normalize(g);
-  } else {
-    const drop = document.querySelector('#p-set .sec.drop');
-    if (D.target && D.target.fold && drop) {
-      moveTags(g, D.items, drop.dataset.sec, 'end');
-    } else {
-      // 画面の並び（見出しと位置）をそのまま読む。複数を運んだときは、掴んだタグの位置にまとめて入れる
+    g.sec = order.map(id => secObj(g, id)); normalize(g);
+  } else if (D.target) {
+    const to = D.target, body = document.querySelector(`#secs-${g.id} .sbody[data-body="${to}"]`);
+    D.items.forEach(t => { if (to === UNC) delete g.secOf[t]; else g.secOf[t] = to; });
+    if (body && sortOf(g, to) === 'manual') {
+      // 手動: 画面に置いた位置がそのまま順番（運んだ複数は、掴んだタグの位置にまとめて入る）
       const lead = D.el.dataset.tag, seq = [];
-      document.querySelectorAll(`#secs-${g.id} .sbody`).forEach(body => {
-        const sid = body.dataset.body;
-        body.querySelectorAll('.chip[data-tag]').forEach(c => {
-          const t = c.dataset.tag;
-          if (t === lead) D.items.forEach(x => seq.push([x, sid]));
-          else if (!D.items.includes(t)) seq.push([t, sid]);
-        });
+      body.querySelectorAll('.chip[data-tag]').forEach(c => {
+        const t = c.dataset.tag;
+        if (t === lead) D.items.forEach(x => seq.push(x)); else if (!D.items.includes(t)) seq.push(t);
       });
-      const seen = new Set(seq.map(s => s[0]));
-      const folded = g.opts.filter(t => !seen.has(t));   // 畳んだ見出しのタグは位置そのまま
-      seq.forEach(([t, sid]) => { if (sid === UNC) delete g.secOf[t]; else g.secOf[t] = sid; });
-      g.opts = seq.map(s => s[0]).concat(folded); normalize(g);
+      const rest = g.opts.filter(t => !D.items.includes(t) && memberOf(g, t) !== to);
+      g.opts = rest.concat(seq);
+    } else {
+      // 名前順・畳んだグループ: 手で並べた順の最後へ（表示は名前順）
+      g.opts = g.opts.filter(t => !D.items.includes(t)).concat(D.items);
+      if (body && sortOf(g, to) === 'name') {
+        toast(D.from === to ? `「${esc(secName(g,to))}」は名前順なので、手では並べ替えられません。<button data-act="sort" data-g="${g.id}" data-sec="${to}" data-v="manual">手動にする</button>`
+                            : `「${esc(secName(g,to))}」は名前順なので、名前の順の位置に入りました。`);
+      }
     }
+    normalize(g); flash(D.items);
     if (S.pick) S.picked.clear();
   }
   document.querySelectorAll('#p-set .sec.drop').forEach(s => s.classList.remove('drop'));
@@ -471,6 +562,7 @@ function endDrag(){
 // ───────── ② 動画パネル ─────────
 function vpIsOpen(k){ if (k in S.vpOpen) return S.vpOpen[k]; const [gid, id] = k.split('|'); return tagsIn(gOf(gid), id).some(t => ON[gid].has(t)); }
 function hl(t, q){ if (!q) return esc(t); const i = t.toLowerCase().indexOf(q.toLowerCase()); return i < 0 ? esc(t) : esc(t.slice(0,i)) + '<mark>' + esc(t.slice(i, i+q.length)) + '</mark>' + esc(t.slice(i+q.length)); }
+const shortName = (g, id) => id === UNC ? 'そのほか' : secName(g, id);
 function renderVP(){
   const box = document.getElementById('vp-box');
   const keepQ = document.activeElement && document.activeElement.id === 'vp-q';
@@ -482,18 +574,17 @@ function renderVP(){
     let ts = tagsIn(g, id); if (q) ts = ts.filter(t => t.toLowerCase().includes(q.toLowerCase()));
     if (!ts.length) return;
     const k = 'tech|' + id, open = q ? true : vpIsOpen(k), n = ts.filter(t => ON.tech.has(t)).length;
-    h += `<div class="psec"><button class="psech" data-act="vpfold" data-k="${k}"><span class="car">${open?'▼':'▶'}</span><span class="sbar" style="background:${colorOf(g,id)};height:14px;align-self:center"></span>${esc(secName(g,id))} <span class="n">${ts.length}</span>${n?`<span class="on">付いている ${n}</span>`:''}</button>`;
+    h += `<div class="psec"><button class="psech" data-act="vpfold" data-k="${k}"><span class="car">${open?'▼':'▶'}</span><span class="sbar" style="background:${colorOf(g,id)};height:14px;align-self:center"></span>${esc(shortName(g,id))} <span class="n">${ts.length}</span>${n?`<span class="on">付いている ${n}</span>`:''}</button>`;
     if (open) h += `<div class="pbody">${ts.map(t => `<button class="ptag${ON.tech.has(t)?' on':''}" data-act="vptag" data-g="tech" data-tag="${esc(t)}">${hl(t, q)}</button>`).join('')}</div>`;
     h += `</div>`;
   });
-  if (q && !g.opts.some(t => t.toLowerCase().includes(q.toLowerCase()))) h += `<div style="padding:10px;color:var(--text3)">当たるタグはありません。Enter で「${esc(q)}」を新しく作ります（見出しは「未分類」に入ります）。</div>`;
+  if (q && !g.opts.some(t => t.toLowerCase().includes(q.toLowerCase()))) h += `<div style="padding:10px;color:var(--text3)">当たるタグはありません。Enter で「${esc(q)}」を新しく作ります（「グループなし」に入ります）。</div>`;
   h += `</div></div>`;
-  // 少ないグループ: 畳まずに細い線で区切る
   const r = gOf('react');
   h += `<div class="gt" style="margin-top:18px"><b>タグ${r.slot}　${esc(r.name)}</b></div>`;
   secIds(r).forEach(id => {
     const ts = tagsIn(r, id); if (!ts.length) return;
-    h += `<div class="smallsec"><span class="sbar" style="background:${colorOf(r,id)};height:10px"></span>${esc(secName(r,id))}</div><div style="display:flex;flex-wrap:wrap;gap:6px">`
+    h += `<div class="smallsec"><span class="sbar" style="background:${colorOf(r,id)};height:10px"></span>${esc(shortName(r,id))}</div><div style="display:flex;flex-wrap:wrap;gap:6px">`
       + ts.map(t => `<button class="ptag${ON.react.has(t)?' on':''}" data-act="vptag" data-g="react" data-tag="${esc(t)}">${esc(t)}</button>`).join('') + `</div>`;
   });
   box.innerHTML = h;
@@ -503,24 +594,20 @@ document.addEventListener('input', e => { if (e.target.id === 'vp-q') { S.vpQ = 
 
 // ───────── ③ フィルターの窓 ─────────
 function renderFW(){
-  const box = document.getElementById('fw-box');
-  let h = `<div class="fwh">タグ4 テクニック <small>見出しで区切って表示</small></div>`;
+  const box = document.getElementById('fw-box'), g = gOf('tech');
+  let h = `<div class="fwh">タグ4 テクニック <small>タググループで区切って表示</small></div>`;
   h += `<div class="ftop">${FSEL.size ? [...FSEL].map(t => `<button class="fpill" data-act="fwclear" data-tag="${esc(t)}">${esc(t)} ×</button>`).join('') : '<span class="hint">選択中: なし</span>'}</div><div class="fwl">`;
   h += `<button class="frow" style="padding-left:12px"><span>タグなし</span><span class="c">41</span></button>`;
-  G.forEach(g => {
-    if (g.id !== 'tech') return;
-    secIds(g).forEach(id => {
-      const ts = tagsIn(g, id); if (!ts.length) return;
-      const k = g.id + id, fold = !!S.fwFold[k], all = ts.every(t => FSEL.has(t));
-      h += `<div class="fsec" role="button" tabindex="0" data-act="fwfold" data-k="${k}"><span class="car">${fold?'▶':'▼'}</span><span class="sbar" style="background:${colorOf(g,id)};height:14px"></span>${esc(secName(g,id))} <span class="scnt">${ts.length}</span>`
-        + `<button class="all${all?' on':''}" data-act="fwall" data-g="${g.id}" data-sec="${id}">${all?'✓ 全部':'全部'}</button></div>`;
-      if (!fold) ts.forEach(t => { h += `<button class="frow${FSEL.has(t)?' on':''}" data-act="fwtag" data-tag="${esc(t)}"><span>${esc(t)}</span><span class="c">${CNT[t]}</span></button>`; });
-    });
+  secIds(g).forEach(id => {
+    const ts = tagsIn(g, id); if (!ts.length) return;
+    const k = g.id + id, fold = !!S.fwFold[k], all = ts.every(t => FSEL.has(t));
+    h += `<div class="fsec" role="button" tabindex="0" data-act="fwfold" data-k="${k}"><span class="car">${fold?'▶':'▼'}</span><span class="sbar" style="background:${colorOf(g,id)};height:14px"></span>${esc(shortName(g,id))} <span class="scnt">${ts.length}</span>`
+      + `<button class="all${all?' on':''}" data-act="fwall" data-g="${g.id}" data-sec="${id}">${all?'✓ 全部':'全部'}</button></div>`;
+    if (!fold) ts.forEach(t => { h += `<button class="frow${FSEL.has(t)?' on':''}" data-act="fwtag" data-tag="${esc(t)}"><span>${esc(t)}</span><span class="c">${CNT[t]}</span></button>`; });
   });
   box.innerHTML = h + `</div>`;
 }
 
-// ── タブ ──
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
   document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t.dataset.tab));
