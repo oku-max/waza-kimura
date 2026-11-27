@@ -164,6 +164,20 @@ const sticky = await pg.evaluate(async () => { const host = document.getElementB
   const r = { sh: host.scrollHeight, chh: host.clientHeight, pv: (() => { let e = document.getElementById('svt-colhs'); const o = []; while (e) { const c = getComputedStyle(e); if (/auto|scroll/.test(c.overflowY)) o.push((e.id||e.className)+':'+e.scrollHeight+'/'+e.clientHeight); e = e.parentElement; } return o.join(','); })(), before, lhB: lh.bottom, hdT: hd.top, hdB: hd.bottom, chT: ch.top, hostT: hr.top, st: host.scrollTop };
   host.scrollTop = 0; host.style.height = ''; sb.style.minHeight = ''; return r; });
 ck('縦にスクロールしても、グルーピングの並びと列の見出しが上に残る（ライブラリの上の帯の下・重ならない）', sticky.st > 100 && Math.abs(sticky.hdT - sticky.lhB) <= 2 && Math.abs(sticky.chT - sticky.hdB) <= 2 && sticky.chT >= sticky.hostT, JSON.stringify(sticky));
+// ②c2 上の横スクロールバー（v53.066・オーナー「下の横移動のバーを、一番上の見出しの真下にも」）
+const hbar = await pg.evaluate(async () => { const fr = () => new Promise(r => setTimeout(r, 120));
+  const root = document.getElementById('svt-root'); root.style.width = '520px'; window.dispatchEvent(new Event('resize')); await fr(); await fr();
+  const HB = () => document.getElementById('svt-hbar'), BD = () => document.querySelector('#svt-root .svt-board'), CH = () => document.getElementById('svt-colhs');
+  if (!HB()) { root.style.width = ''; return { none: true }; }
+  const r = { shown: getComputedStyle(HB()).display !== 'none' && HB().scrollWidth > HB().clientWidth, under: Math.abs(HB().getBoundingClientRect().top - CH().getBoundingClientRect().bottom) <= 3, wide: Math.abs(HB().scrollWidth - BD().scrollWidth) <= 2 };
+  HB().scrollLeft = 300; await fr(); r.hb1 = HB().scrollLeft; r.toBoard = BD().scrollLeft; r.toHead = CH().scrollLeft;
+  BD().scrollLeft = 0; await fr(); r.hb0 = HB().scrollLeft; BD().scrollLeft = 99999; await fr(); r.bdMax = BD().scrollLeft; r.fromBoard = HB().scrollLeft;
+  const host = document.getElementById('lib-card-host'); host.style.height = '400px'; const sb = document.getElementById('svt-body'); sb.style.minHeight = '2500px'; host.scrollTop = 0; await fr();
+  host.scrollTop = 600; await fr(); r.st = host.scrollTop; const hr = host.getBoundingClientRect(), t1 = HB().getBoundingClientRect().top; r.stick = host.scrollTop > 100 && Math.abs(t1 - CH().getBoundingClientRect().bottom) <= 3 && t1 >= hr.top && t1 < hr.top + 200;
+  host.scrollTop = 0; host.style.height = ''; sb.style.minHeight = ''; BD().scrollLeft = 0; root.style.width = ''; window.dispatchEvent(new Event('resize')); await fr(); return r; });
+ck('列の見出しの真下に横スクロールバーがあり、列の幅ぶん動かせる', hbar.shown && hbar.under && hbar.wide, hbar);
+ck('上のバーを動かすと列と見出しが動き、列を動かすと上のバーもついてくる', hbar.toBoard > 0 && hbar.toBoard === hbar.hb1 && hbar.toHead === hbar.toBoard && hbar.hb0 === 0 && hbar.bdMax > 0 && hbar.fromBoard === hbar.bdMax, JSON.stringify(hbar));
+ck('上のバーは縦にスクロールしても見出しと一緒に上に残る', hbar.stick, JSON.stringify(hbar));
 // ②d 列ごとの並べ替え（v53.061・オーナー「カードビューの各列にソートボタン」）。「その他」の列も、ふだんの列も
 ck('「なし」の列の名前は「その他」（グループ名＋なし ではない）', (await cols(pg))[0].startsWith('その他='), await cols(pg));
 const order = col => pg.evaluate(col => [...document.querySelectorAll(`#svt-root .svt-col[data-name="${col}"] .svt-lc`)].map(w => w.querySelector('.card-title').textContent), col);

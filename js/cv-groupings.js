@@ -384,8 +384,10 @@
       S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
     const hd = c => `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}><span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span><select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
-    el.innerHTML = `<div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
-      `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft">` + cs.map(c => {
+    el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map(hd).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
+      // 上の横スクロールバー（v53.066・オーナー「下の横移動のバーを、一番上の見出しの真下にも」）。見出しと一緒に上に残る。動かすと列も見出しも動く
+      `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
+      `<div class="svt-board" onscroll="var h=document.getElementById('svt-colhs');if(h)h.scrollLeft=this.scrollLeft;var t=document.getElementById('svt-hbar');if(t&&t.scrollLeft!==this.scrollLeft)t.scrollLeft=this.scrollLeft">` + cs.map(c => {
       const n = S.more[c.key] || LIMIT;
       return `<div class="svt-col${c.hid ? ' svt-hidcol' : ''}${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''} data-name="${esc(c.name)}" ${mv || c.hid ? `ondragover="wkGroupings._dov(event,this)" ondragleave="this.classList.remove('over','copy')" ondrop="wkGroupings._dp(event,'${jsq(g.key)}','${jsq(c.key)}')"` : ''}>
         <div class="svt-cards">${c.ids.slice(0, n).map(id => { const cn = seenN.get(id) || 0; seenN.set(id, cn + 1); return card(byId.get(id), g, c.key, cn); }).join('')}</div>
@@ -404,6 +406,8 @@
     root.style.setProperty('--svt-top', top + 'px');
     root.style.setProperty('--svt-hh', (head ? head.offsetHeight : 0) + 'px');
     const bd = root.querySelector('.svt-board'), hs = document.getElementById('svt-colhs'); if (bd && hs) hs.scrollLeft = bd.scrollLeft;
+    const hb = document.getElementById('svt-hbar'), hi = document.getElementById('svt-hbar-in');
+    if (bd && hb && hi) { hi.style.width = bd.scrollWidth + 'px'; hb.style.width = bd.clientWidth + 'px'; hb.classList.toggle('none', bd.scrollWidth <= bd.clientWidth + 1); hb.scrollLeft = bd.scrollLeft; }
   }
   // 「＋ 新しいタグ」は見出しの帯（上に残る）に入力欄として置く（v53.053・前は見出しがただの文字で、押しても何も起きなかった。入力欄は列の下にあった）
 
@@ -595,7 +599,11 @@
 #svt-root .svt-col.copy::before{content:'＋ ここにも追加';display:block;font-size:10.5px;color:var(--gold);padding:0 2px 6px}
 #svt-root .svt-colh{display:flex;gap:6px;align-items:center;padding:2px 2px 8px}
 #svt-root:not(.svt-tbl) .svt-head{position:sticky;top:var(--svt-top,0px);z-index:8;background:var(--bg)}
-#svt-root .svt-colhs{position:sticky;top:calc(var(--svt-top,0px) + var(--svt-hh,0px));z-index:7;background:var(--bg);overflow:hidden;margin:0 -16px;padding:6px 16px 0}
+#svt-root .svt-colwrap{position:sticky;top:calc(var(--svt-top,0px) + var(--svt-hh,0px));z-index:7;background:var(--bg);margin:0 -16px;padding:0 16px}
+#svt-root .svt-colhs{overflow:hidden;margin:0 -16px;padding:6px 16px 0}
+#svt-root .svt-hbar{overflow-x:auto;overflow-y:hidden;height:14px;margin-bottom:2px}
+#svt-root .svt-hbar.none{display:none}
+#svt-root .svt-hbar > div{height:1px}
 #svt-root .svt-colhs-in{display:flex;gap:12px}
 #svt-root .svt-colhs .svt-colh{flex:0 0 calc(var(--svt-cw,250px) + 12px);padding:2px 8px 8px;box-sizing:border-box;min-width:0}
 
@@ -886,6 +894,7 @@
       drawBody(); },
     _tg: (vid, gk, val) => toggle(vid, gk, val),
     _play: vid => { try { window.openVPanel?.(vid); } catch (e) {} },
+    _hb: el => { const bd = document.querySelector('#svt-root .svt-board'); if (bd && bd.scrollLeft !== el.scrollLeft) bd.scrollLeft = el.scrollLeft; },
     _ds: (e, vid, from) => { _dragV = vid; _dragFrom = from; try { e.dataTransfer.setData('text/plain', vid); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },
     _dov: (e, el) => { e.preventDefault(); const cp = !!e.altKey; el.classList.add('over'); el.classList.toggle('copy', cp); try { e.dataTransfer.dropEffect = cp ? 'copy' : 'move'; } catch (x) {} },
     _dp: (e, gk, to) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null) return; const v = _dragV, f = _dragFrom; _dragV = null;
