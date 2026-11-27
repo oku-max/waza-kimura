@@ -544,8 +544,15 @@
       // マスの高さ＝カード cellH 枚ぶん。カードの高さは実物を測る（列の幅で変わる）
       const hs2 = [...bd.querySelectorAll('.svt-lc')].slice(0, 12).map(x => x.offsetHeight).filter(h => h > 60).sort((a, b) => a - b);
       const ch = hs2.length ? hs2[Math.floor(hs2.length / 2)] : (S._cardH || 380); S._cardH = ch;
-      const want = Math.round(ch * cellHOf(VW()) + 8 * Math.max(0, Math.ceil(cellHOf(VW())) - 1) + 34) + 'px';
+      // マスは見える所の高さを超えない（v53.073・オーナー「ホイールで下にやっていくと、マスのスクロールバーが下に行って見えなくなる」。
+      // 「行で分けない」列のマス（行の数ぶんの高さ）や「カード3枚」が画面より高いと、マスの中のスクロールバーの下の端が画面の外に出ていた）
+      const k = (window.wkZoomK && window.wkZoomK()) || 1;
+      const scH = host && /auto|scroll/.test(getComputedStyle(host).overflowY) ? host.clientHeight : innerHeight / k;
+      const cw = root.querySelector('.svt-colwrap');
+      const cap = Math.max(220, Math.floor(scH - top - (head ? head.offsetHeight : 0) - (cw ? cw.offsetHeight : 0) - 16));
+      const want = Math.min(cap, Math.round(ch * cellHOf(VW()) + 8 * Math.max(0, Math.ceil(cellHOf(VW())) - 1) + 34)) + 'px';
       if (root.style.getPropertyValue('--svt-cellh') !== want) root.style.setProperty('--svt-cellh', want);
+      if (root.style.getPropertyValue('--svt-cellmax') !== cap + 'px') root.style.setProperty('--svt-cellmax', cap + 'px');
     }
     if (bd && hb && hi) { hi.style.width = bd.scrollWidth + 'px'; hb.style.width = bd.clientWidth + 'px'; hb.classList.toggle('none', bd.scrollWidth <= bd.clientWidth + 1); hb.scrollLeft = bd.scrollLeft; }
   }
@@ -872,6 +879,11 @@
 #svt-root .svt-rsp b{color:var(--blue)}
 #svt-root .svt-colhs .svt-colhs-in{gap:10px}
 #svt-root .svt-gridb .svt-gstart{margin-left:12px}
+#svt-root .svt-cell.svt-cspan{max-height:var(--svt-cellmax,none)}
+#svt-root .svt-clist{overflow-x:hidden}
+#svt-root .svt-cell .svt-lc,#svt-root .svt-cell .card-wrap,#svt-root .svt-cell .card{min-width:0;max-width:100%;box-sizing:border-box}
+#svt-root .svt-cardx{min-width:0}
+#svt-root .svt-cardx .svt-sm:not(.svt-hidebtn){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 #svt-root .svt-cell{border:1px solid var(--border);border-radius:10px;background:var(--surface2);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;min-height:0}
 #svt-root .svt-cell.svt-cspan{border-style:dashed}
 #svt-root .svt-cell.over{outline:2px solid var(--gold);outline-offset:-2px;background:var(--gold-soft)}

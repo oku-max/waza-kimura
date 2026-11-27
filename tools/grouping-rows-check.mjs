@@ -161,6 +161,8 @@ ck('行の見出し: 並べ替えた順（ボトム・スタンディング・�
 ck('どのマスも同じ高さ（カード1枚ぶん）', grid.n > 0 && grid.hs.length === 1 && grid.card > 0 && Math.abs(grid.hs[0] - grid.card - 34) <= 14, JSON.stringify(grid));
 ck('マスの中だけスクロールする・本数がマスの上に出る', grid.ov === 'auto' && grid.cnt.every(t => /^\d+本$/.test(t)), JSON.stringify(grid));
 if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/rows-pc.png' });
+if (process.env.PROBE) console.log('PROBE', JSON.stringify(await pg.evaluate(() => [...document.querySelectorAll('#svt-root .svt-clist')].filter(l => l.querySelector('.svt-lc')).map(l => { const lc = l.querySelector('.svt-lc'); const cw = lc.querySelector('.card-wrap'); const cd = lc.querySelector('.card');
+  return { cl: l.clientWidth, sw: l.scrollWidth, lc: lc.offsetWidth, cw: cw && cw.offsetWidth, cd: cd && cd.offsetWidth, cdmin: cd && getComputedStyle(cd).minWidth, cwmin: cw && getComputedStyle(cw).minWidth, cwW: cw && getComputedStyle(cw).width }; }))));
 const cellOf = (c, r) => pg.evaluate(([c, r]) => { const st = wkGroupings._state(); const ci = st._grid.cols.indexOf(c), ri = st._grid.rows.indexOf(r); const k = ci + '.' + ri; return (st._grid.cells[k] || null); }, [c, r]);
 ck('v1（ラッソー・ボトム）は「ラッソー × ボトム」のマス', JSON.stringify(await cellOf('ラッソー', 'ボトム')) === '["v1"]', await cellOf('ラッソー', 'ボトム'));
 // ③ 別のマスへドラッグ → 列と行のタグが一度に変わる・1回で両方戻る
@@ -231,8 +233,8 @@ await pg.evaluate(() => wkGroupings._undo()); await pg.locator('#svt-root .svt-m
 const lassoHd = pg.locator('#svt-colhs .svt-colh', { has: pg.locator('.svt-tag', { hasText: 'ラッソー' }) }).locator('.svt-roff');
 await lassoHd.click(); await pg.waitForTimeout(300);
 const span = await pg.evaluate(() => { const st = wkGroupings._state(); const ci = st._grid.cols.indexOf('ラッソー'); const el = document.querySelector(`#svt-root .svt-cell[data-ci="${ci}"][data-ri="*"]`); const one = document.querySelector('#svt-root .svt-cell:not(.svt-cspan)');
-  return { has: !!el, h: el && el.getBoundingClientRect().height, one: one && one.getBoundingClientRect().height, n: document.querySelectorAll(`#svt-root .svt-cell[data-ci="${ci}"]`).length }; });
-ck('「行 ⇕」を押すとその列は行をまたいだ1つのマス（行4つ分の高さ）', span.has && span.n === 1 && Math.abs(span.h - (span.one * 4 + 8 * 3)) <= 4, JSON.stringify(span));
+  return { has: !!el, h: el && el.getBoundingClientRect().height, one: one && one.getBoundingClientRect().height, cap: parseFloat(getComputedStyle(document.getElementById('svt-root')).getPropertyValue('--svt-cellmax')), n: document.querySelectorAll(`#svt-root .svt-cell[data-ci="${ci}"]`).length }; });
+ck('「行 ⇕」を押すとその列は行をまたいだ1つのマス（行4つ分の高さ・ただし見える所の高さまで）', span.has && span.n === 1 && Math.abs(span.h - Math.min(span.one * 4 + 8 * 3, span.cap)) <= 4, JSON.stringify(span));
 ck('行で分けない列はグルーピングに保存される（rOff）・クラウドにも', await until(() => JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]?.rOff) === '["ラッソー"]'), JSON.stringify(CLOUD[GDOC]?.items?.[e1.id]?.rOff));
 await lassoHd.click(); await pg.waitForTimeout(300);
 // ⑥ マスの高さを編集で変える
@@ -240,8 +242,20 @@ await clickBtn('#svt-sum .svt-sm', 'グルーピングを編集');
 ck('保存済みを編集で開くと「コピー」も別の枠', await pg.evaluate(() => { const c = document.querySelector('#svt-ed .svt-sec-p'); return !!c && c.querySelector('.svt-sech b').textContent === 'コピー' && !!c.querySelector('#svt-copy-to'); }));
 ck('編集を開くと行の設定がそのまま出る', await pg.evaluate(() => document.querySelectorAll('#svt-rchips .svt-rv.on').length === 3 && document.querySelector('#svt-cellh .svt-o.on').textContent === 'カード1枚'));
 await clickBtn('#svt-cellh .svt-o', 'カード3枚'); await clickBtn('#svt-ed .foot .svt-sm', '保存'); await pg.waitForTimeout(400);
-const h3 = await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-cell:not(.svt-cspan)'); const lc = document.querySelector('#svt-root .svt-cell .svt-lc'); return { c: c.getBoundingClientRect().height, card: lc.getBoundingClientRect().height }; });
-ck('カード3枚にするとマスがカード3枚ぶんの高さ', Math.abs(h3.c - (h3.card * 3 + 16 + 34)) <= 16, JSON.stringify(h3));
+const h3 = await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-cell:not(.svt-cspan)'); const lc = document.querySelector('#svt-root .svt-cell .svt-lc'); const host = document.getElementById('lib-card-host');
+  const cw = document.querySelector('#svt-root .svt-colwrap'); const cap = parseFloat(getComputedStyle(document.getElementById('svt-root')).getPropertyValue('--svt-cellmax'));
+  return { c: c.getBoundingClientRect().height, card: lc.getBoundingClientRect().height, cap, room: host.getBoundingClientRect().bottom - cw.getBoundingClientRect().bottom }; });
+ck('カード3枚にするとマスがカード3枚ぶんの高さ（ただし見える所の高さまで）', Math.abs(h3.c - Math.min(h3.card * 3 + 16 + 34, h3.cap)) <= 16, JSON.stringify(h3));
+ck('マスは見える所（上に残る見出しの下から画面の下まで）より高くならない＝マスのスクロールバーが画面の外に出ない（v53.073）', h3.cap > 0 && h3.c <= h3.room + 2, JSON.stringify(h3));
+// 「行で分けない」列のマスも見える所まで
+await lassoHd.click(); await pg.waitForTimeout(400);
+const sp3 = await pg.evaluate(() => { const c = document.querySelector('#svt-root .svt-cell.svt-cspan'); const host = document.getElementById('lib-card-host'); const cw = document.querySelector('#svt-root .svt-colwrap'); return { h: c ? c.getBoundingClientRect().height : -1, room: host.getBoundingClientRect().bottom - cw.getBoundingClientRect().bottom }; });
+ck('「行で分けない」列のマス（行の数ぶんの高さ）も見える所より高くならない', sp3.h > 0 && sp3.h <= sp3.room + 2, JSON.stringify(sp3));
+await lassoHd.click(); await pg.waitForTimeout(300);
+// カードの ▾ のボタンの名前が長くても、マスの中に横スクロールが出ない
+const wide = await pg.evaluate(() => { const b = document.querySelector('#svt-root .svt-cell .svt-cardx .svt-sm:not(.svt-hidebtn)'); b.textContent = '相手のポスチャー・リアクション・Position ／ 自分のポスチャー・グリップ・とても長い名前のタググループ ▾'; const l = b.closest('.svt-clist'); return { sw: l.scrollWidth, cw: l.clientWidth, ox: getComputedStyle(l).overflowX }; });
+ck('カードの ▾ の名前が長くても、マスの中に横スクロールが出ない（はみ出す分は … で切る）（v53.073）', wide.sw <= wide.cw + 1 && wide.ox === 'hidden', JSON.stringify(wide));
+await pg.evaluate(() => wkGroupings._state() && document.getElementById('svt-sum'));
 // ⑦ テーブルは「列 › 行」の見出し
 await pg.evaluate(() => window._cvSetView('table')); await pg.waitForTimeout(800);
 const th = await pg.evaluate(() => [...document.querySelectorAll('#orgList .org-group-hd')].map(t => t.textContent.trim()));
