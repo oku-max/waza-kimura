@@ -225,7 +225,7 @@
   }
   function columns(list, g) {
     if (g.kind === 'pick') {
-      const cols = g.items.map((p, i) => ({ key: p.label, name: p.label, color: p.color, gstart: !!p.color && i > 0 && g.items[i - 1].g !== p.g, ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
+      const cols = g.items.map((p, i) => ({ key: p.label, name: p.label, color: p.color, gstart: !!p.color && i > 0 && g.items[i - 1].g !== p.g, gfirst: !!p.color && (i === 0 || g.items[i - 1].g !== p.g), gname: p.color ? GR0(p.g).name : '', ids: list.filter(v => vals(v, g).includes(p.label)).map(v => v.id) }));
       if (g.showNone) cols.unshift({ key: NONE, name: noneName(g.items), ids: list.filter(v => !vals(v, g).length).map(v => v.id), none: true });
       return cols;
     }
@@ -412,6 +412,13 @@
       (mv && open ? `<div class="svt-mt svt-multi">${g.kind === 'one' ? '' : '<span class="svt-mhint">いくつでも選べます（下の「決定」を押すと、付けたタグのマスへ移ります）</span>'}<div class="svt-msec"><span class="svt-mh svt-mhc">列</span>${colPart}</div>${rowPart ? `<div class="svt-msec"><span class="svt-mh svt-mhr">行</span>${rowPart}</div>` : ''}<button class="svt-sm pri svt-mdone" onclick="event.stopPropagation();wkGroupings._oc('${jsq(k)}')">決定（閉じる）</button></div>` : '') +
       ((g.kind === 'tag' || g.kind === 'pick') && x.length > 1 ? `<div class="svt-mt svt-also">ほかの列にも: ${esc(x.filter(y => y !== colKey).join('・'))}</div>` : '');
     const at = inner.lastIndexOf('<div class="card-actions">');
+    if (NEWUI) {
+      // 試作（?grpui=new）: 「列と行の編集」「非表示」の段を無くし、メモ・アーカイブの並びの「⋯」から出す
+      const more = `<button class="ca-btn svt-camore" data-svtpop onclick="event.stopPropagation();wkGroupings._cmo(this,'${jsq(k)}','${jsq(v.id)}',${mv && colKey !== HID ? 1 : 0},${colKey === HID ? 1 : 0},'${lbl}')">⋯</button>`;
+      const ctl2 = ctl.replace(/^<div class="svt-cardx">[\s\S]*?<\/div>/, '');
+      const tag = '<div class="card-actions">';
+      inner = at >= 0 ? inner.slice(0, at) + ctl2 + tag + more + inner.slice(at + tag.length) : inner + ctl2;
+    } else
     inner = at >= 0 ? inner.slice(0, at) + ctl + inner.slice(at) : inner + ctl;
     return `<div class="svt-card svt-lc" data-vid="${esc(v.id)}" data-copy="${copyN || 0}" data-canon="${copyN ? 0 : 1}" ${mv || colKey === HID ? `draggable="true" ondragstart="wkGroupings._ds(event,'${jsq(v.id)}','${jsq(colKey)}')"` : ''}>${inner}</div>`;
   }
@@ -432,6 +439,27 @@
   document.addEventListener('click', e => { const w = e.target && e.target.closest && e.target.closest('#svt-root .svt-lc'); if (w) activate(w); }, true);
   // 描き直してもスクロールの位置を変えない（v53.074・オーナー「タグを選択するたびに画面が微妙に上にスクロールする」。
   // カードの ▾ でタグを押すたびに全体を描き直していて、マスの中のスクロール位置と横の位置が先頭に戻っていた）
+  // ── 試作の見た目（v53.079・?grpui=new のときだけ。オーナー「スッキリしない」「ボタンだらけ」「色付けが汚い」）。
+  //    データには触らない（見た目と、今までと同じ関数を呼ぶメニューだけ）。?grpui=old で元に戻る（このタブの中だけ覚える）
+  function hdNew(c, ci, folded, fold) {
+    const gs = c.color && c.gfirst && c.gname ? ` data-g="${esc(c.gname)}"` : '';
+    const cls = `svt-colh${folded ? ' svt-cfold' : ''}${c.gstart ? ' svt-gstart' : ''}${gs ? ' svt-gcap' : ''}`;
+    if (folded) return `<div class="${cls}"${gs}>${fold}</div>`;
+    return `<div class="${cls}"${gs}>${fold}<span class="svt-tag${c.none || c.hid ? ' none' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.sort ? '<span class="svt-son" title="並べ替えを変えています">⇅</span>' : ''}<button class="svt-cmore" data-svtpop title="並べ替え・行で分けない" onclick="event.stopPropagation();wkGroupings._cm(this,${ci})">⋯</button></div>`;
+  }
+  function popMenu(a, html) {
+    closePop(); const m = document.createElement('div'); m.id = 'svt-pop'; m.innerHTML = html; document.body.appendChild(m);
+    const k = (window.wkZoomK && window.wkZoomK()) || 1; const r = a.getBoundingClientRect();
+    const W = innerWidth / k, H = innerHeight / k, mw = m.offsetWidth, mh = m.offsetHeight;
+    let x = r.left / k, y = r.bottom / k + 4;
+    if (x + mw > W - 8) x = Math.max(8, r.right / k - mw); if (x < 8) x = 8;
+    if (y + mh > H - 8) y = Math.max(8, r.top / k - mh - 4);
+    m.style.left = x + 'px'; m.style.top = y + 'px';
+    setTimeout(() => document.addEventListener('pointerdown', popOut, true), 0);
+  }
+  function popOut(e) { const m = document.getElementById('svt-pop'); if (m && !m.contains(e.target) && !(e.target.closest && e.target.closest('[data-svtpop]'))) closePop(); }
+  function closePop() { const m = document.getElementById('svt-pop'); if (m) m.remove(); document.removeEventListener('pointerdown', popOut, true); }
+  const pi = (label, js, on, cls) => `<button class="svt-pi${on ? ' on' : ''}${cls ? ' ' + cls : ''}" onclick="wkGroupings._pc();${js}">${label}${on ? '<span class="ck">✓</span>' : ''}</button>`;
   // プログラムで位置を写したときは、その結果の値を覚えておき、それで起きた scroll を「人の操作」と取り違えない
   function setSL(el, x) { el.scrollLeft = x; el._wkSet = el.scrollLeft; }
   function echo(el) { const w = el._wkSet; el._wkSet = null; return w != null && Math.abs(el.scrollLeft - w) < 1.5; }
@@ -469,14 +497,14 @@
         else if (at != null && i < 0) c.ids.splice(Math.min(at, c.ids.length), 0, vid);
         else if (at != null && i >= 0 && i !== at) { c.ids.splice(i, 1); c.ids.splice(Math.min(at, c.ids.length), 0, vid); } });
     }
-    S._lastCols = cs.map(c => ({ key: c.key, ids: c.ids }));
+    S._lastCols = cs.map(c => ({ key: c.key, ids: c.ids })); S._hdCols = cs;
     // カードの ▾ は動画ごとに開く。付け外しでカードが別の列へ移っても閉じない（v53.055・オーナー「複数選択できるように」）
     if (S.openCard) { const here = cs.find(c => c.key === S.openCol && c.ids.includes(S.openCard)) || cs.find(c => !c.hid && c.ids.includes(S.openCard));
       S._openColNow = here ? here.key : null; if (here) S.openCol = here.key; }
     // 列の見出しは、カードの列とは別の帯に並べ、縦にスクロールしても上に残す（オーナー「ヘッダーは常に表示」）。横は列と一緒に動かす
     const fC = new Set(foldOf(V.id).c); S._colKeys = cs.map(c => c.key);
     const fb = (on, ci) => `<button class="svt-fold" title="${on ? 'この列を開く' : 'この列を畳む'}" aria-expanded="${!on}" onclick="event.stopPropagation();wkGroupings._fold('c',${ci})">${on ? '▸' : '▾'}</button>`;
-    const hd = (c, ci) => fC.has(c.key) ? `<div class="svt-colh svt-cfold${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fb(true, ci)}</div>` : `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fb(false, ci)}<span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span><select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
+    const hd = (c, ci) => NEWUI ? hdNew(c, ci, fC.has(c.key), fb(fC.has(c.key), ci)) : fC.has(c.key) ? `<div class="svt-colh svt-cfold${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fb(true, ci)}</div>` : `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fb(false, ci)}<span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span><select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
     el.innerHTML = `<div class="svt-colwrap"><div class="svt-colhs" id="svt-colhs"><div class="svt-colhs-in">${cs.map((c, ci) => hd(c, ci)).join('')}${g.kind === 'pick' ? `<div class="svt-colh svt-addh">${pgsOf(V).length > 1 ? `<select id="svt-newcol-g" title="足すタググループ">${pgsOf(V).map(k => `<option value="${esc(k)}">${esc(GR0(k).name)}</option>`).join('')}</select>` : ''}<input id="svt-newcol" type="text" placeholder="＋ 新しいタグ" onkeydown="if(event.key==='Enter'&&!event.isComposing)wkGroupings._addCol()"><button class="svt-sm pri" onclick="wkGroupings._addCol()">足す</button></div>` : ''}</div></div>` +
       // 上の横スクロールバー（v53.066・オーナー「下の横移動のバーを、一番上の見出しの真下にも」）。見出しと一緒に上に残る。動かすと列も見出しも動く
       `<div class="svt-hbar" id="svt-hbar" onscroll="wkGroupings._hb(this)"><div id="svt-hbar-in"></div></div></div>` +
@@ -517,8 +545,8 @@
     const nm = x => x === NONE ? 'その他' : x;
     const uniq = a => new Set(a).size;
     const rowN = ri => uniq(Object.keys(cells).filter(k => k.endsWith('.' + ri)).flatMap(k => cells[k]));
-    const hd = (c, ci) => fC.has(c.key) ? `<div class="svt-colh svt-cfold${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fbtn(true, `'c',${ci}`, 'この列')}</div>` : `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fbtn(false, `'c',${ci}`, 'この列')}<span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.hid ? '' : `<button class="svt-roff${isOff(c) ? ' on' : ''}" title="この列だけ行で分けない／分ける" onclick="wkGroupings._roff(${ci})">${isOff(c) ? '行なし' : '行 ⇕'}</button>`}<select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
-    const GAP = 8;
+    const hd = (c, ci) => NEWUI ? hdNew(c, ci, fC.has(c.key), fbtn(fC.has(c.key), `'c',${ci}`, 'この列')) : fC.has(c.key) ? `<div class="svt-colh svt-cfold${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fbtn(true, `'c',${ci}`, 'この列')}</div>` : `<div class="svt-colh${c.gstart ? ' svt-gstart' : ''}"${c.color ? ` style="--gc:${c.color}"` : ''}>${fbtn(false, `'c',${ci}`, 'この列')}<span class="svt-tag${c.color ? ' svt-gtag' : ''}${c.none || c.hid ? ' none' : ''}${c.hid ? ' svt-hidtag' : ''}">${esc(c.name)}</span><span class="n">${c.ids.length}</span>${c.hid ? '' : `<button class="svt-roff${isOff(c) ? ' on' : ''}" title="この列だけ行で分けない／分ける" onclick="wkGroupings._roff(${ci})">${isOff(c) ? '行なし' : '行 ⇕'}</button>`}<select class="svt-csort${c.sort ? ' on' : ''}" title="この列の並べ替え" onchange="wkGroupings._csort('${jsq(c.key)}',this.value)">${CSORT.map(([v, l]) => `<option value="${v}"${v === c.sort ? ' selected' : ''}>${esc(v ? l : '⇅ ' + l.replace('並べ替え: ', ''))}</option>`).join('')}</select></div>`;
+    const GAP = 8; S._hdCols = cs;
     const F = foldOf(V.id); const fC = new Set(F.c), fR = new Set(F.r), fX = new Set(F.x);
     const rFold = ri => fR.has(rows[ri]);
     // 行の中のマスを全部畳んだら、その行も細くする（v53.071・オーナー「これはアコーディオン閉じたとはいえない」）
@@ -747,6 +775,14 @@
   function drawTabs() {
     const el = document.getElementById('svt-tabs'); if (!el) return;
     const vs = viewsOf(listKey()); const cur = VW();
+    if (NEWUI) {
+      // 試作（?grpui=new）: サイドパネルのリストと同じく、プルダウン1つと ✏️。「グルーピングを編集」の行は出さない
+      el.innerHTML = `<div class="svt-pickw"><button class="svt-gpick" data-svtpop onclick="wkGroupings._pm(this)"><span class="svt-pic">${cur.gb ? '⊞' : '▦'}</span><b>${esc(cur.name)}</b><span class="svt-pcar">▾</span></button>` +
+        (cur.id !== 'all' ? `<button class="svt-pen" title="グルーピングを編集" onclick="wkGroupings._edit()">✏️</button>` : '') +
+        (S.undo.length ? `<button class="svt-sm" onclick="wkGroupings._undo()" title="⌘Z / Ctrl+Z">↶ 1つ戻す</button>` : '') + '</div>';
+      const sum0 = document.getElementById('svt-sum'); if (sum0) sum0.innerHTML = '';
+      return;
+    }
     el.innerHTML = vs.map(v => `<button class="svt-vt${v.id === cur.id ? ' on' : ''}" onclick="wkGroupings._pick('${jsq(v.id)}')">${v.gb ? '⊞ ' : '▦ '}${esc(v.name)}</button>`).join('') +
       `<button class="svt-vt add" onclick="wkGroupings._new()">＋ グルーピング</button>`;
     const sum = document.getElementById('svt-sum');
@@ -771,6 +807,51 @@
     const st = document.createElement('style'); st.id = 'svt-style';
     st.textContent = `
 #lib-card-host.svt-on #cardList{display:none!important}
+/* ── 試作の見た目（?grpui=new のときだけ・v53.079） ── */
+#svt-root.svt-new .svt-head{padding:8px 16px;gap:0}
+#svt-root.svt-new .svt-sum{display:none}
+#svt-root.svt-new .svt-tabs{display:block;width:100%}
+#svt-root .svt-pickw{display:flex;gap:8px;align-items:center;min-width:0}
+#svt-root .svt-gpick{flex:0 1 380px;min-width:0;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+#svt-root .svt-gpick b{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#svt-root .svt-pcar{color:var(--text3);font-size:11px}
+.svt-pic{color:var(--text3);margin-right:6px}
+#svt-root .svt-gpick .svt-pic{margin:0}
+#svt-root .svt-pen{width:36px;height:36px;flex:0 0 36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:14px;padding:0}
+#svt-pop{position:fixed;z-index:10050;min-width:220px;max-width:min(360px,calc(100vw - 16px));max-height:min(70vh,520px);overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.18);padding:6px;font-size:14px}
+#svt-pop .svt-pi{display:flex;align-items:center;width:100%;text-align:left;padding:9px 12px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;cursor:pointer}
+#svt-pop .svt-pi:hover{background:var(--surface2)}
+#svt-pop .svt-pi.on{font-weight:600;background:var(--surface2)}
+#svt-pop .svt-pi .ck{margin-left:auto;padding-left:12px;color:var(--text3)}
+#svt-pop .svt-pi.sub{color:var(--text2)}
+#svt-pop .svt-psep{border-top:1px solid var(--border);margin:4px 2px}
+#svt-pop .svt-ph2{font-size:11px;color:var(--text3);padding:6px 12px 2px}
+#svt-root.svt-new .svt-colhs .svt-colh,#svt-root.svt-new .svt-colh[style*='--gc']{border-top:0;border-radius:0;padding:16px 4px 6px;gap:6px;flex-wrap:nowrap;align-items:center;position:relative}
+#svt-root.svt-new .svt-colhs .svt-colh.svt-cfold{padding-top:16px}
+#svt-root.svt-new .svt-colh.svt-gcap::after{content:attr(data-g);position:absolute;left:4px;top:0;font-size:10.5px;color:var(--text3);letter-spacing:.04em;white-space:nowrap}
+#svt-root.svt-new .svt-colh .svt-tag{background:none;box-shadow:none;padding:0;border-radius:0;font-size:13.5px;font-weight:700;color:var(--text);flex:0 1 auto;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+#svt-root.svt-new .svt-colh .svt-tag.none{color:var(--text3);font-weight:600}
+#svt-root.svt-new .svt-colh .n{color:var(--text3);font-size:12px;flex:0 0 auto}
+#svt-root.svt-new .svt-son{color:var(--accent);font-size:11px;flex:0 0 auto}
+#svt-root.svt-new .svt-cmore{margin-left:auto;flex:0 0 auto;border:0;background:none;color:var(--text3);font-size:17px;line-height:1;padding:2px 6px;border-radius:6px;cursor:pointer;font-family:inherit}
+#svt-root.svt-new .svt-cmore:hover{background:var(--surface2);color:var(--text)}
+#svt-root.svt-new .svt-fold{border:0;background:none;color:var(--text3);width:16px;height:16px;font-size:10px}
+#svt-root.svt-new .svt-gstart::before{border-left:1px solid var(--border)}
+#svt-root.svt-new .svt-gtag{box-shadow:none}
+#svt-root.svt-new .svt-rlab,#svt-root.svt-new .svt-rsp{flex-basis:30px}
+#svt-root.svt-new .svt-rsp{font-size:0}
+#svt-root.svt-new .svt-gridb{scroll-padding-left:40px}
+#svt-root.svt-new .svt-rh{border-left:0;border-radius:8px;background:var(--surface2);padding:8px 0;align-items:center;gap:6px}
+#svt-root.svt-new .svt-rh.none{background:var(--surface2)}
+#svt-root.svt-new .svt-rht{flex-direction:column;align-items:center;gap:6px}
+#svt-root.svt-new .svt-rh b{writing-mode:vertical-rl;letter-spacing:.18em;font-size:13px;white-space:nowrap;color:var(--text)}
+#svt-root.svt-new .svt-rh .n{font-size:10px;color:var(--text3)}
+#svt-root.svt-new .svt-rh.svt-rfold b{writing-mode:horizontal-tb}
+#svt-root.svt-new .svt-ccnt{background:none}
+#svt-root.svt-new .svt-camore{flex:0 0 44px!important;order:9;font-size:16px;color:var(--text2);border-left:1px solid var(--border)!important;border-right:0!important}
+@media (max-width:560px){#svt-root.svt-new .svt-rlab,#svt-root.svt-new .svt-rsp{flex-basis:30px}#svt-root.svt-new .svt-gridb{scroll-padding-left:40px}
+ #svt-root.svt-new .svt-colhs .svt-colh:not(.svt-cfold):not(.svt-addh){flex-wrap:nowrap}
+ #svt-root.svt-new .svt-colhs .svt-colh:not(.svt-cfold) .svt-tag{flex:0 1 auto;white-space:nowrap}}
 #svt-root{color:var(--text);font-size:13px}
 #svt-root.svt-tbl #svt-body{display:none}
 #svt-root{max-width:100%;min-width:0}
@@ -992,6 +1073,7 @@
     pr.remove();
     return w >= 120 ? Math.round(w * 100) / 100 : 0;
   }
+  const NEWUI = (() => { try { const q = new URLSearchParams(location.search).get('grpui'); if (q) sessionStorage.setItem('wk_grpui', q); return (q || sessionStorage.getItem('wk_grpui')) === 'new'; } catch (e) { return false; } })();
   let _obs = null, _redrawT = null;
   const isOpen = () => !!document.getElementById('svt-root');
   const isTable = () => { const oh = document.getElementById('lib-org-host'); return !!oh && getComputedStyle(oh).display !== 'none'; };
@@ -1001,7 +1083,7 @@
     const host = document.getElementById('lib-card-host'); const list = document.getElementById('cardList');
     if (!host || !list) return;
     const cw = libCardW();
-    const root = document.createElement('div'); root.id = 'svt-root';
+    const root = document.createElement('div'); root.id = 'svt-root'; if (NEWUI) root.classList.add('svt-new');
     if (cw) root.style.setProperty('--svt-cw', cw + 'px');
     root.innerHTML = `<div class="svt-head">
         <div class="svt-top"><div class="svt-tabs" id="svt-tabs"></div></div>
@@ -1265,6 +1347,16 @@
       if (f === HID) { setHidden(v, false); if (to !== NONE && movable(GR(gk))) move(v, gk, NONE, to, true); return; }   // 非表示から出す＝戻す（先の列のタグを足すだけ。何も外さない）
       move(v, gk, f, to, !!e.altKey); },
     _hide: (vid, on) => setHidden(vid, !!on),
+    _pc: () => closePop(),
+    _pm: a => { if (document.getElementById('svt-pop')) return closePop(); const cur = VW();
+      popMenu(a, viewsOf(listKey()).map(v => pi(`<span class="svt-pic">${v.gb ? '⊞' : '▦'}</span>${esc(v.name)}`, `wkGroupings._pick('${jsq(v.id)}')`, v.id === cur.id)).join('') +
+        '<div class="svt-psep"></div>' + pi('＋ 新しいグルーピング', 'wkGroupings._new()', false, 'sub')); },
+    _cm: (a, ci) => { if (document.getElementById('svt-pop')) return closePop(); const c = (S._hdCols || [])[ci]; if (!c) return;
+      let h = '<div class="svt-ph2">並べ替え</div>' + CSORT.map(([v, l]) => pi(esc(v ? l : 'ライブラリと同じ'), `wkGroupings._csort('${jsq(c.key)}','${v}')`, (c.sort || '') === v)).join('');
+      if (S._grid && !c.hid) { const off = (D.items[VW().id]?.rOff || []).includes(c.key); h += '<div class="svt-psep"></div>' + pi('この列は行で分けない', `wkGroupings._roff(${ci})`, off); }
+      popMenu(a, h); },
+    _cmo: (a, k, vid, mv, hid, lbl) => { if (document.getElementById('svt-pop')) return closePop();
+      popMenu(a, (mv ? pi(esc(lbl), `wkGroupings._oc('${jsq(k)}')`) : '') + pi(hid ? '表示に戻す' : 'このグルーピングで非表示', `wkGroupings._hide('${jsq(vid)}',${hid ? 'false' : 'true'})`)); },
     _dp2: (e, ci, ri) => { e.preventDefault(); e.currentTarget.classList.remove('over', 'copy'); if (_dragV == null || !S._grid) return; const v = _dragV, f = _dragFrom, fr = _dragRow; _dragV = null;
       const tc = S._grid.cols[ci]; const tr = ri === '*' ? null : S._grid.rows[+ri]; if (tc == null) return;
       if (f === tc && (tr == null || fr == null || tr === fr)) return;

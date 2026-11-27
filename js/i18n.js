@@ -227,7 +227,7 @@
     'いくつでも選べます（下の「決定」を押すと、付けたタグのマスへ移ります）':'Pick as many as you like (press “Done” below to move the card to the cell of the tags you added)','決定（閉じる）':'Done (close)',
     'この列を畳む':'Collapse this column','この列を開く':'Expand this column','この行を畳む':'Collapse this row','この行を開く':'Expand this row','このマスを畳む':'Collapse this cell','このマスを開く':'Expand this cell',
     '（⠿ をドラッグで行の順を入れ替え・押すと付け外し・数はいまのフィルターでの本数）':'(drag ⠿ to reorder the rows · press to toggle · the number is the count with the current filters)',
-    '列と行の編集':'Edit columns & rows','列の編集':'Edit columns',
+    '列と行の編集':'Edit columns & rows','このグルーピングで非表示':'Hide in this grouping','この列は行で分けない':'Don\'t split this column by rows','ライブラリと同じ':'Same as library','＋ 新しいグルーピング':'+ New grouping','グルーピングを編集':'Edit grouping','並べ替え・行で分けない':'Sort / row split','並べ替えを変えています':'Custom sort','列の編集':'Edit columns',
     'カード1枚':'1 card','カード1.5枚':'1.5 cards','カード2枚':'2 cards','カード3枚':'3 cards',
     '✓ が列になります':'✓ ones become columns',
     'グルーピング':'Grouping',
