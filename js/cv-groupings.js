@@ -900,6 +900,9 @@
 #svt-root .svt-gridb .svt-gstart{margin-left:12px}
 #svt-root .svt-cell.svt-cspan{max-height:var(--svt-cellmax,none)}
 #svt-root .svt-clist{overflow-x:hidden;scrollbar-gutter:stable}
+/* スマホで、カードの上で指を横に滑らせてもボードが横に動くように（v53.076・オーナーの録画「スマホで横スクロールできない」）。
+   ライブラリのカード（.card）は touch-action:pan-y（縦だけ）なので、グルーピングの中では横も通す */
+#svt-root .svt-lc .card,#svt-root .svt-lc .card-v2{touch-action:pan-x pan-y}
 #svt-root .svt-gridb .svt-gcol,#svt-root .svt-gridh .svt-colh:not(.svt-addh){flex-basis:calc(var(--svt-cw,250px) + 14px + var(--svt-sb,0px))}
 @media (max-width:560px){#svt-root .svt-gridb .svt-gcol,#svt-root .svt-gridh .svt-colh:not(.svt-addh){flex-basis:min(82%,calc(var(--svt-cw,250px) + 14px + var(--svt-sb,0px)))}}
 #svt-root .svt-cell .svt-lc,#svt-root .svt-cell .card-wrap,#svt-root .svt-cell .card{min-width:0;max-width:100%;box-sizing:border-box}
@@ -912,7 +915,7 @@
 #svt-root .svt-ccnt{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 8px;font-size:10.5px;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto}
 #svt-root .svt-ccnt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #svt-root .svt-ccnt b{font-size:11.5px;color:var(--text)}
-#svt-root .svt-clist{flex:1 1 auto;min-height:0;overflow-y:auto;padding:6px;overscroll-behavior:contain}
+#svt-root .svt-clist{flex:1 1 auto;min-height:0;overflow-y:auto;padding:6px;overscroll-behavior-y:contain;overscroll-behavior-x:auto}
 #svt-root .svt-cell.svt-cempty .svt-clist::after{content:'0本';display:block;text-align:center;font-size:10.5px;color:var(--text3);padding:14px 0}
 #svt-root .svt-roff{font-size:10px;padding:1px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
 #svt-root .svt-roff.on{background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
