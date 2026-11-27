@@ -587,6 +587,13 @@
     const bd = root.querySelector('.svt-board'), hs = document.getElementById('svt-colhs'); if (bd && hs) hs.scrollLeft = bd.scrollLeft;
     const hb = document.getElementById('svt-hbar'), hi = document.getElementById('svt-hbar-in');
     if (bd && bd.classList.contains('svt-gridb')) {
+      // 行の見出しの幅は、いちばん長い名前に合わせる（v53.082・オーナー「これもっと狭くできるだろ」。前は96px固定で ▾ が横に並び、「パンツグ/リップ」と折れていた）。
+      // ▾ は名前の上。60〜120px（長い名前は折り返す）。見出しの帯の左上の角も同じ幅
+      { const bs = [...root.querySelectorAll('.svt-rlab .svt-rh b')];
+        if (bs.length) { const cv = stickTops._cv || (stickTops._cv = document.createElement('canvas').getContext('2d'));
+          cv.font = getComputedStyle(bs[0]).font; const w = Math.max(...bs.map(b => cv.measureText(b.textContent || '').width));
+          const rw = Math.max(60, Math.min(120, Math.ceil(w) + 18)) + 'px';
+          if (root.style.getPropertyValue('--svt-rlw') !== rw) root.style.setProperty('--svt-rlw', rw); } }
       // マスの中のスクロールバーの幅（OS で違う）。列の幅に足して、カードの幅をライブラリと同じにする
       const cl = bd.querySelector('.svt-cell:not(.svt-xfold) .svt-clist');
       const sb = cl ? Math.max(0, cl.offsetWidth - cl.clientWidth) : 0;
@@ -807,6 +814,11 @@
     const st = document.createElement('style'); st.id = 'svt-style';
     st.textContent = `
 #lib-card-host.svt-on #cardList{display:none!important}
+#svt-root .svt-rlab,#svt-root .svt-rsp{flex-basis:var(--svt-rlw,96px)!important}
+#svt-root .svt-gridb{scroll-padding-left:calc(var(--svt-rlw,96px) + 10px)!important}
+#svt-root .svt-rht{flex-direction:column!important;align-items:flex-start!important;gap:4px!important}
+#svt-root .svt-rh{padding:6px 6px!important}
+#svt-root .svt-rsp span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
 /* ── 試作の見た目（?grpui=new のときだけ・v53.079） ── */
 #svt-root.svt-new .svt-head{padding:6px 16px;gap:0}
 #svt-root.svt-new .svt-main{padding-top:0}
